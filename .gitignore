@@ -1,0 +1,17 @@
+*.pyc
+*.log
+*.log.*
+*.iml
+
+secrets.json
+settings.json
+production_config.properties
+dump.rdb
+celerybeat-schedule
+django_sierra
+
+/pids.txt
+/django/sierra/media/*
+/django/sierra/docs/_build
+/solr/instances/logs/*
+/solr/instances/solr/*/data

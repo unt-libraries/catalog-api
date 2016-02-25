@@ -1,0 +1,62 @@
+// This is the template for your settings.json file, which will be excluded
+// from version control.
+// TO USE: Copy this to settings.json. In settings.json, edit the required
+// settings along with any optional settings you want to change.
+// Be sure to remove all comments from settings.json before you use it. It
+// can't be parsed with comments.
+
+{
+  // **************************************************************************
+  // REQUIRED SETTINGS -- Your Django settings file won't work without these.
+  "SECRET_KEY": "!!!!!CHANGE ME!!!!!",
+  "SETTINGS_MODULE": "sierra.settings.dev",
+  "SIERRA_DB_USER": "",
+  "SIERRA_DB_PASSWORD": "",
+  "SIERRA_DB_HOST": "",
+  "LOG_FILE_DIR": "/path/to/logfiles",
+
+  // **************************************************************************
+  // OPTIONAL SETTINGS -- Remove any settings you don't need to define, and
+  // a default value will be used. 
+  // (See /django/sierra/sierra/settings/base.py for more details.) */
+
+  // These are settings you might use in either dev or production.
+  "ADMINS": [
+    ["Joe Schmoe", "joe.schmoe@example.com"]
+  ],
+  "EXPORTER_EMAIL_ON_ERROR": true,
+  "EXPORTER_EMAIL_ON_WARNING": true,
+  "TIME_ZONE": "America/Chicago",
+  "CORS_ORIGIN_REGEX_WHITELIST": [
+    "^https?://www\\.example\\.com"
+  ],
+  "SOLRMARC_CONFIG_FILE": "my_config.properties",
+
+  // These are settings you'll probably only need to set in production, or if
+  // you're changing your development setup significantly from the default. If
+  // using the default development setup, simply delete all of these.
+  "MEDIA_ROOT": "/path/to/www/media",
+  "STATIC_ROOT": "/path/to/www/static",
+  "SITE_URL_ROOT": "/catalog-or-something/",
+  "MEDIA_URL": "/media-or-something/",
+  "STATIC_URL": "/static-or-something/",
+  "SOLR_HAYSTACK_URL": "http://solr.example.com:8983/solr/haystack",
+  "SOLR_BIBDATA_URL": "http://solr.example.com:8983/solr/bibdata",
+  "SOLR_MARC_URL": "http://solr.example.com:8983/solr/marc",
+  "REDIS_CELERY_URL": "redis://redis.example.com:6379",
+  "REDIS_APPDATA_HOST": "redis.example.com",
+  "REDIS_APPDATA_PORT": 6380,
+  "REDIS_APPDATA_DATABASE": 0,
+  "ADMIN_ACCESS": true,
+  "ALLOWED_HOSTS": [
+    "www.example.com"
+  ],
+  "EXPORTER_AUTOMATED_USERNAME": "django_admin",
+  "DEFAULT_DATABASE": {
+    "ENGINE": "",
+    "NAME": "",
+    "USER": "",
+    "PASSWORD": "",
+    "HOST": ""
+  },
+}

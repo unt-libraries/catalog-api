@@ -1,0 +1,28 @@
+EXPORT JOB {{ i.id }}
+/admin/export/exportinstance/{{ i.id }}{% if errors %}
+
+This job produced {{ errors }} errors.
+
+{% endif %}{% if warnings %}
+
+This job produced {{ warnings }} warnings.
+
+{% endif %}
+
+Please see {{ logfile }} for details.
+
+
+Timestamp:
+{{ i.timestamp }}
+
+Export Type: 
+{{ i.export_type.code }} ({{ i.export_type.label }})
+
+Export Filter: 
+{{ i.export_filter.code }} ({{ i.export_filter.label }})
+
+Export Filter Parameters:
+{{ i.filter_params }}
+
+User:
+{{ i.user.username }}

@@ -1,0 +1,37 @@
+#!/bin/bash
+# Stop jetty given the default configuration (of solr under jetty) for solrmarc
+# $Id: jettystart
+
+E_BADARGS=65
+
+# determine solrmarcdir
+scriptdir=$( (cd -P $(dirname $0) && pwd) )
+solrmarcdir=$( (cd -P $(dirname $0) && pwd) )
+if ! [ -e $solrmarcdir/SolrMarc.jar ] 
+then
+  solrmarcdir=$( (cd -P $(dirname $0)/.. && pwd) )
+fi
+
+# determine solrmarc config.props file
+config=`$scriptdir/getdefaultconfig`
+for i in "$@" 
+do
+case "$i" in
+*config.properties) config="$i" ;;
+esac
+done
+
+JETTY_HOME=$solrmarcdir/jetty
+pushd $JETTY_HOME
+
+baseconfig=${config%.*}
+outfile=$solrmarcdir/$baseconfig.jetty.out
+
+echo Stopping jetty webserver 
+echo  based on SolrMarc config file: $config 
+
+stopport=`head -1 $outfile`
+stopkey=`head -2 $outfile | tail -1`
+
+java -DSTOP.PORT=$stopport $stopkey -jar start.jar --stop
+

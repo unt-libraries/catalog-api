@@ -1,0 +1,81 @@
+#!/bin/bash
+# Start jetty given the default configuration (of solr under jetty) for solrmarc
+# $Id: jettystart
+
+E_BADARGS=65
+
+# determine solrmarcdir
+scriptdir=$( (cd -P $(dirname $0) && pwd) )
+solrmarcdir=$( (cd -P $(dirname $0) && pwd) )
+if ! [ -e $solrmarcdir/SolrMarc.jar ] 
+then
+  solrmarcdir=$( (cd -P $(dirname $0)/.. && pwd) )
+fi
+
+# determine solrmarc config.props file and JAVAARG
+JAVAARG=
+config=`$scriptdir/getdefaultconfig`
+for i in "$@" 
+do
+case "$i" in
+*config.properties) config="$i" ;;
+-*) JAVAARG=$i
+esac
+done
+
+JETTY_HOME=$solrmarcdir/test/jetty
+
+if [[ $JETTY_SOLR_HOME == "" ]] 
+then
+    if [ -f "$solrmarcdir/$config" ] 
+    then
+        JETTY_SOLR_HOME=`egrep "^solr[.]path[ ]*=" "$solrmarcdir/$config" | sed -e 's/solr[.]path[ ]*=[ ]*//' -e 's/REMOTE//'`
+    fi
+fi
+if [[ $JETTY_SOLR_HOME == "" ]] 
+then
+    JETTY_SOLR_HOME=$JETTY_HOME/solr
+fi
+
+# determine port for jetty to use
+if [[ $JETTY_PORT == "" ]] 
+then
+    if [ -f "$solrmarcdir/$config" ] 
+    then
+        JETTY_PORT=`egrep "^solr[.]hosturl[ ]*=" "$solrmarcdir/$config" | sed -e 's/solr[.]hosturl[ ]*=[ ]*//' -e 's#http[s]*://[^:]*:\([0-9]*\).*#\1#'`
+    fi
+fi
+if [[ $JETTY_PORT == "" ]] 
+then
+    JETTY_PORT=8983
+fi
+
+# allow jetty up to 1G max heap size
+JETTY_MEM_ARGS='-Xmx1g'
+
+baseconfig=${config%.*}
+outfile=$solrmarcdir/$baseconfig.jetty.out
+
+pushd $JETTY_HOME
+
+echo Starting jetty webserver 
+echo  based on SolrMarc config file: $config
+echo  using jetty $JETTY_HOME
+echo  using solr home of $JETTY_SOLR_HOME
+echo  using port $JETTY_PORT
+echo  writing output to $outfile
+
+if [[ -f $outfile ]]
+then
+    mv -f $outfile $outfile.bak
+fi
+
+if [[ $JAVAARG == "" ]]
+then
+    java $JETTY_MEM_ARGS -DSTOP.PORT=0 -Dsolr.solr.home="$JETTY_SOLR_HOME" -Djetty.port=$JETTY_PORT -jar start.jar > $outfile 2>&1 & 
+else
+    echo  adding ARGS $JAVAARG
+    java $JETTY_MEM_ARGS "$JAVAARG" -DSTOP.PORT=0 -Dsolr.solr.home="$JETTY_SOLR_HOME" -Djetty.port=$JETTY_PORT -jar start.jar > $outfile 2>&1 & 
+fi
+sleep 4
+

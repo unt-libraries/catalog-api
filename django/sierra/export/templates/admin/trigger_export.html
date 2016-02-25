@@ -1,0 +1,62 @@
+{% extends 'admin/base_site.html' %}
+{% load admin_urls %}
+{% load staticfiles %}
+
+{% block extrahead %}
+    {{ block.super }}
+    <script type="text/javascript" src="//ajax.googleapis.com/ajax/libs/jquery/1.8.3/jquery.min.js"></script>
+    <script type="text/javascript" src="{% static 'export/admin_behavior.js' %}"></script>
+{% endblock %}
+{% block extrastyle %}{{ block.super }}<link rel="stylesheet" type="text/css" href="{% static 'export/admin_styles.css' %}" />{% endblock %}
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+<a href="{% url 'admin:index' %}">Home</a>
+&rsaquo; <a href="{% url 'admin:app_list' app_label=opts.app_label %}">{{ opts.app_label|capfirst|escape }}</a>
+&rsaquo; <a href="{% url opts|admin_urlname:'changelist' %}">{{ opts.verbose_name_plural|capfirst }}</a>
+&rsaquo; Trigger Sierra Export
+</div>
+{% endblock %}
+{% block content_title %}<h1>Trigger New Sierra Export</h1>{% endblock %}
+
+{% block content %}
+<div id="content-main">
+<form method="post">{% csrf_token %}
+{{ form.non_field_errors }}
+    <div class="field-wrapper export-type">
+        {{ form.export_type.errors }}
+        <label for="id_export_type">Run this Export : </label>
+        {{ form.export_type }}
+    </div>
+    <div class="field-wrapper export-filter">
+        {{ form.export_filter.errors }}
+        <label for="id_export_filter">Filter Data By : </label>
+        {{ form.export_filter }}
+    </div>
+    <div class="field-wrapper date-range hidden">
+        {{ form.date_range_from.errors }}
+        {{ form.date_range_to.errors }}
+        <p style="margin-top:10px;">Dates should be in YYYY-MM-DD form.</p>
+        <label for="id_date_range_from">From</label>
+        {{ form.date_range_from }}
+        <span class="info">at midnight</span>
+        <label for="id_date_range_to">to</label>
+        {{ form.date_range_to }}
+        <span class="info">at 11:59:59 PM</span>
+    </div>
+    <div class="field-wrapper record-range hidden">
+        {{ form.record_range_from.errors }}
+        {{ form.record_range_to.errors }}
+        <p style="margin-top:10px;">Record numbers should omit the dot and check digit.</p>
+        <label for="id_record_range_from">From</label>
+        {{ form.record_range_from }}
+        <label for="id_record_range_to">to</label>
+        {{ form.record_range_to }}
+    </div>
+    <div class="field-wrapper location-code hidden">
+        {{ form.location_code.errors }}
+        <label for="id_location_code">Location Code</label>
+        {{ form.location_code }}
+    </div>
+<input type="submit" value="Go" />
+</form>
+{% endblock %}

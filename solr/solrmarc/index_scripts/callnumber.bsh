@@ -1,0 +1,12 @@
+import org.marc4j.marc.Record;
+
+edu.stanford.StanfordIndexer indexer = null;
+
+public String getNormalizedCallNumber(Record record, String fieldspec) {
+    String val = indexer.getFirstFieldVal(record, fieldspec);
+    /*val.replaceAll("(\\s\\d{1,3}),(\\d{3}-?)(((\\d{1,3}),(\\d{3}))?$)?", "$1$2$5$6");
+    val.replaceAll("(\\d)-\\s(\\d)", "$1-$2");
+    val.replaceAll("^\\s+", "");
+    val.replaceAll("^([A-Za-z0-9]+(\\.\\d*)*)(\\.[A-Z])", "$1 $3");*/
+    return val;
+}

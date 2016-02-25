@@ -1,0 +1,4 @@
+.hidden {display: none;}
+.inline-group .tabular tr.has_original td {padding-top: 0;}
+ul.sierra-export-actions {border: 1px solid #ccc; padding: 10px 20px;}
+ul.sierra-export-actions li {list-style: none !important; font-size: 120%; line-height: 130%;}
