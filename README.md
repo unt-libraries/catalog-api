@@ -231,6 +231,10 @@ and needs.
     GitHub account name):
 
         git clone https://github.com/[your-github-account]/catalog-api.git
+    
+    Or, if you're authenticating via SSH:
+    
+        git clone git@github.com:[your-github-account]/catalog-api.git
 
     If you're new to git and/or GitHub, see the GitHub help pages about
     [how to fork](https://help.github.com/articles/fork-a-repo),
@@ -453,6 +457,12 @@ and needs.
 
     In your `settings.json` file, set the `SOLRMARC_CONFIG_FILE` setting to
     the filename of the `config.properties` file you just created.
+    
+    ***Production Note***: You'll likely want to keep the URL for your
+    production Solr instance out of GitHub. The `production_config.properties`
+    file is in `.gitignore` for that reason. There is a
+    `production_config.properties.template` file that you can copy over to
+    `production_config.properties` and fill in the `solr.hosturl` value.
 
 8. **Generate a new secret key for Django.**
 
@@ -606,7 +616,7 @@ and Celery.**
         You should see a brief summary of your Celery configuration, and then
         a couple of INFO log entries showing that Celery Beat has started.
 
-        ***Production Notes***: See the 
+        ***Production Note***: See the 
         [Celery documentation](http://docs.celeryproject.org/en/latest/userguide/periodic-tasks.html)
         for how to set up periodic tasks. In our production environment, we use
         the DatabaseScheduler and store periodic-task definitions in the Django
