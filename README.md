@@ -375,7 +375,7 @@ and needs.
         configuration settings for SolrMarc for a particular environment. This
         will match up with a `config.properties` file in
         `<project_root>/solr/solrmarc`. (See "SolrMarc Configuration," below,
-        for more information.) Default is `test_config.properties`.
+        for more information.) Default is `dev_config.properties`.
     * Production Settings -- These are settings you'll probably only need to
     set in production. If your development environment is very different than
     the default setup, then you may need to set these there as well.
