@@ -347,6 +347,10 @@ and needs.
         Django log files stored. You must create this directory if it does
         not already exist; Django won't create it for you, and it will error
         out if it doesn't exist.
+        * `MEDIA_ROOT` -- Full path to the directory where downloads and
+        user-uploaded files are stored. MARC files that are generated (e.g.,
+        to be loaded by SolrMarc) are stored here. Like `LOG_FILE_DIR`, you
+        must create this directory if it does not already exist.
     * Optional Settings, Development or Production -- These are settings you
     may need to set in a development or production environment, depending on
     circumstances. Remove the key from the JSON file if you want to use the
@@ -375,8 +379,6 @@ and needs.
     * Production Settings -- These are settings you'll probably only need to
     set in production. If your development environment is very different than
     the default setup, then you may need to set these there as well.
-        * `MEDIA_ROOT` -- Full path to the root directory where user-uploaded
-        files will be stored. Default is `<project_root>/django/sierra/media`.
         * `STATIC_ROOT` -- Full path to the location where static files are
         put when you run the `collectstatic` admin command. Note that you
         generally won't need this in development: when the `DEBUG` setting is
