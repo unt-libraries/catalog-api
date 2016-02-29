@@ -42,11 +42,15 @@ if local_settings.get('SECRET_KEY', None) is None:
 if local_settings.get('LOG_FILE_DIR', None) is None:
     raise_setting_error('LOG_FILE_DIR')
 
+if local_settings.get('MEDIA_ROOT', None) is None:
+    raise_setting_error('MEDIA_ROOT')
+
 PROJECT_DIR = '{}'.format(Path(__file__).ancestor(3))
 
-# Path to the directory that will hold user-uploaded files. Defaults to
-# <catalog_api_root>/django/sierra/media.
-MEDIA_ROOT = local_settings.get('MEDIA_ROOT', '{}/media'.format(PROJECT_DIR))
+# Path to the directory where user-initiated downloads are stored.
+# Temporary MARC files get stored here before being loaded by SolrMarc.
+# Be sure to create this directory if it doesn't exist.
+MEDIA_ROOT = local_settings.get('MEDIA_ROOT')
 
 # Path to the directory where static files get put when you run the 
 # collectstatic admin command. Usually only matters in production.
@@ -395,7 +399,7 @@ EXPORTER_METADATA_TYPE_REGISTRY = [
 SOLRMARC_COMMAND = '../../solr/solrmarc/indexfile.sh'
 # The name of the properties file to use when running SolrMarc.
 SOLRMARC_CONFIG_FILE = local_settings.get('SOLRMARC_CONFIG_FILE',
-                                          'test_config.properties')
+                                          'dev_config.properties')
 
 # This maps DRF views to haystack connections. Only needed for views
 # that don't use the default connection.

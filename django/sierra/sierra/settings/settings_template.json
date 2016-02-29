@@ -13,8 +13,9 @@
   "SIERRA_DB_USER": "",
   "SIERRA_DB_PASSWORD": "",
   "SIERRA_DB_HOST": "",
+  // Make sure to create the LOG_FILE_DIR and MEDIA_ROOT directories.
   "LOG_FILE_DIR": "/path/to/logfiles",
-
+  "MEDIA_ROOT": "/path/to/mediafiles",
   // **************************************************************************
   // OPTIONAL SETTINGS -- Remove any settings you don't need to define, and
   // a default value will be used. 
@@ -35,7 +36,6 @@
   // These are settings you'll probably only need to set in production, or if
   // you're changing your development setup significantly from the default. If
   // using the default development setup, simply delete all of these.
-  "MEDIA_ROOT": "/path/to/www/media",
   "STATIC_ROOT": "/path/to/www/static",
   "SITE_URL_ROOT": "/catalog-or-something/",
   "MEDIA_URL": "/media-or-something/",
