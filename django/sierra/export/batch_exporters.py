@@ -100,7 +100,7 @@ class AllToSolr(exporter.Exporter):
 
         for rt in settings.EXPORTER_ALL_TYPE_REGISTRY:
             for p_name in settings.EXPORTER_ALL_TYPE_REGISTRY[rt]:
-                export_type = models.ExportType.objects.get(pk=exporter_name)
+                export_type = models.ExportType.objects.get(pk=p_name)
                 p_class = export_type.get_exporter_class()
                 self.prefetch_related.append(model_set(p_class))
                 for pr in p_class.prefetch_related:
@@ -154,7 +154,7 @@ class AllToSolr(exporter.Exporter):
         for rt in div_records:
             for process_name in settings.EXPORTER_ALL_TYPE_REGISTRY[rt]:
                 try:
-                    ex_type = models.ExportType.objects.get(pk=exporter_name)
+                    ex_type = models.ExportType.objects.get(pk=process_name)
                     process_class = ex_type.get_exporter_class()
                 except models.ExportType.DoesNotExist:
                     self.log('Error', 'Could not run {} {} on {}-type'
