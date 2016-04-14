@@ -15,14 +15,14 @@ import logging
 logger = logging.getLogger('sierra.custom')
 
 
-def connect(url=None, using='default'):
+def connect(url=None, using='default', **kwargs):
     if not url:
         try:
             url = settings.HAYSTACK_CONNECTIONS[using]['URL']
         except KeyError:
             raise ImproperlyConfigured('Haystack connection {} does not '
                                        'exist.'.format(using))
-    return pysolr.Solr(url)
+    return pysolr.Solr(url, **kwargs)
 
 
 class Result(dict):
@@ -46,21 +46,15 @@ class Result(dict):
 
 
 class Queryset(object):
-    def __init__(self, url=None, using='default', page_by=100, **kwargs):
-        if not url:
-            try:
-                url = settings.HAYSTACK_CONNECTIONS[using]['URL']
-            except KeyError:
-                raise ImproperlyConfigured('Haystack connection {} does not '
-                                           'exist.'.format(using))
-        self._conn = pysolr.Solr(url, **kwargs)
+    def __init__(self, url=None, using='default', page_by=100, conn=None,
+                 **kwargs):
+        self._conn = conn or connect(url=url, using=using, **kwargs)
         self._result_set = []
         self._result_offset = 0
         self._search_params = {'q': '*:*'}
         self._full_response = None
         self.page_by = page_by
-        kwargs['url'] = url
-        kwargs['using'] = using
+        kwargs['conn'] = self._conn
         kwargs['page_by'] = page_by
         self._kwargs = kwargs
 

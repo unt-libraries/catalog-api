@@ -20,11 +20,15 @@ class ShelflistItemIndex(search_indexes.ItemIndex):
     flags = indexes.MultiValueField(null=True)
     inventory_date = indexes.DateTimeField(null=True)
 
+    def __init__(self, *args, **kwargs):
+        super(ShelflistItemIndex, self).__init__(*args, **kwargs)
+        self.solr_conn = solr.connect()
+
     def prepare_shelf_status(self, obj):
         ret_val = getattr(obj, 'shelf_status', None)
         if ret_val is None:
             try:
-                item = solr.Queryset().filter(id=obj.id)[0]
+                item = solr.Queryset(conn=self.solr_conn).filter(id=obj.id)[0]
             except Exception:
                 pass
             else:
@@ -35,7 +39,7 @@ class ShelflistItemIndex(search_indexes.ItemIndex):
         ret_val = getattr(obj, 'inventory_notes', None)
         if ret_val is None:
             try:
-                item = solr.Queryset().filter(id=obj.id)[0]
+                item = solr.Queryset(conn=self.solr_conn).filter(id=obj.id)[0]
             except Exception:
                 pass
             else:
@@ -46,7 +50,7 @@ class ShelflistItemIndex(search_indexes.ItemIndex):
         ret_val = getattr(obj, 'flags', None)
         if ret_val is None:
             try:
-                item = solr.Queryset().filter(id=obj.id)[0]
+                item = solr.Queryset(conn=self.solr_conn).filter(id=obj.id)[0]
             except Exception:
                 pass
             else:
@@ -57,7 +61,7 @@ class ShelflistItemIndex(search_indexes.ItemIndex):
         ret_val = getattr(obj, 'inventory_date', None)
         if ret_val is None:
             try:
-                item = solr.Queryset().filter(id=obj.id)[0]
+                item = solr.Queryset(conn=self.solr_conn).filter(id=obj.id)[0]
             except Exception:
                 pass
             else:
