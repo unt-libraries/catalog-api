@@ -1,6 +1,6 @@
 """
 This contains additional specifications for the haystack Solr indexes
-for the shelflist app. 
+for the shelflist app.
 """
 from haystack import indexes
 

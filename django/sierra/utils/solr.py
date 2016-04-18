@@ -1,6 +1,6 @@
-'''
+"""
 Provides Django queryset functionality on top of Solr search results.
-'''
+"""
 import re
 import copy
 from datetime import datetime
@@ -30,12 +30,12 @@ class MultipleObjectsReturned(Exception):
 
 
 class Result(dict):
-    '''
+    """
     Simple Result class that provides Solr fields as object attributes
     but is instantiated using a dict. Can be updated by manipulating
     the object attributes / dict values directly. Can be saved back to
     Solr using save().
-    '''
+    """
     def __init__(self, *args, **kwargs):
         super(Result, self).__init__(*args, **kwargs)
         self.__dict__ = self
@@ -67,7 +67,7 @@ class Queryset(object):
             start = key.start
             new_key = key.start - self._result_offset
             rows = key.stop - key.start
-            r = self._conn.search(start=start, rows=rows, 
+            r = self._conn.search(start=start, rows=rows,
                                   **self._search_params)
             self._full_response = r
             return [Result(i) for i in r]
@@ -160,8 +160,8 @@ class Queryset(object):
 
     def _add_range_parameter(self, field, val):
         return u'{}:["{}" TO "{}"]'.format(field,
-                                          self._conn._from_python(val[0]),
-                                          self._conn._from_python(val[1]))
+                                           self._conn._from_python(val[0]),
+                                           self._conn._from_python(val[1]))
 
     def _add_matches_parameter(self, field, val):
         start, end = ('.*', '.*')
@@ -190,7 +190,8 @@ class Queryset(object):
             time_str = '{:02d}:{:02d}:{:02d}'.format(*s_time[3:6])
             val = '{}T{}Z'.format(date_str, time_str)
         else:
-            val = re.sub(r'([ +\-!(){}\[\]\^"~*?:\\/]|&&|\|\|)', r'\\\1', str(val))
+            val = re.sub(r'([ +\-!(){}\[\]\^"~*?:\\/]|&&|\|\|)', r'\\\1',
+                         str(val))
         return val
 
     def _do_search_parameters(self, **kwargs):
@@ -235,7 +236,7 @@ class Queryset(object):
         returns multiple objects.
         """
         result = self.filter(**kwargs)
-        try:            
+        try:
             ret_value = result[0]
         except IndexError:
             ret_value = None
