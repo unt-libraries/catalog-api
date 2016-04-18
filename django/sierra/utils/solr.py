@@ -25,6 +25,10 @@ def connect(url=None, using='default', **kwargs):
     return pysolr.Solr(url, **kwargs)
 
 
+class MultipleObjectsReturned(Exception):
+    pass
+
+
 class Result(dict):
     '''
     Simple Result class that provides Solr fields as object attributes
@@ -218,6 +222,29 @@ class Queryset(object):
         fq = ' AND '.join(clone._search_params['fq'])
         clone._search_params['fq'] = [old_fq, '-({})'.format(fq)]
         return clone
+
+    def get_one(self, **kwargs):
+        """
+        Like filter, but fetches and returns a single result based on
+        the supplied kwargs search parameters. Note that, like filter
+        and exclude, it will apply any search parameters already set on
+        this Queryset object first before applying additional
+        parameters specified via this method.
+
+        Raises a MultipleObjectsReturned exception if the filter
+        returns multiple objects.
+        """
+        result = self.filter(**kwargs)
+        try:            
+            ret_value = result[0]
+        except IndexError:
+            ret_value = None
+        else:
+            if len(result) > 1:
+                msg = ('Multiple objects returned for query {} '
+                       ''.format(result._search_params))
+                raise MultipleObjectsReturned(msg)
+        return ret_value
 
     def search(self, raw_query, params=None):
         clone = self._clone()

@@ -44,11 +44,8 @@ class ShelflistItemIndex(search_indexes.ItemIndex):
         """
         self.prepared_data = super(ShelflistItemIndex, self).prepare(obj)
         if not self.has_any_user_data(obj):
-            try:
-                item = solr.Queryset(conn=self.solr_conn).filter(id=obj.id)[0]
-            except IndexError:
-                pass
-            else:
+            item = solr.Queryset(conn=self.solr_conn).get_one(id=obj.id)
+            if item:
                 for field in self.user_data_fields:
                     self.prepared_data[field] = getattr(item, field, None)
         return self.prepared_data
