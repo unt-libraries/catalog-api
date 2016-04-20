@@ -1,6 +1,6 @@
-'''
+"""
 Provides Django queryset functionality on top of Solr search results.
-'''
+"""
 import re
 import copy
 from datetime import datetime
@@ -15,23 +15,27 @@ import logging
 logger = logging.getLogger('sierra.custom')
 
 
-def connect(url=None, using='default'):
+def connect(url=None, using='default', **kwargs):
     if not url:
         try:
             url = settings.HAYSTACK_CONNECTIONS[using]['URL']
         except KeyError:
             raise ImproperlyConfigured('Haystack connection {} does not '
                                        'exist.'.format(using))
-    return pysolr.Solr(url)
+    return pysolr.Solr(url, **kwargs)
+
+
+class MultipleObjectsReturned(Exception):
+    pass
 
 
 class Result(dict):
-    '''
+    """
     Simple Result class that provides Solr fields as object attributes
     but is instantiated using a dict. Can be updated by manipulating
     the object attributes / dict values directly. Can be saved back to
     Solr using save().
-    '''
+    """
     def __init__(self, *args, **kwargs):
         super(Result, self).__init__(*args, **kwargs)
         self.__dict__ = self
@@ -46,21 +50,15 @@ class Result(dict):
 
 
 class Queryset(object):
-    def __init__(self, url=None, using='default', page_by=100, **kwargs):
-        if not url:
-            try:
-                url = settings.HAYSTACK_CONNECTIONS[using]['URL']
-            except KeyError:
-                raise ImproperlyConfigured('Haystack connection {} does not '
-                                           'exist.'.format(using))
-        self._conn = pysolr.Solr(url, **kwargs)
+    def __init__(self, url=None, using='default', page_by=100, conn=None,
+                 **kwargs):
+        self._conn = conn or connect(url=url, using=using, **kwargs)
         self._result_set = []
         self._result_offset = 0
         self._search_params = {'q': '*:*'}
         self._full_response = None
         self.page_by = page_by
-        kwargs['url'] = url
-        kwargs['using'] = using
+        kwargs['conn'] = self._conn
         kwargs['page_by'] = page_by
         self._kwargs = kwargs
 
@@ -69,7 +67,7 @@ class Queryset(object):
             start = key.start
             new_key = key.start - self._result_offset
             rows = key.stop - key.start
-            r = self._conn.search(start=start, rows=rows, 
+            r = self._conn.search(start=start, rows=rows,
                                   **self._search_params)
             self._full_response = r
             return [Result(i) for i in r]
@@ -162,8 +160,8 @@ class Queryset(object):
 
     def _add_range_parameter(self, field, val):
         return u'{}:["{}" TO "{}"]'.format(field,
-                                          self._conn._from_python(val[0]),
-                                          self._conn._from_python(val[1]))
+                                           self._conn._from_python(val[0]),
+                                           self._conn._from_python(val[1]))
 
     def _add_matches_parameter(self, field, val):
         start, end = ('.*', '.*')
@@ -192,7 +190,8 @@ class Queryset(object):
             time_str = '{:02d}:{:02d}:{:02d}'.format(*s_time[3:6])
             val = '{}T{}Z'.format(date_str, time_str)
         else:
-            val = re.sub(r'([ +\-!(){}\[\]\^"~*?:\\/]|&&|\|\|)', r'\\\1', str(val))
+            val = re.sub(r'([ +\-!(){}\[\]\^"~*?:\\/]|&&|\|\|)', r'\\\1',
+                         str(val))
         return val
 
     def _do_search_parameters(self, **kwargs):
@@ -224,6 +223,29 @@ class Queryset(object):
         fq = ' AND '.join(clone._search_params['fq'])
         clone._search_params['fq'] = [old_fq, '-({})'.format(fq)]
         return clone
+
+    def get_one(self, **kwargs):
+        """
+        Like filter, but fetches and returns a single result based on
+        the supplied kwargs search parameters. Note that, like filter
+        and exclude, it will apply any search parameters already set on
+        this Queryset object first before applying additional
+        parameters specified via this method.
+
+        Raises a MultipleObjectsReturned exception if the filter
+        returns multiple objects.
+        """
+        result = self.filter(**kwargs)
+        try:
+            ret_value = result[0]
+        except IndexError:
+            ret_value = None
+        else:
+            if len(result) > 1:
+                msg = ('Multiple objects returned for query {} '
+                       ''.format(result._search_params))
+                raise MultipleObjectsReturned(msg)
+        return ret_value
 
     def search(self, raw_query, params=None):
         clone = self._clone()
