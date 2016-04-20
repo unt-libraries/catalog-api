@@ -807,14 +807,14 @@ class BibRecord(MainRecordTypeModel):
 
     def get_call_numbers(self):
         bib_cn_specs = [
-            {'vf_tag': 'g', 'marc_tags': '086', 'sf': '-z', 'type': 'sudoc'},
-            {'vf_tag': 'c', 'marc_tags': '086', 'sf': '-z', 'type': 'sudoc'},
-            {'vf_tag': 'c', 'marc_tags': '092', 'type': 'dewey'},
-            {'vf_tag': 'c', 'marc_tags': '099', 'type': 'other'},
             {'vf_tag': 'c', 'marc_tags':
                 ['050', '055', '090', '091', '093', '094', '095', '096', '097',
                  '098'],
-             'type': 'lc'}
+             'type': 'lc'},
+            {'vf_tag': 'c', 'marc_tags': '092', 'type': 'dewey'},
+            {'vf_tag': 'c', 'marc_tags': '099', 'type': 'other'},
+            {'vf_tag': 'c', 'marc_tags': '086', 'sf': '-z', 'type': 'sudoc'},
+            {'vf_tag': 'g', 'marc_tags': '086', 'sf': '-z', 'type': 'sudoc'}
         ]
 
         cn_tuples = []
@@ -1922,17 +1922,16 @@ class ItemRecord(MainRecordTypeModel):
         number in the list is (most likely) the "main" call number.
         """
         item_cn_specs = [
-            {'vf_tag': 'g', 'marc_tags': '*', 'sf': '-z', 'type': 'sudoc'},
-            {'vf_tag': 'c', 'marc_tags': '086', 'sf': '-z', 'type': 'sudoc'},
-            {'vf_tag': 'c', 'marc_tags': '092', 'type': 'dewey'},
             {'vf_tag': 'c', 'marc_tags': ['050', '055', '090'], 'type': 'lc'},
+            {'vf_tag': 'c', 'marc_tags': '092', 'type': 'dewey'},
             {'vf_tag': 'c', 'marc_tags':
                 ['091', '093', '094', '095', '096', '097', '098', '099'],
              'type': 'other'},
             {'vf_tag': 'c', 'marc_tags': None, 'type': 'other'},
+            {'vf_tag': 'c', 'marc_tags': '086', 'sf': '-z', 'type': 'sudoc'},
+            {'vf_tag': 'g', 'marc_tags': '*', 'sf': '-z', 'type': 'sudoc'},
         ]
         call_number_tuples = []
-        # First we try to pull an item call number.
         varfields = self.record_metadata.varfield_set.all()
         for spec in item_cn_specs:
             call_numbers = []
@@ -1947,6 +1946,82 @@ class ItemRecord(MainRecordTypeModel):
                 call_numbers = [(cn, spec['type']) for cn in call_numbers]
                 call_number_tuples.extend(call_numbers)
         return call_number_tuples
+
+    def _cn_is_sudoc(self, cn_string, bib_cn_tuples):
+        """
+        Takes a call number string and a list of bib call number
+        tuples. Returns True if the cn_string matches a sudoc number
+        in the list of bib_cn_tuples.
+        """
+        is_sudoc = False
+        if cn_string and (cn_string, 'sudoc') in bib_cn_tuples:
+            is_sudoc = True
+        return is_sudoc
+
+    def _item_is_probably_shelved_by_title(self, cn_string):
+        """
+        Takes a call number string and tries to determine whether this
+        item is probably shelved by title. If the ITYPE is 5 (bound
+        periodicals) and the call number is just one or two letters
+        (like M or MT), or if the word "periodical" appears in the call
+        number string, or if there's ANY c-tagged field on the item
+        with "SHELVED BY TITLE," returns True, else returns False.
+        """
+        probably_shelved_by_title = (
+            self.itype.code_num == 5 and (not cn_string
+                or re.search(r'^[A-Za-z]{,2}$', cn_string))
+            or (cn_string and
+                re.search(r'^periodical', cn_string, re.IGNORECASE)))
+
+        if not probably_shelved_by_title:
+            item_vfs = self.record_metadata.varfield_set.all()
+            for cn in helpers.get_varfield_vals(item_vfs, 'c', many=True,
+                    content_method='display_field_content'):
+                if cn.strip().upper() == 'SHELVED BY TITLE':
+                    probably_shelved_by_title = True
+                    break
+        return probably_shelved_by_title
+
+    def _add_title_to_cn_string(self, cn_string):
+        """
+        Takes a call number string, appends the bib record title onto
+        the end, and returns it. Useful for generating the call number
+        string for items that are shelved by title.
+        """
+        bib = self.bibrecorditemrecordlink_set.all()[0].bib_record
+        title = bib.bibrecordproperty_set.all()[0].best_title
+        title = re.sub(r'\.*\s*$', r'', title)
+        cn_string = '{} -- {}'.format(cn_string, title)
+        return cn_string
+
+    def get_shelving_call_number_tuple(self):
+        """
+        Returns a tuple that should represent the call number used
+        to shelve this item: (cn_string, cn_type), where the cn_string
+        is usable for sorting a list of items in call number order
+        (after normalization).
+        """
+        item_cn_tuples = self.get_call_numbers()
+        try:
+            bib_cn_tuples = (self.bibrecorditemrecordlink_set.all()[0]
+                                 .bib_record.get_call_numbers())
+        except IndexError:
+            bib_cn_tuples = []
+
+        cn_string, cn_type = (None, None)
+        if len(item_cn_tuples) > 0:
+            (cn_string, cn_type) = item_cn_tuples[0]
+        elif len(bib_cn_tuples) > 0:
+            (cn_string, cn_type) = bib_cn_tuples[0]
+
+        if self._cn_is_sudoc(cn_string, bib_cn_tuples):
+            cn_type = 'sudoc'
+
+        if self._item_is_probably_shelved_by_title(cn_string):
+            cn_string = self._add_title_to_cn_string(cn_string)
+            cn_type = 'other'
+
+        return (cn_string, cn_type)
 
     class Meta(ReadOnlyModel.Meta):
         db_table = 'item_record'

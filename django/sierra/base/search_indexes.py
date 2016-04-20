@@ -310,50 +310,7 @@ class ItemIndex(CustomQuerySetIndex, indexes.Indexable):
         return sierra_models.ItemRecord
 
     def get_call_number(self, obj):
-        '''
-        Determines the most specific call number on an item or the
-        attached bib as well as the type of the call number. Returns
-        a tuple: (call_number, cn_type). Type is determined based on
-        our indexing rules for call numbers--item_cn_specs for items
-        and bib_cn_specs for bibs. (See the BibRecord and ItemRecord
-        models for details.)
-        '''
-        cn_tuple = None
-        bib = obj.bibrecorditemrecordlink_set.all()
-        try:
-            cn_tuple = obj.get_call_numbers()[0]
-        except IndexError:
-            # If there's no matching item call no, we try a bib call no.
-            if bib:
-                try:
-                    cn_tuple = bib[0].bib_record.get_call_numbers()[0]
-                except IndexError:
-                    pass 
-
-        # Last: might have a periodical shelved by title. In that case,
-        # we'll append the title to the end of the call no.
-        item_vfs = obj.record_metadata.varfield_set.all()
-        probably_shelved_by_title = (
-            obj.itype.code_num == 5 and (not cn_tuple 
-                or re.search(r'^[A-Za-z]{,2}$', cn_tuple[0]))
-            or (cn_tuple and 
-                re.search(r'^periodical', cn_tuple[0], re.IGNORECASE)))
-
-        if not probably_shelved_by_title:
-            for cn in helpers.get_varfield_vals(item_vfs, 'c', many=True,
-                    content_method='display_field_content'):
-                if cn.strip().upper() == 'SHELVED BY TITLE':
-                    probably_shelved_by_title = True
-                    break
-
-        if probably_shelved_by_title and bib:
-            bib = bib[0].bib_record
-            title = bib.bibrecordproperty_set.all()[0].best_title
-            title = re.sub(r'\.*\s*$', r'', title)
-            call_number = '{} -- {}'.format(cn_tuple[0], title)
-            cn_tuple = (call_number, 'other')
-
-        return cn_tuple or (None, None)
+        return obj.get_shelving_call_number_tuple()
 
     def prepare_type(self, obj):
         return self.type_name
