@@ -148,10 +148,21 @@ and needs.
             sudo yum install java-1.8.0-openjdk
 
     * **Redis** is required to serve as a message broker for Celery. It's also
-    used to store some application data. For a dev environment, you can just
-    follow the [quickstart guide](http://redis.io/topics/quickstart). Please
-    make sure to take steps to secure your Redis instance, found in the
-    quickstart guide under the heading _Securing Redis_!
+    used to store some application data. You can follow the
+    [quickstart guide](http://redis.io/topics/quickstart) to get started, but
+    please make sure to set up your `redis.conf` file appropriately.
+
+        Default Redis settings only save your data periodically, so you'll want
+        to take a look at
+        [how Redis persistence works](http://redis.io/topics/persistence). I'd
+        recommend RDB snapshots _and_ AOF persistence, but you'll have to turn
+        AOF on in your configuration file by setting `appendonly yes`. Note
+        that if you store the `dump.rdb` and/or `appendonly.aof` files anywhere
+        in the catalog-api project _and_ you rename them, you'll need to add
+        them to `.gitignore`.
+
+        You'll also want to be sure to take a look at the _Securing Redis_
+        section in the quickstart guide.
 
         ***Production Note***: The quickstart section _Installing Redis more
         properly_ contains useful information for deploying Redis in a
@@ -283,6 +294,13 @@ and needs.
     Redis `/src` directory, where the `redis-server` binary lives. 
     Example: `/home/developer/jdk1.7.0_45/bin:/home/developer/redis-2.8.9/src`
     * `JAVA_HOME` -- Should contain the path to your JRE.
+    * `REDIS_CONF_PATH` -- Contains the path to the `redis.conf` file you want
+    to use for your Redis instance. This is not required, but it's strongly
+    recommended. If blank, then when you run Redis with the `start_servers.sh`
+    script, Redis will run using the built-in defaults. The main problem with
+    this is that the built-in defaults don't provide very good persistence,
+    and you will probably lose some data whenever you shut down or restart
+    Redis.
 
     Optional environment variables can be set for development cases where
     multiple instances of the project will run on the same server concurrently.
@@ -293,7 +311,9 @@ and needs.
         `solr.hosturl` value pointing to the correct port. (This is addressed
         in the next step.)
     * `DJANGO_PORT` (Optional) -- Defaults to 8000.
-    * `REDIS_PORT` (Optional) -- Defaults to 6379.
+    * `REDIS_PORT` (Optional) -- Defaults to 6379. If you use a `redis.conf`
+    file and specify the port there, `REDIS_PORT` is not needed. If you specify
+    both, `REDIS_PORT` will override the port in the configuration file.
 
     If adding environment variables to your `.bash_profile`, be sure to refresh
     it after you save changes:
@@ -560,11 +580,11 @@ and Celery.**
         Open a new terminal to test Redis.
 
             cd <project_root>
-            redis-server --port $REDIS_PORT
+            redis-server $REDIS_CONF_PATH --port $REDIS_PORT
         
-        (Leave the `--port $REDIS_PORT` out if you didn't set the
-        `$REDIS_PORT` environment variable. It will run on 6379 by
-        default.)
+        (Use whichever environment variables you actually have set.
+        Minimally, you can run `redis-server` and it will run using the
+        default configuration on port 6379.)
 
         If you followed the Redis quick-install guide, then you've probably
         already tested this. But, we want Redis running when we test Celery,

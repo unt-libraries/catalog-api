@@ -22,6 +22,7 @@ if [ -z ${REDIS_PORT} ]
         redis_port=${REDIS_PORT}
 fi
 
+redis_conf=${REDIS_CONF_PATH}
 pid_file="pids.txt"
 verbose=$1
 home_path="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
@@ -30,7 +31,7 @@ django_start="python manage.py runserver 0.0.0.0:$django_port"
 solr_path=$home_path/solr/instances
 solr_start="java -jar start.jar -Djetty.port=$solr_port"
 redis_path=$home_path
-redis_start="redis-server --port $redis_port"
+redis_start="redis-server $redis_conf --port $redis_port"
 
 # check to see if servers are already running; if yes, stop them.
 if [ -f $pid_file ]
