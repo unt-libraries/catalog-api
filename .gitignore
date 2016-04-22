@@ -7,6 +7,7 @@ secrets.json
 settings.json
 production_config.properties
 dump.rdb
+appendonly.aof
 celerybeat-schedule
 django_sierra
 
