@@ -7,6 +7,7 @@ for suffix in required_test_db_setting_suffixes:
         raise_setting_error(setting)
 
 DEBUG = True
+TESTING = True
 
 DATABASES = {
     'default': {
