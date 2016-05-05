@@ -6,6 +6,7 @@ class SierraRouter(object):
     """
     The DB router used by the Catalog API project.
     """
+
     def db_for_read(self, model, **hints):
         """
         Routes all read attempts for base models to Sierra DB.
