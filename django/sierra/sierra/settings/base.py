@@ -90,7 +90,7 @@ DATABASES['default'] = local_settings.get('DEFAULT_DATABASE',
         'NAME': 'django_sierra',
     })
 
-DATABASE_ROUTERS = ['base.routers.BaseRouter', ]
+DATABASE_ROUTERS = ['sierra.routers.SierraRouter']
 
 # Local time zone for this installation. Choices can be found here:
 # http://en.wikipedia.org/wiki/List_of_tz_zones_by_name
@@ -429,3 +429,6 @@ REDIS_CONNECTION = {
 
 # Do we allow access to the admin interface on /admin URL?
 ADMIN_ACCESS = local_settings.get('ADMIN_ACCESS', True)
+
+# Is this settings file for testing?
+TESTING = False

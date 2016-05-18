@@ -1,4 +1,4 @@
-Catalog API
+Catalog API [![Build Status](https://travis-ci.org/unt-libraries/catalog-api.svg?branch=master)](https://travis-ci.org/unt-libraries/catalog-api)
 ===========
 
 About
@@ -742,6 +742,70 @@ and Celery.**
         * Navigate the various related resources in `_links`, such as `marc`
         and `items`. Anything that's linked should take you to the data for
         that resource.
+
+
+Running Tests
+-------------
+
+In addition to the production Sierra database tests described above, there are
+other tests you can run using pytest. For the current build, running them
+requires a little bit of extra setup. In the future we'll be moving to a
+Docker-based workflow to eliminate these steps. And, in the future, we'll fold
+the production Sierra database tests into the pytest tests.
+
+1. **Set up PostgreSQL** -- You'll need to have a PostgreSQL server running
+    locally that the Sierra test database can be built on, and you'll need a
+    user that can create databases on that server.
+
+    * Spin up `postgres` locally.
+
+    * Connect to your local `postgres` database.
+
+            sudo -u postgres psql postgres
+
+    * Create your user.
+
+            postgres=# CREATE USER <user> PASSWORD '<password>';
+
+    * Give that user permission to create databases.
+
+            postgres=# ALTER USER <user> CREATEDB;
+
+2. **Set up additional test settings** -- Add the following to your
+    `settings.json` file:
+
+    * `TEST_SIERRA_DB_USER` -- The username you set up in the previous step for
+        your local PostgreSQL instance.
+
+    * `TEST_SIERRA_DB_PASSWORD` -- The password for the user you set up in the
+        previous step.
+
+    * `TEST_SIERRA_DB_HOST` -- The host for your local PostgreSQL instance.
+
+3. **Install additional python packages needed for tests.**
+
+        cd <project_root>
+        pip install -r requirements/requirements-tests.txt
+
+4. **Run tests.** 
+
+        cd <project_root>
+        py.test
+
+A few notes about tests:
+
+* Your postgres server needs to be running when you run tests.
+
+* Our `pytest.ini` file specifies the `--reuse-db` option, so the Sierra
+test database does not get dropped after tests are run. This saves some
+setup time when you run tests, but it also means the test database will
+persist locally. You can force the test database to be rebuilt using
+`py.test --create-db`.
+
+* `settings.sierra.test` Django settings are used when tests are run. This is
+defined in `pytest.ini`, and this is where the configuration for the test
+databases lives, if you're curious.
+
 
 License
 -------

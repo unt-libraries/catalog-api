@@ -10,6 +10,7 @@ dump.rdb
 appendonly.aof
 celerybeat-schedule
 django_sierra
+.cache/
 
 /pids.txt
 /django/sierra/media/*

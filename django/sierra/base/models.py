@@ -83,9 +83,8 @@ from utils import helpers
 
 class ReadOnlyModel(models.Model):
     """
-    Basic abstract base model to disable the save and delete methods, provide
-    a standard __unicode__ string representation, and provide a 'managed =
-    False' Meta field.
+    Basic abstract base model to disable the save and delete methods,
+    and provide a standard __unicode__ string representation.
     """
 
     def save(self, *args, **kwargs):
@@ -122,7 +121,6 @@ class ReadOnlyModel(models.Model):
             return unicode(str(self.pk))
 
     class Meta(object):
-        managed = False
         abstract = True
 
 
