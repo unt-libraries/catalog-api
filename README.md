@@ -461,7 +461,7 @@ and needs.
 
     * `*_config.properties` -- Contains settings for SolrMarc. There are two
     settings here that are of immediate concern.
-        * `solrmarc.hosturl` -- Should contain the URL for the Solr index that
+        * `solr.hosturl` -- Should contain the URL for the Solr index that
         SolrMarc loads into.
         * `solrmarc.indexing.properties` -- Points to the `*_index.properties`
         file used by your SolrMarc instance, described below.

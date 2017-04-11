@@ -12,3 +12,18 @@ TEMPLATE_DEBUG = True
 # up your own loggers here, if you'd like, to override the default setup.
 #
 # LOGGING = {}
+
+DEBUG_TOOLBAR_PATCH_SETTINGS = False
+
+INSTALLED_APPS += (
+    'debug_toolbar',
+)
+
+MIDDLEWARE_CLASSES += (
+    'debug_toolbar.middleware.DebugToolbarMiddleware',
+)
+
+# Django debug toolbar user computer ips
+DEBUG_TOOLBAR_CONFIG = {
+    'SHOW_TOOLBAR_CALLBACK': lambda x: True,
+}
