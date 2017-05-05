@@ -9,6 +9,10 @@ for suffix in required_test_db_setting_suffixes:
 DEBUG = True
 TESTING = True
 
+INSTALLED_APPS += (
+    'sierra.tests.testmodels',
+)
+
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
