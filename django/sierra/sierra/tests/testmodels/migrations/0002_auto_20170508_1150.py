@@ -26,7 +26,8 @@ def populate_test_data(apps, schema_editor):
            ManyToManyNode.objects.create(name='m2m2', end=end[0])]
 
     ref = [ReferenceNode.objects.create(name='ref0', srn=srn[1], end=end[0]),
-           ReferenceNode.objects.create(name='ref1', srn=srn[0], end=end[2])]
+           ReferenceNode.objects.create(name='ref1', srn=srn[2], end=end[2]),
+           ReferenceNode.objects.create(name='ref2', srn=srn[0], end=end[2])]
 
     thr = [ThroughNode.objects.create(name='thr0', ref=ref[0], m2m=m2m[0]),
            ThroughNode.objects.create(name='thr1', ref=ref[0], m2m=m2m[1]),
