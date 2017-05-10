@@ -46,7 +46,7 @@ config_file_valid = tmpfile(valid_json, 'valid.json')
 
 
 @pytest.fixture(scope='function')
-def config_obj():
+def config_data():
     only_model = {
         'model': 'testmodels.EndNode'
     }
@@ -86,31 +86,119 @@ def config_obj():
 
 # TESTS
 
-def test_readconfig_should_error_if_config_not_json(config_file_not_json):
+def test_relation_init_errors_with_invalid_model():
     """
-    Command.read_config should raise a ValueError if the configuration
+    Relation.__init__ should raise a BadRelation error if the provided
+    model is invalid.
+    """
+    with pytest.raises(makefixtures.BadRelation):
+        makefixtures.Relation('invalid', 'fieldname')
+
+
+def test_relation_init_errors_with_nonexistent_field():
+    """
+    Relation.__init__ should raise a BadRelation error if the provided
+    fieldname is nonexistent.
+    """
+    with pytest.raises(makefixtures.BadRelation):
+        makefixtures.Relation(models.EndNode, 'invalid')
+
+
+def test_relation_init_errors_with_nonrelation_field():
+    """
+    Relation.__init__ should raise a BadRelation error if the provided
+    fieldname is not a relation field.
+    """
+    with pytest.raises(makefixtures.BadRelation):
+        makefixtures.Relation(models.EndNode, 'name')
+
+
+@pytest.mark.parametrize('model, fn, fk, m2m, indirect', [
+    (models.ReferenceNode, 'srn', True, False, False),
+    (models.ReferenceNode, 'm2m', False, True, False),
+    (models.ReferenceNode, 'throughnode_set', False, False, True),
+    (models.EndNode, 'referencenode_set', False, False, True)
+])
+def test_relation_is_methods(model, fn, fk, m2m, indirect):
+    """
+    All "is" methods on Relation objects should return the correct
+    truth values for the type of relation that is represented.
+    """
+    rel = makefixtures.Relation(model, fn)
+    assert (rel.is_foreign_key() == fk and rel.is_many_to_many() == m2m and
+            rel.is_indirect() == indirect)
+
+
+@pytest.mark.parametrize('model, fn, target', [
+    (models.ReferenceNode, 'srn', models.SelfReferentialNode),
+    (models.ReferenceNode, 'm2m', models.ManyToManyNode),
+    (models.ReferenceNode, 'throughnode_set', models.ThroughNode),
+    (models.EndNode, 'referencenode_set', models.ReferenceNode)
+])
+def test_relation_gettargetmodel_returns_correct_model(model, fn, target):
+    """
+    Relation.get_target_model should return whatever model is on the
+    other end of the relation relative to Relation.model.
+    """
+    rel = makefixtures.Relation(model, fn)
+    assert rel.get_target_model() == target
+
+
+@pytest.mark.parametrize('model, fn, models, result', [
+    (models.ReferenceNode, 'srn', None, [models.SelfReferentialNode,
+                                         models.ReferenceNode]),
+    (models.ReferenceNode, 'srn',
+     [models.SelfReferentialNode],
+     [models.SelfReferentialNode, models.ReferenceNode]),
+    (models.ReferenceNode, 'srn',
+     [models.ReferenceNode],
+     [models.SelfReferentialNode, models.ReferenceNode]),
+    (models.ReferenceNode, 'srn',
+     [models.ReferenceNode, models.SelfReferentialNode],
+     [models.SelfReferentialNode, models.ReferenceNode]),
+    (models.ReferenceNode, 'srn',
+     [models.EndNode, models.ReferenceNode, models.SelfReferentialNode],
+     [models.EndNode, models.SelfReferentialNode, models.ReferenceNode]),
+    (models.ReferenceNode, 'srn',
+     [models.ReferenceNode, models.EndNode, models.SelfReferentialNode],
+     [models.SelfReferentialNode, models.ReferenceNode, models.EndNode]),
+])
+def test_relation_arrangemodels_dependency_order(model, fn, models, result):
+    """
+    Relation.arrange_models should return models in dependency order,
+    optionally utilizing a supplied "models" list. If "models" is
+    supplied, and the models in the Relation are in the list, they
+    should be rearranged as needed. If one or both of the models in
+    the Relation are not in "models", they should be added and arranged
+    in the correct order.
+    """
+    rel = makefixtures.Relation(model, fn)
+    assert rel.arrange_models(models) == result
+
+
+def test_readconfigfile_errors_if_file_not_json(config_file_not_json):
+    """
+    Command.read_config_file should raise a ValueError if the config
     file passed in is not valid json.
     """
     with pytest.raises(ValueError):
-        makefixtures.Command().read_config(str(config_file_not_json))
+        makefixtures.Command().read_config_file(str(config_file_not_json))
 
 
-def test_readconfig_should_error_if_config_file_unreadable():
+def test_readconfigfile_errors_if_config_file_unreadable():
     """
-    Command.read_config should raise an IOError if the configuration
+    Command.read_config_file should raise an IOError if the configuration
     filename given is not a readable file.
     """
     with pytest.raises(IOError):
-        makefixtures.Command().read_config('no_such_file.json')
+        makefixtures.Command().read_config_file('no_such_file.json')
 
 
-def test_readconfig_should_return_valid_config_list(config_file_valid):
+def test_readconfigfile_returns_valid_config_object(config_file_valid):
     """
-    Command.read_config should return a valid configuration list,
-    even if the provide configuration json file only provides one
-    object (instead of a json array of objects).
+    Command.read_config_file should return valid Python data.
     """
-    config = makefixtures.Command().read_config(str(config_file_valid))
+    config = makefixtures.Command().read_config_file(str(config_file_valid))
     assert (len(config) == 1 and config[0]['string'] == 'test' and
             config[0]['bool'] == True and
             config[0]['array'] == ['one', 'two'] and
@@ -127,87 +215,92 @@ def test_readconfig_should_return_valid_config_list(config_file_valid):
     (models.SelfReferentialNode, [['end'], ['parent', 'end']]),
     (models.ManyToManyNode, [['end']])
 ])
-def test_tracerelations_should_return_correct_paths_for_a_model(model, exp):
+def test_tracerelations_returns_correct_paths_for_a_model(model, exp):
     """
-    Command.trace_relations should correctly follow direct many-to-many
+    trace_relations should correctly follow direct many-to-many
     and foreign-key relationships on the given model, resulting in the
     expected list of paths (exp).
     """
-    result = makefixtures.Command().trace_relations(model)
+    result = [p.path_fields for p in makefixtures.trace_relations(model)]
     for expected_path in exp:
         assert expected_path in result
     assert len(result) == len(exp)
 
 
-def test_prepconfig_should_error_if_no_model(config_obj):
+def test_config_init_produces_errors_if_no_model(config_data):
     """
-    Command.prep_config should raise a ConfigIsInvalid error if any
-    config entry does not provide a `model` key.
+    Config.__init__ should record an error in Config.errors if any
+    user-supplied config entry does not provide a `model` key.
     """
-    del(config_obj['follow_relations']['model'])
-    with pytest.raises(makefixtures.ConfigIsInvalid):
-        makefixtures.Command().prep_config(config_obj['multi'])
+    good_conf = makefixtures.Config(config_data['multi'])
+    del(config_data['follow_relations']['model'])
+    bad_conf = makefixtures.Config(config_data['multi'])
+    assert len(good_conf.errors) == 0 and len(bad_conf.errors) == 1
 
 
-def test_prepconfig_should_error_if_model_is_formatted_wrong(config_obj):
+def test_config_init_produces_errors_if_model_is_formatted_wrong(config_data):
     """
-    Command.prep_config should raise a ConfigIsInvalid error if any
+    Config.__init__ should record an error in Config.errors if any
     config entry is not formatted as `app.model`.
     """
-    config_obj['only_model']['model'] = 'EndNode'
-    with pytest.raises(makefixtures.ConfigIsInvalid):
-        makefixtures.Command().prep_config(config_obj['multi'])
+    good_conf = makefixtures.Config(config_data['multi'])
+    config_data['only_model']['model'] = 'EndNode'
+    bad_conf = makefixtures.Config(config_data['multi'])
+    assert len(good_conf.errors) == 0 and len(bad_conf.errors) == 1
 
 
-def test_prepconfig_should_error_if_model_is_invalid(config_obj):
+def test_config_init_produces_errors_if_model_is_invalid(config_data):
     """
-    Command.prep_config should raise a ConfigIsInvalid error if any
+    Config.__init__ should record an error in Config.errors if any
     config entry provides a non-existent app or model.
     """
-    config_obj['only_model']['model'] = 'testmodels.InvalidModel'
-    with pytest.raises(makefixtures.ConfigIsInvalid):
-        makefixtures.Command().prep_config(config_obj['multi'])
+    good_conf = makefixtures.Config(config_data['multi'])
+    config_data['only_model']['model'] = 'testmodels.InvalidModel'
+    bad_conf = makefixtures.Config(config_data['multi'])
+    assert len(good_conf.errors) == 0 and len(bad_conf.errors) == 1
 
 
-def test_prepconfig_should_error_if_filter_is_invalid(config_obj):
+def test_config_init_produces_errors_if_filter_is_invalid(config_data):
     """
-    Command.prep_config should raise a ConfigIsInvalid error if any
+    Config.__init__ should record an error in Config.errors if any
     config entry provides an invalid filter.
     """
-    config_obj['full_spec']['filter'] = {'invalid_filter': 'some_value'}
-    with pytest.raises(makefixtures.ConfigIsInvalid):
-        makefixtures.Command().prep_config(config_obj['multi'])
+    good_conf = makefixtures.Config(config_data['multi'])
+    config_data['full_spec']['filter'] = {'invalid_filter': 'some_value'}
+    bad_conf = makefixtures.Config(config_data['multi'])
+    assert len(good_conf.errors) == 0 and len(bad_conf.errors) == 1
 
 
-def test_prepconfig_should_error_if_any_path_value_is_invalid(config_obj):
+def test_config_init_produces_errors_if_any_path_value_is_invalid(config_data):
     """
-    Command.prep_config should raise a ConfigIsInvalid error if any
+    Config.__init__ should record an error in Config.errors if any
     config entry provides an invalid path entry.
     """
-    config_obj['full_spec']['paths'][2] = ['through_set', 'invalid_field']
-    with pytest.raises(makefixtures.ConfigIsInvalid):
-        makefixtures.Command().prep_config(config_obj['multi'])
+    good_conf = makefixtures.Config(config_data['multi'])
+    config_data['full_spec']['paths'][2] = ['through_set', 'invalid_field']
+    bad_conf = makefixtures.Config(config_data['multi'])
+    assert len(good_conf.errors) == 0 and len(bad_conf.errors) == 1
 
 
-def test_prepconfig_should_return_prep_obj_for_valid_config_obj(config_obj):
+def test_config_init_returns_valid_config_obj(config_data):
     """
-    Command.prep_config should return a `prepped` dict if all config
-    entries are validated.
+    Config.__init__ should create a valid Config object with valid
+    config data.
     """
-    prepped = makefixtures.Command().prep_config(config_obj['multi'])
-    assert (len(prepped['queries']) == 3 and len(prepped['model_chain']) == 4)
+    conf = makefixtures.Config(config_data['multi'])
+    assert (len(conf.errors) == 0 and len(conf.entries) == 3)
 
 
-def test_prepconfig_should_return_correct_model_chain(config_obj):
+def test_config_getdependencies_returns_correct_model_order(config_data):
     """
-    Command.prep_config should ...
+    Config.get_dependencies should return models in dependency order.
     """
-    prepped = makefixtures.Command().prep_config(config_obj['multi'])
-    chain = prepped['model_chain']
-    end = chain.index(models.EndNode)
-    ref = chain.index(models.ReferenceNode)
-    srn = chain.index(models.SelfReferentialNode)
-    m2m = chain.index(models.ManyToManyNode)
+    conf = makefixtures.Config(config_data['multi'])
+    dep = conf.get_dependencies()
+    end = dep.index(models.EndNode)
+    ref = dep.index(models.ReferenceNode)
+    srn = dep.index(models.SelfReferentialNode)
+    m2m = dep.index(models.ManyToManyNode)
     assert (end < ref and srn < ref and end < m2m and srn < m2m)
 
 
@@ -217,40 +310,40 @@ def test_prepconfig_should_return_correct_model_chain(config_obj):
     ('full_spec', ['srn2']),
     ('related', ['ref1']),
 ])
-def test_prepconfig_should_use_correct_qs_filter(config_obj, ckey, names):
+def test_configentry_getfilteredqueryset_uses_qs_filter(config_data, ckey,
+                                                        names):
     """
-    Command.prep_config should result in querysets that use the
-    correct filter, if one is provided.
+    ConfigEntry.get_filtered_queryset should result in querysets that
+    use the correct filter, if one is provided.
     """
-    p = makefixtures.Command().prep_config([config_obj[ckey]])
-    assert names == [obj.name for obj in 
-                     p['queries'][0]['qs'].order_by('name')]
+    conf_entry = makefixtures.ConfigEntry(config_data[ckey])
+    assert names == [obj.name for obj in conf_entry.qs.order_by('name')]
 
 
-def test_prepconfig_queryset_should_use_selectrelated(config_obj):
+def test_configentry_prepqsrelations_qs_uses_selectrelated(config_data):
     """
-    Command.prep_config should result in querysets that use
+    ConfigEntry.prep_qs_relations should result in querysets that use
     select_related appropriately, based on what object relations are
     queried.
     """
-    p = makefixtures.Command().prep_config([config_obj['related']])
-    ref = p['queries'][0]['qs'][0]
-    rel = p['queries'][0]['qs'].query.select_related
+    conf_entry = makefixtures.ConfigEntry(config_data['related'])
+    ref = conf_entry.qs[0]
+    rel = conf_entry.qs.query.select_related
     assert (rel == {'end': {}, 'srn': {'end': {}, 'parent': {'end': {}}}} and
             ref.end.name == 'end2' and ref.srn.name == 'srn2' and
             ref.srn.end.name == 'end2' and ref.srn.parent.name == 'srn1' and
             ref.srn.parent.end == None)
 
 
-def test_prepconfig_queryset_should_use_prefetchrelated(config_obj):
+def test_configentry_prepqsrelations_qs_uses_prefetchrelated(config_data):
     """
-    Command.prep_config should result in querysets that use
+    ConfigEntry.prep_qs_relations should result in querysets that use
     prefetch_related appropriately, based on what object relations are
     queried.
     """
-    p = makefixtures.Command().prep_config([config_obj['related']])
-    ref = p['queries'][0]['qs'][0]
-    prefetched = p['queries'][0]['qs']._prefetch_related_lookups
+    conf_entry = makefixtures.ConfigEntry(config_data['related'])
+    ref = conf_entry.qs[0]
+    prefetched = conf_entry.qs._prefetch_related_lookups
     m2m = ref.m2m.all().order_by('name')
     thr = ref.throughnode_set.all().order_by('name')
 
@@ -260,7 +353,3 @@ def test_prepconfig_queryset_should_use_prefetchrelated(config_obj):
             [obj.end.name for obj in m2m] == ['end1', 'end0'] and
             [obj.m2m.name for obj in thr] == ['m2m0', 'm2m2'] and
             [obj.m2m.end.name for obj in thr] == ['end1', 'end0'])
-
-
-
-
