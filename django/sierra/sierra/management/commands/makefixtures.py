@@ -30,6 +30,44 @@ class BadRelation(Exception):
 
 
 class Relation(object):
+    """
+    Access info about a relationship between two Django Model objects.
+
+    The relationship this object represents is from the POV of the
+    model provided on init--e.g., model.fieldname. It's mainly a
+    simplified way to get information about that relationship.
+
+    After initializing a Relation object, you can access the POV model
+    on self.model, the model at the other end of the relationship on
+    self.target_model, the POV model name on self.model_name, the name
+    of the attribute containing the relationship on self.fieldname, and
+    that attribute itself on self.accessor.
+
+    Public methods:
+
+    `is_foreign_key` returns True if the relationship from self.model
+    to self.target_model uses a foreign key on self.model (one-to-one
+    or many-to-one).
+
+    `is_many_to_many` returns True if the relationship from self.model
+    to self.target_model is many-to-many.
+
+    `is_indirect` returns True if the relationship from self.model to
+    self.target_model is an indirect one--if it's one-to-many, where a
+    foreign key is present on self.target_model pointing to self.model.
+    By default these are `fieldname_set` attributes.
+
+    `arrange_models` returns a list containing self.model and
+    self.target_model arranged in order based on which is dependent on
+    the other. A model with an FK relationship to the target model is
+    assumed to be dependent on that model--data for the target model
+    should be loaded into the database before the FKs exist to use to
+    populate data for the dependent model. Optionally, a model list
+    may be supplied to this method--if it is, then models are arranged
+    in place in the list if they appear there, and the full list is
+    returned. If they don't appear, they are added or inserted as
+    needed to satisfy dependencies.
+    """
 
     def __init__(self, model, fieldname):
         try:
@@ -46,13 +84,14 @@ class Relation(object):
                    .format(fieldname, self.model_name))
             raise BadRelation(msg)
         self.model = model
+        self.target_model = self._get_target_model()
         self.fieldname = fieldname
 
     def _accessor_is_a_relation(self, a):
         return (self.is_foreign_key(a) or self.is_many_to_many(a) or 
                 self.is_indirect(a))
 
-    def get_target_model(self):
+    def _get_target_model(self):
         if self.is_foreign_key() or self.is_many_to_many():
             return self.accessor.field.rel.to
         elif self.is_indirect():
@@ -71,13 +110,9 @@ class Relation(object):
         return not hasattr(a, 'field') and hasattr(a, 'related_manager_cls')
 
     def arrange_models(self, models=None):
-        """
-        Order a `models` list to satisfy this relation's dependencies.
-        """
         models = models or []
-        target_model = self.get_target_model()
-        goes_first = self.model if self.is_indirect() else target_model
-        goes_second = target_model if self.is_indirect() else self.model
+        goes_first = self.model if self.is_indirect() else self.target_model
+        goes_second = self.target_model if self.is_indirect() else self.model
         models += [goes_second] if goes_second not in models else []
         goes_second_index = models.index(goes_second)
         try:
@@ -93,15 +128,37 @@ class Relation(object):
         return models
 
 
-class RelationPath(object):
+class RelationPath(list):
+    """
+    Work with multiple models connected via relationships.
+
+    This is a child of the `list` type: on init, it takes a Django
+    model object and a list of field names representing one path or
+    branch of related models (`path_fields`). It converts these to
+    Relation objects and initializes itself as a list of these.
+
+    Public methods:
+
+    `get_selects_and_prefetches` returns a tuple of two lists of
+    field names. Each could be joined with '__' and passed respectively
+    to the `selected_related` and `prefetch_related` methods of a
+    self.model Queryset, in order to pre-cache the data necessary to
+    traverse the branch via model instances.
+
+    `arrange_models` returns a list of the models for this path, put
+    in dependency order. You can supply an optional list of models to
+    insert or rearrange--any models found already in the list will be
+    rearranged if they're not already in order, and any models not in
+    the list will be inserted in the most logical spot.
+    """
 
     def __init__(self, model, path_fields):
+        path = self._build_relations_from_path_fields(model, path_fields)
+        super(RelationPath, self).__init__(path)
         self.model = model
-        self.path_fields = path_fields
-        self.relations = self.build_relations_from_path_fields(path_fields)
+        self.fieldnames = path_fields
 
-    def build_relations_from_path_fields(self, path_fields):
-        model = self.model
+    def _build_relations_from_path_fields(self, model, path_fields):
         relations = []
         for i, fieldname in enumerate(path_fields):
             try:
@@ -110,27 +167,24 @@ class RelationPath(object):
                 msg = 'path_field {} is invalid: {}'.format(i, str(e))
                 raise BadRelationPath(msg)
             relations += [relation]
-            model = relation.get_target_model()
+            model = relation.target_model
         return relations
 
     def get_selects_and_prefetches(self):
         selects, prefetch = [], []
         all_fks_so_far = True
         m = self.model
-        for relation in self.relations:
+        for relation in self:
             if relation.is_foreign_key() and all_fks_so_far:
                 selects.append(relation.fieldname)
             else:
                 all_fks_so_far = False
                 prefetch.append(relation.fieldname)
-            m = relation.get_target_model()
+            m = relation.target_model
         return selects, prefetch
 
     def arrange_models(self, models=None):
-        """
-        Order a `models` list to satisfy all this path's dependencies.
-        """
-        for relation in self.relations:
+        for relation in self:
             models = relation.arrange_models(models)
         return models
 
@@ -168,6 +222,48 @@ def trace_relations(model, onlyfk=False, first_model=None, pfields=None,
 
 
 class ConfigEntry(object):
+    """
+    Work with one entry in a makefixtures job configuration file.
+
+    This class represents one complete entry in a makefixtures job
+    config file, which should look something like this:
+
+    {
+        'model': 'testmodels.SelfReferentialNode',
+        'follow_relations': False,
+        'filter': {
+            'referencenode__name': 'ref1',
+        },
+        'paths': [
+            ['referencenode_set', 'end'],
+            ['referencenode_set', 'srn', 'end'],
+            ['referencenode_set', 'srn', 'parent', 'end'],
+        ]
+    }
+
+    On init, the entry is parsed and validated via the four private
+    `prep` methods. The Django model is found and stored in self.model.
+    A QuerySet object is created, using the appropriate filter params,
+    and stored in self.qs. Each supplied path is parsed, converted to a
+    RelationPath object, and stored in self.paths. Based on the paths,
+    the QuerySet's `select_related` and `prefetch_related` methods are
+    used to pre-cache data as needed to cover all of the related models
+    that will need to be accessed.
+
+    If at any point any of these steps raise errors, then the error
+    message(s) are appended to self.errors.
+
+    After init, prepped config data can be accessed on self.model,
+    self.qs, and self.paths.
+
+    Public methods:
+
+    `arrange_models` returns a list of all models referenced in this
+    config entry in dependency order. An optional models list can be
+    supplied--if supplied, it will first look for the models in the
+    list and rearrange them if needed or insert them if they are not
+    there.
+    """
 
     def __init__(self, data):
         self.errors = []
@@ -178,28 +274,26 @@ class ConfigEntry(object):
         user_filter = data.get('filter', None)
 
         try:
-            model = self.get_model(model_string)
+            model = self._prep_model(model_string)
         except ConfigIsInvalid as e:
             self.errors.append(str(e))
-
-        if model is not None:
+        else:
             try:
-                qs = self.get_filtered_queryset(model, user_filter)
+                paths = self._prep_paths(model, user_paths, follow_relations)
             except ConfigIsInvalid as e:
                 self.errors.append(str(e))
 
-        if qs is not None:
             try:
-                paths = self.get_paths(model, user_paths, follow_relations)
+                qs = self._prep_filtered_queryset(model, user_filter)
             except ConfigIsInvalid as e:
                 self.errors.append(str(e))
-
-            if paths is not None:
-                qs = self.prep_qs_relations(qs, model, paths)
+            else:
+                if paths is not None:
+                    qs = self._prep_qs_relations(qs, model, paths)
 
         self.model, self.qs, self.paths = model, qs, paths
 
-    def get_model(self, model_string):
+    def _prep_model(self, model_string):
         try:
             (app, model) = model_string.split('.')
             return apps.get_model(app, model)
@@ -211,7 +305,7 @@ class ConfigEntry(object):
             msg = ('`model` ({}) not found.'.format(model_string))
             raise ConfigIsInvalid(msg)
 
-    def get_filtered_queryset(self, model, user_filter):
+    def _prep_filtered_queryset(self, model, user_filter):
         try:
             return model.objects.filter(**user_filter)
         except TypeError:
@@ -221,7 +315,7 @@ class ConfigEntry(object):
                    ''.format(user_filter))
             raise ConfigIsInvalid(msg)
 
-    def get_paths(self, model, user_paths, follow_relations):
+    def _prep_paths(self, model, user_paths, follow_relations):
         paths, errors = [], []
         for i, path_fields in enumerate(user_paths):
             try:
@@ -235,7 +329,7 @@ class ConfigEntry(object):
             paths += trace_relations(model)
         return paths
 
-    def prep_qs_relations(self, qs, model, paths):
+    def _prep_qs_relations(self, qs, model, paths):
         for path in paths:
             selects, prefetch = path.get_selects_and_prefetches()
             if selects:
@@ -251,16 +345,33 @@ class ConfigEntry(object):
         return models
 
 
-class Config(object):
+class Config(list):
+    """
+    Work with a list of ConfigEntry objects.
+
+    Config inherits from `list` and is mainly just a list of
+    ConfigEntry objects. Configuration data (imported from a JSON file)
+    is passed to __init__, and entries are generated from that.
+
+    If errors result from `_make_entries`, they are stored in
+    self.errors and an exception is raised.
+
+    Dependencies for all models involved in the configuration are
+    generated and stored in self.dependencies. This list can be used to
+    order the output of model data so that dependencies are satisfied.
+    """
 
     def __init__(self, entry_data):
         self.errors = []
-        self.entries = self.make_entries(entry_data)
+        super(Config, self).__init__(self._make_entries(entry_data))
+        if self.errors:
+            msg = ('Config encountered the following errors: {}'
+                   ''.format('\n'.join(self.errors)))
+            raise ConfigIsInvalid(msg)
 
-    def make_entries(self, entry_data):
-        """
-        Process config entries.
-        """
+        self.dependencies = self._find_dependencies()
+
+    def _make_entries(self, entry_data):
         entries = []
         for i, entry_datum in enumerate(entry_data):
             entry = ConfigEntry(entry_datum)
@@ -269,9 +380,9 @@ class Config(object):
             entries += [entry]
         return entries
 
-    def get_dependencies(self):
+    def _find_dependencies(self):
         models = []
-        for entry in self.entries:
+        for entry in self:
             models = entry.arrange_models(models)
         return models
 
@@ -287,11 +398,11 @@ class Command(BaseCommand):
     help = 'Generate fixture data according to a supplied json config file'
 
     def handle(self, *args, **options):
-        config = Config(self.read_config_file(args[0]))
-        if config.errors:
-            msg = ('The supplied json configuration file is invalid. The '
-                   'following errors were found: {}'
-                   ''.format('\n'.join(config.errors)))
+        try:
+            config = Config(self.read_config_file(args[0]))
+        except Exception as e:
+            msg = ('The supplied json configuration file is invalid. {}'
+                   ''.format(str(e)))
             raise ConfigIsInvalid(msg)
 
         # objects = { model_name: { obj.pk: <JSON obj> } }
