@@ -6,13 +6,6 @@ from django.core.exceptions import FieldError
 from django.apps import apps
 
 
-class ConfigError(Exception):
-    """
-    Raise exception if user-provide config data is invalid.
-    """
-    pass
-
-
 class BadBranch(Exception):
     """
     Raise exception if a RelationBranch is invalid.
@@ -27,12 +20,47 @@ class BadRelation(Exception):
     pass
 
 
+
+class Bucket(dict):
+    """
+    Store and compartmentalize model obj instances of different types.
+    """
+
+    def __init__(self, compartments=None):
+        super(Bucket, self).__init__({})
+        self.update_compartments(compartments or [])
+
+    def update_compartments(self, compartments):
+        self.compartments = compartments
+        for compartment in [c for c in compartments if c not in self]:
+            self[compartment] = {}
+
+    def put(self, objset):
+        try:
+            len(objset)
+        except TypeError:
+            objset = [objset]
+        for obj in objset:
+            compartment = obj._meta.model
+            try:                
+                self[compartment][obj.pk] = obj
+            except KeyError:
+                self[compartment] = {obj.pk: obj}
+                self.compartments += [compartment]
+
+    def dump(self):
+        objects = []
+        for c in self.compartments:
+            objects += sorted(self.get(c, {}).values(), key=lambda x: x.pk)
+        return objects
+
+
 class Relation(object):
     """
     Access info about a relationship between two Django Model objects.
 
-    The relationship this object represents is from the POV of the
-    model provided on init--e.g., model.fieldname. It's mainly a
+    The relationship a given Relatiom object represents is from the POV
+    of the model provided on init--e.g., model.fieldname. It's mainly a
     simplified way to get information about that relationship.
 
     After initializing a Relation object, you can access the POV model
@@ -43,18 +71,6 @@ class Relation(object):
     attribute itself on self.accessor.
 
     Public methods:
-
-    `is_foreign_key` returns True if the relationship from self.model
-    to self.target_model uses a foreign key on self.model (one-to-one
-    or many-to-one).
-
-    `is_many_to_many` returns True if the relationship from self.model
-    to self.target_model is many-to-many.
-
-    `is_indirect` returns True if the relationship from self.model to
-    self.target_model is an indirect one--if it's one-to-many, where a
-    foreign key is present on self.target_model pointing to self.model.
-    By default these are `fieldname_set` attributes.
 
     `arrange_models` returns a list containing self.model and
     self.target_model arranged in order based on which is dependent on
@@ -74,49 +90,57 @@ class Relation(object):
 
     def __init__(self, model, fieldname):
         try:
-            self.model_name = model._meta.model_name
+            model_name = model._meta.model_name
         except AttributeError:
             raise BadRelation('`model` arg must be a model object.')
         try:
-            self.accessor = getattr(model, fieldname)
+            accessor = getattr(model, fieldname)
         except AttributeError:
-            msg = '{} not found on {}'.format(fieldname, self.model_name)
+            msg = '{} not found on {}'.format(fieldname, model_name)
             raise BadRelation(msg)
-        if not (self._accessor_is_a_relation(self.accessor)):
-            msg = ('{} is not a relation field on {}'
-                   .format(fieldname, self.model_name))
-            raise BadRelation(msg)
+
+        self._describe(accessor)
         self.model = model
-        self.target_model = self._get_target_model()
-        self.target_model_name = self.target_model._meta.model_name
         self.fieldname = fieldname
+        self.target_model = self._get_target_model(accessor)
+        
+    def _describe(self, acc):
+        self.is_direct = True if hasattr(acc, 'field') else False
+        self.is_multi = True if hasattr(acc, 'related_manager_cls') else False
+        field = acc.field if self.is_direct else acc.related.field
+        self.through = getattr(field.rel, 'through', None)
+        self.is_m2m = False if self.through is None else True
 
-    def _accessor_is_a_relation(self, a):
-        return (self.is_foreign_key(a) or self.is_many_to_many(a) or 
-                self.is_indirect(a))
+    def _get_target_model(self, acc):
+        return acc.field.rel.to if self.is_direct else acc.related.model
 
-    def _get_target_model(self):
-        if self.is_foreign_key() or self.is_many_to_many():
-            return self.accessor.field.rel.to
-        elif self.is_indirect():
-            return self.accessor.related.model
+    def get_as_through_relations(self):
+        meta = self.model._meta
+        all_rels = meta.get_all_related_objects()
+        matching_rel = [rel for rel in all_rels if rel.model == self.through]
+        try:
+            through_name = matching_rel[0].get_accessor_name()
+        except IndexError:
+            msg = ('Models {} and {} have no `through` relation with each '
+                   'other.'.format(self.model, self.target_model))
+            raise BadRelation(msg)
+        through_model = getattr(self.model, through_name).related.model
+        rel_fs = [f for f in through_model._meta.fields if f.rel]
 
-    def is_foreign_key(self, accessor=None):
-        a = accessor or self.accessor
-        return hasattr(a, 'field') and not hasattr(a, 'related_manager_cls')
+        try:
+            thru_f = [f for f in rel_fs if f.rel.to == self.target_model][0]
+        except IndexError:
+            msg = ('Field for relation from model {} to {} not found.'
+                   ''.format(through_model, self.target_model))
+            raise BadRelation(msg)
 
-    def is_many_to_many(self, accessor=None):
-        a = accessor or self.accessor
-        return hasattr(a, 'field') and hasattr(a, 'related_manager_cls')
-
-    def is_indirect(self, accessor=None):
-        a = accessor or self.accessor
-        return not hasattr(a, 'field') and hasattr(a, 'related_manager_cls')
+        return [Relation(self.model, through_name),
+                Relation(through_model, thru_f.name)]
 
     def arrange_models(self, models=None):
         models = models or []
-        goes_first = self.model if self.is_indirect() else self.target_model
-        goes_second = self.target_model if self.is_indirect() else self.model
+        goes_first = self.target_model if self.is_direct else self.model
+        goes_second = self.model if self.is_direct else self.target_model
         models += [goes_second] if goes_second not in models else []
         goes_second_index = models.index(goes_second)
         try:
@@ -135,27 +159,30 @@ class Relation(object):
         all_related_objs = []
         for obj in source_objects:
             subset = getattr(obj, self.fieldname)
-            if self.is_foreign_key():
-                subset = [] if subset is None else [subset]
-            else:
+            if self.is_multi:
                 subset = subset.all()
+            else:
+                subset = [] if subset is None else [subset]               
             all_related_objs += subset
         return list(set(all_related_objs))
 
 
-class RelationBranch(list):
+class RelationBranch(tuple):
     """
     Work with a chain of models connected via relationships.
     """
 
+    def __new__(cls, root_model, branch_fields):
+        branch = cls._make_branch(root_model, branch_fields)
+        return super(RelationBranch, cls).__new__(cls, tuple(branch))
+
     def __init__(self, root_model, branch_fields):
-        branch = self._make_branch(root_model, branch_fields)
-        super(RelationBranch, self).__init__(branch)
         self.root_model = root_model
         self.root_model_name = root_model._meta.model_name
         self.fieldnames = branch_fields
 
-    def _make_branch(self, model, branch_fields):
+    @classmethod
+    def _make_branch(cls, model, branch_fields):
         relations = []
         for i, fieldname in enumerate(branch_fields):
             try:
@@ -163,7 +190,10 @@ class RelationBranch(list):
             except BadRelation as e:
                 msg = 'field {} is invalid: {}'.format(i, str(e))
                 raise BadBranch(msg)
-            relations += [relation]
+            if relation.is_m2m:
+                relations += relation.get_as_through_relations()
+            else:
+                relations += [relation]
             model = relation.target_model
         return relations
 
@@ -179,7 +209,7 @@ class RelationBranch(list):
         selects, prefetches = [], []
         all_fks_so_far = True
         for relation in self:
-            if relation.is_foreign_key() and all_fks_so_far:
+            if (relation.is_direct and not relation.is_m2m) and all_fks_so_far:
                 selects.append(relation.fieldname)
             else:
                 all_fks_so_far = False
@@ -188,27 +218,14 @@ class RelationBranch(list):
         prefetch_str = '__'.join(selects + prefetches) if prefetches else ''
         return select_str, prefetch_str
 
-    def arrange_models(self, models=None):
-        for relation in self:
-            models = relation.arrange_models(models)
-        return models
 
-    def pick_into(self, objset, bucket):
-        for relation in self:
-            objset = relation.fetch_target_model_objects(objset)
-            for obj in objset:
-                bucket.put(relation.target_model, obj)
-        return bucket
-
-
-class RelationTree(list):
+class RelationTree(tuple):
     """
     Work with the sets of relations that branch from a Django model.
     """
 
-    def __init__(self, model, user_branches=None, trace_branches=False):
-        self.root_model = model
-        branches, errors = [], []
+    def __new__(cls, model, user_branches=None, trace_branches=False):
+        user_branches, branches, errors = user_branches or [], [], []
         for i, branch_fields in enumerate(user_branches):
             try:
                 branches += [RelationBranch(model, branch_fields)]
@@ -217,13 +234,18 @@ class RelationTree(list):
         if errors:
             raise ConfigError('`branches`: {}'.format('; '.join(errors)))
         if trace_branches:
-            branches += self.trace_branches()
-        super(RelationTree, self).__init__(branches)
+            branches += cls._trace_branches(model)
+        return super(RelationTree, cls).__new__(cls, tuple(branches))
 
-    def trace_branches(self, only=None, model=None, brfields=None, cache=None):
+    def __init__(self, model, user_branches=None, trace_branches=False):
+        self.root_model = model
+
+    @classmethod
+    def _trace_branches(cls, model, orig_model=None, only=None, brfields=None,
+                        cache=None):
         tracing = []
-        model = model or self.root_model
         meta = model._meta
+        orig_model = orig_model or model
         m2ms = meta.many_to_many if not only == 'fk' else [] 
         fks = [f for f in meta.fields if f.rel] if not only == 'm2m' else []
         relfields = fks + m2ms
@@ -235,131 +257,38 @@ class RelationTree(list):
                 next_model = field.rel.to
                 branchcache = cache + [field_id]
                 next_brfields = (brfields or []) + [field.name]
-                tracing += self.trace_branches(only, next_model, next_brfields,
-                                               branchcache)
+                tracing += cls._trace_branches(next_model, orig_model, only,
+                                               next_brfields, branchcache)
         if brfields and len(relfields) == 0:
-            tracing.append(RelationBranch(self.root_model, brfields))
+            tracing.append(RelationBranch(orig_model, brfields))
         return tracing
+
+    def trace_branches(self, only=None):
+        return type(self)._trace_branches(self.root_model, only=only)
 
     def prepare_qset(self, qset):
         for branch in self:
             qset = branch.prepare_qset(qset)
         return qset
 
-    def arrange_models(self, models=None):
-        models = models or []
-        for branch in self:
-            models = branch.arrange_models(models)
-        return models
-
-    def pick_into(self, bucket, qset=None):
+    def pick(self, into=None, qset=None):
+        bucket = into or Bucket()
         qset = self.prepare_qset(qset or self.root_model.objects.all())
-        for obj in qset:
-            bucket.put(self.root_model, obj)
+        bucket.put(qset)
         for branch in self:
-            bucket = branch.pick_into(qset, bucket)
+            objset = qset
+            for relation in branch:
+                compartments = relation.arrange_models(bucket.compartments)
+                bucket.update_compartments(compartments)
+                objset = relation.fetch_target_model_objects(objset)
+                bucket.put(objset)
         return bucket
 
 
-class ObjectBucket(dict):
-
-    def __init__(self, compartments=None):
-        self.compartments = compartments or []
-
-    def put(self, compartment, obj):
-        try:
-            self[compartment][obj.pk] = obj
-        except KeyError:
-            self[compartment] = {obj.pk: obj}
-            self.compartments += [compartment]
-
-    def dump(self):
-        objects = []
-        for c in self.compartments:
-            objects += sorted(self.get(c, {}).values(), key=lambda x: x.pk)
-        return objects
-
-
-class Orchard(object):
-    """
-    Make a set of RelationTree objects and harvest objects from it.
-
-    Configuration data (imported from a JSON file) is passed to
-    __init__, and RelationTree members are generated.
-
-    If errors result from parsing the config data, they are stored in
-    self.config_errors and an exception is raised.
-
-    `harvest` returns ...
-    """
-
-    def __init__(self, confdata):
-        self.config_errors = []
-        self.plots = self._plant_trees(confdata)
-        if self.config_errors:
-            msg = ('Encountered the following errors: {}'
-                   ''.format('\n'.join(self.config_errors)))
-            raise ConfigError(msg)
-        self.bucket = ObjectBucket(self._calculate_model_dependencies())
-
-    def _error(self, entry, errorstr):
-        self.config_errors += ['entry {}: {}'.format(entry, errorstr)]
-
-    def _plant_trees(self, confdata):
-        plots = []
-        for i, datum in enumerate(confdata):
-            plot = {'tree': None, 'qset': None}
-            model_string = datum['model']
-            user_branches = datum.get('branches', [])
-            trace_branches = datum.get('trace_branches', False)
-            user_filter = datum.get('filter', None)
-            try:
-                root_model = self._get_root_model(model_string)
-            except ConfigError as e:
-                self._error(i, str(e))
-            else:
-                try:
-                    plot['tree'] = RelationTree(root_model, user_branches,
-                                                trace_branches)
-                except ConfigError as e:
-                    self._error(i, str(e))
-
-                try:
-                    plot['qset'] = self._get_qset(root_model, user_filter)
-                except ConfigError as e:
-                    self._error(i, str(e))
-
-            plots += [plot]
-        return plots
-
-    def _get_root_model(self, model_string):
-        try:
-            return apps.get_model(*model_string.split('.'))
-        except AttributeError:
-            raise ConfigError('`model` is missing.')
-        except ValueError:
-            raise ConfigError('`model` is not formatted as "app.model".')
-        except LookupError:
-            raise ConfigError('`model` ({}) not found.'.format(model_string))
-
-    def _get_qset(self, model, user_filter=None):
-        try:
-            return model.objects.filter(**user_filter)
-        except TypeError:
-            return model.objects.all()
-        except FieldError:
-            msg = ('`filter` {} could not be resolved into a valid field.'
-                   ''.format(user_filter))
-            raise ConfigError(msg)
-
-    def _calculate_model_dependencies(self):
-        models = []
-        for plot in self.plots:
-            models = plot['tree'].arrange_models(models)
-        return models
-
-    def harvest(self):
-        for plot in self.plots:
-            plot['tree'].pick_into(self.bucket, qset=plot['qset'])
-        return self.bucket.dump()
+def harvest(trees, into=None, tree_qsets=None):
+    tree_qsets = tree_qsets or {}
+    bucket = into or Bucket()
+    for tree in trees:
+        bucket = tree.pick(into=bucket, qset=tree_qsets.get(tree, None))
+    return bucket
 
