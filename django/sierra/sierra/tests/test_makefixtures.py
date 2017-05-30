@@ -64,7 +64,7 @@ def confdata():
 
 
 @pytest.fixture
-def expected(scope='module'):
+def exp_makefixtures_results(scope='module'):
     def onlymodel():
         objs = m.EndNode.objects.order_by('name')
         return serializers.serialize('json', objs)
@@ -105,47 +105,47 @@ def expected(scope='module'):
 def nomodel(confdata):
     data = confdata['Has user branches and filter']
     del(data['model'])
-    return data
+    return [data]
 
 
 @pytest.fixture
 def badmodelstr(confdata):
     data = confdata['Has user branches and filter']
     data['model'] = 'SelfReferentialNode'
-    return data
+    return [data]
 
 
 @pytest.fixture
 def invalidmodel(confdata):
     data = confdata['Has user branches and filter']
     data['model'] = 'testmodels.InvalidModel'
-    return data
+    return [data]
 
 
 @pytest.fixture
 def invalidfilter(confdata):
     data = confdata['Has user branches and filter']
     data['filter'] = {'invalid_filter': 'some_value'}
-    return data
+    return [data]
 
 
 @pytest.fixture
 def invalidbranches(confdata):
     data = confdata['Has user branches and filter']
-    data['paths'][2] = ['through_set', 'invalid_field']
-    return data
+    data['branches'][2] = ['through_set', 'invalid_field']
+    return [data]
 
 
 @pytest.fixture
 def multiple(confdata):
     data = confdata['Has user branches and filter']
     data['filter'] = {'invalid_filter': 'some_value'}
-    data['paths'][2] = ['through_set', 'invalid_field']
-    return data
+    data['branches'][2] = ['through_set', 'invalid_field']
+    return [data]
 
 
 @pytest.fixture
-def invalid_confdata(nomodel, badmodelstr, invalidmodel, invalidfilter, 
+def invalid_confdata(nomodel, badmodelstr, invalidmodel, invalidfilter,
                      invalidbranches, multiple):
     return {
         'No model specified': nomodel,
@@ -220,17 +220,52 @@ def test_command_handle_errors_if_confdata_is_invalid(config_file_bad_spec):
         makefixtures.Command().handle(str(config_file_bad_spec))
 
 
-@pytest.mark.parametrize('confdata_key', [key for key in confdata().keys()])
-def test_makefixtures_outputs_correct_data(confdata_key, make_tmpfile,
-                                           confdata, expected):
+@pytest.mark.parametrize('testname', [
+    'No model specified',
+    'Bad model string',
+    'Invalid model',
+    'Invalid filter',
+    'Invalid branch',
+    'Multiple problems'
+])
+def test_configuration_errors_on_init_of_invalid_confdata(testname,
+                                                          invalid_confdata):
+    """
+    Instantiating a Configuration object using invalid config data
+    should raise a ConfigError.
+    """
+    with pytest.raises(makefixtures.ConfigError):
+        makefixtures.Configuration(invalid_confdata[testname])
+
+
+def test_configuration_stores_correct_data(confdata):
+    """
+    A Configuration object should store trees and tree_qset data in
+    `trees` and `tree_qsets` attributes, respectively.
+    """
+    config = makefixtures.Configuration(confdata['All'])
+    models = [m.EndNode, m.SelfReferentialNode, m.ReferenceNode]
+    assert len(config.trees) == 3
+    assert len(config.tree_qsets) == 3
+    assert all([t.root_model in models for t in config.trees])
+    assert all([t.root_model in models for t in config.tree_qsets.keys()])
+    assert all([qs.model in models for qs in config.tree_qsets.values()])
+
+
+@pytest.mark.parametrize('testname, fname', [
+    ('Only specifies model', 'onlymodel.json'),
+    ('No user branches and trace_branches is True', 'trace_branches.json'),
+    ('Has user branches and filter', 'fullspec.json'),
+    ('All', 'all.json')
+])
+def test_makefixtures_outputs_correct_data(testname, fname, make_tmpfile,
+                                           confdata, exp_makefixtures_results):
     """
     Calling the `makefixtures` command should output the expected JSON
     results to stdout.
     """
     out = StringIO()
-    cfile = make_tmpfile(ujson.dumps(confdata[confdata_key]), confdata_key)
+    cfile = make_tmpfile(ujson.dumps(confdata[testname]), fname)
     call_command('makefixtures', str(cfile), stdout=out)
-    print out.getvalue()
-    print expected[confdata_key]
-    assert out.getvalue() == expected[confdata_key] + '\n'
+    assert out.getvalue() == exp_makefixtures_results[testname] + '\n'
 
