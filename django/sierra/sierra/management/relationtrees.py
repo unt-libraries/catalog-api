@@ -2,9 +2,6 @@
 Contains classes needed for custom sierra management commands.
 """
 
-from django.core.exceptions import FieldError
-from django.apps import apps
-
 
 class BadBranch(Exception):
     """
@@ -103,6 +100,16 @@ class Relation(object):
         self.model = model
         self.fieldname = fieldname
         self.target_model = self._get_target_model(accessor)
+
+    def __repr__(self):
+        mname = '.'.join([self.model._meta.app_label,
+                          self.model._meta.object_name])
+        target_mname = '.'.join([self.target_model._meta.app_label,
+                                 self.target_model._meta.object_name])
+        kind = 'Direct' if self.is_direct else 'Indirect'
+        kind += ' M2M' if self.is_m2m else ' FK'
+        return '<{} on `{}` from {} to {}>'.format(kind, self.fieldname, mname,
+                                                   target_mname)
         
     def _describe(self, acc):
         self.is_direct = True if hasattr(acc, 'field') else False
