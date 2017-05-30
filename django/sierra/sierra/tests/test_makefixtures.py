@@ -252,6 +252,26 @@ def test_configuration_stores_correct_data(confdata):
     assert all([qs.model in models for qs in config.tree_qsets.values()])
 
 
+@pytest.mark.parametrize('mstring', ['', 'EndNode', 'invalid.EndNode',
+                                     'testmodels.Invalid'])
+def test_getmodelfromstring_errors_on_invalid_string(mstring):
+    """
+    get_model_from_string should raise a ConfigError if the model
+    string passed to it does not return a valid model object.
+    """
+    with pytest.raises(makefixtures.ConfigError):
+        makefixtures.get_model_from_string(mstring)
+
+
+def test_getmodelfromstring_gets_correct_model():
+    """
+    get_model_from_string should return the correct model object based
+    on the string provided.
+    """
+    model = makefixtures.get_model_from_string('testmodels.EndNode')
+    assert model == m.EndNode
+
+
 @pytest.mark.parametrize('testname, fname', [
     ('Only specifies model', 'onlymodel.json'),
     ('No user branches and trace_branches is True', 'trace_branches.json'),

@@ -85,7 +85,7 @@ class Configuration(object):
             trace_branches = datum.get('trace_branches', False)
             user_filter = datum.get('filter', None)
             try:
-                root_model = self._get_root_model(model_string)
+                root_model = get_model_from_string(model_string)
             except ConfigError as e:
                 self._error(i, str(e))
             else:
@@ -105,16 +105,6 @@ class Configuration(object):
                 tree_qsets[tree] = qset
         return trees, tree_qsets
 
-    def _get_root_model(self, model_string):
-        try:
-            return apps.get_model(*model_string.split('.'))
-        except AttributeError:
-            raise ConfigError('`model` is missing.')
-        except ValueError:
-            raise ConfigError('`model` is not formatted as "app.model".')
-        except LookupError:
-            raise ConfigError('`model` ({}) not found.'.format(model_string))
-
     def _get_qset(self, model, user_filter=None):
         try:
             return model.objects.filter(**user_filter)
@@ -126,3 +116,12 @@ class Configuration(object):
             raise ConfigError(msg)
 
 
+def get_model_from_string(model_string):
+    try:
+        return apps.get_model(*model_string.split('.'))
+    except AttributeError:
+        raise ConfigError('`model` is missing.')
+    except ValueError:
+        raise ConfigError('`model` is not formatted as "app.model".')
+    except LookupError:
+        raise ConfigError('`model` ({}) not found.'.format(model_string))
