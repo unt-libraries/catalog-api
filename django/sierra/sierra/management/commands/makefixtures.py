@@ -4,9 +4,18 @@ Contains the `makefixtures` manage.py command.
 import ujson
 
 from django.core.management.base import BaseCommand, CommandError
+from django.core.exceptions import FieldError
+from django.apps import apps
 from django.core import serializers
 
 from sierra.management import relationtrees
+
+
+class ConfigError(Exception):
+    """
+    Raise exception if provided config file is not valid.
+    """
+    pass
 
 
 class Command(BaseCommand):
@@ -81,8 +90,9 @@ class Configuration(object):
                 self._error(i, str(e))
             else:
                 try:
-                    tree = RelationTree(root_model, user_branches,
-                                        trace_branches)
+                    tree = relationtrees.RelationTree(root_model,
+                                                      user_branches,
+                                                      trace_branches)
                 except ConfigError as e:
                     self._error(i, str(e))
 
@@ -91,8 +101,8 @@ class Configuration(object):
                 except ConfigError as e:
                     self._error(i, str(e))
 
-                trees += tree
-                tree_qsets += qset
+                trees += [tree]
+                tree_qsets[tree] = qset
         return trees, tree_qsets
 
     def _get_root_model(self, model_string):
