@@ -561,10 +561,10 @@ def test_relationbranch_prepareqset_precaches_correctly(branch, exp_select,
 @pytest.mark.tree
 def test_relationtree_init_produces_error_on_bad_branches(make_badtree):
     """
-    RelationTree.__init__ should raise a ConfigError if it encounters
+    RelationTree.__init__ should raise a BadTree if it encounters
     invalid branches.
     """
-    with pytest.raises(relationtrees.ConfigError):
+    with pytest.raises(relationtrees.BadTree):
         make_badtree()
 
 

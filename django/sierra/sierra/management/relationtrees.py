@@ -3,6 +3,13 @@ Contains classes needed for custom sierra management commands.
 """
 
 
+class BadTree(Exception):
+    """
+    Raise expection if a RelationTree is invalid.
+    """
+    pass
+
+
 class BadBranch(Exception):
     """
     Raise exception if a RelationBranch is invalid.
@@ -239,7 +246,7 @@ class RelationTree(tuple):
             except BadBranch as e:
                 errors += 'branch {}: {}'.format(i, str(e))
         if errors:
-            raise ConfigError('`branches`: {}'.format('; '.join(errors)))
+            raise BadTree('`branches`: {}'.format('; '.join(errors)))
         if trace_branches:
             branches += cls._trace_branches(model)
         return super(RelationTree, cls).__new__(cls, tuple(branches))
