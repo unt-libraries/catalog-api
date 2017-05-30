@@ -1,0 +1,52 @@
+import json
+
+import pytest
+
+from django.core.management import call_command
+from django.core.management.base import CommandError
+from django.utils.six import StringIO
+
+from testmodels import models as m
+from sierra.management.commands import tracebranches
+
+
+@pytest.fixture
+def exp_tracebranches_results():
+    return {
+        'EndNode': [],
+        'SelfReferentialNode': [['end'], ['parent', 'end']],
+        'ReferenceNode': [['srn', 'end'], ['srn', 'parent', 'end'],
+                          ['end'], ['throughnode_set', 'm2m', 'end']],
+        'ManyToManyNode': [['end']],
+        'ThroughNode': [['ref', 'srn', 'end'], ['ref', 'srn', 'parent', 'end'],
+                        ['ref', 'end'],
+                        ['ref', 'throughnode_set', 'm2m', 'end'],
+                        ['m2m', 'end']]
+    }
+
+
+@pytest.mark.parametrize('mstr', [None, '', 'invalid', 'invalid.invalid'])
+def test_tracebranches_errors_on_invalid_model(mstr):
+    """
+    The `tracebranches` command should raise a CommandError if the
+    model string passed as the argument is invalid.
+    """
+    with pytest.raises(CommandError):
+        call_command('tracebranches', mstr)
+
+
+@pytest.mark.parametrize('mstr', [
+    'EndNode',
+    'SelfReferentialNode',
+    'ReferenceNode',
+    'ManyToManyNode',
+    'ThroughNode'])
+def test_tracebranches_returns_correct_json(mstr, exp_tracebranches_results):
+    """
+    The `tracebranches` command should return the expected JSON arrays.
+    """
+
+    out = StringIO()
+    call_command('tracebranches', 'testmodels.{}'.format(mstr), stdout=out)
+    expected = json.dumps(exp_tracebranches_results[mstr], indent=2) + '\n'
+    assert out.getvalue() == expected
