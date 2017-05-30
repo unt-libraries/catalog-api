@@ -3,11 +3,17 @@ Tests the 'makefixtures' custom management.py command.
 """
 
 import pytest
-
 import ujson
 
-from testmodels import models
+from django.core import serializers
+from django.core.management import call_command
+from django.core.management.base import CommandError
+from django.db.models import Q
+from django.utils.six import StringIO
+
+from testmodels import models as m
 from sierra.management.commands import makefixtures
+
 
 # FIXTURES AND TEST DATA
 
@@ -30,6 +36,128 @@ def make_tmpfile(mytempdir):
 
 
 @pytest.fixture
+def confdata():
+    onlymodel = {
+        'model': 'testmodels.EndNode'
+    }
+    trace_branches = {
+        'model': 'testmodels.ReferenceNode',
+        'trace_branches': True
+    }
+    fullspec = {
+        'model': 'testmodels.SelfReferentialNode',
+        'filter': {
+            'referencenode__name': 'ref1',
+        },
+        'branches': [
+            ['referencenode_set', 'end'],
+            ['referencenode_set', 'srn', 'end'],
+            ['referencenode_set', 'srn', 'parent', 'end'],
+        ]
+    }
+    return {
+        'Only specifies model': onlymodel,
+        'No user branches and trace_branches is True': trace_branches,
+        'Has user branches and filter': fullspec,
+        'All': [onlymodel, trace_branches, fullspec]
+    }
+
+
+@pytest.fixture
+def expected(scope='module'):
+    def onlymodel():
+        objs = m.EndNode.objects.order_by('name')
+        return serializers.serialize('json', objs)
+
+    def all_results():
+        objs = (list(m.EndNode.objects.order_by('name')) +
+                list(m.SelfReferentialNode.objects.order_by('name')) +
+                list(m.ReferenceNode.objects.order_by('name')) + 
+                list(m.ManyToManyNode.objects.order_by('name')) +
+                list(m.ThroughNode.objects.order_by('name')))
+        return serializers.serialize('json', objs)
+
+    def fullspec():
+        end = m.EndNode.objects.filter(
+            (Q(referencenode__name='ref1') |
+             Q(selfreferentialnode__referencenode__name='ref1') |
+             Q(selfreferentialnode__selfreferentialnode__referencenode__name='ref1'))
+        ).order_by('name').distinct()
+
+        srn = m.SelfReferentialNode.objects.filter(
+            (Q(referencenode__name='ref1') |
+             Q(selfreferentialnode__referencenode__name='ref1'))
+        ).order_by('name').distinct()
+
+        ref = m.ReferenceNode.objects.filter(name='ref1')
+        objs = list(end) + list(srn) + list(ref)
+        return serializers.serialize('json', objs)
+
+    return {
+        'Only specifies model': onlymodel(),
+        'No user branches and trace_branches is True': all_results(),
+        'Has user branches and filter': fullspec(),
+        'All': all_results()
+    }
+
+
+@pytest.fixture
+def nomodel(confdata):
+    data = confdata['Has user branches and filter']
+    del(data['model'])
+    return data
+
+
+@pytest.fixture
+def badmodelstr(confdata):
+    data = confdata['Has user branches and filter']
+    data['model'] = 'SelfReferentialNode'
+    return data
+
+
+@pytest.fixture
+def invalidmodel(confdata):
+    data = confdata['Has user branches and filter']
+    data['model'] = 'testmodels.InvalidModel'
+    return data
+
+
+@pytest.fixture
+def invalidfilter(confdata):
+    data = confdata['Has user branches and filter']
+    data['filter'] = {'invalid_filter': 'some_value'}
+    return data
+
+
+@pytest.fixture
+def invalidbranches(confdata):
+    data = confdata['Has user branches and filter']
+    data['paths'][2] = ['through_set', 'invalid_field']
+    return data
+
+
+@pytest.fixture
+def multiple(confdata):
+    data = confdata['Has user branches and filter']
+    data['filter'] = {'invalid_filter': 'some_value'}
+    data['paths'][2] = ['through_set', 'invalid_field']
+    return data
+
+
+@pytest.fixture
+def invalid_confdata(nomodel, badmodelstr, invalidmodel, invalidfilter, 
+                     invalidbranches, multiple):
+    return {
+        'No model specified': nomodel,
+        'Bad model string': badmodelstr,
+        'Invalid model': invalidmodel,
+        'Invalid filter': invalidfilter,
+        'Invalid branch': invalidbranches,
+        'Multiple problems': multiple
+    }
+
+
+@pytest.fixture
 def config_file_not_json(make_tmpfile):
     return make_tmpfile('this is not valid json data', 'not.json')
 
@@ -42,30 +170,18 @@ def config_file_json(make_tmpfile):
 
 
 @pytest.fixture
-def config_file_not_valid(make_tmpfile, badconfdata_multiple):
-    data = ujson.dumps(badconfdata_multiple['multi'])
-    return make_tmpfile(data, 'invalid_config.json')
+def config_file_bad_spec(make_tmpfile, nomodel):
+    return make_tmpfile(ujson.dumps(nomodel), 'bad_spec.json')
 
 
 @pytest.fixture
-def config_file_valid(make_tmpfile, confdata):
-    data = ujason.dumps(confdata['multi'])
-    return make_tmpfile(data, 'valid_config.json')
-
+def config_file_perfect(make_tmpfile, confdata):
+    return make_tmpfile(ujson.dumps(confdata['All']), 'perfect.json')
 
 
 # TESTS
 
-def test_readconfigfile_errors_if_file_not_json(config_file_not_json):
-    """
-    Command.read_config_file should raise a ValueError if the config
-    file passed in is not valid json.
-    """
-    with pytest.raises(ValueError):
-        makefixtures.Command().read_config_file(str(config_file_not_json))
-
-
-def test_readconfigfile_errors_if_config_file_unreadable():
+def test_command_readconfigfile_errors_if_config_file_unreadable():
     """
     Command.read_config_file should raise an IOError if the configuration
     filename given is not a readable file.
@@ -74,9 +190,19 @@ def test_readconfigfile_errors_if_config_file_unreadable():
         makefixtures.Command().read_config_file('no_such_file.json')
 
 
-def test_readconfigfile_returns_valid_config_object(config_file_json):
+def test_command_readconfigfile_errors_if_file_not_json(config_file_not_json):
     """
-    Command.read_config_file should return valid Python data.
+    Command.read_config_file should raise a ValueError if the config
+    file passed in is not valid JSON.
+    """
+    with pytest.raises(ValueError):
+        makefixtures.Command().read_config_file(str(config_file_not_json))
+
+
+def test_command_readconfigfile_returns_valid_config_object(config_file_json):
+    """
+    Command.read_config_file should return valid Python data if the
+    config file passed in is valid JSON.
     """
     conf = makefixtures.Command().read_config_file(str(config_file_json))
     assert (len(conf) == 1 and conf[0]['string'] == 'test' and
@@ -85,10 +211,26 @@ def test_readconfigfile_returns_valid_config_object(config_file_json):
             conf[0]['object']['key'] == 'val')
 
 
-def test_command_handle_raises_err_if_confdata_invalid(config_file_not_valid):
+def test_command_handle_errors_if_confdata_is_invalid(config_file_bad_spec):
     """
     Command.handle should raise a ConfigIsInvalid error if any of the
     provided configuration data is invalid.
     """
-    with pytest.raises(makefixtures.ConfigIsInvalid):
-        makefixtures.Command().handle(str(config_file_not_valid))
+    with pytest.raises(CommandError):
+        makefixtures.Command().handle(str(config_file_bad_spec))
+
+
+@pytest.mark.parametrize('confdata_key', [key for key in confdata().keys()])
+def test_makefixtures_outputs_correct_data(confdata_key, make_tmpfile,
+                                           confdata, expected):
+    """
+    Calling the `makefixtures` command should output the expected JSON
+    results to stdout.
+    """
+    out = StringIO()
+    cfile = make_tmpfile(ujson.dumps(confdata[confdata_key]), confdata_key)
+    call_command('makefixtures', str(cfile), stdout=out)
+    print out.getvalue()
+    print expected[confdata_key]
+    assert out.getvalue() == expected[confdata_key] + '\n'
+
