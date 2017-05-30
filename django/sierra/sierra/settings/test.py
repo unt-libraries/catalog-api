@@ -11,6 +11,7 @@ TESTING = True
 
 INSTALLED_APPS += (
     'sierra.tests.testmodels',
+    'sierra'
 )
 
 DATABASES = {
