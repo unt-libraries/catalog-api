@@ -108,15 +108,6 @@ def relation(relation_params, request):
 
 
 @pytest.fixture(scope='module')
-def bad_branch_params():
-    return {
-        'No valid fieldnames': (m.ReferenceNode, ['invalid']),
-        'Valid and invalid fieldnames': (m.ReferenceNode, ['end', 'invalid']),
-        'Invalid relationship': (m.ReferenceNode, ['m2m', 'srn'])
-    }
-
-
-@pytest.fixture(scope='module')
 def branch_params():
     return {
         'ReferenceNode > end': (m.ReferenceNode, ['end']),
@@ -135,73 +126,49 @@ def branch_params():
     }
 
 
-@pytest.fixture(params=[key for key in bad_branch_params().keys()])
-def make_bad_branch(bad_branch_params, request):
-    def do_it():
-        relationtrees.RelationBranch(*bad_branch_params[request.param])
+@pytest.fixture(scope='module')
+def make_branch():
+    def do_it(model, fnames):
+        rels = relationtrees.make_relation_chain_from_fieldnames(model, fnames)
+        return relationtrees.RelationBranch(model, rels)
     return do_it
 
 
 @pytest.fixture(params=[key for key in branch_params().keys()])
-def branch(branch_params, request):
-    return relationtrees.RelationBranch(*branch_params[request.param])
-
-
-@pytest.fixture(scope='module')
-def badtree_params():
-    return {
-        'One invalid branch (1 node)':
-            (m.ReferenceNode, [['invalid']], False),
-        'One invalid branch (2 nodes)':
-            (m.ReferenceNode, [['end', 'invalid']], False),
-        'First branch valid, second branch invalid':
-            (m.ReferenceNode, [['end'], ['invalid']], False),
-        'First branch invalid, second branch valid':
-            (m.ReferenceNode, [['invalid'], ['end']], False),
-        'Both branches invalid':
-            (m.ReferenceNode, [['end', 'invalid'], ['invalid']], False),
-    }
+def branch(branch_params, make_branch, request):
+    return make_branch(*branch_params[request.param])
 
 
 @pytest.fixture(scope='module')
 def tree_params():
     return {
-        'No user_branches, trace_branches is False (EndNode)':
-            (m.EndNode, None, False),
-        'No user_branches, trace_branches is True (ReferenceNode)':
-            (m.ReferenceNode, None, True),
-        'Has user_branches, trace_branches is False (SelfReferentialNode)':
-            (m.SelfReferentialNode,
-                [
-                    ['referencenode_set', 'end'],
-                    ['referencenode_set', 'srn', 'end'],
-                    ['referencenode_set', 'srn', 'parent', 'end']
-                ], False),
-        'Has user_branches, trace_branches is True (ReferenceNode)':
-            (m.ReferenceNode,
-                [
-                    ['srn', 'parent', 'end'],
-                    ['throughnode_set', 'm2m', 'end']
-                ], True)
+        'No branches (EndNode)':
+            (m.EndNode, []),
+        'Has branches (SelfReferentialNode)':
+            (m.SelfReferentialNode, [
+                ['referencenode_set', 'end'],
+                ['referencenode_set', 'srn', 'end'],
+                ['referencenode_set', 'srn', 'parent', 'end']
+            ])
     }
 
 
-@pytest.fixture(params=[key for key in badtree_params().keys()])
-def make_badtree(badtree_params, request):
-    def do_it():
-        relationtrees.RelationTree(*badtree_params[request.param])
+@pytest.fixture(scope='module')
+def make_tree(make_branch):
+    def do_it(model, flists):
+        branches = [make_branch(model, fl) for fl in flists]
+        return relationtrees.RelationTree(model, branches)
     return do_it
 
 
 @pytest.fixture(params=[key for key in tree_params().keys()])
-def tree(tree_params, request):
-    return relationtrees.RelationTree(*tree_params[request.param])
+def tree(tree_params, make_tree, request):
+    return make_tree(*tree_params[request.param])
 
 
 @pytest.fixture
-def all_trees(tree_params):
-    return {k: relationtrees.RelationTree(*v)
-            for k, v in tree_params.iteritems()}
+def all_trees(tree_params, make_tree):
+    return {k: make_tree(*v) for k, v in tree_params.iteritems()}
 
 
 # TESTS
@@ -480,42 +447,6 @@ def test_relation_fetchtargetmodelobjects_results(relation, source, result,
 
 
 @pytest.mark.branch
-def test_relationbranch_init_raises_error_on_invalid_data(make_bad_branch):
-    """
-    RelationBranch.__init__ should raise a BadBranch error if any of
-    the provided relationships are invalid.
-    """
-    with pytest.raises(relationtrees.BadBranch):
-        make_bad_branch()
-
-
-@pytest.mark.branch
-@pytest.mark.parametrize('branch, fieldnames', [
-    ('ReferenceNode > end', ['end']),
-    ('ReferenceNode > m2m, end', ['throughnode_set', 'm2m', 'end']),
-    ('ReferenceNode > throughnode_set, m2m, end',
-     ['throughnode_set', 'm2m', 'end']),
-    ('ReferenceNode > srn, parent, end', ['srn', 'parent', 'end']),
-    ('EndNode > m2m, ref, end',
-     ['manytomanynode_set', 'throughnode_set', 'ref', 'end'])
-], ids=[
-    'root -> foreign-key',
-    'root -> many-to-many (direct) -> foreign-key',
-    'root -> indirect (one-to-many) -> foreign-key -> foreign-key',
-    'root -> foreign-key -> foreign-key (self-referential) -> foreign-key',
-    'root -> indirect (one-to-many) -> indirect (many-to-many) -> foreign-key'
-], indirect=['branch'])
-def test_relationbranch_init_creates_correct_relations(branch, fieldnames):
-    """
-    Initializing a RelationBranch object should result in a tuple
-    containing Relation objects equivalent to the branch field names
-    passed to __init__.
-    """
-    assert all([isinstance(rel, relationtrees.Relation) for rel in branch])
-    assert [rel.fieldname for rel in branch] == fieldnames
-
-
-@pytest.mark.branch
 @pytest.mark.parametrize('branch, exp_select, exp_prefetch', [
     ('ReferenceNode > end', 'end', ''),
     ('ReferenceNode > srn, parent, end', 'srn__parent__end', ''),
@@ -541,8 +472,8 @@ def test_relationbranch_prepareqset_precaches_correctly(branch, exp_select,
     object relations are in the branch. It should also return actual
     results.
     """
-    real_qset = branch.root_model.objects.all()
-    mock_qset = branch.root_model.objects.all()
+    real_qset = branch.root.objects.all()
+    mock_qset = branch.root.objects.all()
     mocker.patch.object(mock_qset, 'select_related', return_value=mock_qset)
     mocker.patch.object(mock_qset, 'prefetch_related', return_value=mock_qset)
     real_qset = branch.prepare_qset(real_qset)
@@ -559,63 +490,13 @@ def test_relationbranch_prepareqset_precaches_correctly(branch, exp_select,
 
 
 @pytest.mark.tree
-def test_relationtree_init_produces_error_on_bad_branches(make_badtree):
-    """
-    RelationTree.__init__ should raise a BadTree if it encounters
-    invalid branches.
-    """
-    with pytest.raises(relationtrees.BadTree):
-        make_badtree()
-
-
-@pytest.mark.tree
-def test_relationtree_init_returns_valid_tree(tree):
-    """
-    RelationTree.__init___ should return a valid tree object, with
-    root_model attribute and member branches populated as appropriate.
-    """
-    assert tree.root_model
-    assert all([isinstance(br, relationtrees.RelationBranch) for br in tree])
-
-
-@pytest.mark.tree
-@pytest.mark.parametrize('model, exp', [
-    (m.ReferenceNode, [['end'], ['srn', 'end'], ['srn', 'parent', 'end'],
-                            ['m2m', 'end']]),
-    (m.ThroughNode, [['ref', 'end'], ['ref', 'srn', 'end'],
-                          ['ref', 'srn', 'parent', 'end'],
-                          ['ref', 'm2m', 'end'], ['m2m', 'end']]),
-    (m.EndNode, []),
-    (m.SelfReferentialNode, [['end'], ['parent', 'end']]),
-    (m.ManyToManyNode, [['end']])
-], ids=[
-    'ReferenceNode',
-    'ThroughNode',
-    'EndNode',
-    'SelfReferentialNode',
-    'ManyToManyNode'
-])
-def test_relationtree_tracebranches_returns_correct_branches(model, exp):
-    """
-    RelationTree.trace_branches should correctly follow direct
-    many-to-many and foreign-key relationships on the given model,
-    resulting in the expected list of branches (exp).
-    """
-    tree = relationtrees.RelationTree(model)
-    result = [branch.fieldnames for branch in tree.trace_branches(model)]
-    for expected_branch in exp:
-        assert expected_branch in result
-    assert len(result) == len(exp)
-
-
-@pytest.mark.tree
 def test_relationtree_prepareqset_calls_branches_prepareqset(mocker):
     """
     RelationTree.prepare_qset should return a Queryset object that has
     had each branch's prepare_qset called on it.
     """
     qset = m.ReferenceNode.objects.all()
-    tree = relationtrees.RelationTree(m.ReferenceNode)
+    tree = relationtrees.RelationTree(m.ReferenceNode, [])
     for branch in tree:
         mocker.patch.object(branch, 'prepare_qset', return_value=branch)
     qset = tree.prepare_qset(qset)
@@ -639,7 +520,7 @@ def test_relationtree_pick_calls_prepareqset(qset, exp_qset, mocker,
     either the queryset passed via the qset kwarg or using the full
     queryset for the root model of that tree.
     """
-    tree = relationtrees.RelationTree(m.ReferenceNode)
+    tree = relationtrees.RelationTree(m.ReferenceNode, [])
     mocker.patch.object(tree, 'prepare_qset')
     bucket = tree.pick(qset=qset)
     tree.prepare_qset.assert_called_once()
@@ -648,15 +529,11 @@ def test_relationtree_pick_calls_prepareqset(qset, exp_qset, mocker,
 
 @pytest.mark.tree
 @pytest.mark.parametrize('tree, exp_comps', [
-    ('No user_branches, trace_branches is False (EndNode)', [m.EndNode]),
-    ('No user_branches, trace_branches is True (ReferenceNode)',
-     [m.EndNode, m.SelfReferentialNode, m.ReferenceNode, m.ManyToManyNode,
-      m.ThroughNode]),
-    ('Has user_branches, trace_branches is False (SelfReferentialNode)',
+    ('No branches (EndNode)', [m.EndNode]),
+    ('Has branches (SelfReferentialNode)',
      [m.EndNode, m.SelfReferentialNode, m.ReferenceNode]),
 ], ids=[
     'No branches, only the root model is part of the tree',
-    'Full set of branches',
     'Partial set of branches'
 ], indirect=['tree'])
 def test_relationtree_pick_arranges_bucket_compartments(tree, exp_comps):
@@ -670,28 +547,16 @@ def test_relationtree_pick_arranges_bucket_compartments(tree, exp_comps):
 
 @pytest.mark.tree
 @pytest.mark.parametrize('tree, qset, exp_obj_lists', [
-    ('No user_branches, trace_branches is False (EndNode)', None,
+    ('No branches (EndNode)', None,
      [['end0', 'end1', 'end2']]),
-    ('No user_branches, trace_branches is True (ReferenceNode)', None,
-     [['ref0', 'ref1', 'ref2'], ['end0', 'end2'],
-      ['srn0', 'srn1', 'srn2'], ['end0', 'end2'],
-      ['srn0', 'srn1', 'srn2'], ['srn1'],
-      ['thr0', 'thr1', 'thr2', 'thr3'], ['m2m0', 'm2m1', 'm2m2'],
-      ['end0', 'end1', 'end2']]),
-    ('Has user_branches, trace_branches is False (SelfReferentialNode)', None,
+    ('Has branches (SelfReferentialNode)', None,
      [['srn0', 'srn1', 'srn2'],
       ['ref0', 'ref1', 'ref2'], ['end0', 'end2'],
       ['ref0', 'ref1', 'ref2'], ['srn0', 'srn1', 'srn2'], ['end0', 'end2'],
       ['ref0', 'ref1', 'ref2'], ['srn0', 'srn1', 'srn2'], ['srn1']]),
-    ('No user_branches, trace_branches is True (ReferenceNode)',
-     m.ReferenceNode.objects.filter(name='ref1'),
-     [['ref1'], ['end2'], ['srn2'], ['end2'], ['srn2'], ['srn1'],
-      ['thr2', 'thr3'], ['m2m0', 'm2m2'], ['end0', 'end1']]),
 ], ids=[
     'No branches, only the root model is part of the tree',
-    'Full set of branches',
-    'Partial set of branches',
-    'Full branches with user-specified queryset'
+    'Partial set of branches'
 ], indirect=['tree'])
 def test_relationtree_pick_puts_correct_qsets(tree, qset, exp_obj_lists,
                                               mocker, assert_all_objset_calls,
@@ -707,7 +572,65 @@ def test_relationtree_pick_puts_correct_qsets(tree, qset, exp_obj_lists,
     assert_all_objset_calls(bucket.put, exp_objsets)
 
 
-@pytest.mark.harvest
+@pytest.mark.utilities
+@pytest.mark.parametrize('bp_key, fieldnames', [
+    ('ReferenceNode > end', ['end']),
+    ('ReferenceNode > m2m, end', ['throughnode_set', 'm2m', 'end']),
+    ('ReferenceNode > throughnode_set, m2m, end',
+     ['throughnode_set', 'm2m', 'end']),
+    ('ReferenceNode > srn, parent, end', ['srn', 'parent', 'end']),
+    ('EndNode > m2m, ref, end',
+     ['manytomanynode_set', 'throughnode_set', 'ref', 'end'])
+], ids=[
+    'root -> foreign-key',
+    'root -> many-to-many (direct) -> foreign-key',
+    'root -> indirect (one-to-many) -> foreign-key -> foreign-key',
+    'root -> foreign-key -> foreign-key (self-referential) -> foreign-key',
+    'root -> indirect (one-to-many) -> indirect (many-to-many) -> foreign-key'
+])
+def test_makerelationchainfromfieldnames(bp_key, fieldnames, branch_params):
+    """
+    The `make_relation_chain_from_fieldnames` factory should generate
+    the correct list of relations based on the fields passed to it.
+    """
+    model, fnames = branch_params[bp_key]
+    rels = relationtrees.make_relation_chain_from_fieldnames(model, fnames)
+    assert all([isinstance(rel, relationtrees.Relation) for rel in rels])
+    assert [rel.fieldname for rel in rels] == fieldnames
+
+
+@pytest.mark.utilities
+@pytest.mark.parametrize('model, exp', [
+    (m.ReferenceNode, [['end'], ['srn', 'end'], ['srn', 'parent', 'end'],
+                            ['throughnode_set', 'm2m', 'end']]),
+    (m.ThroughNode, [['ref', 'end'], ['ref', 'srn', 'end'],
+                          ['ref', 'srn', 'parent', 'end'],
+                          ['ref', 'throughnode_set', 'm2m', 'end'],
+                          ['m2m', 'end']]),
+    (m.EndNode, []),
+    (m.SelfReferentialNode, [['end'], ['parent', 'end']]),
+    (m.ManyToManyNode, [['end']])
+], ids=[
+    'ReferenceNode',
+    'ThroughNode',
+    'EndNode',
+    'SelfReferentialNode',
+    'ManyToManyNode'
+])
+def test_tracebranches_returns_correct_branches(model, exp):
+    """
+    The `trace_branches` factory should correctly follow direct
+    many-to-many and foreign-key relationships on the given model,
+    resulting in the expected list of branches (exp).
+    """
+    branches = relationtrees.trace_branches(model)
+    result = [branch.fieldnames for branch in branches]
+    for expected_branch in exp:
+        assert expected_branch in result
+    assert len(result) == len(exp)
+
+
+@pytest.mark.utilities
 def test_harvest_picks_trees_into_bucket_using_qset(all_trees, mocker):
     """
     The `harvest` function should call `tree.pick` once for each of the
@@ -715,9 +638,9 @@ def test_harvest_picks_trees_into_bucket_using_qset(all_trees, mocker):
     provided `into` and `tree_qsets` values.
     """
     bucket = relationtrees.Bucket()
-    qset_tree_key = 'No user_branches, trace_branches is True (ReferenceNode)'
+    qskey = 'Has branches (SelfReferentialNode)'
     qsets = {
-        all_trees[qset_tree_key]: m.ReferenceNode.objects.filter(name='ref1')
+        all_trees[qskey]: m.SelfReferentialNode.objects.filter(name='srn2')
     }
     for tree in all_trees.values():
         mocker.patch.object(tree, 'pick', return_value=bucket)

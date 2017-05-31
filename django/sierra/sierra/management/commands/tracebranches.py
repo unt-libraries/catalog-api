@@ -35,9 +35,9 @@ class Command(BaseCommand):
             msg = 'The supplied model argument is invalid. {}'.format(str(e))
             raise CommandError(msg)
 
-        tree = relationtrees.RelationTree(model, trace_branches=True)
-        branches = [[rel.fieldname for rel in branch] for branch in tree]
-        self.stdout.write(json.dumps(branches, indent=2))
+        branches = relationtrees.trace_branches(model)
+        out = [[rel.fieldname for rel in branch] for branch in branches]
+        self.stdout.write(json.dumps(out, indent=2))
 
 
 

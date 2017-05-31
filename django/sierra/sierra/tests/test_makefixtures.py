@@ -199,7 +199,7 @@ def test_command_readconfigfile_errors_if_file_not_json(config_file_not_json):
         makefixtures.Command().read_config_file(str(config_file_not_json))
 
 
-def test_command_readconfigfile_returns_valid_config_object(config_file_json):
+def test_command_readconfigfile_returns_valid_py_object(config_file_json):
     """
     Command.read_config_file should return valid Python data if the
     config file passed in is valid JSON.
@@ -247,8 +247,8 @@ def test_configuration_stores_correct_data(confdata):
     models = [m.EndNode, m.SelfReferentialNode, m.ReferenceNode]
     assert len(config.trees) == 3
     assert len(config.tree_qsets) == 3
-    assert all([t.root_model in models for t in config.trees])
-    assert all([t.root_model in models for t in config.tree_qsets.keys()])
+    assert all([t.root in models for t in config.trees])
+    assert all([t.root in models for t in config.tree_qsets.keys()])
     assert all([qs.model in models for qs in config.tree_qsets.values()])
 
 

@@ -1,20 +1,6 @@
 """
-Contains classes needed for custom sierra management commands.
+Contains classes, etc. needed for custom sierra management commands.
 """
-
-
-class BadTree(Exception):
-    """
-    Raise expection if a RelationTree is invalid.
-    """
-    pass
-
-
-class BadBranch(Exception):
-    """
-    Raise exception if a RelationBranch is invalid.
-    """
-    pass
 
 
 class BadRelation(Exception):
@@ -22,7 +8,6 @@ class BadRelation(Exception):
     Raise exception if a relation in a RelationBranch is invalid.
     """
     pass
-
 
 
 class Bucket(dict):
@@ -114,7 +99,7 @@ class Relation(object):
         target_mname = '.'.join([self.target_model._meta.app_label,
                                  self.target_model._meta.object_name])
         kind = 'Direct' if self.is_direct else 'Indirect'
-        kind += ' M2M' if self.is_m2m else ' FK'
+        kind = '{} {}'.format(kind, ' M2M' if self.is_m2m else ' FK')
         return '<{} on `{}` from {} to {}>'.format(kind, self.fieldname, mname,
                                                    target_mname)
         
@@ -186,30 +171,13 @@ class RelationBranch(tuple):
     Work with a chain of models connected via relationships.
     """
 
-    def __new__(cls, root_model, branch_fields):
-        branch = cls._make_branch(root_model, branch_fields)
-        return super(RelationBranch, cls).__new__(cls, tuple(branch))
+    def __new__(cls, root, relations):
+        return super(RelationBranch, cls).__new__(cls, tuple(relations))
 
-    def __init__(self, root_model, branch_fields):
-        self.root_model = root_model
-        self.root_model_name = root_model._meta.model_name
-        self.fieldnames = branch_fields
-
-    @classmethod
-    def _make_branch(cls, model, branch_fields):
-        relations = []
-        for i, fieldname in enumerate(branch_fields):
-            try:
-                relation = Relation(model, fieldname)
-            except BadRelation as e:
-                msg = 'field {} is invalid: {}'.format(i, str(e))
-                raise BadBranch(msg)
-            if relation.is_m2m:
-                relations += relation.get_as_through_relations()
-            else:
-                relations += [relation]
-            model = relation.target_model
-        return relations
+    def __init__(self, root, relations):
+        self.root = root
+        self.root_name = root._meta.model_name
+        self.fieldnames = [r.fieldname for r in relations]
 
     def prepare_qset(self, qset):
         selects, prefetches = self._get_selects_and_prefetches_for_qset()
@@ -238,47 +206,11 @@ class RelationTree(tuple):
     Work with the sets of relations that branch from a Django model.
     """
 
-    def __new__(cls, model, user_branches=None, trace_branches=False):
-        user_branches, branches, errors = user_branches or [], [], []
-        for i, branch_fields in enumerate(user_branches):
-            try:
-                branches += [RelationBranch(model, branch_fields)]
-            except BadBranch as e:
-                errors += 'branch {}: {}'.format(i, str(e))
-        if errors:
-            raise BadTree('`branches`: {}'.format('; '.join(errors)))
-        if trace_branches:
-            branches += cls._trace_branches(model)
+    def __new__(cls, root, branches):
         return super(RelationTree, cls).__new__(cls, tuple(branches))
 
-    def __init__(self, model, user_branches=None, trace_branches=False):
-        self.root_model = model
-
-    @classmethod
-    def _trace_branches(cls, model, orig_model=None, only=None, brfields=None,
-                        cache=None):
-        tracing = []
-        meta = model._meta
-        orig_model = orig_model or model
-        m2ms = meta.many_to_many if not only == 'fk' else [] 
-        fks = [f for f in meta.fields if f.rel] if not only == 'm2m' else []
-        relfields = fks + m2ms
-
-        for field in relfields:
-            cache = cache or []
-            field_id = '{}.{}'.format(meta.model_name, field.name)
-            if field_id not in cache:
-                next_model = field.rel.to
-                branchcache = cache + [field_id]
-                next_brfields = (brfields or []) + [field.name]
-                tracing += cls._trace_branches(next_model, orig_model, only,
-                                               next_brfields, branchcache)
-        if brfields and len(relfields) == 0:
-            tracing.append(RelationBranch(orig_model, brfields))
-        return tracing
-
-    def trace_branches(self, only=None):
-        return type(self)._trace_branches(self.root_model, only=only)
+    def __init__(self, root, branches):
+        self.root = root
 
     def prepare_qset(self, qset):
         for branch in self:
@@ -287,7 +219,7 @@ class RelationTree(tuple):
 
     def pick(self, into=None, qset=None):
         bucket = into or Bucket()
-        qset = self.prepare_qset(qset or self.root_model.objects.all())
+        qset = self.prepare_qset(qset or self.root.objects.all())
         bucket.put(qset)
         for branch in self:
             objset = qset
@@ -299,7 +231,67 @@ class RelationTree(tuple):
         return bucket
 
 
+# Factory and utility functions
+
+def make_relation_chain_from_fieldnames(root, fieldnames):
+    """
+    Produce a list of Relation objs from a root model and field list.
+
+    Use this to generate the Relation objects needed for a
+    RelationBranch from a list of fieldname strings. Any many-to-many
+    relationships are automatically converted to relations using the
+    appropriate `through` model.
+    """
+    relations, model = [], root
+    for i, fieldname in enumerate(fieldnames):
+        relation = Relation(model, fieldname)
+        if relation.is_m2m:
+            relations += relation.get_as_through_relations()
+        else:
+            relations += [relation]
+        model = relation.target_model
+    return relations
+
+
+def trace_branches(model, orig_model=None, brfields=None, cache=None):
+    """
+    Produce a list of all branches stemming from a given root model.
+
+    Use this to generate a full set of branches for creating a
+    RelationTree object. Recursively follows all *direct* relationships
+    from the given model. Does not follow indirect relationships,
+    unless the indirect relationship is part of a `through` model from
+    a direct many-to-many relationship.
+    """
+    tracing, orig_model = [], orig_model or model
+    meta = model._meta
+    relfields = [f for f in meta.fields if f.rel] + meta.many_to_many
+
+    for field in relfields:
+        cache = cache or []
+        field_id = '{}.{}'.format(meta.model_name, field.name)
+        if field_id not in cache:
+            next_model = field.rel.to
+            branchcache = cache + [field_id]
+            next_brfields = (brfields or []) + [field.name]
+            tracing += trace_branches(next_model, orig_model,
+                                      next_brfields, branchcache)
+    if brfields and len(relfields) == 0:
+        relations = make_relation_chain_from_fieldnames(orig_model, brfields)
+        tracing += [RelationBranch(orig_model, relations)]
+    return tracing
+
+
 def harvest(trees, into=None, tree_qsets=None):
+    """
+    Harvest data from a set (list/tuple) of RelationTree objects.
+
+    Optionally pass a Bucket object you want to use to collect the
+    harvested data. If none is provided, a new one is created for you.
+    Also, optionally pass a dict with any particular QuerySets you want
+    to use for filtering the data from a particular tree (use the tree
+    object as the key and the qset as the value).
+    """
     tree_qsets = tree_qsets or {}
     bucket = into or Bucket()
     for tree in trees:
