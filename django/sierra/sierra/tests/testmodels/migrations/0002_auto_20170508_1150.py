@@ -5,7 +5,9 @@ from django.db import models, migrations
 
 
 def populate_test_data(apps, schema_editor):
-    print "Populating test data"
+    if schema_editor.connection.alias == 'sierra':
+        return True
+
     EndNode = apps.get_model('testmodels', 'EndNode')
     SelfReferentialNode = apps.get_model('testmodels', 'SelfReferentialNode')
     ManyToManyNode = apps.get_model('testmodels', 'ManyToManyNode')
