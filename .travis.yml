@@ -7,4 +7,4 @@ install:
   - pip install -r requirements/requirements-base.txt
   - pip install -r requirements/requirements-tests.txt
 before_script: ./build_travis_settings.sh
-script: py.test -v
+script: py.test -sv
