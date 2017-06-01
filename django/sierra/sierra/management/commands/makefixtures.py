@@ -11,6 +11,9 @@ from django.core import serializers
 from sierra.management import relationtrees
 
 
+INDENT = 2  # How much to indent JSON output from makefixtures.
+
+
 class ConfigError(Exception):
     """
     Raise exception if provided config file is not valid.
@@ -49,7 +52,8 @@ class Command(BaseCommand):
         except Exception as e:
             raise CommandError(e)
 
-        self.stdout.write(serializers.serialize('json', bucket.dump()))
+        self.stdout.write(serializers.serialize('json', bucket.dump(),
+                                                indent=INDENT))
 
     def read_config_file(self, filename):
         """

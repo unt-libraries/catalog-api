@@ -9,6 +9,9 @@ from sierra.management import relationtrees
 from sierra.management.commands import makefixtures
 
 
+INDENT = 2
+
+
 class Command(BaseCommand):
     """
     Run a `tracebranches` command from manage.py.
@@ -37,7 +40,7 @@ class Command(BaseCommand):
 
         branches = relationtrees.trace_branches(model)
         out = [[rel.fieldname for rel in branch] for branch in branches]
-        self.stdout.write(json.dumps(out, indent=2))
+        self.stdout.write(json.dumps(out, indent=INDENT))
 
 
 

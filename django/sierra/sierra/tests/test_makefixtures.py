@@ -65,9 +65,10 @@ def confdata():
 
 @pytest.fixture
 def exp_makefixtures_results(scope='module'):
+    indent = makefixtures.INDENT
     def onlymodel():
         objs = m.EndNode.objects.order_by('name')
-        return serializers.serialize('json', objs)
+        return serializers.serialize('json', objs, indent=indent)
 
     def all_results():
         objs = (list(m.EndNode.objects.order_by('name')) +
@@ -75,7 +76,7 @@ def exp_makefixtures_results(scope='module'):
                 list(m.ReferenceNode.objects.order_by('name')) + 
                 list(m.ManyToManyNode.objects.order_by('name')) +
                 list(m.ThroughNode.objects.order_by('name')))
-        return serializers.serialize('json', objs)
+        return serializers.serialize('json', objs, indent=indent)
 
     def fullspec():
         end = m.EndNode.objects.filter(
@@ -91,7 +92,7 @@ def exp_makefixtures_results(scope='module'):
 
         ref = m.ReferenceNode.objects.filter(name='ref1')
         objs = list(end) + list(srn) + list(ref)
-        return serializers.serialize('json', objs)
+        return serializers.serialize('json', objs, indent=indent)
 
     return {
         'Only specifies model': onlymodel(),
@@ -287,5 +288,5 @@ def test_makefixtures_outputs_correct_data(testname, fname, make_tmpfile,
     out = StringIO()
     cfile = make_tmpfile(ujson.dumps(confdata[testname]), fname)
     call_command('makefixtures', str(cfile), stdout=out)
-    assert out.getvalue() == exp_makefixtures_results[testname] + '\n'
+    assert out.getvalue() == exp_makefixtures_results[testname]
 

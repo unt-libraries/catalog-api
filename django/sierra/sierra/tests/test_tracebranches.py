@@ -46,7 +46,8 @@ def test_tracebranches_returns_correct_json(mstr, exp_tracebranches_results):
     The `tracebranches` command should return the expected JSON arrays.
     """
 
+    indent = tracebranches.INDENT
     out = StringIO()
     call_command('tracebranches', 'testmodels.{}'.format(mstr), stdout=out)
-    expected = json.dumps(exp_tracebranches_results[mstr], indent=2) + '\n'
-    assert out.getvalue() == expected
+    expected = json.dumps(exp_tracebranches_results[mstr], indent=indent)
+    assert out.getvalue() == '{}\n'.format(expected)
