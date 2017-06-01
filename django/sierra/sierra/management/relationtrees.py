@@ -178,6 +178,16 @@ class RelationBranch(tuple):
         self.root = root
         self.root_name = root._meta.model_name
         self.fieldnames = [r.fieldname for r in relations]
+        self._root_label = '{}.{}'.format(root._meta.app_label,
+                                          root._meta.object_name)
+
+    def __repr__(self):
+        return '<RelationBranch from {} {}'.format(
+            self._root_label, super(RelationBranch, self).__repr__())
+
+    def __hash__(self):
+        key = tuple([self._root_label] + list(self))
+        return hash(key)
 
     def prepare_qset(self, qset):
         selects, prefetches = self._get_selects_and_prefetches_for_qset()
@@ -211,6 +221,16 @@ class RelationTree(tuple):
 
     def __init__(self, root, branches):
         self.root = root
+        self._root_label = '{}.{}'.format(root._meta.app_label,
+                                          root._meta.object_name)
+
+    def __repr__(self):
+        return '<RelationTree from {} {}'.format(
+            self._root_label, super(RelationTree, self).__repr__())
+
+    def __hash__(self):
+        key = tuple([self._root_label] + list(self))
+        return hash(key)
 
     def prepare_qset(self, qset):
         for branch in self:
