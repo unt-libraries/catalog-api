@@ -1,0 +1,1488 @@
+[
+{
+  "fields": {
+    "code": "b",
+    "tag": "\""
+  },
+  "model": "base.recordtype",
+  "pk": 4
+},
+{
+  "fields": {
+    "code": "i",
+    "tag": "&"
+  },
+  "model": "base.recordtype",
+  "pk": 12
+},
+{
+  "fields": {
+    "previous_last_updated_gmt": "2017-05-22T18:48:00Z",
+    "campus_code": "",
+    "deletion_date_gmt": null,
+    "record_last_updated_gmt": "2017-05-22T19:03:33Z",
+    "num_revisions": 249,
+    "record_type": "b",
+    "record_num": 4371446,
+    "creation_date_gmt": "2013-06-14T13:23:44Z"
+  },
+  "model": "base.recordmetadata",
+  "pk": 420911166454
+},
+{
+  "fields": {
+    "previous_last_updated_gmt": "2017-05-22T18:52:45Z",
+    "campus_code": "",
+    "deletion_date_gmt": null,
+    "record_last_updated_gmt": "2017-05-22T19:12:18Z",
+    "num_revisions": 527,
+    "record_type": "i",
+    "record_num": 4264281,
+    "creation_date_gmt": "2013-06-14T13:24:26Z"
+  },
+  "model": "base.recordmetadata",
+  "pk": 450975830361
+},
+{
+  "fields": {
+    "previous_last_updated_gmt": "2017-03-23T21:22:00Z",
+    "campus_code": "",
+    "deletion_date_gmt": null,
+    "record_last_updated_gmt": "2017-05-22T18:38:17Z",
+    "num_revisions": 242,
+    "record_type": "i",
+    "record_num": 4264283,
+    "creation_date_gmt": "2013-06-14T13:30:15Z"
+  },
+  "model": "base.recordmetadata",
+  "pk": 450975830363
+},
+{
+  "fields": {
+    "previous_last_updated_gmt": "2017-03-10T21:31:00Z",
+    "campus_code": "",
+    "deletion_date_gmt": null,
+    "record_last_updated_gmt": "2017-05-22T18:38:26Z",
+    "num_revisions": 60,
+    "record_type": "i",
+    "record_num": 4278313,
+    "creation_date_gmt": "2013-07-29T17:06:48Z"
+  },
+  "model": "base.recordmetadata",
+  "pk": 450975844393
+},
+{
+  "fields": {
+    "previous_last_updated_gmt": "2017-03-31T14:27:00Z",
+    "campus_code": "",
+    "deletion_date_gmt": null,
+    "record_last_updated_gmt": "2017-05-22T18:38:04Z",
+    "num_revisions": 104,
+    "record_type": "i",
+    "record_num": 4278315,
+    "creation_date_gmt": "2013-07-29T17:07:08Z"
+  },
+  "model": "base.recordmetadata",
+  "pk": 450975844395
+},
+{
+  "fields": {
+    "previous_last_updated_gmt": "2017-03-31T12:48:00Z",
+    "campus_code": "",
+    "deletion_date_gmt": null,
+    "record_last_updated_gmt": "2017-05-22T18:38:41Z",
+    "num_revisions": 33,
+    "record_type": "i",
+    "record_num": 4278316,
+    "creation_date_gmt": "2013-07-29T17:07:22Z"
+  },
+  "model": "base.recordmetadata",
+  "pk": 450975844396
+},
+{
+  "fields": {
+    "previous_last_updated_gmt": "2017-04-05T17:01:00Z",
+    "campus_code": "",
+    "deletion_date_gmt": null,
+    "record_last_updated_gmt": "2017-05-22T18:38:50Z",
+    "num_revisions": 5,
+    "record_type": "i",
+    "record_num": 5668212,
+    "creation_date_gmt": "2017-03-10T21:09:27Z"
+  },
+  "model": "base.recordmetadata",
+  "pk": 450977234292
+},
+{
+  "fields": {
+    "is_public": true,
+    "display_order": null,
+    "code": "eng"
+  },
+  "model": "base.languageproperty",
+  "pk": 417
+},
+{
+  "fields": {
+    "display_order": 308,
+    "code": "us"
+  },
+  "model": "base.countryproperty",
+  "pk": 86
+},
+{
+  "fields": {
+    "is_suppressed": true,
+    "record_metadata": 420911166454,
+    "language": "eng",
+    "country": "us",
+    "bcode1": "0",
+    "allocation_rule_code": "0",
+    "bcode3": "n",
+    "bcode2": "a",
+    "skip_num": 0,
+    "index_change_count": 693,
+    "is_right_result_exact": false,
+    "is_on_course_reserve": false,
+    "marc_type_code": " ",
+    "cataloging_date_gmt": "2016-02-02T06:00:00Z"
+  },
+  "model": "base.bibrecord",
+  "pk": 420911166454
+},
+{
+  "fields": {
+    "multipart_level_code": " ",
+    "record_status_code": "n",
+    "bib_level_code": "m",
+    "descriptive_cat_form_code": " ",
+    "control_type_code": " ",
+    "record": 420911166454,
+    "encoding_level_code": " ",
+    "record_type_code": "a",
+    "char_encoding_scheme_code": " "
+  },
+  "model": "base.leaderfield",
+  "pk": 3295384
+},
+{
+  "fields": {
+    "marc_ind2": " ",
+    "marc_ind1": " ",
+    "marc_tag": null,
+    "field_content": "This is a test record. Please ignore.",
+    "record": 450975830361,
+    "occ_num": 0,
+    "varfield_type_code": "n"
+  },
+  "model": "base.varfield",
+  "pk": 56460872
+},
+{
+  "fields": {
+    "marc_ind2": " ",
+    "marc_ind1": " ",
+    "marc_tag": null,
+    "field_content": "1000000008",
+    "record": 450975830363,
+    "occ_num": 0,
+    "varfield_type_code": "b"
+  },
+  "model": "base.varfield",
+  "pk": 56460917
+},
+{
+  "fields": {
+    "marc_ind2": " ",
+    "marc_ind1": " ",
+    "marc_tag": null,
+    "field_content": "This is a test record, please ignore.",
+    "record": 450975830363,
+    "occ_num": 0,
+    "varfield_type_code": "n"
+  },
+  "model": "base.varfield",
+  "pk": 56460918
+},
+{
+  "fields": {
+    "marc_ind2": " ",
+    "marc_ind1": " ",
+    "marc_tag": null,
+    "field_content": "1000000013",
+    "record": 450975844393,
+    "occ_num": 0,
+    "varfield_type_code": "b"
+  },
+  "model": "base.varfield",
+  "pk": 56907348
+},
+{
+  "fields": {
+    "marc_ind2": " ",
+    "marc_ind1": " ",
+    "marc_tag": null,
+    "field_content": "1000000014",
+    "record": 450975844395,
+    "occ_num": 0,
+    "varfield_type_code": "b"
+  },
+  "model": "base.varfield",
+  "pk": 56907349
+},
+{
+  "fields": {
+    "marc_ind2": " ",
+    "marc_ind1": " ",
+    "marc_tag": null,
+    "field_content": "1000000015",
+    "record": 450975844396,
+    "occ_num": 0,
+    "varfield_type_code": "b"
+  },
+  "model": "base.varfield",
+  "pk": 56907350
+},
+{
+  "fields": {
+    "marc_ind2": " ",
+    "marc_ind1": " ",
+    "marc_tag": null,
+    "field_content": "Test message 1.",
+    "record": 450975844393,
+    "occ_num": 0,
+    "varfield_type_code": "m"
+  },
+  "model": "base.varfield",
+  "pk": 61634690
+},
+{
+  "fields": {
+    "marc_ind2": " ",
+    "marc_ind1": " ",
+    "marc_tag": null,
+    "field_content": "Test message 2.",
+    "record": 450975844393,
+    "occ_num": 1,
+    "varfield_type_code": "m"
+  },
+  "model": "base.varfield",
+  "pk": 61634691
+},
+{
+  "fields": {
+    "marc_ind2": " ",
+    "marc_ind1": " ",
+    "marc_tag": null,
+    "field_content": "1000000007",
+    "record": 450975830361,
+    "occ_num": 0,
+    "varfield_type_code": "b"
+  },
+  "model": "base.varfield",
+  "pk": 86530847
+},
+{
+  "fields": {
+    "marc_ind2": "0",
+    "marc_ind1": " ",
+    "marc_tag": "245",
+    "field_content": "|aTesting remote storage holds",
+    "record": 420911166454,
+    "occ_num": 0,
+    "varfield_type_code": "t"
+  },
+  "model": "base.varfield",
+  "pk": 86770034
+},
+{
+  "fields": {
+    "marc_ind2": " ",
+    "marc_ind1": " ",
+    "marc_tag": "110",
+    "field_content": "|aLed Zeppelin (Musical Group)",
+    "record": 420911166454,
+    "occ_num": 0,
+    "varfield_type_code": "a"
+  },
+  "model": "base.varfield",
+  "pk": 92778694
+},
+{
+  "fields": {
+    "marc_ind2": " ",
+    "marc_ind1": " ",
+    "marc_tag": "500",
+    "field_content": "|aThis is a test record, please ignore it.",
+    "record": 420911166454,
+    "occ_num": 0,
+    "varfield_type_code": "n"
+  },
+  "model": "base.varfield",
+  "pk": 92933668
+},
+{
+  "fields": {
+    "marc_ind2": " ",
+    "marc_ind1": "1",
+    "marc_tag": "521",
+    "field_content": "|a12.",
+    "record": 420911166454,
+    "occ_num": 3,
+    "varfield_type_code": "n"
+  },
+  "model": "base.varfield",
+  "pk": 92933669
+},
+{
+  "fields": {
+    "marc_ind2": " ",
+    "marc_ind1": " ",
+    "marc_tag": "500",
+    "field_content": "|aAnother general note.",
+    "record": 420911166454,
+    "occ_num": 1,
+    "varfield_type_code": "n"
+  },
+  "model": "base.varfield",
+  "pk": 92933710
+},
+{
+  "fields": {
+    "marc_ind2": " ",
+    "marc_ind1": " ",
+    "marc_tag": "540",
+    "field_content": "|aYou may not reproduce this item.",
+    "record": 420911166454,
+    "occ_num": 4,
+    "varfield_type_code": "n"
+  },
+  "model": "base.varfield",
+  "pk": 92933711
+},
+{
+  "fields": {
+    "marc_ind2": " ",
+    "marc_ind1": " ",
+    "marc_tag": "505",
+    "field_content": "|aFormatted contents note.",
+    "record": 420911166454,
+    "occ_num": 2,
+    "varfield_type_code": "n"
+  },
+  "model": "base.varfield",
+  "pk": 92933713
+},
+{
+  "fields": {
+    "marc_ind2": " ",
+    "marc_ind1": " ",
+    "marc_tag": "099",
+    "field_content": "|aAB 1234567",
+    "record": 420911166454,
+    "occ_num": 0,
+    "varfield_type_code": "c"
+  },
+  "model": "base.varfield",
+  "pk": 95411435
+},
+{
+  "fields": {
+    "marc_ind2": " ",
+    "marc_ind1": " ",
+    "marc_tag": "264",
+    "field_content": "|aplaceholder|btoken abcdef123456|c1881-1882",
+    "record": 420911166454,
+    "occ_num": 0,
+    "varfield_type_code": "p"
+  },
+  "model": "base.varfield",
+  "pk": 96376703
+},
+{
+  "fields": {
+    "marc_ind2": " ",
+    "marc_ind1": " ",
+    "marc_tag": "866",
+    "field_content": "|aTesting LIB HAS, line 1.",
+    "record": 420911166454,
+    "occ_num": 0,
+    "varfield_type_code": "h"
+  },
+  "model": "base.varfield",
+  "pk": 96663821
+},
+{
+  "fields": {
+    "marc_ind2": " ",
+    "marc_ind1": " ",
+    "marc_tag": "866",
+    "field_content": "|aTesting LIB HAS, line 2.",
+    "record": 420911166454,
+    "occ_num": 1,
+    "varfield_type_code": "h"
+  },
+  "model": "base.varfield",
+  "pk": 96663898
+},
+{
+  "fields": {
+    "marc_ind2": "7",
+    "marc_ind1": "1",
+    "marc_tag": "785",
+    "field_content": "|tTest Placeholder Title",
+    "record": 420911166454,
+    "occ_num": 0,
+    "varfield_type_code": "z"
+  },
+  "model": "base.varfield",
+  "pk": 97370780
+},
+{
+  "fields": {
+    "marc_ind2": " ",
+    "marc_ind1": " ",
+    "marc_tag": "590",
+    "field_content": "|aThis is a 590 field that doesn't have a Media tabletop game token in it.",
+    "record": 420911166454,
+    "occ_num": 5,
+    "varfield_type_code": "n"
+  },
+  "model": "base.varfield",
+  "pk": 97466213
+},
+{
+  "fields": {
+    "marc_ind2": " ",
+    "marc_ind1": " ",
+    "marc_tag": "590",
+    "field_content": "|aa5t9;a14t16;A17T100",
+    "record": 420911166454,
+    "occ_num": 6,
+    "varfield_type_code": "n"
+  },
+  "model": "base.varfield",
+  "pk": 97466214
+},
+{
+  "fields": {
+    "marc_ind2": " ",
+    "marc_ind1": " ",
+    "marc_tag": "590",
+    "field_content": "|ad30t59",
+    "record": 420911166454,
+    "occ_num": 7,
+    "varfield_type_code": "n"
+  },
+  "model": "base.varfield",
+  "pk": 97466215
+},
+{
+  "fields": {
+    "marc_ind2": " ",
+    "marc_ind1": " ",
+    "marc_tag": "999",
+    "field_content": "|acapi-testrec",
+    "record": 420911166454,
+    "occ_num": 0,
+    "varfield_type_code": "y"
+  },
+  "model": "base.varfield",
+  "pk": 97469152
+},
+{
+  "fields": {
+    "marc_ind2": " ",
+    "marc_ind1": " ",
+    "marc_tag": "962",
+    "field_content": "|ajjt:000:URL:b4371446:037494:0:0:0:0:0:0|ttesting|vn|uhttp://www.example.com",
+    "record": 420911166454,
+    "occ_num": 1,
+    "varfield_type_code": "y"
+  },
+  "model": "base.varfield",
+  "pk": 97731370
+},
+{
+  "fields": {
+    "marc_ind2": " ",
+    "marc_ind1": " ",
+    "marc_tag": null,
+    "display_order": 0,
+    "tag": null,
+    "content": "This is a test record. Please ignore.",
+    "record": 450975830361,
+    "field_type_code": "n",
+    "occ_num": 0
+  },
+  "model": "base.subfield",
+  "pk": 56460872
+},
+{
+  "fields": {
+    "marc_ind2": " ",
+    "marc_ind1": " ",
+    "marc_tag": null,
+    "display_order": 0,
+    "tag": null,
+    "content": "1000000008",
+    "record": 450975830363,
+    "field_type_code": "b",
+    "occ_num": 0
+  },
+  "model": "base.subfield",
+  "pk": 56460917
+},
+{
+  "fields": {
+    "marc_ind2": " ",
+    "marc_ind1": " ",
+    "marc_tag": null,
+    "display_order": 0,
+    "tag": null,
+    "content": "This is a test record, please ignore.",
+    "record": 450975830363,
+    "field_type_code": "n",
+    "occ_num": 0
+  },
+  "model": "base.subfield",
+  "pk": 56460918
+},
+{
+  "fields": {
+    "marc_ind2": " ",
+    "marc_ind1": " ",
+    "marc_tag": null,
+    "display_order": 0,
+    "tag": null,
+    "content": "1000000013",
+    "record": 450975844393,
+    "field_type_code": "b",
+    "occ_num": 0
+  },
+  "model": "base.subfield",
+  "pk": 56907348
+},
+{
+  "fields": {
+    "marc_ind2": " ",
+    "marc_ind1": " ",
+    "marc_tag": null,
+    "display_order": 0,
+    "tag": null,
+    "content": "1000000014",
+    "record": 450975844395,
+    "field_type_code": "b",
+    "occ_num": 0
+  },
+  "model": "base.subfield",
+  "pk": 56907349
+},
+{
+  "fields": {
+    "marc_ind2": " ",
+    "marc_ind1": " ",
+    "marc_tag": null,
+    "display_order": 0,
+    "tag": null,
+    "content": "1000000015",
+    "record": 450975844396,
+    "field_type_code": "b",
+    "occ_num": 0
+  },
+  "model": "base.subfield",
+  "pk": 56907350
+},
+{
+  "fields": {
+    "marc_ind2": " ",
+    "marc_ind1": " ",
+    "marc_tag": null,
+    "display_order": 0,
+    "tag": null,
+    "content": "Test message 1.",
+    "record": 450975844393,
+    "field_type_code": "m",
+    "occ_num": 0
+  },
+  "model": "base.subfield",
+  "pk": 61634690
+},
+{
+  "fields": {
+    "marc_ind2": " ",
+    "marc_ind1": " ",
+    "marc_tag": null,
+    "display_order": 0,
+    "tag": null,
+    "content": "Test message 2.",
+    "record": 450975844393,
+    "field_type_code": "m",
+    "occ_num": 1
+  },
+  "model": "base.subfield",
+  "pk": 61634691
+},
+{
+  "fields": {
+    "marc_ind2": " ",
+    "marc_ind1": " ",
+    "marc_tag": null,
+    "display_order": 0,
+    "tag": null,
+    "content": "1000000007",
+    "record": 450975830361,
+    "field_type_code": "b",
+    "occ_num": 0
+  },
+  "model": "base.subfield",
+  "pk": 86530847
+},
+{
+  "fields": {
+    "marc_ind2": "0",
+    "marc_ind1": " ",
+    "marc_tag": "245",
+    "display_order": 0,
+    "tag": "a",
+    "content": "Testing remote storage holds",
+    "record": 420911166454,
+    "field_type_code": "t",
+    "occ_num": 0
+  },
+  "model": "base.subfield",
+  "pk": 86770034
+},
+{
+  "fields": {
+    "marc_ind2": " ",
+    "marc_ind1": " ",
+    "marc_tag": "110",
+    "display_order": 0,
+    "tag": "a",
+    "content": "Led Zeppelin (Musical Group)",
+    "record": 420911166454,
+    "field_type_code": "a",
+    "occ_num": 0
+  },
+  "model": "base.subfield",
+  "pk": 92778694
+},
+{
+  "fields": {
+    "marc_ind2": " ",
+    "marc_ind1": " ",
+    "marc_tag": "500",
+    "display_order": 0,
+    "tag": "a",
+    "content": "This is a test record, please ignore it.",
+    "record": 420911166454,
+    "field_type_code": "n",
+    "occ_num": 0
+  },
+  "model": "base.subfield",
+  "pk": 92933668
+},
+{
+  "fields": {
+    "marc_ind2": " ",
+    "marc_ind1": "1",
+    "marc_tag": "521",
+    "display_order": 0,
+    "tag": "a",
+    "content": "12.",
+    "record": 420911166454,
+    "field_type_code": "n",
+    "occ_num": 3
+  },
+  "model": "base.subfield",
+  "pk": 92933669
+},
+{
+  "fields": {
+    "marc_ind2": " ",
+    "marc_ind1": " ",
+    "marc_tag": "500",
+    "display_order": 0,
+    "tag": "a",
+    "content": "Another general note.",
+    "record": 420911166454,
+    "field_type_code": "n",
+    "occ_num": 1
+  },
+  "model": "base.subfield",
+  "pk": 92933710
+},
+{
+  "fields": {
+    "marc_ind2": " ",
+    "marc_ind1": " ",
+    "marc_tag": "540",
+    "display_order": 0,
+    "tag": "a",
+    "content": "You may not reproduce this item.",
+    "record": 420911166454,
+    "field_type_code": "n",
+    "occ_num": 4
+  },
+  "model": "base.subfield",
+  "pk": 92933711
+},
+{
+  "fields": {
+    "marc_ind2": " ",
+    "marc_ind1": " ",
+    "marc_tag": "505",
+    "display_order": 0,
+    "tag": "a",
+    "content": "Formatted contents note.",
+    "record": 420911166454,
+    "field_type_code": "n",
+    "occ_num": 2
+  },
+  "model": "base.subfield",
+  "pk": 92933713
+},
+{
+  "fields": {
+    "marc_ind2": " ",
+    "marc_ind1": " ",
+    "marc_tag": "099",
+    "display_order": 0,
+    "tag": "a",
+    "content": "AB 1234567",
+    "record": 420911166454,
+    "field_type_code": "c",
+    "occ_num": 0
+  },
+  "model": "base.subfield",
+  "pk": 95411435
+},
+{
+  "fields": {
+    "marc_ind2": " ",
+    "marc_ind1": " ",
+    "marc_tag": "264",
+    "display_order": 2,
+    "tag": "c",
+    "content": "1881-1882",
+    "record": 420911166454,
+    "field_type_code": "p",
+    "occ_num": 0
+  },
+  "model": "base.subfield",
+  "pk": 96376703
+},
+{
+  "fields": {
+    "marc_ind2": " ",
+    "marc_ind1": " ",
+    "marc_tag": "866",
+    "display_order": 0,
+    "tag": "a",
+    "content": "Testing LIB HAS, line 1.",
+    "record": 420911166454,
+    "field_type_code": "h",
+    "occ_num": 0
+  },
+  "model": "base.subfield",
+  "pk": 96663821
+},
+{
+  "fields": {
+    "marc_ind2": " ",
+    "marc_ind1": " ",
+    "marc_tag": "866",
+    "display_order": 0,
+    "tag": "a",
+    "content": "Testing LIB HAS, line 2.",
+    "record": 420911166454,
+    "field_type_code": "h",
+    "occ_num": 1
+  },
+  "model": "base.subfield",
+  "pk": 96663898
+},
+{
+  "fields": {
+    "marc_ind2": "7",
+    "marc_ind1": "1",
+    "marc_tag": "785",
+    "display_order": 0,
+    "tag": "t",
+    "content": "Test Placeholder Title",
+    "record": 420911166454,
+    "field_type_code": "z",
+    "occ_num": 0
+  },
+  "model": "base.subfield",
+  "pk": 97370780
+},
+{
+  "fields": {
+    "marc_ind2": " ",
+    "marc_ind1": " ",
+    "marc_tag": "590",
+    "display_order": 0,
+    "tag": "a",
+    "content": "This is a 590 field that doesn't have a Media tabletop game token in it.",
+    "record": 420911166454,
+    "field_type_code": "n",
+    "occ_num": 5
+  },
+  "model": "base.subfield",
+  "pk": 97466213
+},
+{
+  "fields": {
+    "marc_ind2": " ",
+    "marc_ind1": " ",
+    "marc_tag": "590",
+    "display_order": 0,
+    "tag": "a",
+    "content": "a5t9;a14t16;A17T100",
+    "record": 420911166454,
+    "field_type_code": "n",
+    "occ_num": 6
+  },
+  "model": "base.subfield",
+  "pk": 97466214
+},
+{
+  "fields": {
+    "marc_ind2": " ",
+    "marc_ind1": " ",
+    "marc_tag": "590",
+    "display_order": 0,
+    "tag": "a",
+    "content": "d30t59",
+    "record": 420911166454,
+    "field_type_code": "n",
+    "occ_num": 7
+  },
+  "model": "base.subfield",
+  "pk": 97466215
+},
+{
+  "fields": {
+    "marc_ind2": " ",
+    "marc_ind1": " ",
+    "marc_tag": "999",
+    "display_order": 0,
+    "tag": "a",
+    "content": "capi-testrec",
+    "record": 420911166454,
+    "field_type_code": "y",
+    "occ_num": 0
+  },
+  "model": "base.subfield",
+  "pk": 97469152
+},
+{
+  "fields": {
+    "marc_ind2": " ",
+    "marc_ind1": " ",
+    "marc_tag": "962",
+    "display_order": 3,
+    "tag": "u",
+    "content": "http://www.example.com",
+    "record": 420911166454,
+    "field_type_code": "y",
+    "occ_num": 1
+  },
+  "model": "base.subfield",
+  "pk": 97731370
+},
+{
+  "fields": {
+    "itype_property_category": null,
+    "target_audience": null,
+    "code_num": 36,
+    "collection": null,
+    "physical_format": null,
+    "display_order": 33
+  },
+  "model": "base.itypeproperty",
+  "pk": 4
+},
+{
+  "fields": {
+    "itype_property_category": null,
+    "target_audience": null,
+    "code_num": 1,
+    "collection": null,
+    "physical_format": null,
+    "display_order": 0
+  },
+  "model": "base.itypeproperty",
+  "pk": 34
+},
+{
+  "fields": {
+    "itype_property_category": null,
+    "target_audience": null,
+    "code_num": 7,
+    "collection": null,
+    "physical_format": null,
+    "display_order": 6
+  },
+  "model": "base.itypeproperty",
+  "pk": 36
+},
+{
+  "fields": {
+    "email_source": "circ@unt.edu",
+    "code_num": 1,
+    "address_longitude": "-94.5978767",
+    "email_reply_to": "circ@unt.edu",
+    "address": "University of North Texas$LIBRARIES$1155 Union Circle #305190$Denton, TX 76203",
+    "address_latitude": "39.1023995"
+  },
+  "model": "base.branch",
+  "pk": 1
+},
+{
+  "fields": {
+    "email_source": "Media.Library@unt.edu",
+    "code_num": 2,
+    "address_longitude": "-83.9426698",
+    "email_reply_to": "Media.Library@unt.edu",
+    "address": "University of North Texas$LIBRARIES$1155 Union Circle #305190$Denton, TX 76203",
+    "address_latitude": "34.0820025"
+  },
+  "model": "base.branch",
+  "pk": 2
+},
+{
+  "fields": {
+    "is_public": true,
+    "code": "w",
+    "is_requestable": true,
+    "parent_location": null,
+    "branch": 1
+  },
+  "model": "base.location",
+  "pk": 2
+},
+{
+  "fields": {
+    "is_public": true,
+    "code": "xspe",
+    "is_requestable": true,
+    "parent_location": null,
+    "branch": 1
+  },
+  "model": "base.location",
+  "pk": 8
+},
+{
+  "fields": {
+    "is_public": true,
+    "code": "test",
+    "is_requestable": true,
+    "parent_location": null,
+    "branch": null
+  },
+  "model": "base.location",
+  "pk": 18
+},
+{
+  "fields": {
+    "is_public": true,
+    "code": "w4m",
+    "is_requestable": true,
+    "parent_location": null,
+    "branch": 1
+  },
+  "model": "base.location",
+  "pk": 29
+},
+{
+  "fields": {
+    "is_public": true,
+    "code": "czm",
+    "is_requestable": true,
+    "parent_location": null,
+    "branch": 2
+  },
+  "model": "base.location",
+  "pk": 50
+},
+{
+  "fields": {
+    "is_public": true,
+    "code": "w4mrb",
+    "is_requestable": true,
+    "parent_location": null,
+    "branch": 1
+  },
+  "model": "base.location",
+  "pk": 58
+},
+{
+  "fields": {
+    "is_public": true,
+    "code": "xmus",
+    "is_requestable": true,
+    "parent_location": null,
+    "branch": 1
+  },
+  "model": "base.location",
+  "pk": 93
+},
+{
+  "fields": {
+    "is_public": true,
+    "code": "w3",
+    "is_requestable": true,
+    "parent_location": null,
+    "branch": 1
+  },
+  "model": "base.location",
+  "pk": 126
+},
+{
+  "fields": {
+    "is_public": true,
+    "code": "w3lab",
+    "is_requestable": true,
+    "parent_location": null,
+    "branch": 1
+  },
+  "model": "base.location",
+  "pk": 131
+},
+{
+  "fields": {
+    "display_order": 11,
+    "code": "o"
+  },
+  "model": "base.itemstatusproperty",
+  "pk": 13
+},
+{
+  "fields": {
+    "display_order": 0,
+    "code": "-"
+  },
+  "model": "base.itemstatusproperty",
+  "pk": 20
+},
+{
+  "fields": {
+    "display_order": 14,
+    "code": "w"
+  },
+  "model": "base.itemstatusproperty",
+  "pk": 21
+},
+{
+  "fields": {
+    "code_num": 0,
+    "location_code": ""
+  },
+  "model": "base.statisticgroup",
+  "pk": 1
+},
+{
+  "fields": {
+    "code_num": 310,
+    "location_code": "w3lab"
+  },
+  "model": "base.statisticgroup",
+  "pk": 3
+},
+{
+  "fields": {
+    "year_to_date_checkout_total": 17,
+    "itype": 36,
+    "record_metadata": 450975830361,
+    "last_checkout_gmt": "2017-04-26T20:42:08Z",
+    "item_status": "w",
+    "item_message_code": "-",
+    "is_suppressed": false,
+    "is_bib_hold": false,
+    "holdings_code": "6",
+    "last_checkin_gmt": "2017-04-26T20:52:55Z",
+    "checkout_total": 54,
+    "inventory_gmt": null,
+    "checkout_statistic_group": 310,
+    "renewal_total": 1,
+    "save_itype": null,
+    "icode1": 0,
+    "icode2": "-",
+    "last_patron_record": 481036753649,
+    "copy_num": 1,
+    "copy_use_count": 0,
+    "is_inherit_loc": false,
+    "price": "0.000000",
+    "last_year_to_date_checkout_total": 8,
+    "save_location": null,
+    "use3_count": 0,
+    "distance_learning_status": 0,
+    "internal_use_count": 0,
+    "virtual_item_central_code_num": 0,
+    "opac_message_code": "-",
+    "location": "w3",
+    "save_checkout_total": null,
+    "checkin_statistics_group": 310,
+    "virtual_type_code": null,
+    "old_location": null
+  },
+  "model": "base.itemrecord",
+  "pk": 450975830361
+},
+{
+  "fields": {
+    "year_to_date_checkout_total": 7,
+    "itype": 7,
+    "record_metadata": 450975830363,
+    "last_checkout_gmt": "2017-02-28T18:27:17Z",
+    "item_status": "o",
+    "item_message_code": "x",
+    "is_suppressed": true,
+    "is_bib_hold": false,
+    "holdings_code": "6",
+    "last_checkin_gmt": "2017-02-28T21:06:21Z",
+    "checkout_total": 16,
+    "inventory_gmt": null,
+    "checkout_statistic_group": 310,
+    "renewal_total": 0,
+    "save_itype": null,
+    "icode1": 0,
+    "icode2": "s",
+    "last_patron_record": 481036753649,
+    "copy_num": 3,
+    "copy_use_count": 0,
+    "is_inherit_loc": false,
+    "price": "0.000000",
+    "last_year_to_date_checkout_total": 4,
+    "save_location": null,
+    "use3_count": 0,
+    "distance_learning_status": 0,
+    "internal_use_count": 0,
+    "virtual_item_central_code_num": 0,
+    "opac_message_code": "-",
+    "location": "xmus",
+    "save_checkout_total": null,
+    "checkin_statistics_group": 310,
+    "virtual_type_code": null,
+    "old_location": null
+  },
+  "model": "base.itemrecord",
+  "pk": 450975830363
+},
+{
+  "fields": {
+    "year_to_date_checkout_total": 3,
+    "itype": 7,
+    "record_metadata": 450975844393,
+    "last_checkout_gmt": "2017-02-13T17:47:39Z",
+    "item_status": "o",
+    "item_message_code": "-",
+    "is_suppressed": true,
+    "is_bib_hold": false,
+    "holdings_code": "6",
+    "last_checkin_gmt": "2017-02-13T18:02:20Z",
+    "checkout_total": 6,
+    "inventory_gmt": null,
+    "checkout_statistic_group": 310,
+    "renewal_total": 1,
+    "save_itype": null,
+    "icode1": 0,
+    "icode2": "s",
+    "last_patron_record": 481036716789,
+    "copy_num": 4,
+    "copy_use_count": 0,
+    "is_inherit_loc": false,
+    "price": "0.000000",
+    "last_year_to_date_checkout_total": 0,
+    "save_location": null,
+    "use3_count": 0,
+    "distance_learning_status": 0,
+    "internal_use_count": 0,
+    "virtual_item_central_code_num": 0,
+    "opac_message_code": "-",
+    "location": "xspe",
+    "save_checkout_total": null,
+    "checkin_statistics_group": 310,
+    "virtual_type_code": null,
+    "old_location": null
+  },
+  "model": "base.itemrecord",
+  "pk": 450975844393
+},
+{
+  "fields": {
+    "year_to_date_checkout_total": 6,
+    "itype": 1,
+    "record_metadata": 450975844395,
+    "last_checkout_gmt": "2017-02-28T18:30:14Z",
+    "item_status": "-",
+    "item_message_code": "-",
+    "is_suppressed": true,
+    "is_bib_hold": false,
+    "holdings_code": "6",
+    "last_checkin_gmt": "2017-02-28T21:06:26Z",
+    "checkout_total": 12,
+    "inventory_gmt": null,
+    "checkout_statistic_group": 310,
+    "renewal_total": 0,
+    "save_itype": null,
+    "icode1": 0,
+    "icode2": "s",
+    "last_patron_record": 481036753649,
+    "copy_num": 2,
+    "copy_use_count": 0,
+    "is_inherit_loc": false,
+    "price": "0.000000",
+    "last_year_to_date_checkout_total": 0,
+    "save_location": null,
+    "use3_count": 0,
+    "distance_learning_status": 0,
+    "internal_use_count": 0,
+    "virtual_item_central_code_num": 0,
+    "opac_message_code": "-",
+    "location": "w3",
+    "save_checkout_total": null,
+    "checkin_statistics_group": 310,
+    "virtual_type_code": null,
+    "old_location": null
+  },
+  "model": "base.itemrecord",
+  "pk": 450975844395
+},
+{
+  "fields": {
+    "year_to_date_checkout_total": 2,
+    "itype": 7,
+    "record_metadata": 450975844396,
+    "last_checkout_gmt": "2016-11-11T14:07:15Z",
+    "item_status": "o",
+    "item_message_code": "x",
+    "is_suppressed": true,
+    "is_bib_hold": false,
+    "holdings_code": "6",
+    "last_checkin_gmt": "2016-11-11T15:45:25Z",
+    "checkout_total": 3,
+    "inventory_gmt": null,
+    "checkout_statistic_group": 310,
+    "renewal_total": 0,
+    "save_itype": null,
+    "icode1": 0,
+    "icode2": "s",
+    "last_patron_record": 481036753649,
+    "copy_num": 5,
+    "copy_use_count": 0,
+    "is_inherit_loc": false,
+    "price": "0.000000",
+    "last_year_to_date_checkout_total": 0,
+    "save_location": null,
+    "use3_count": 0,
+    "distance_learning_status": 0,
+    "internal_use_count": 0,
+    "virtual_item_central_code_num": 0,
+    "opac_message_code": "-",
+    "location": "w4mrb",
+    "save_checkout_total": null,
+    "checkin_statistics_group": 310,
+    "virtual_type_code": null,
+    "old_location": null
+  },
+  "model": "base.itemrecord",
+  "pk": 450975844396
+},
+{
+  "fields": {
+    "year_to_date_checkout_total": 0,
+    "itype": 1,
+    "record_metadata": 450977234292,
+    "last_checkout_gmt": null,
+    "item_status": "-",
+    "item_message_code": "-",
+    "is_suppressed": true,
+    "is_bib_hold": false,
+    "holdings_code": "6",
+    "last_checkin_gmt": null,
+    "checkout_total": 0,
+    "inventory_gmt": null,
+    "checkout_statistic_group": 0,
+    "renewal_total": 0,
+    "save_itype": null,
+    "icode1": 0,
+    "icode2": "s",
+    "last_patron_record": null,
+    "copy_num": 6,
+    "copy_use_count": 0,
+    "is_inherit_loc": false,
+    "price": "0.000000",
+    "last_year_to_date_checkout_total": 0,
+    "save_location": null,
+    "use3_count": 0,
+    "distance_learning_status": 0,
+    "internal_use_count": 0,
+    "virtual_item_central_code_num": 0,
+    "opac_message_code": "-",
+    "location": "w3lab",
+    "save_checkout_total": null,
+    "checkin_statistics_group": 0,
+    "virtual_type_code": null,
+    "old_location": null
+  },
+  "model": "base.itemrecord",
+  "pk": 450977234292
+},
+{
+  "fields": {
+    "bibs_display_order": 0,
+    "bib_record": 420911166454,
+    "item_record": 450975830361,
+    "items_display_order": 0
+  },
+  "model": "base.bibrecorditemrecordlink",
+  "pk": 3074197
+},
+{
+  "fields": {
+    "bibs_display_order": 0,
+    "bib_record": 420911166454,
+    "item_record": 450975830363,
+    "items_display_order": 2
+  },
+  "model": "base.bibrecorditemrecordlink",
+  "pk": 3074204
+},
+{
+  "fields": {
+    "bibs_display_order": 0,
+    "bib_record": 420911166454,
+    "item_record": 450975844393,
+    "items_display_order": 3
+  },
+  "model": "base.bibrecorditemrecordlink",
+  "pk": 3088429
+},
+{
+  "fields": {
+    "bibs_display_order": 0,
+    "bib_record": 420911166454,
+    "item_record": 450975844395,
+    "items_display_order": 1
+  },
+  "model": "base.bibrecorditemrecordlink",
+  "pk": 3088431
+},
+{
+  "fields": {
+    "bibs_display_order": 0,
+    "bib_record": 420911166454,
+    "item_record": 450975844396,
+    "items_display_order": 4
+  },
+  "model": "base.bibrecorditemrecordlink",
+  "pk": 3088432
+},
+{
+  "fields": {
+    "bibs_display_order": 0,
+    "bib_record": 420911166454,
+    "item_record": 450977234292,
+    "items_display_order": 5
+  },
+  "model": "base.bibrecorditemrecordlink",
+  "pk": 4486394
+},
+{
+  "fields": {
+    "display_order": 0,
+    "bib_record": 420911166454,
+    "copies": 7,
+    "location": "multi"
+  },
+  "model": "base.bibrecordlocation",
+  "pk": 2328677
+},
+{
+  "fields": {
+    "display_order": 1,
+    "bib_record": 420911166454,
+    "copies": 1,
+    "location": "w"
+  },
+  "model": "base.bibrecordlocation",
+  "pk": 3723294
+},
+{
+  "fields": {
+    "display_order": 2,
+    "bib_record": 420911166454,
+    "copies": 1,
+    "location": "w4m"
+  },
+  "model": "base.bibrecordlocation",
+  "pk": 3723295
+},
+{
+  "fields": {
+    "display_order": 3,
+    "bib_record": 420911166454,
+    "copies": 1,
+    "location": "w3"
+  },
+  "model": "base.bibrecordlocation",
+  "pk": 3723304
+},
+{
+  "fields": {
+    "display_order": 4,
+    "bib_record": 420911166454,
+    "copies": 1,
+    "location": "czm"
+  },
+  "model": "base.bibrecordlocation",
+  "pk": 3846204
+},
+{
+  "fields": {
+    "display_order": 5,
+    "bib_record": 420911166454,
+    "copies": 1,
+    "location": "test"
+  },
+  "model": "base.bibrecordlocation",
+  "pk": 3850099
+},
+{
+  "fields": {
+    "display_order": 13,
+    "code": "0"
+  },
+  "model": "base.biblevelproperty",
+  "pk": 14
+},
+{
+  "fields": {
+    "physical_format": null,
+    "is_public": true,
+    "display_order": 1,
+    "code": "a",
+    "material_property_category": null
+  },
+  "model": "base.materialproperty",
+  "pk": 7
+},
+{
+  "fields": {
+    "best_title": "Testing remote storage holds",
+    "bib_level": "0",
+    "material": "a",
+    "best_author": "Led Zeppelin (Musical Group)",
+    "best_title_norm": "testing remote storage holds",
+    "publish_year": 1882,
+    "best_author_norm": "led zeppelin musical group",
+    "bib_record": 420911166454
+  },
+  "model": "base.bibrecordproperty",
+  "pk": 2208585
+}
+]
