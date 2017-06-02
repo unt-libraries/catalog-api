@@ -6,6 +6,8 @@ from django.db import models, migrations
 
 class Migration(migrations.Migration):
 
+    replaces = [(b'base', '0001_initial'), (b'base', '0002_auto_20170602_0939'), (b'base', '0003_auto_20170602_0941'), (b'base', '0004_auto_20170602_0942'), (b'base', '0005_auto_20170602_0943'), (b'base', '0006_auto_20170602_0947'), (b'base', '0007_auto_20170602_0949'), (b'base', '0008_auto_20170602_0953'), (b'base', '0009_auto_20170602_1057')]
+
     dependencies = [
     ]
 
@@ -649,12 +651,12 @@ class Migration(migrations.Migration):
             name='BranchMyuser',
             fields=[
                 ('code', models.IntegerField(serialize=False, primary_key=True)),
-                ('address', models.CharField(max_length=300, blank=True)),
-                ('email_source', models.CharField(max_length=255, blank=True)),
-                ('email_reply_to', models.CharField(max_length=255, blank=True)),
-                ('address_latitude', models.CharField(max_length=32, blank=True)),
-                ('address_longitude', models.CharField(max_length=32, blank=True)),
-                ('name', models.CharField(max_length=255, blank=True)),
+                ('address', models.CharField(max_length=300, null=True, blank=True)),
+                ('email_source', models.CharField(max_length=255, null=True, blank=True)),
+                ('email_reply_to', models.CharField(max_length=255, null=True, blank=True)),
+                ('address_latitude', models.CharField(max_length=32, null=True, blank=True)),
+                ('address_longitude', models.CharField(max_length=32, null=True, blank=True)),
+                ('name', models.CharField(max_length=255, null=True, blank=True)),
             ],
             options={
                 'abstract': False,
@@ -2703,7 +2705,7 @@ class Migration(migrations.Migration):
             fields=[
                 ('material_property', models.ForeignKey(primary_key=True, serialize=False, to='base.MaterialProperty')),
                 ('name', models.CharField(max_length=255, blank=True)),
-                ('facet_text', models.CharField(max_length=500, blank=True)),
+                ('facet_text', models.CharField(max_length=500, null=True, blank=True)),
                 ('iii_language', models.ForeignKey(blank=True, to='base.IiiLanguage', null=True)),
             ],
             options={
@@ -4944,12 +4946,12 @@ class Migration(migrations.Migration):
             fields=[
                 ('varfield', models.ForeignKey(primary_key=True, serialize=False, to='base.Varfield')),
                 ('field_type_code', models.CharField(max_length=1, blank=True)),
-                ('marc_tag', models.CharField(max_length=3, blank=True)),
+                ('marc_tag', models.CharField(max_length=3, null=True, blank=True)),
                 ('marc_ind1', models.CharField(max_length=1, blank=True)),
                 ('marc_ind2', models.CharField(max_length=1, blank=True)),
                 ('occ_num', models.IntegerField(null=True, blank=True)),
                 ('display_order', models.IntegerField(null=True, blank=True)),
-                ('tag', models.CharField(max_length=1, blank=True)),
+                ('tag', models.CharField(max_length=1, null=True, blank=True)),
                 ('content', models.CharField(max_length=20001, blank=True)),
                 ('record', models.ForeignKey(blank=True, to='base.RecordMetadata', null=True)),
             ],
@@ -5171,7 +5173,7 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='workflow',
             name='functions',
-            field=models.ManyToManyField(to='base.Function', null=True, through='base.WorkflowFunction', blank=True),
+            field=models.ManyToManyField(to=b'base.Function', null=True, through='base.WorkflowFunction', blank=True),
             preserve_default=True,
         ),
         migrations.AddField(
@@ -5231,7 +5233,7 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='sectionrecord',
             name='registered_patrons',
-            field=models.ManyToManyField(to='base.PatronRecord', null=True, through='base.SectionRegistrationSeat', blank=True),
+            field=models.ManyToManyField(to=b'base.PatronRecord', null=True, through='base.SectionRegistrationSeat', blank=True),
             preserve_default=True,
         ),
         migrations.AddField(
@@ -5249,19 +5251,19 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='resourcerecord',
             name='holding_records',
-            field=models.ManyToManyField(to='base.HoldingRecord', null=True, through='base.ResourceRecordHoldingRecordRelatedLink', blank=True),
+            field=models.ManyToManyField(to=b'base.HoldingRecord', null=True, through='base.ResourceRecordHoldingRecordRelatedLink', blank=True),
             preserve_default=True,
         ),
         migrations.AddField(
             model_name='resourcerecord',
             name='license_records',
-            field=models.ManyToManyField(to='base.LicenseRecord', null=True, through='base.ResourceRecordLicenseRecordLink', blank=True),
+            field=models.ManyToManyField(to=b'base.LicenseRecord', null=True, through='base.ResourceRecordLicenseRecordLink', blank=True),
             preserve_default=True,
         ),
         migrations.AddField(
             model_name='resourcerecord',
             name='order_records',
-            field=models.ManyToManyField(to='base.OrderRecord', null=True, through='base.ResourceRecordOrderRecordLink', blank=True),
+            field=models.ManyToManyField(to=b'base.OrderRecord', null=True, through='base.ResourceRecordOrderRecordLink', blank=True),
             preserve_default=True,
         ),
         migrations.AddField(
@@ -5273,7 +5275,7 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='resourcerecord',
             name='related_order_records',
-            field=models.ManyToManyField(related_name='related_resourcerecord_set', null=True, through='base.ResourceRecordOrderRecordRelatedLink', to='base.OrderRecord', blank=True),
+            field=models.ManyToManyField(related_name='related_resourcerecord_set', null=True, through='base.ResourceRecordOrderRecordRelatedLink', to=b'base.OrderRecord', blank=True),
             preserve_default=True,
         ),
         migrations.AddField(
@@ -5297,7 +5299,7 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='programrecord',
             name='locations',
-            field=models.ManyToManyField(to='base.Location', null=True, through='base.ProgramRecordLocation', blank=True),
+            field=models.ManyToManyField(to=b'base.Location', null=True, through='base.ProgramRecordLocation', blank=True),
             preserve_default=True,
         ),
         migrations.AddField(
@@ -5585,13 +5587,13 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='itemrecord',
             name='transit_box_records',
-            field=models.ManyToManyField(to='base.TransitBoxRecord', null=True, through='base.TransitBoxRecordItemRecord', blank=True),
+            field=models.ManyToManyField(to=b'base.TransitBoxRecord', null=True, through='base.TransitBoxRecordItemRecord', blank=True),
             preserve_default=True,
         ),
         migrations.AddField(
             model_name='itemrecord',
             name='volume_records',
-            field=models.ManyToManyField(to='base.VolumeRecord', null=True, through='base.VolumeRecordItemRecordLink', blank=True),
+            field=models.ManyToManyField(to=b'base.VolumeRecord', null=True, through='base.VolumeRecordItemRecordLink', blank=True),
             preserve_default=True,
         ),
         migrations.AddField(
@@ -5681,13 +5683,13 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='iiiuser',
             name='locations',
-            field=models.ManyToManyField(to='base.Location', null=True, through='base.IiiUserLocation', blank=True),
+            field=models.ManyToManyField(to=b'base.Location', null=True, through='base.IiiUserLocation', blank=True),
             preserve_default=True,
         ),
         migrations.AddField(
             model_name='iiiuser',
             name='roles',
-            field=models.ManyToManyField(to='base.IiiRole', null=True, through='base.IiiUserIiiRole', blank=True),
+            field=models.ManyToManyField(to=b'base.IiiRole', null=True, through='base.IiiUserIiiRole', blank=True),
             preserve_default=True,
         ),
         migrations.AddField(
@@ -5705,7 +5707,7 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='iiiuser',
             name='workflows',
-            field=models.ManyToManyField(to='base.Workflow', null=True, through='base.IiiUserWorkflow', blank=True),
+            field=models.ManyToManyField(to=b'base.Workflow', null=True, through='base.IiiUserWorkflow', blank=True),
             preserve_default=True,
         ),
         migrations.AddField(
@@ -5753,19 +5755,19 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='holdingrecordbox',
             name='item_records',
-            field=models.ManyToManyField(to='base.ItemRecord', null=True, through='base.HoldingRecordBoxItem', blank=True),
+            field=models.ManyToManyField(to=b'base.ItemRecord', null=True, through='base.HoldingRecordBoxItem', blank=True),
             preserve_default=True,
         ),
         migrations.AddField(
             model_name='holdingrecord',
             name='item_records',
-            field=models.ManyToManyField(to='base.ItemRecord', null=True, through='base.HoldingRecordItemRecordLink', blank=True),
+            field=models.ManyToManyField(to=b'base.ItemRecord', null=True, through='base.HoldingRecordItemRecordLink', blank=True),
             preserve_default=True,
         ),
         migrations.AddField(
             model_name='holdingrecord',
             name='locations',
-            field=models.ManyToManyField(to='base.Location', null=True, through='base.HoldingRecordLocation', blank=True),
+            field=models.ManyToManyField(to=b'base.Location', null=True, through='base.HoldingRecordLocation', blank=True),
             preserve_default=True,
         ),
         migrations.AddField(
@@ -5957,13 +5959,13 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='courserecord',
             name='bib_records',
-            field=models.ManyToManyField(to='base.BibRecord', null=True, through='base.CourseRecordBibRecordLink', blank=True),
+            field=models.ManyToManyField(to=b'base.BibRecord', null=True, through='base.CourseRecordBibRecordLink', blank=True),
             preserve_default=True,
         ),
         migrations.AddField(
             model_name='courserecord',
             name='item_records',
-            field=models.ManyToManyField(to='base.ItemRecord', null=True, through='base.CourseRecordItemRecordLink', blank=True),
+            field=models.ManyToManyField(to=b'base.ItemRecord', null=True, through='base.CourseRecordItemRecordLink', blank=True),
             preserve_default=True,
         ),
         migrations.AddField(
@@ -6017,13 +6019,13 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='colagencycriteria',
             name='home_libraries',
-            field=models.ManyToManyField(to='base.Location', null=True, through='base.ColagencyCriteriaHomeLibraries', blank=True),
+            field=models.ManyToManyField(to=b'base.Location', null=True, through='base.ColagencyCriteriaHomeLibraries', blank=True),
             preserve_default=True,
         ),
         migrations.AddField(
             model_name='colagencycriteria',
             name='ptypes',
-            field=models.ManyToManyField(to='base.PtypeProperty', null=True, through='base.ColagencyCriteriaPtypes', blank=True),
+            field=models.ManyToManyField(to=b'base.PtypeProperty', null=True, through='base.ColagencyCriteriaPtypes', blank=True),
             preserve_default=True,
         ),
         migrations.AddField(
@@ -6149,7 +6151,7 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='bibrecordlocation',
             name='location',
-            field=models.ForeignKey(db_column='location_code', to_field='code', blank=True, to='base.Location', null=True),
+            field=models.ForeignKey(db_constraint=False, db_column='location_code', to_field='code', blank=True, to='base.Location', null=True),
             preserve_default=True,
         ),
         migrations.AddField(
@@ -6173,13 +6175,13 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='bibrecord',
             name='holding_records',
-            field=models.ManyToManyField(to='base.HoldingRecord', null=True, through='base.BibRecordHoldingRecordLink', blank=True),
+            field=models.ManyToManyField(to=b'base.HoldingRecord', null=True, through='base.BibRecordHoldingRecordLink', blank=True),
             preserve_default=True,
         ),
         migrations.AddField(
             model_name='bibrecord',
             name='item_records',
-            field=models.ManyToManyField(to='base.ItemRecord', null=True, through='base.BibRecordItemRecordLink', blank=True),
+            field=models.ManyToManyField(to=b'base.ItemRecord', null=True, through='base.BibRecordItemRecordLink', blank=True),
             preserve_default=True,
         ),
         migrations.AddField(
@@ -6191,13 +6193,13 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='bibrecord',
             name='locations',
-            field=models.ManyToManyField(to='base.Location', null=True, through='base.BibRecordLocation', blank=True),
+            field=models.ManyToManyField(to=b'base.Location', null=True, through='base.BibRecordLocation', blank=True),
             preserve_default=True,
         ),
         migrations.AddField(
             model_name='bibrecord',
             name='order_records',
-            field=models.ManyToManyField(to='base.OrderRecord', null=True, through='base.BibRecordOrderRecordLink', blank=True),
+            field=models.ManyToManyField(to=b'base.OrderRecord', null=True, through='base.BibRecordOrderRecordLink', blank=True),
             preserve_default=True,
         ),
         migrations.AddField(
@@ -6209,7 +6211,7 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='bibrecord',
             name='volume_records',
-            field=models.ManyToManyField(to='base.VolumeRecord', null=True, through='base.BibRecordVolumeRecordLink', blank=True),
+            field=models.ManyToManyField(to=b'base.VolumeRecord', null=True, through='base.BibRecordVolumeRecordLink', blank=True),
             preserve_default=True,
         ),
         migrations.AddField(
@@ -6378,6 +6380,54 @@ class Migration(migrations.Migration):
             model_name='accountingtransaction',
             name='fund_master',
             field=models.ForeignKey(blank=True, to='base.FundMaster', null=True),
+            preserve_default=True,
+        ),
+        migrations.AlterField(
+            model_name='itypepropertycategorymyuser',
+            name='name',
+            field=models.CharField(max_length=255, null=True, blank=True),
+            preserve_default=True,
+        ),
+        migrations.AlterField(
+            model_name='branch',
+            name='address',
+            field=models.CharField(max_length=300, null=True, blank=True),
+            preserve_default=True,
+        ),
+        migrations.AlterField(
+            model_name='branch',
+            name='address_latitude',
+            field=models.CharField(max_length=32, null=True, blank=True),
+            preserve_default=True,
+        ),
+        migrations.AlterField(
+            model_name='branch',
+            name='address_longitude',
+            field=models.CharField(max_length=32, null=True, blank=True),
+            preserve_default=True,
+        ),
+        migrations.AlterField(
+            model_name='branch',
+            name='email_reply_to',
+            field=models.CharField(max_length=255, null=True, blank=True),
+            preserve_default=True,
+        ),
+        migrations.AlterField(
+            model_name='branch',
+            name='email_source',
+            field=models.CharField(max_length=255, null=True, blank=True),
+            preserve_default=True,
+        ),
+        migrations.AlterField(
+            model_name='varfield',
+            name='marc_tag',
+            field=models.CharField(max_length=3, null=True, blank=True),
+            preserve_default=True,
+        ),
+        migrations.AlterField(
+            model_name='itemrecord',
+            name='virtual_type_code',
+            field=models.CharField(max_length=1, null=True, blank=True),
             preserve_default=True,
         ),
     ]

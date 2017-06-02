@@ -515,12 +515,12 @@ class Subfield(ReadOnlyModel):
     record = models.ForeignKey(RecordMetadata, null=True, blank=True)
     varfield = models.ForeignKey('Varfield', primary_key=True)
     field_type_code = models.CharField(max_length=1, blank=True)
-    marc_tag = models.CharField(max_length=3, blank=True)
+    marc_tag = models.CharField(max_length=3, null=True, blank=True)
     marc_ind1 = models.CharField(max_length=1, blank=True)
     marc_ind2 = models.CharField(max_length=1, blank=True)
     occ_num = models.IntegerField(null=True, blank=True)
     display_order = models.IntegerField(null=True, blank=True)
-    tag = models.CharField(max_length=1, blank=True)
+    tag = models.CharField(max_length=1, null=True, blank=True)
     content = models.CharField(max_length=20001, blank=True)
 
     class Meta(ReadOnlyModel.Meta):
@@ -550,7 +550,7 @@ class Varfield(ReadOnlyModel):
     id = models.BigIntegerField(primary_key=True)
     record = models.ForeignKey(RecordMetadata, null=True, blank=True)
     varfield_type_code = models.CharField(max_length=1, blank=True)
-    marc_tag = models.CharField(max_length=3, blank=True)
+    marc_tag = models.CharField(max_length=3, null=True, blank=True)
     marc_ind1 = models.CharField(max_length=1, blank=True)
     marc_ind2 = models.CharField(max_length=1, blank=True)
     occ_num = models.IntegerField(null=True, blank=True)
@@ -851,7 +851,8 @@ class BibRecordLocation(ReadOnlyModel):
                                  db_column='location_code',
                                  to_field='code',
                                  null=True,
-                                 blank=True)
+                                 blank=True,
+                                 db_constraint=False)
     display_order = models.IntegerField(null=True, blank=True)
 
     class Meta(ReadOnlyModel.Meta):
@@ -959,7 +960,7 @@ class MaterialPropertyCategoryMyuser(ReadOnlyModel):
     code = models.CharField(max_length=3, primary_key=True)
     display_order = models.IntegerField(null=True, blank=True)
     is_default = models.NullBooleanField(null=True, blank=True)
-    name = models.CharField(max_length=255, blank=True)
+    name = models.CharField(max_length=255, null=True, blank=True)
 
     class Meta(ReadOnlyModel.Meta):
         db_table = 'material_property_category_myuser'
@@ -993,7 +994,7 @@ class MaterialPropertyName(ReadOnlyModel):
     material_property = models.ForeignKey(MaterialProperty, primary_key=True)
     iii_language = models.ForeignKey('IiiLanguage', null=True, blank=True)
     name = models.CharField(max_length=255, blank=True)
-    facet_text = models.CharField(max_length=500, blank=True)
+    facet_text = models.CharField(max_length=500, null=True, blank=True)
 
     class Meta(ReadOnlyModel.Meta):
         db_table = 'material_property_name'
@@ -1887,7 +1888,7 @@ class ItemRecord(MainRecordTypeModel):
     copy_use_count = models.IntegerField(null=True, blank=True)
     item_message_code = models.CharField(max_length=1, blank=True)
     opac_message_code = models.CharField(max_length=1, blank=True)
-    virtual_type_code = models.CharField(max_length=1, blank=True)
+    virtual_type_code = models.CharField(max_length=1, null=True, blank=True)
     virtual_item_central_code_num = models.IntegerField(null=True, blank=True)
     holdings_code = models.CharField(max_length=1, blank=True)
     save_itype = models.ForeignKey('ItypeProperty',
@@ -2188,7 +2189,7 @@ class ItypePropertyCategoryMyuser(ReadOnlyModel):
                                                 blank=True)
     physical_format = models.ForeignKey('PhysicalFormat', null=True, blank=True)
     target_audience = models.ForeignKey('TargetAudience', null=True, blank=True)
-    name = models.CharField(max_length=255, blank=True)
+    name = models.CharField(max_length=255, null=True, blank=True)
 
     class Meta(ReadOnlyModel.Meta):
         db_table = 'itype_property_category_myuser'
@@ -5474,11 +5475,11 @@ class AgencyPropertyLocationGroup(ReadOnlyModel):
 
 class Branch(ReadOnlyModel):
     id = models.IntegerField(primary_key=True)
-    address = models.CharField(max_length=300, blank=True)
-    email_source = models.CharField(max_length=255, blank=True)
-    email_reply_to = models.CharField(max_length=255, blank=True)
-    address_latitude = models.CharField(max_length=32, blank=True)
-    address_longitude = models.CharField(max_length=32, blank=True)
+    address = models.CharField(max_length=300, null=True, blank=True)
+    email_source = models.CharField(max_length=255, null=True, blank=True)
+    email_reply_to = models.CharField(max_length=255, null=True, blank=True)
+    address_latitude = models.CharField(max_length=32, null=True, blank=True)
+    address_longitude = models.CharField(max_length=32, null=True, blank=True)
     code_num = models.IntegerField(unique=True, null=True, blank=True)
 
     class Meta(ReadOnlyModel.Meta):
@@ -5497,12 +5498,12 @@ class BranchChange(ReadOnlyModel):
 
 class BranchMyuser(ReadOnlyModel):
     code = models.IntegerField(primary_key=True)
-    address = models.CharField(max_length=300, blank=True)
-    email_source = models.CharField(max_length=255, blank=True)
-    email_reply_to = models.CharField(max_length=255, blank=True)
-    address_latitude = models.CharField(max_length=32, blank=True)
-    address_longitude = models.CharField(max_length=32, blank=True)
-    name = models.CharField(max_length=255, blank=True)
+    address = models.CharField(max_length=300, null=True, blank=True)
+    email_source = models.CharField(max_length=255, null=True, blank=True)
+    email_reply_to = models.CharField(max_length=255, null=True, blank=True)
+    address_latitude = models.CharField(max_length=32, null=True, blank=True)
+    address_longitude = models.CharField(max_length=32, null=True, blank=True)
+    name = models.CharField(max_length=255, null=True, blank=True)
 
     class Meta(ReadOnlyModel.Meta):
         db_table = 'branch_myuser'
