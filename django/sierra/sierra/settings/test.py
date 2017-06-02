@@ -17,7 +17,7 @@ INSTALLED_APPS += (
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': ':memory:',
+        'NAME': 'django_sierra_test',
     },
     'sierra': {
         'ENGINE': 'django.db.backends.postgresql_psycopg2',

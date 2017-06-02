@@ -10,6 +10,7 @@ dump.rdb
 appendonly.aof
 celerybeat-schedule
 django_sierra
+django_sierra_test
 .cache/
 
 /pids.txt
