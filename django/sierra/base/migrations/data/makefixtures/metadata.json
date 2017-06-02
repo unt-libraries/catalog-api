@@ -121,5 +121,41 @@
   },
   {
     "model": "base.ItemStatusPropertyMyuser"
+  },
+  {
+    "model": "base.PtypeProperty"
+  },
+  {
+    "model": "base.PtypePropertyName"
+  },
+  {
+    "model": "base.PtypePropertyMyuser"
+  },
+  {
+    "model": "base.PtypePropertyCategory"
+  },
+  {
+    "model": "base.PtypePropertyCategoryName"
+  },
+  {
+    "model": "base.PtypePropertyCategoryMyuser"
+  },
+  {
+    "model": "base.MblockProperty"
+  },
+  {
+    "model": "base.MblockPropertyName"
+  },
+  {
+    "model": "base.MblockPropertyMyuser"
+  },
+  {
+    "model": "base.NotificationMediumProperty"
+  },
+  {
+    "model": "base.NotificationMediumPropertyName"
+  },
+  {
+    "model": "base.NotificationMediumPropertyMyuser"
   }
 ]

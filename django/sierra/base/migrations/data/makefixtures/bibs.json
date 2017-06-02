@@ -139,8 +139,7 @@
         "holding_record", 
         "holdingrecorditemrecordlink_set", 
         "item_record", 
-        "location", 
-        "branch"
+        "location"
       ], 
       [
         "bibrecordholdingrecordlink_set", 
@@ -148,8 +147,7 @@
         "holdingrecorditemrecordlink_set", 
         "item_record", 
         "location", 
-        "parent_location", 
-        "branch"
+        "parent_location"
       ], 
       [
         "bibrecordholdingrecordlink_set", 
@@ -164,6 +162,40 @@
         "holdingrecorditemrecordlink_set", 
         "item_record", 
         "checkout_statistic_group"
+      ], 
+      [
+        "bibrecordholdingrecordlink_set",
+        "holding_record",
+        "holdingrecorditemrecordlink_set",
+        "item_record",
+        "last_patron_record",
+        "record_metadata",
+        "record_type"
+      ],
+      [
+        "bibrecordholdingrecordlink_set",
+        "holding_record",
+        "holdingrecorditemrecordlink_set",
+        "item_record",
+        "last_patron_record",
+        "ptype",
+        "ptype_property_category"
+      ],
+      [
+        "bibrecordholdingrecordlink_set",
+        "holding_record",
+        "holdingrecorditemrecordlink_set",
+        "item_record",
+        "last_patron_record",
+        "mblock"
+      ],
+      [
+        "bibrecordholdingrecordlink_set",
+        "holding_record",
+        "holdingrecorditemrecordlink_set",
+        "item_record",
+        "last_patron_record",
+        "notification_medium"
       ], 
       [
         "bibrecordholdingrecordlink_set", 
@@ -209,8 +241,7 @@
         "holding_record", 
         "holdingrecorditemrecordlink_set", 
         "item_record", 
-        "save_location", 
-        "branch"
+        "save_location"
       ], 
       [
         "bibrecordholdingrecordlink_set", 
@@ -218,8 +249,14 @@
         "holdingrecorditemrecordlink_set", 
         "item_record", 
         "save_location", 
-        "parent_location", 
-        "branch"
+        "parent_location"
+      ], 
+      [
+        "bibrecordholdingrecordlink_set", 
+        "holding_record", 
+        "holdingrecorditemrecordlink_set", 
+        "item_record", 
+        "old_location"
       ], 
       [
         "bibrecordholdingrecordlink_set", 
@@ -227,16 +264,7 @@
         "holdingrecorditemrecordlink_set", 
         "item_record", 
         "old_location", 
-        "branch"
-      ], 
-      [
-        "bibrecordholdingrecordlink_set", 
-        "holding_record", 
-        "holdingrecorditemrecordlink_set", 
-        "item_record", 
-        "old_location", 
-        "parent_location", 
-        "branch"
+        "parent_location"
       ], 
       [
         "bibrecordholdingrecordlink_set", 
@@ -342,16 +370,14 @@
         "bibrecordholdingrecordlink_set", 
         "holding_record", 
         "holdingrecordlocation_set", 
-        "location", 
-        "branch"
+        "location"
       ], 
       [
         "bibrecordholdingrecordlink_set", 
         "holding_record", 
         "holdingrecordlocation_set", 
         "location", 
-        "parent_location", 
-        "branch"
+        "parent_location"
       ], 
       [
         "bibrecorditemrecordlink_set", 
@@ -410,15 +436,13 @@
       [
         "bibrecorditemrecordlink_set", 
         "item_record", 
-        "location", 
-        "branch"
+        "location"
       ], 
       [
         "bibrecorditemrecordlink_set", 
         "item_record", 
         "location", 
-        "parent_location", 
-        "branch"
+        "parent_location"
       ], 
       [
         "bibrecorditemrecordlink_set", 
@@ -430,6 +454,32 @@
         "item_record", 
         "checkout_statistic_group"
       ], 
+      [
+        "bibrecorditemrecordlink_set",
+        "item_record",
+        "last_patron_record",
+        "record_metadata",
+        "record_type"
+      ],
+      [
+        "bibrecorditemrecordlink_set",
+        "item_record",
+        "last_patron_record",
+        "ptype",
+        "ptype_property_category"
+      ],
+      [
+        "bibrecorditemrecordlink_set",
+        "item_record",
+        "last_patron_record",
+        "mblock"
+      ],
+      [
+        "bibrecorditemrecordlink_set",
+        "item_record",
+        "last_patron_record",
+        "notification_medium"
+      ],
       [
         "bibrecorditemrecordlink_set", 
         "item_record", 
@@ -462,28 +512,24 @@
       [
         "bibrecorditemrecordlink_set", 
         "item_record", 
-        "save_location", 
-        "branch"
+        "save_location"
       ], 
       [
         "bibrecorditemrecordlink_set", 
         "item_record", 
         "save_location", 
-        "parent_location", 
-        "branch"
+        "parent_location"
+      ], 
+      [
+        "bibrecorditemrecordlink_set", 
+        "item_record", 
+        "old_location"
       ], 
       [
         "bibrecorditemrecordlink_set", 
         "item_record", 
         "old_location", 
-        "branch"
-      ], 
-      [
-        "bibrecorditemrecordlink_set", 
-        "item_record", 
-        "old_location", 
-        "parent_location", 
-        "branch"
+        "parent_location"
       ], 
       [
         "bibrecorditemrecordlink_set", 
@@ -597,14 +643,12 @@
       ], 
       [
         "bibrecordlocation_set", 
-        "location", 
-        "branch"
+        "location"
       ], 
       [
         "bibrecordlocation_set", 
         "location", 
-        "parent_location", 
-        "branch"
+        "parent_location"
       ],
       [
         "bibrecordproperty_set",

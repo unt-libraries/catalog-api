@@ -27677,24 +27677,24 @@
 },
 {
   "fields": {
-    "email_source": "circ@unt.edu",
+    "email_source": "example@example.edu",
     "code_num": 1,
-    "address_longitude": "-94.5978767",
-    "email_reply_to": "circ@unt.edu",
-    "address": "University of North Texas$LIBRARIES$1155 Union Circle #305190$Denton, TX 76203",
-    "address_latitude": "39.1023995"
+    "address_longitude": "-97.1331",
+    "email_reply_to": "example@example.edu",
+    "address": "University of North Texas$LIBRARIES$12345 Example Lane$Denton, TX 76203",
+    "address_latitude": "33.2148"
   },
   "model": "base.branch",
   "pk": 1
 },
 {
   "fields": {
-    "email_source": "Media.Library@unt.edu",
+    "email_source": "media@example.edu",
     "code_num": 2,
-    "address_longitude": "-83.9426698",
-    "email_reply_to": "Media.Library@unt.edu",
-    "address": "University of North Texas$LIBRARIES$1155 Union Circle #305190$Denton, TX 76203",
-    "address_latitude": "34.0820025"
+    "address_longitude": "-97.1331",
+    "email_reply_to": "media@example.edu",
+    "address": "University of North Texas$LIBRARIES$12345 Example Lane$Denton, TX 76203",
+    "address_latitude": "33.2148"
   },
   "model": "base.branch",
   "pk": 2
@@ -40047,6 +40047,1078 @@
     "name": "CLMS RETD"
   },
   "model": "base.itemstatuspropertymyuser",
+  "pk": "z"
+},
+{
+  "fields": {
+    "tagging_allowed": false,
+    "is_comment_auto_approved": false,
+    "display_order": 0,
+    "ptype_property_category": null,
+    "value": 1,
+    "is_force_right_result_exact_allowed": false
+  },
+  "model": "base.ptypeproperty",
+  "pk": 2
+},
+{
+  "fields": {
+    "tagging_allowed": false,
+    "is_comment_auto_approved": false,
+    "display_order": 1,
+    "ptype_property_category": null,
+    "value": 2,
+    "is_force_right_result_exact_allowed": false
+  },
+  "model": "base.ptypeproperty",
+  "pk": 3
+},
+{
+  "fields": {
+    "tagging_allowed": false,
+    "is_comment_auto_approved": false,
+    "display_order": 2,
+    "ptype_property_category": null,
+    "value": 3,
+    "is_force_right_result_exact_allowed": false
+  },
+  "model": "base.ptypeproperty",
+  "pk": 4
+},
+{
+  "fields": {
+    "tagging_allowed": false,
+    "is_comment_auto_approved": false,
+    "display_order": 3,
+    "ptype_property_category": null,
+    "value": 4,
+    "is_force_right_result_exact_allowed": false
+  },
+  "model": "base.ptypeproperty",
+  "pk": 5
+},
+{
+  "fields": {
+    "tagging_allowed": false,
+    "is_comment_auto_approved": false,
+    "display_order": 4,
+    "ptype_property_category": null,
+    "value": 5,
+    "is_force_right_result_exact_allowed": false
+  },
+  "model": "base.ptypeproperty",
+  "pk": 6
+},
+{
+  "fields": {
+    "tagging_allowed": false,
+    "is_comment_auto_approved": false,
+    "display_order": 5,
+    "ptype_property_category": null,
+    "value": 6,
+    "is_force_right_result_exact_allowed": false
+  },
+  "model": "base.ptypeproperty",
+  "pk": 7
+},
+{
+  "fields": {
+    "tagging_allowed": true,
+    "is_comment_auto_approved": false,
+    "display_order": 6,
+    "ptype_property_category": null,
+    "value": 7,
+    "is_force_right_result_exact_allowed": false
+  },
+  "model": "base.ptypeproperty",
+  "pk": 8
+},
+{
+  "fields": {
+    "tagging_allowed": false,
+    "is_comment_auto_approved": false,
+    "display_order": 7,
+    "ptype_property_category": null,
+    "value": 9,
+    "is_force_right_result_exact_allowed": false
+  },
+  "model": "base.ptypeproperty",
+  "pk": 10
+},
+{
+  "fields": {
+    "tagging_allowed": false,
+    "is_comment_auto_approved": false,
+    "display_order": 8,
+    "ptype_property_category": null,
+    "value": 11,
+    "is_force_right_result_exact_allowed": false
+  },
+  "model": "base.ptypeproperty",
+  "pk": 12
+},
+{
+  "fields": {
+    "tagging_allowed": false,
+    "is_comment_auto_approved": false,
+    "display_order": 9,
+    "ptype_property_category": null,
+    "value": 13,
+    "is_force_right_result_exact_allowed": false
+  },
+  "model": "base.ptypeproperty",
+  "pk": 14
+},
+{
+  "fields": {
+    "tagging_allowed": false,
+    "is_comment_auto_approved": false,
+    "display_order": 10,
+    "ptype_property_category": null,
+    "value": 14,
+    "is_force_right_result_exact_allowed": false
+  },
+  "model": "base.ptypeproperty",
+  "pk": 15
+},
+{
+  "fields": {
+    "tagging_allowed": false,
+    "is_comment_auto_approved": false,
+    "display_order": 11,
+    "ptype_property_category": null,
+    "value": 15,
+    "is_force_right_result_exact_allowed": false
+  },
+  "model": "base.ptypeproperty",
+  "pk": 16
+},
+{
+  "fields": {
+    "tagging_allowed": false,
+    "is_comment_auto_approved": false,
+    "display_order": 12,
+    "ptype_property_category": null,
+    "value": 16,
+    "is_force_right_result_exact_allowed": false
+  },
+  "model": "base.ptypeproperty",
+  "pk": 17
+},
+{
+  "fields": {
+    "tagging_allowed": false,
+    "is_comment_auto_approved": false,
+    "display_order": 13,
+    "ptype_property_category": null,
+    "value": 17,
+    "is_force_right_result_exact_allowed": false
+  },
+  "model": "base.ptypeproperty",
+  "pk": 18
+},
+{
+  "fields": {
+    "tagging_allowed": false,
+    "is_comment_auto_approved": false,
+    "display_order": 14,
+    "ptype_property_category": null,
+    "value": 18,
+    "is_force_right_result_exact_allowed": false
+  },
+  "model": "base.ptypeproperty",
+  "pk": 19
+},
+{
+  "fields": {
+    "tagging_allowed": false,
+    "is_comment_auto_approved": false,
+    "display_order": 15,
+    "ptype_property_category": null,
+    "value": 19,
+    "is_force_right_result_exact_allowed": false
+  },
+  "model": "base.ptypeproperty",
+  "pk": 20
+},
+{
+  "fields": {
+    "tagging_allowed": false,
+    "is_comment_auto_approved": false,
+    "display_order": 16,
+    "ptype_property_category": null,
+    "value": 20,
+    "is_force_right_result_exact_allowed": false
+  },
+  "model": "base.ptypeproperty",
+  "pk": 21
+},
+{
+  "fields": {
+    "tagging_allowed": false,
+    "is_comment_auto_approved": false,
+    "display_order": 17,
+    "ptype_property_category": null,
+    "value": 25,
+    "is_force_right_result_exact_allowed": false
+  },
+  "model": "base.ptypeproperty",
+  "pk": 26
+},
+{
+  "fields": {
+    "tagging_allowed": false,
+    "is_comment_auto_approved": false,
+    "display_order": 18,
+    "ptype_property_category": null,
+    "value": 31,
+    "is_force_right_result_exact_allowed": false
+  },
+  "model": "base.ptypeproperty",
+  "pk": 32
+},
+{
+  "fields": {
+    "tagging_allowed": false,
+    "is_comment_auto_approved": false,
+    "display_order": 19,
+    "ptype_property_category": null,
+    "value": 35,
+    "is_force_right_result_exact_allowed": false
+  },
+  "model": "base.ptypeproperty",
+  "pk": 36
+},
+{
+  "fields": {
+    "tagging_allowed": false,
+    "is_comment_auto_approved": false,
+    "display_order": 20,
+    "ptype_property_category": null,
+    "value": 40,
+    "is_force_right_result_exact_allowed": false
+  },
+  "model": "base.ptypeproperty",
+  "pk": 41
+},
+{
+  "fields": {
+    "tagging_allowed": false,
+    "is_comment_auto_approved": false,
+    "display_order": 21,
+    "ptype_property_category": null,
+    "value": 41,
+    "is_force_right_result_exact_allowed": false
+  },
+  "model": "base.ptypeproperty",
+  "pk": 42
+},
+{
+  "fields": {
+    "tagging_allowed": true,
+    "is_comment_auto_approved": false,
+    "display_order": 22,
+    "ptype_property_category": null,
+    "value": 45,
+    "is_force_right_result_exact_allowed": false
+  },
+  "model": "base.ptypeproperty",
+  "pk": 46
+},
+{
+  "fields": {
+    "iii_language": 1,
+    "description": "Faculty"
+  },
+  "model": "base.ptypepropertyname",
+  "pk": 2
+},
+{
+  "fields": {
+    "iii_language": 1,
+    "description": "Masters"
+  },
+  "model": "base.ptypepropertyname",
+  "pk": 3
+},
+{
+  "fields": {
+    "iii_language": 1,
+    "description": "Undergraduate"
+  },
+  "model": "base.ptypepropertyname",
+  "pk": 4
+},
+{
+  "fields": {
+    "iii_language": 1,
+    "description": "Other"
+  },
+  "model": "base.ptypepropertyname",
+  "pk": 5
+},
+{
+  "fields": {
+    "iii_language": 1,
+    "description": "Staff"
+  },
+  "model": "base.ptypepropertyname",
+  "pk": 6
+},
+{
+  "fields": {
+    "iii_language": 1,
+    "description": "ILL"
+  },
+  "model": "base.ptypepropertyname",
+  "pk": 7
+},
+{
+  "fields": {
+    "iii_language": 1,
+    "description": "Law Students"
+  },
+  "model": "base.ptypepropertyname",
+  "pk": 8
+},
+{
+  "fields": {
+    "iii_language": 1,
+    "description": "Office"
+  },
+  "model": "base.ptypepropertyname",
+  "pk": 10
+},
+{
+  "fields": {
+    "iii_language": 1,
+    "description": "Ph.D Students"
+  },
+  "model": "base.ptypepropertyname",
+  "pk": 12
+},
+{
+  "fields": {
+    "iii_language": 1,
+    "description": "Honors Students"
+  },
+  "model": "base.ptypepropertyname",
+  "pk": 14
+},
+{
+  "fields": {
+    "iii_language": 1,
+    "description": "Federation Faculty"
+  },
+  "model": "base.ptypepropertyname",
+  "pk": 15
+},
+{
+  "fields": {
+    "iii_language": 1,
+    "description": "Federation"
+  },
+  "model": "base.ptypepropertyname",
+  "pk": 16
+},
+{
+  "fields": {
+    "iii_language": 1,
+    "description": "TAMS"
+  },
+  "model": "base.ptypepropertyname",
+  "pk": 17
+},
+{
+  "fields": {
+    "iii_language": 1,
+    "description": "UNTHSC-FW"
+  },
+  "model": "base.ptypepropertyname",
+  "pk": 18
+},
+{
+  "fields": {
+    "iii_language": 1,
+    "description": "IELI"
+  },
+  "model": "base.ptypepropertyname",
+  "pk": 19
+},
+{
+  "fields": {
+    "iii_language": 1,
+    "description": "UNTHSC-FW Faculty"
+  },
+  "model": "base.ptypepropertyname",
+  "pk": 20
+},
+{
+  "fields": {
+    "iii_language": 1,
+    "description": "TexShare Academic"
+  },
+  "model": "base.ptypepropertyname",
+  "pk": 21
+},
+{
+  "fields": {
+    "iii_language": 1,
+    "description": "TexShare Public"
+  },
+  "model": "base.ptypepropertyname",
+  "pk": 26
+},
+{
+  "fields": {
+    "iii_language": 1,
+    "description": "Library Faculty"
+  },
+  "model": "base.ptypepropertyname",
+  "pk": 32
+},
+{
+  "fields": {
+    "iii_language": 1,
+    "description": "Library Staff"
+  },
+  "model": "base.ptypepropertyname",
+  "pk": 36
+},
+{
+  "fields": {
+    "iii_language": 1,
+    "description": "Retired Faculty"
+  },
+  "model": "base.ptypepropertyname",
+  "pk": 41
+},
+{
+  "fields": {
+    "iii_language": 1,
+    "description": "Retired Staff"
+  },
+  "model": "base.ptypepropertyname",
+  "pk": 42
+},
+{
+  "fields": {
+    "iii_language": 1,
+    "description": "Temporary Library Staff"
+  },
+  "model": "base.ptypepropertyname",
+  "pk": 46
+},
+{
+  "fields": {
+    "tagging_allowed": false,
+    "name": "Faculty",
+    "is_comment_auto_approved": false,
+    "display_order": 0,
+    "ptype_property_category": null,
+    "is_force_right_result_exact_allowed": false
+  },
+  "model": "base.ptypepropertymyuser",
+  "pk": 1
+},
+{
+  "fields": {
+    "tagging_allowed": false,
+    "name": "Masters",
+    "is_comment_auto_approved": false,
+    "display_order": 1,
+    "ptype_property_category": null,
+    "is_force_right_result_exact_allowed": false
+  },
+  "model": "base.ptypepropertymyuser",
+  "pk": 2
+},
+{
+  "fields": {
+    "tagging_allowed": false,
+    "name": "Undergraduate",
+    "is_comment_auto_approved": false,
+    "display_order": 2,
+    "ptype_property_category": null,
+    "is_force_right_result_exact_allowed": false
+  },
+  "model": "base.ptypepropertymyuser",
+  "pk": 3
+},
+{
+  "fields": {
+    "tagging_allowed": false,
+    "name": "Other",
+    "is_comment_auto_approved": false,
+    "display_order": 3,
+    "ptype_property_category": null,
+    "is_force_right_result_exact_allowed": false
+  },
+  "model": "base.ptypepropertymyuser",
+  "pk": 4
+},
+{
+  "fields": {
+    "tagging_allowed": false,
+    "name": "Staff",
+    "is_comment_auto_approved": false,
+    "display_order": 4,
+    "ptype_property_category": null,
+    "is_force_right_result_exact_allowed": false
+  },
+  "model": "base.ptypepropertymyuser",
+  "pk": 5
+},
+{
+  "fields": {
+    "tagging_allowed": false,
+    "name": "ILL",
+    "is_comment_auto_approved": false,
+    "display_order": 5,
+    "ptype_property_category": null,
+    "is_force_right_result_exact_allowed": false
+  },
+  "model": "base.ptypepropertymyuser",
+  "pk": 6
+},
+{
+  "fields": {
+    "tagging_allowed": true,
+    "name": "Law Students",
+    "is_comment_auto_approved": false,
+    "display_order": 6,
+    "ptype_property_category": null,
+    "is_force_right_result_exact_allowed": false
+  },
+  "model": "base.ptypepropertymyuser",
+  "pk": 7
+},
+{
+  "fields": {
+    "tagging_allowed": false,
+    "name": "Office",
+    "is_comment_auto_approved": false,
+    "display_order": 7,
+    "ptype_property_category": null,
+    "is_force_right_result_exact_allowed": false
+  },
+  "model": "base.ptypepropertymyuser",
+  "pk": 9
+},
+{
+  "fields": {
+    "tagging_allowed": false,
+    "name": "Ph.D Students",
+    "is_comment_auto_approved": false,
+    "display_order": 8,
+    "ptype_property_category": null,
+    "is_force_right_result_exact_allowed": false
+  },
+  "model": "base.ptypepropertymyuser",
+  "pk": 11
+},
+{
+  "fields": {
+    "tagging_allowed": false,
+    "name": "Honors Students",
+    "is_comment_auto_approved": false,
+    "display_order": 9,
+    "ptype_property_category": null,
+    "is_force_right_result_exact_allowed": false
+  },
+  "model": "base.ptypepropertymyuser",
+  "pk": 13
+},
+{
+  "fields": {
+    "tagging_allowed": false,
+    "name": "Federation Faculty",
+    "is_comment_auto_approved": false,
+    "display_order": 10,
+    "ptype_property_category": null,
+    "is_force_right_result_exact_allowed": false
+  },
+  "model": "base.ptypepropertymyuser",
+  "pk": 14
+},
+{
+  "fields": {
+    "tagging_allowed": false,
+    "name": "Federation",
+    "is_comment_auto_approved": false,
+    "display_order": 11,
+    "ptype_property_category": null,
+    "is_force_right_result_exact_allowed": false
+  },
+  "model": "base.ptypepropertymyuser",
+  "pk": 15
+},
+{
+  "fields": {
+    "tagging_allowed": false,
+    "name": "TAMS",
+    "is_comment_auto_approved": false,
+    "display_order": 12,
+    "ptype_property_category": null,
+    "is_force_right_result_exact_allowed": false
+  },
+  "model": "base.ptypepropertymyuser",
+  "pk": 16
+},
+{
+  "fields": {
+    "tagging_allowed": false,
+    "name": "UNTHSC-FW",
+    "is_comment_auto_approved": false,
+    "display_order": 13,
+    "ptype_property_category": null,
+    "is_force_right_result_exact_allowed": false
+  },
+  "model": "base.ptypepropertymyuser",
+  "pk": 17
+},
+{
+  "fields": {
+    "tagging_allowed": false,
+    "name": "IELI",
+    "is_comment_auto_approved": false,
+    "display_order": 14,
+    "ptype_property_category": null,
+    "is_force_right_result_exact_allowed": false
+  },
+  "model": "base.ptypepropertymyuser",
+  "pk": 18
+},
+{
+  "fields": {
+    "tagging_allowed": false,
+    "name": "UNTHSC-FW Faculty",
+    "is_comment_auto_approved": false,
+    "display_order": 15,
+    "ptype_property_category": null,
+    "is_force_right_result_exact_allowed": false
+  },
+  "model": "base.ptypepropertymyuser",
+  "pk": 19
+},
+{
+  "fields": {
+    "tagging_allowed": false,
+    "name": "TexShare Academic",
+    "is_comment_auto_approved": false,
+    "display_order": 16,
+    "ptype_property_category": null,
+    "is_force_right_result_exact_allowed": false
+  },
+  "model": "base.ptypepropertymyuser",
+  "pk": 20
+},
+{
+  "fields": {
+    "tagging_allowed": false,
+    "name": "TexShare Public",
+    "is_comment_auto_approved": false,
+    "display_order": 17,
+    "ptype_property_category": null,
+    "is_force_right_result_exact_allowed": false
+  },
+  "model": "base.ptypepropertymyuser",
+  "pk": 25
+},
+{
+  "fields": {
+    "tagging_allowed": false,
+    "name": "Library Faculty",
+    "is_comment_auto_approved": false,
+    "display_order": 18,
+    "ptype_property_category": null,
+    "is_force_right_result_exact_allowed": false
+  },
+  "model": "base.ptypepropertymyuser",
+  "pk": 31
+},
+{
+  "fields": {
+    "tagging_allowed": false,
+    "name": "Library Staff",
+    "is_comment_auto_approved": false,
+    "display_order": 19,
+    "ptype_property_category": null,
+    "is_force_right_result_exact_allowed": false
+  },
+  "model": "base.ptypepropertymyuser",
+  "pk": 35
+},
+{
+  "fields": {
+    "tagging_allowed": false,
+    "name": "Retired Faculty",
+    "is_comment_auto_approved": false,
+    "display_order": 20,
+    "ptype_property_category": null,
+    "is_force_right_result_exact_allowed": false
+  },
+  "model": "base.ptypepropertymyuser",
+  "pk": 40
+},
+{
+  "fields": {
+    "tagging_allowed": false,
+    "name": "Retired Staff",
+    "is_comment_auto_approved": false,
+    "display_order": 21,
+    "ptype_property_category": null,
+    "is_force_right_result_exact_allowed": false
+  },
+  "model": "base.ptypepropertymyuser",
+  "pk": 41
+},
+{
+  "fields": {
+    "tagging_allowed": true,
+    "name": "Temporary Library Staff",
+    "is_comment_auto_approved": false,
+    "display_order": 22,
+    "ptype_property_category": null,
+    "is_force_right_result_exact_allowed": false
+  },
+  "model": "base.ptypepropertymyuser",
+  "pk": 45
+},
+{
+  "fields": {
+    "display_order": 8,
+    "code": "w"
+  },
+  "model": "base.mblockproperty",
+  "pk": 1
+},
+{
+  "fields": {
+    "display_order": 3,
+    "code": "g"
+  },
+  "model": "base.mblockproperty",
+  "pk": 2
+},
+{
+  "fields": {
+    "display_order": 4,
+    "code": "e"
+  },
+  "model": "base.mblockproperty",
+  "pk": 3
+},
+{
+  "fields": {
+    "display_order": 7,
+    "code": "t"
+  },
+  "model": "base.mblockproperty",
+  "pk": 4
+},
+{
+  "fields": {
+    "display_order": 2,
+    "code": "b"
+  },
+  "model": "base.mblockproperty",
+  "pk": 5
+},
+{
+  "fields": {
+    "display_order": 1,
+    "code": "a"
+  },
+  "model": "base.mblockproperty",
+  "pk": 6
+},
+{
+  "fields": {
+    "display_order": 6,
+    "code": "m"
+  },
+  "model": "base.mblockproperty",
+  "pk": 7
+},
+{
+  "fields": {
+    "display_order": 9,
+    "code": "z"
+  },
+  "model": "base.mblockproperty",
+  "pk": 8
+},
+{
+  "fields": {
+    "display_order": 0,
+    "code": "-"
+  },
+  "model": "base.mblockproperty",
+  "pk": 9
+},
+{
+  "fields": {
+    "display_order": 5,
+    "code": "i"
+  },
+  "model": "base.mblockproperty",
+  "pk": 10
+},
+{
+  "fields": {
+    "iii_language": 1,
+    "name": "TWU BLOCK"
+  },
+  "model": "base.mblockpropertyname",
+  "pk": 1
+},
+{
+  "fields": {
+    "iii_language": 1,
+    "name": "GENERAL BLOCK"
+  },
+  "model": "base.mblockpropertyname",
+  "pk": 2
+},
+{
+  "fields": {
+    "iii_language": 1,
+    "name": "TAMC BLOCK"
+  },
+  "model": "base.mblockpropertyname",
+  "pk": 3
+},
+{
+  "fields": {
+    "iii_language": 1,
+    "name": "TEXSHARE BLOCK"
+  },
+  "model": "base.mblockpropertyname",
+  "pk": 4
+},
+{
+  "fields": {
+    "iii_language": 1,
+    "name": "BURSAR'S BLOCK"
+  },
+  "model": "base.mblockpropertyname",
+  "pk": 5
+},
+{
+  "fields": {
+    "iii_language": 1,
+    "name": "ADDRESS BLOCK"
+  },
+  "model": "base.mblockpropertyname",
+  "pk": 6
+},
+{
+  "fields": {
+    "iii_language": 1,
+    "name": "TCOM BLOCK"
+  },
+  "model": "base.mblockpropertyname",
+  "pk": 7
+},
+{
+  "fields": {
+    "iii_language": 1,
+    "name": "EIS BLOCK"
+  },
+  "model": "base.mblockpropertyname",
+  "pk": 8
+},
+{
+  "fields": {
+    "iii_language": 1,
+    "name": "---"
+  },
+  "model": "base.mblockpropertyname",
+  "pk": 9
+},
+{
+  "fields": {
+    "iii_language": 1,
+    "name": "ILL BLOCK"
+  },
+  "model": "base.mblockpropertyname",
+  "pk": 10
+},
+{
+  "fields": {
+    "display_order": 0,
+    "name": "---"
+  },
+  "model": "base.mblockpropertymyuser",
+  "pk": "-"
+},
+{
+  "fields": {
+    "display_order": 1,
+    "name": "ADDRESS BLOCK"
+  },
+  "model": "base.mblockpropertymyuser",
+  "pk": "a"
+},
+{
+  "fields": {
+    "display_order": 2,
+    "name": "BURSAR'S BLOCK"
+  },
+  "model": "base.mblockpropertymyuser",
+  "pk": "b"
+},
+{
+  "fields": {
+    "display_order": 4,
+    "name": "TAMC BLOCK"
+  },
+  "model": "base.mblockpropertymyuser",
+  "pk": "e"
+},
+{
+  "fields": {
+    "display_order": 3,
+    "name": "GENERAL BLOCK"
+  },
+  "model": "base.mblockpropertymyuser",
+  "pk": "g"
+},
+{
+  "fields": {
+    "display_order": 5,
+    "name": "ILL BLOCK"
+  },
+  "model": "base.mblockpropertymyuser",
+  "pk": "i"
+},
+{
+  "fields": {
+    "display_order": 6,
+    "name": "TCOM BLOCK"
+  },
+  "model": "base.mblockpropertymyuser",
+  "pk": "m"
+},
+{
+  "fields": {
+    "display_order": 7,
+    "name": "TEXSHARE BLOCK"
+  },
+  "model": "base.mblockpropertymyuser",
+  "pk": "t"
+},
+{
+  "fields": {
+    "display_order": 8,
+    "name": "TWU BLOCK"
+  },
+  "model": "base.mblockpropertymyuser",
+  "pk": "w"
+},
+{
+  "fields": {
+    "display_order": 9,
+    "name": "EIS BLOCK"
+  },
+  "model": "base.mblockpropertymyuser",
+  "pk": "z"
+},
+{
+  "fields": {
+    "display_order": 2,
+    "code": "a"
+  },
+  "model": "base.notificationmediumproperty",
+  "pk": 1
+},
+{
+  "fields": {
+    "display_order": 3,
+    "code": "p"
+  },
+  "model": "base.notificationmediumproperty",
+  "pk": 2
+},
+{
+  "fields": {
+    "display_order": 1,
+    "code": "z"
+  },
+  "model": "base.notificationmediumproperty",
+  "pk": 3
+},
+{
+  "fields": {
+    "display_order": 0,
+    "code": "-"
+  },
+  "model": "base.notificationmediumproperty",
+  "pk": 4
+},
+{
+  "fields": {
+    "iii_language": 1,
+    "name": "PRINT"
+  },
+  "model": "base.notificationmediumpropertyname",
+  "pk": 1
+},
+{
+  "fields": {
+    "iii_language": 1,
+    "name": "PHONE"
+  },
+  "model": "base.notificationmediumpropertyname",
+  "pk": 2
+},
+{
+  "fields": {
+    "iii_language": 1,
+    "name": "EMAIL"
+  },
+  "model": "base.notificationmediumpropertyname",
+  "pk": 3
+},
+{
+  "fields": {
+    "iii_language": 1,
+    "name": "NONE"
+  },
+  "model": "base.notificationmediumpropertyname",
+  "pk": 4
+},
+{
+  "fields": {
+    "display_order": 0,
+    "name": "NONE"
+  },
+  "model": "base.notificationmediumpropertymyuser",
+  "pk": "-"
+},
+{
+  "fields": {
+    "display_order": 2,
+    "name": "PRINT"
+  },
+  "model": "base.notificationmediumpropertymyuser",
+  "pk": "a"
+},
+{
+  "fields": {
+    "display_order": 3,
+    "name": "PHONE"
+  },
+  "model": "base.notificationmediumpropertymyuser",
+  "pk": "p"
+},
+{
+  "fields": {
+    "display_order": 1,
+    "name": "EMAIL"
+  },
+  "model": "base.notificationmediumpropertymyuser",
   "pk": "z"
 }
 ]

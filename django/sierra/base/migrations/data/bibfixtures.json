@@ -9,6 +9,14 @@
 },
 {
   "fields": {
+    "code": "p",
+    "tag": "'"
+  },
+  "model": "base.recordtype",
+  "pk": 7
+},
+{
+  "fields": {
     "code": "i",
     "tag": "&"
   },
@@ -112,6 +120,34 @@
   },
   "model": "base.recordmetadata",
   "pk": 450977234292
+},
+{
+  "fields": {
+    "previous_last_updated_gmt": "2017-04-20T21:50:47Z",
+    "campus_code": "",
+    "deletion_date_gmt": null,
+    "record_last_updated_gmt": "2017-04-20T21:50:50Z",
+    "num_revisions": 318,
+    "record_type": "p",
+    "record_num": 379637,
+    "creation_date_gmt": "2008-12-08T21:05:00Z"
+  },
+  "model": "base.recordmetadata",
+  "pk": 481036716789
+},
+{
+  "fields": {
+    "previous_last_updated_gmt": "2017-06-01T12:43:34Z",
+    "campus_code": "",
+    "deletion_date_gmt": null,
+    "record_last_updated_gmt": "2017-06-02T12:50:56Z",
+    "num_revisions": 3549,
+    "record_type": "p",
+    "record_num": 416497,
+    "creation_date_gmt": "2011-01-21T14:54:00Z"
+  },
+  "model": "base.recordmetadata",
+  "pk": 481036753649
 },
 {
   "fields": {
@@ -931,30 +967,6 @@
 },
 {
   "fields": {
-    "email_source": "circ@unt.edu",
-    "code_num": 1,
-    "address_longitude": "-94.5978767",
-    "email_reply_to": "circ@unt.edu",
-    "address": "University of North Texas$LIBRARIES$1155 Union Circle #305190$Denton, TX 76203",
-    "address_latitude": "39.1023995"
-  },
-  "model": "base.branch",
-  "pk": 1
-},
-{
-  "fields": {
-    "email_source": "Media.Library@unt.edu",
-    "code_num": 2,
-    "address_longitude": "-83.9426698",
-    "email_reply_to": "Media.Library@unt.edu",
-    "address": "University of North Texas$LIBRARIES$1155 Union Circle #305190$Denton, TX 76203",
-    "address_latitude": "34.0820025"
-  },
-  "model": "base.branch",
-  "pk": 2
-},
-{
-  "fields": {
     "is_public": true,
     "code": "w",
     "is_requestable": true,
@@ -1091,6 +1103,122 @@
   },
   "model": "base.statisticgroup",
   "pk": 3
+},
+{
+  "fields": {
+    "tagging_allowed": false,
+    "is_comment_auto_approved": false,
+    "display_order": 2,
+    "ptype_property_category": null,
+    "value": 3,
+    "is_force_right_result_exact_allowed": false
+  },
+  "model": "base.ptypeproperty",
+  "pk": 4
+},
+{
+  "fields": {
+    "tagging_allowed": false,
+    "is_comment_auto_approved": false,
+    "display_order": 18,
+    "ptype_property_category": null,
+    "value": 31,
+    "is_force_right_result_exact_allowed": false
+  },
+  "model": "base.ptypeproperty",
+  "pk": 32
+},
+{
+  "fields": {
+    "display_order": 0,
+    "code": "-"
+  },
+  "model": "base.mblockproperty",
+  "pk": 9
+},
+{
+  "fields": {
+    "display_order": 0,
+    "code": "-"
+  },
+  "model": "base.notificationmediumproperty",
+  "pk": 4
+},
+{
+  "fields": {
+    "record_metadata": 481036716789,
+    "itema_count": 0,
+    "ptype": 3,
+    "registration_count": 0,
+    "attendance_total": 0,
+    "checkout_total": 177,
+    "mblock": "-",
+    "itemd_count": 0,
+    "highest_level_overdue_num": 0,
+    "renewal_total": 1,
+    "birth_date_gmt": null,
+    "activity_gmt": "2017-04-20T21:50:50Z",
+    "debit_amt": "0.000000",
+    "registration_total": 0,
+    "waitlist_count": 0,
+    "block_until_date_gmt": null,
+    "expiration_date_gmt": "2018-01-01T10:00:00Z",
+    "patron_message_code": " ",
+    "notification_medium": "-",
+    "home_library_code": "unt",
+    "checkout_count": 0,
+    "pcode3": 1,
+    "pcode2": "-",
+    "pcode1": "l",
+    "itemc_count": 0,
+    "pcode4": 0,
+    "claims_returned_total": 0,
+    "ill_checkout_total": 0,
+    "is_reading_history_opt_in": null,
+    "owed_amt": "0.000000",
+    "overdue_penalty_count": 0,
+    "itemb_count": 0
+  },
+  "model": "base.patronrecord",
+  "pk": 481036716789
+},
+{
+  "fields": {
+    "record_metadata": 481036753649,
+    "itema_count": 0,
+    "ptype": 31,
+    "registration_count": 0,
+    "attendance_total": 0,
+    "checkout_total": 138,
+    "mblock": "-",
+    "itemd_count": 0,
+    "highest_level_overdue_num": 0,
+    "renewal_total": 5,
+    "birth_date_gmt": null,
+    "activity_gmt": null,
+    "debit_amt": "0.000000",
+    "registration_total": 0,
+    "waitlist_count": 0,
+    "block_until_date_gmt": null,
+    "expiration_date_gmt": "2017-08-29T09:00:00Z",
+    "patron_message_code": " ",
+    "notification_medium": "-",
+    "home_library_code": "unt",
+    "checkout_count": 0,
+    "pcode3": 27,
+    "pcode2": "-",
+    "pcode1": "c",
+    "itemc_count": 0,
+    "pcode4": 0,
+    "claims_returned_total": 0,
+    "ill_checkout_total": 0,
+    "is_reading_history_opt_in": null,
+    "owed_amt": "0.000000",
+    "overdue_penalty_count": 0,
+    "itemb_count": 0
+  },
+  "model": "base.patronrecord",
+  "pk": 481036753649
 },
 {
   "fields": {
