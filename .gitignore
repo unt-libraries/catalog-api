@@ -2,6 +2,7 @@
 *.log
 *.log.*
 *.iml
+*.env
 
 secrets.json
 settings.json
