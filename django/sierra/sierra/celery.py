@@ -9,7 +9,7 @@ from celery import Celery
 from django.conf import settings
 
 # set the default Django settings module for the 'celery' program.
-dotenv.load_dotenv('{}/.env'.format(Path(__file__).ancestor(1)))
+dotenv.load_dotenv('{}/settings/.env'.format(Path(__file__).ancestor(1)))
 
 app = Celery('sierra')
 

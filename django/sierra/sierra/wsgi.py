@@ -23,7 +23,7 @@ import djcelery
 # via a .env settings file. If running multiple sites in the same mod_wsgi
 # process, use mod_wsgi daemon mode with each site in its own daemon process,
 # or use os.environ["DJANGO_SETTINGS_MODULE"] = "sierra.settings"
-dotenv.load_dotenv('{}/.env'.format(Path(__file__).ancestor(1)))
+dotenv.load_dotenv('{}/settings/.env'.format(Path(__file__).ancestor(1)))
 
 djcelery.setup_loader()
 
