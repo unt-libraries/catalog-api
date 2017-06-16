@@ -2,15 +2,11 @@
 import os
 import sys
 
-import ujson
+import dotenv
+
+from django.core.management import execute_from_command_line
 
 if __name__ == '__main__':
-    if os.environ.get('DJANGO_SETTINGS_MODULE', None) is None:
-        with open('sierra/settings/settings.json') as f:
-            local_settings = ujson.loads(f.read())
-        os.environ.setdefault('DJANGO_SETTINGS_MODULE', 
-                              local_settings.get('SETTINGS_MODULE'))
-
-    from django.core.management import execute_from_command_line
-
+    # Use dotenv to load env variables from a .env file
+    dotenv.load_dotenv('{}/.env'.format(Path(__file__).ancestor(1)))
     execute_from_command_line(sys.argv)

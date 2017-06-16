@@ -16,18 +16,14 @@ framework.
 import os
 from unipath import Path
 
-import ujson
+import dotenv
 import djcelery
 
-with open('{}/settings/settings.json'.format(Path(__file__).ancestor(1))) as f:
-    local_settings = ujson.loads(f.read())
-
-# We defer to a DJANGO_SETTINGS_MODULE already in the environment. This breaks
-# if running multiple sites in the same mod_wsgi process. To fix this, use
-# mod_wsgi daemon mode with each site in its own daemon process, or use
-# os.environ["DJANGO_SETTINGS_MODULE"] = "sierra.settings"
-os.environ.setdefault("DJANGO_SETTINGS_MODULE",
-                      local_settings['SETTINGS_MODULE'])
+# We defer to a DJANGO_SETTINGS_MODULE already in the environment, or set
+# via a .env settings file. If running multiple sites in the same mod_wsgi
+# process, use mod_wsgi daemon mode with each site in its own daemon process,
+# or use os.environ["DJANGO_SETTINGS_MODULE"] = "sierra.settings"
+dotenv.load_dotenv('{}/.env'.format(Path(__file__).ancestor(1)))
 
 djcelery.setup_loader()
 

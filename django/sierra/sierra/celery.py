@@ -3,17 +3,13 @@ from __future__ import absolute_import
 import os
 from unipath import Path
 
-import ujson
+import dotenv
 from celery import Celery
 
 from django.conf import settings
 
 # set the default Django settings module for the 'celery' program.
-with open('{}/settings/settings.json'.format(Path(__file__).ancestor(1))) as f:
-    local_settings = ujson.loads(f.read())
-
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 
-                      local_settings.get('SETTINGS_MODULE'))
+dotenv.load_dotenv('{}/.env'.format(Path(__file__).ancestor(1)))
 
 app = Celery('sierra')
 
