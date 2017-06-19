@@ -44,6 +44,8 @@ services:
 
   app:
     build: .
+    depends_on:
+      - default-db-dev
     volumes:
       - .:/project/catalog-api
     networks:
@@ -54,21 +56,40 @@ services:
 
   test:
     build: .
+    depends_on:
+      - default-db-test
+      - sierra-db-test
     volumes:
       - .:/project/catalog-api
     networks:
       - testing
-    entrypoint: py.test
+    entrypoint: wait-for-it.sh -t 0 default-db-test:3306 -- wait-for-it.sh -t 0 sierra-db-test:5432 -- py.test
 
-  manage:
+  manage-dev:
     build: .
+    depends_on:
+      - default-db-dev
     volumes:
       - .:/project/catalog-api
     networks:
-      - testing
       - development
     working_dir: /project/catalog-api/django/sierra
-    entrypoint: /project/catalog-api/django/sierra/manage.py
+    entrypoint: wait-for-it.sh -t 0 default-db-dev:3306 -- /project/catalog-api/django/sierra/manage.py
+
+  manage-test:
+    build: .
+    depends_on:
+      - default-db-test
+      - sierra-db-test
+    volumes:
+      - .:/project/catalog-api
+    networks:
+      - testing
+    working_dir: /project/catalog-api/django/sierra
+    environment:
+      - DJANGO_SETTINGS_MODULE=sierra.settings.test
+    entrypoint: wait-for-it.sh -t 0 default-db-test:3306 -- wait-for-it.sh -t 0 sierra-db-test:5432 -- /project/catalog-api/django/sierra/manage.py
+
 
 networks:
   development:
