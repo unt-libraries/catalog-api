@@ -72,11 +72,46 @@ services:
     networks:
       - testing
 
+  redis-celery:
+    image: redis:3.2
+    volumes:
+      - ./docker_data/redis-celery/data:/project/data
+      - ./docker_data/redis-celery/logs:/project/logs
+    ports:
+      - "${REDIS_CELERY_HOST:-127.0.0.1}:${REDIS_CELERY_PORT:-6379}:6379"
+    command: redis-server ${REDIS_CELERY_CONF_FILE:---dir /project/data --logfile /project/logs/log.txt --appendonly yes}
+    networks:
+      - testing
+      - development
+
+  redis-appdata-dev:
+    image: redis:3.2
+    volumes:
+      - ./docker_data/redis-appdata-dev/data:/project/data
+      - ./docker_data/redis-appdata-dev/logs:/project/logs
+    ports:
+      - "${REDIS_APPDATA_HOST:-127.0.0.1}:${REDIS_APPDATA_PORT:-6380}:6379"
+    command: redis-server ${REDIS_APPDATA_CONF_FILE:---dir /project/data --logfile /project/logs/log.txt --appendonly yes}
+    networks:
+      - development
+
+  redis-appdata-test:
+    image: redis:3.2
+    volumes:
+      - ./docker_data/redis-appdata-test/data:/project/data
+      - ./docker_data/redis-appdata-test/logs:/project/logs
+    ports:
+      - "${REDIS_APPDATA_HOST:-127.0.0.1}:${REDIS_APPDATA_PORT:-6380}:6379"
+    command: redis-server ${REDIS_APPDATA_CONF_FILE:---dir /project/data --logfile /project/logs/log.txt --appendonly yes}
+    networks:
+      - testing
+
   app:
     build: .
     depends_on:
       - default-db-dev
       - solr-dev
+      - redis-appdata-dev
     volumes:
       - .:/project/catalog-api
       - ./docker_data/app/logs:/project/logs
@@ -93,11 +128,12 @@ services:
       - default-db-test
       - sierra-db-test
       - solr-test
+      - redis-appdata-test
     volumes:
       - .:/project/catalog-api
     networks:
       - testing
-    entrypoint: wait-for-it.sh -t 0 default-db-test:3306 -- wait-for-it.sh -t 0 sierra-db-test:5432 -- wait-for-it.sh -t 0 solr-test:8983 -- py.test
+    entrypoint: wait-for-it.sh -t 30 default-db-test:3306 -- wait-for-it.sh -t 30 sierra-db-test:5432 -- wait-for-it.sh -t 30 solr-test:8983 -- wait-for-it.sh -t 30 redis-appdata-test:6379 -- py.test
 
   manage-dev:
     build: .
@@ -108,7 +144,7 @@ services:
     networks:
       - development
     working_dir: /project/catalog-api/django/sierra
-    entrypoint: wait-for-it.sh -t 0 default-db-dev:3306 -- /project/catalog-api/django/sierra/manage.py
+    entrypoint: wait-for-it.sh -t 30 default-db-dev:3306 -- /project/catalog-api/django/sierra/manage.py
 
   manage-test:
     build: .
@@ -122,7 +158,7 @@ services:
     working_dir: /project/catalog-api/django/sierra
     environment:
       - DJANGO_SETTINGS_MODULE=sierra.settings.test
-    entrypoint: wait-for-it.sh -t 0 default-db-test:3306 -- wait-for-it.sh -t 0 sierra-db-test:5432 -- /project/catalog-api/django/sierra/manage.py
+    entrypoint: wait-for-it.sh -t 30 default-db-test:3306 -- wait-for-it.sh -t 30 sierra-db-test:5432 -- /project/catalog-api/django/sierra/manage.py
 
 
 networks:
