@@ -44,7 +44,7 @@ DATABASES = {
 
 # CELERY settings
 REDIS_CELERY_PORT = get_env_variable('TEST_REDIS_CELERY_PORT', '6279')
-REDIS_CELERY_HOST = get_env_variable('TEST_REDIS_CELERY_HOST', 'localhost')
+REDIS_CELERY_HOST = get_env_variable('TEST_REDIS_CELERY_HOST', '127.0.0.1')
 redis_celery_url = 'redis://{}:{}/0'.format(REDIS_CELERY_HOST,
                                             REDIS_CELERY_PORT)
 BROKER_URL = redis_celery_url
@@ -52,14 +52,14 @@ CELERY_RESULT_BACKEND = redis_celery_url
 
 # Other Redis settings
 REDIS_CONNECTION = {
-    'host': get_env_variable('TEST_REDIS_APPDATA_HOST', 'localhost'),
+    'host': get_env_variable('TEST_REDIS_APPDATA_HOST', '127.0.0.1'),
     'port': get_env_variable('TEST_REDIS_APPDATA_PORT', '6280'),
     'db': get_env_variable('TEST_REDIS_APPDATA_DATABASE', 0)
 }
 
 # Solr settings
 SOLR_PORT = get_env_variable('TEST_SOLR_PORT', '8883')
-SOLR_HOST = get_env_variable('TEST_SOLR_HOST', 'localhost')
+SOLR_HOST = get_env_variable('TEST_SOLR_HOST', '127.0.0.1')
 solr_haystack_url = get_env_variable('SOLR_HAYSTACK_URL', 
                     'http://{}:{}/solr/haystack'.format(SOLR_HOST, SOLR_PORT))
 solr_bibdata_url = get_env_variable('SOLR_BIBDATA_URL', 
