@@ -21,6 +21,9 @@ RUN pip install -r /project/requirements/requirements-base.txt
 RUN pip install -r /project/requirements/requirements-dev.txt
 RUN pip install -r /project/requirements/requirements-tests.txt
 
+RUN git clone https://github.com/vishnubob/wait-for-it.git ../wait-for-it
+
+ENV PATH $PATH:/project/wait-for-it
 ENV DEFAULT_DB_HOST default-db-dev
 ENV DEFAULT_DB_PORT 3306
 ENV TEST_DEFAULT_DB_HOST default-db-test
