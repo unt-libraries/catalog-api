@@ -19,3 +19,4 @@ django_sierra_test
 /django/sierra/docs/_build
 /solr/instances/logs/*
 /solr/instances/solr/*/data
+/docker_data/
