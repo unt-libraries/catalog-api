@@ -42,12 +42,45 @@ services:
     networks:
       - testing
 
+  solr-dev:
+    image: openjdk:8-jre
+    volumes:
+      - ./solr:/project/solr
+      - ./docker_data/solr_dev/logs:/project/solr/instances/logs
+      - ./docker_data/solr_dev/bibdata_data:/project/solr/instances/solr/bibdata/data
+      - ./docker_data/solr_dev/haystack_data:/project/solr/instances/solr/haystack/data
+      - ./docker_data/solr_dev/marc_data:/project/solr/instances/solr/marc/data
+    working_dir: /project/solr/instances
+    command: java -jar /project/solr/instances/start.jar -Djetty.port=8983
+    ports:
+      - "${SOLR_HOST:-127.0.0.1}:${SOLR_PORT:-8983}:8983"
+    networks:
+      - development
+
+  solr-test:
+    image: openjdk:8-jre
+    volumes:
+      - ./solr:/project/solr
+      - ./docker_data/solr_test/logs:/project/solr/instances/logs
+      - ./docker_data/solr_test/bibdata_data:/project/solr/instances/solr/bibdata/data
+      - ./docker_data/solr_test/haystack_data:/project/solr/instances/solr/haystack/data
+      - ./docker_data/solr_test/marc_data:/project/solr/instances/solr/marc/data
+    working_dir: /project/solr/instances
+    command: java -jar /project/solr/instances/start.jar -Djetty.port=8983
+    ports:
+      - "${TEST_SOLR_HOST:-127.0.0.1}:${TEST_SOLR_PORT:-8883}:8983"
+    networks:
+      - testing
+
   app:
     build: .
     depends_on:
       - default-db-dev
+      - solr-dev
     volumes:
       - .:/project/catalog-api
+      - ./docker_data/app/logs:/project/logs
+      - ./docker_data/app/media:/project/media
     networks:
       - testing
       - development
@@ -59,11 +92,12 @@ services:
     depends_on:
       - default-db-test
       - sierra-db-test
+      - solr-test
     volumes:
       - .:/project/catalog-api
     networks:
       - testing
-    entrypoint: wait-for-it.sh -t 0 default-db-test:3306 -- wait-for-it.sh -t 0 sierra-db-test:5432 -- py.test
+    entrypoint: wait-for-it.sh -t 0 default-db-test:3306 -- wait-for-it.sh -t 0 sierra-db-test:5432 -- wait-for-it.sh -t 0 solr-test:8983 -- py.test
 
   manage-dev:
     build: .
