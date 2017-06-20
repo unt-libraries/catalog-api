@@ -1,14 +1,17 @@
 FROM python:2.7
 
+RUN adduser --disabled-password --gecos '' appuser
+
 ENV PYTHONPATH /project/catalog-api
 ENV LOG_FILE_DIR /project/logs
 ENV MEDIA_ROOT /project/media
 
 RUN mkdir /project
 RUN mkdir /project/catalog-api
-RUN mkdir /project/requirements
 RUN mkdir /project/logs
 RUN mkdir /project/media
+RUN chown -R appuser:appuser /project
+RUN mkdir /project/requirements
 WORKDIR /project/catalog-api
 
 RUN apt-get update -qq && apt-get install -y libpq-dev python-dev mysql-client netcat
@@ -40,3 +43,5 @@ ENV REDIS_APPDATA_HOST redis-appdata-dev
 ENV REDIS_APPDATA_PORT 6380
 ENV TEST_REDIS_APPDATA_HOST redis-appdata-test
 ENV TEST_REDIS_APPDATA_PORT 6380
+
+USER appuser
