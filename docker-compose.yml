@@ -101,7 +101,7 @@ services:
       - ./docker_data/redis-appdata-test/data:/project/data
       - ./docker_data/redis-appdata-test/logs:/project/logs
     ports:
-      - "${REDIS_APPDATA_HOST:-127.0.0.1}:${REDIS_APPDATA_PORT:-6380}:6379"
+      - "${TEST_REDIS_APPDATA_HOST:-127.0.0.1}:${TEST_REDIS_APPDATA_PORT:-6280}:6379"
     command: redis-server ${REDIS_APPDATA_CONF_FILE:---dir /project/data --logfile /project/logs/log.txt --appendonly yes}
     networks:
       - testing
