@@ -116,11 +116,26 @@ services:
       - .:/project/catalog-api
       - ./docker_data/app/logs:/project/logs
       - ./docker_data/app/media:/project/media
+    working_dir: /project/catalog-api/
     networks:
       - testing
       - development
     ports:
       - "${DJANGO_PORT:-8000}:${DJANGO_PORT:-8000}"
+
+  celery-worker:
+    build: .
+    depends_on:
+      - default-db-dev
+      - redis-celery
+    volumes:
+      - .:/project/catalog-api
+      - ./docker_data/app/logs:/project/logs
+    working_dir: /project/catalog-api/django/sierra
+    networks:
+      - testing
+      - development
+    command: wait-for-it.sh -t 30 default-db-dev:3306 -- wait-for-it.sh -t 30 redis-celery:6379 -- celery worker -A sierra -c 4 -l info -f /project/logs/celery-worker.log
 
   test:
     build: .
@@ -131,6 +146,7 @@ services:
       - redis-appdata-test
     volumes:
       - .:/project/catalog-api
+    working_dir: /project/catalog-api/
     networks:
       - testing
     entrypoint: wait-for-it.sh -t 30 default-db-test:3306 -- wait-for-it.sh -t 30 sierra-db-test:5432 -- wait-for-it.sh -t 30 solr-test:8983 -- wait-for-it.sh -t 30 redis-appdata-test:6379 -- py.test
