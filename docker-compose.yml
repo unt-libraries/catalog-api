@@ -116,12 +116,13 @@ services:
       - .:/project/catalog-api
       - ./docker_data/app/logs:/project/logs
       - ./docker_data/app/media:/project/media
-    working_dir: /project/catalog-api/
+    working_dir: /project/catalog-api/django/sierra
     networks:
       - testing
       - development
     ports:
-      - "${DJANGO_PORT:-8000}:${DJANGO_PORT:-8000}"
+      - "0.0.0.0:${DJANGO_PORT:-8000}:8000"
+    command: wait-for-it.sh -t 30 default-db-dev:3306 -- wait-for-it.sh -t 30 solr-dev:8983 -- wait-for-it.sh -t 30 redis-appdata-dev:6379 -- /project/catalog-api/django/sierra/manage.py runserver 0.0.0.0:8000
 
   celery-worker:
     build: .
