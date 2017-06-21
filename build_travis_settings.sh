@@ -18,7 +18,7 @@ test_settings="SECRET_KEY=\"Some secret key\"
   SOLRMARC_CONFIG_FILE=test_config.properties
   EXPORTER_EMAIL_ON_ERROR=false
   EXPORTER_EMAIL_ON_WARNING=false
-  EXPORTER_AUTOMATED_USERNAME=django_admin
+  EXPORTER_AUTOMATED_USERNAME=django_admin"
 
 if [ $TRAVIS ]
   then
