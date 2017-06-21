@@ -324,7 +324,7 @@ CELERY_CHORD_PROPAGATES = False
 
 # CORS settings
 CORS_ORIGIN_REGEX_WHITELIST = tuple(
-            get_env_variable('CORS_ORIGIN_REGEX_WHITELIST', ()).split(' '))
+            get_env_variable('CORS_ORIGIN_REGEX_WHITELIST', '').split(' '))
 CORS_ALLOW_HEADERS = (
     'x-requested-with',
     'content-type',
