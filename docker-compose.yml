@@ -13,6 +13,7 @@ services:
       - ./docker_data/default_db_dev:/var/lib/mysql
     networks:
       - development
+    command: mysqld --wait_timeout=7200
 
   default-db-test:
     image: mariadb:10.3
@@ -27,6 +28,7 @@ services:
       - ./docker_data/default_db_test:/var/lib/mysql
     networks:
       - testing
+    command: mysqld --wait_timeout=7200
 
   sierra-db-test:
     image: postgres:9.2

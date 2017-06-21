@@ -14,7 +14,7 @@ RUN chown -R appuser:appuser /project
 RUN mkdir /project/requirements
 WORKDIR /project/catalog-api
 
-RUN apt-get update -qq && apt-get install -y libpq-dev python-dev mysql-client netcat
+RUN apt-get update -qq && apt-get install -y libpq-dev python-dev mysql-client netcat openjdk-7-jre
 
 COPY requirements/requirements-base.txt /project/requirements/
 COPY requirements/requirements-dev.txt /project/requirements/
