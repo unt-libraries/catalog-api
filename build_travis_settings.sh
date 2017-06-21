@@ -12,8 +12,10 @@ test_settings="SECRET_KEY=\"Some secret key\"
   DEFAULT_DB_PASSWORD=none
   TEST_SIERRA_DB_USER=postgres
   TEST_SIERRA_DB_PASSWORD=whatever
+  TEST_SIERRA_DB_PORT=5332
   TEST_DEFAULT_DB_USER=mariadb
   TEST_DEFAULT_DB_PASSWORD=whatever
+  TEST_DEFAULT_DB_PORT=3206
   TIME_ZONE=America/Chicago
   SOLRMARC_CONFIG_FILE=test_config.properties
   EXPORTER_EMAIL_ON_ERROR=false
