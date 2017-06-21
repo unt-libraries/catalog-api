@@ -25,7 +25,7 @@ EXPORTER_AUTOMATED_USERNAME=django_admin
 
 if [ $TRAVIS ]
   then
-    echo $test_settings > $path_to_settings
+    echo "$test_settings" > $path_to_settings
     echo "Settings file created:"
     cat $path_to_settings
   else

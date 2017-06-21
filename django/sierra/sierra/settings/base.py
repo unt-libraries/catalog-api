@@ -20,7 +20,6 @@ def raise_setting_error(setting):
 
 # Use dotenv to load env variables from a .env file
 dotenv.load_dotenv('{}/.env'.format(Path(__file__).ancestor(1)))
-print os.environ
 
 # Check required settings
 required = ['SIERRA_DB_USER', 'SIERRA_DB_PASSWORD', 'SIERRA_DB_HOST',
