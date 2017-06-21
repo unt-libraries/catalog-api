@@ -1,10 +1,11 @@
-language: python
 sudo: required
-python: 2.7
-services: postgresql
-before_install: sudo apt-get install libpq-dev python-dev
-install:
-  - pip install -r requirements/requirements-base.txt
-  - pip install -r requirements/requirements-tests.txt
-before_script: ./build_travis_settings.sh
-script: py.test -sv
+language: python
+services:
+  - docker
+
+before_script:
+  - ./build_travis_settings.sh
+  - ./docker-compose.sh run --rm manage-test migrate --database=default
+  - ./docker-compose.sh run --rm manage-test migrate --database=sierra
+
+script: ./docker-compose.sh run --rm test
