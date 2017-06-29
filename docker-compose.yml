@@ -13,6 +13,7 @@ services:
       - ./docker_data/default_db_dev:/var/lib/mysql
     networks:
       - development
+    user: ${USERID}:${GROUPID}
     command: mysqld --wait_timeout=7200
 
   default-db-test:
@@ -28,6 +29,7 @@ services:
       - ./docker_data/default_db_test:/var/lib/mysql
     networks:
       - testing
+    user: ${USERID}:${GROUPID}
     command: mysqld --wait_timeout=7200
 
   sierra-db-test:
@@ -43,6 +45,7 @@ services:
       - ./docker_data/sierra_db_test:/var/lib/postgresql/data/pgdata
     networks:
       - testing
+    user: ${USERID}:${GROUPID}
 
   solr-dev:
     image: openjdk:8-jre
@@ -53,11 +56,12 @@ services:
       - ./docker_data/solr_dev/haystack_data:/project/solr/instances/solr/haystack/data
       - ./docker_data/solr_dev/marc_data:/project/solr/instances/solr/marc/data
     working_dir: /project/solr/instances
-    command: java -jar /project/solr/instances/start.jar -Djetty.port=8983
     ports:
       - "${SOLR_HOST:-127.0.0.1}:${SOLR_PORT:-8983}:8983"
     networks:
       - development
+    user: ${USERID}:${GROUPID}
+    command: java -jar /project/solr/instances/start.jar -Djetty.port=8983
 
   solr-test:
     image: openjdk:8-jre
@@ -68,11 +72,12 @@ services:
       - ./docker_data/solr_test/haystack_data:/project/solr/instances/solr/haystack/data
       - ./docker_data/solr_test/marc_data:/project/solr/instances/solr/marc/data
     working_dir: /project/solr/instances
-    command: java -jar /project/solr/instances/start.jar -Djetty.port=8983
     ports:
       - "${TEST_SOLR_HOST:-127.0.0.1}:${TEST_SOLR_PORT:-8883}:8983"
     networks:
       - testing
+    user: ${USERID}:${GROUPID}
+    command: java -jar /project/solr/instances/start.jar -Djetty.port=8983
 
   redis-celery:
     image: redis:3.2
@@ -81,10 +86,11 @@ services:
       - ./docker_data/redis-celery/logs:/project/logs
     ports:
       - "${REDIS_CELERY_HOST:-127.0.0.1}:${REDIS_CELERY_PORT:-6379}:6379"
-    command: redis-server ${REDIS_CELERY_CONF_FILE:---dir /project/data --logfile /project/logs/log.txt --appendonly yes}
     networks:
       - testing
       - development
+    user: ${USERID}:${GROUPID}
+    command: redis-server ${REDIS_CELERY_CONF_FILE:---dir /project/data --logfile /project/logs/log.txt --appendonly yes}
 
   redis-appdata-dev:
     image: redis:3.2
@@ -93,9 +99,10 @@ services:
       - ./docker_data/redis-appdata-dev/logs:/project/logs
     ports:
       - "${REDIS_APPDATA_HOST:-127.0.0.1}:${REDIS_APPDATA_PORT:-6380}:6379"
-    command: redis-server ${REDIS_APPDATA_CONF_FILE:---dir /project/data --logfile /project/logs/log.txt --appendonly yes}
     networks:
       - development
+    user: ${USERID}:${GROUPID}
+    command: redis-server ${REDIS_APPDATA_CONF_FILE:---dir /project/data --logfile /project/logs/log.txt --appendonly yes}
 
   redis-appdata-test:
     image: redis:3.2
@@ -104,12 +111,17 @@ services:
       - ./docker_data/redis-appdata-test/logs:/project/logs
     ports:
       - "${TEST_REDIS_APPDATA_HOST:-127.0.0.1}:${TEST_REDIS_APPDATA_PORT:-6280}:6379"
-    command: redis-server ${REDIS_APPDATA_CONF_FILE:---dir /project/data --logfile /project/logs/log.txt --appendonly yes}
     networks:
       - testing
+    user: ${USERID}:${GROUPID}
+    command: redis-server ${REDIS_APPDATA_CONF_FILE:---dir /project/data --logfile /project/logs/log.txt --appendonly yes}
 
   app:
-    build: .
+    build:
+      context: .
+      args:
+        userid: ${USERID}
+        groupid: ${GROUPID}
     depends_on:
       - default-db-dev
       - solr-dev
@@ -127,7 +139,11 @@ services:
     command: wait-for-it.sh -t 30 default-db-dev:3306 -- wait-for-it.sh -t 30 solr-dev:8983 -- wait-for-it.sh -t 30 redis-appdata-dev:6379 -- /project/catalog-api/django/sierra/manage.py runserver 0.0.0.0:8000
 
   celery-worker:
-    build: .
+    build:
+      context: .
+      args:
+        userid: ${USERID}
+        groupid: ${GROUPID}
     depends_on:
       - default-db-dev
       - redis-celery
@@ -141,7 +157,11 @@ services:
     command: wait-for-it.sh -t 30 default-db-dev:3306 -- wait-for-it.sh -t 30 redis-celery:6379 -- celery worker -A sierra -c 4 -l info -f /project/logs/celery-worker.log
 
   test:
-    build: .
+    build:
+      context: .
+      args:
+        userid: ${USERID}
+        groupid: ${GROUPID}
     depends_on:
       - default-db-test
       - sierra-db-test
@@ -155,7 +175,11 @@ services:
     entrypoint: wait-for-it.sh -t 30 default-db-test:3306 -- wait-for-it.sh -t 30 sierra-db-test:5432 -- wait-for-it.sh -t 30 solr-test:8983 -- wait-for-it.sh -t 30 redis-appdata-test:6379 -- py.test
 
   manage-dev:
-    build: .
+    build:
+      context: .
+      args:
+        userid: ${USERID}
+        groupid: ${GROUPID}
     depends_on:
       - default-db-dev
     volumes:
@@ -166,7 +190,11 @@ services:
     entrypoint: wait-for-it.sh -t 30 default-db-dev:3306 -- /project/catalog-api/django/sierra/manage.py
 
   manage-test:
-    build: .
+    build:
+      context: .
+      args:
+        userid: ${USERID}
+        groupid: ${GROUPID}
     depends_on:
       - default-db-test
       - sierra-db-test
@@ -178,7 +206,6 @@ services:
     environment:
       - DJANGO_SETTINGS_MODULE=sierra.settings.test
     entrypoint: wait-for-it.sh -t 30 default-db-test:3306 -- wait-for-it.sh -t 30 sierra-db-test:5432 -- /project/catalog-api/django/sierra/manage.py
-
 
 networks:
   development:

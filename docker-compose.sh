@@ -8,5 +8,7 @@
 
 set -o allexport
 source ./django/sierra/sierra/settings/.env
+USERID=$(id -u)
+GROUPID=$(id -g)
 set +o allexport
 docker-compose "$@"
