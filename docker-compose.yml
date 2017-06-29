@@ -82,8 +82,8 @@ services:
   redis-celery:
     image: redis:3.2
     volumes:
-      - ./docker_data/redis-celery/data:/project/data
-      - ./docker_data/redis-celery/logs:/project/logs
+      - ./docker_data/redis_celery/data:/project/data
+      - ./docker_data/redis_celery/logs:/project/logs
     ports:
       - "${REDIS_CELERY_HOST:-127.0.0.1}:${REDIS_CELERY_PORT:-6379}:6379"
     networks:
@@ -95,8 +95,8 @@ services:
   redis-appdata-dev:
     image: redis:3.2
     volumes:
-      - ./docker_data/redis-appdata-dev/data:/project/data
-      - ./docker_data/redis-appdata-dev/logs:/project/logs
+      - ./docker_data/redis_appdata_dev/data:/project/data
+      - ./docker_data/redis_appdata_dev/logs:/project/logs
     ports:
       - "${REDIS_APPDATA_HOST:-127.0.0.1}:${REDIS_APPDATA_PORT:-6380}:6379"
     networks:
@@ -107,8 +107,8 @@ services:
   redis-appdata-test:
     image: redis:3.2
     volumes:
-      - ./docker_data/redis-appdata-test/data:/project/data
-      - ./docker_data/redis-appdata-test/logs:/project/logs
+      - ./docker_data/redis_appdata_test/data:/project/data
+      - ./docker_data/redis_appdata_test/logs:/project/logs
     ports:
       - "${TEST_REDIS_APPDATA_HOST:-127.0.0.1}:${TEST_REDIS_APPDATA_PORT:-6280}:6379"
     networks:
@@ -149,7 +149,7 @@ services:
       - redis-celery
     volumes:
       - .:/project/catalog-api
-      - ./docker_data/app/logs:/project/logs
+      - ./docker_data/celery_worker/logs:/project/logs
     working_dir: /project/catalog-api/django/sierra
     networks:
       - testing
