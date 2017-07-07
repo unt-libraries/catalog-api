@@ -72,7 +72,8 @@ DATABASES = {
         'USER': get_env_variable('DEFAULT_DB_USER'),
         'PASSWORD': get_env_variable('DEFAULT_DB_PASSWORD'),
         'HOST': get_env_variable('DEFAULT_DB_HOST', '127.0.0.1'),
-        'PORT': get_env_variable('DEFAULT_DB_PORT', '3306')
+        'PORT': get_env_variable('DEFAULT_DB_PORT', '3306'),
+        'TEST_MIRROR': 'default'
     }
 }
 
