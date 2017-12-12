@@ -1,0 +1,161 @@
+[
+  { 
+    "model": "base.IiiLanguage"
+  },
+  { 
+    "model": "base.IiiLanguageName"
+  },
+  {
+    "model": "base.IiiLanguageMyuser"
+  },
+  { 
+    "model": "base.BibLevelProperty"
+  },
+  { 
+    "model": "base.BibLevelPropertyName"
+  },
+  { 
+    "model": "base.BibLevelPropertyMyuser"
+  },
+  {
+    "model": "base.MaterialPropertyCategory"
+  },
+  {
+    "model": "base.MaterialPropertyCategoryName"
+  },
+  {
+    "model": "base.MaterialPropertyCategoryMyuser"
+  },
+  {
+    "model": "base.MaterialProperty"
+  },
+  {
+    "model": "base.MaterialPropertyName"
+  },
+  {
+    "model": "base.MaterialPropertyMyuser"
+  },
+  {
+    "model": "base.PhysicalFormat"
+  },
+  {
+    "model": "base.PhysicalFormatName"
+  },
+  {
+    "model": "base.PhysicalFormatMyuser"
+  },
+  {
+    "model": "base.LanguageProperty"
+  },
+  {
+    "model": "base.LanguagePropertyName"
+  },
+  {
+    "model": "base.LanguagePropertyMyuser"
+  },
+  {
+    "model": "base.CountryProperty"
+  },
+  {
+    "model": "base.CountryPropertyName"
+  },
+  {
+    "model": "base.CountryPropertyMyuser"
+  },
+  {
+    "model": "base.ItypeProperty"
+  },
+  {
+    "model": "base.ItypePropertyName"
+  },
+  {
+    "model": "base.ItypePropertyMyuser"
+  },
+  {
+    "model": "base.ItypePropertyCategory"
+  },
+  {
+    "model": "base.ItypePropertyCategoryName"
+  },
+  {
+    "model": "base.ItypePropertyCategoryMyuser"
+  },
+  {
+    "model": "base.TargetAudience"
+  },
+  {
+    "model": "base.TargetAudienceName"
+  },
+  {
+    "model": "base.TargetAudienceMyuser"
+  },
+  {
+    "model": "base.Collection"
+  },
+  {
+    "model": "base.CollectionMyuser"
+  },
+  {
+    "model": "base.Branch"
+  },
+  {
+    "model": "base.BranchName"
+  },
+  {
+    "model": "base.BranchMyuser"
+  },
+  {
+    "model": "base.Location"
+  },
+  {
+    "model": "base.LocationName"
+  },
+  {
+    "model": "base.LocationMyuser"
+  },
+  {
+    "model": "base.ItemStatusProperty"
+  },
+  {
+    "model": "base.ItemStatusPropertyName"
+  },
+  {
+    "model": "base.ItemStatusPropertyMyuser"
+  },
+  {
+    "model": "base.PtypeProperty"
+  },
+  {
+    "model": "base.PtypePropertyName"
+  },
+  {
+    "model": "base.PtypePropertyMyuser"
+  },
+  {
+    "model": "base.PtypePropertyCategory"
+  },
+  {
+    "model": "base.PtypePropertyCategoryName"
+  },
+  {
+    "model": "base.PtypePropertyCategoryMyuser"
+  },
+  {
+    "model": "base.MblockProperty"
+  },
+  {
+    "model": "base.MblockPropertyName"
+  },
+  {
+    "model": "base.MblockPropertyMyuser"
+  },
+  {
+    "model": "base.NotificationMediumProperty"
+  },
+  {
+    "model": "base.NotificationMediumPropertyName"
+  },
+  {
+    "model": "base.NotificationMediumPropertyMyuser"
+  }
+]

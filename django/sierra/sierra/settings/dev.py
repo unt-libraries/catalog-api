@@ -1,7 +1,6 @@
-# MOST of the settings you'll need to set will be in your settings.json
-# which is kept out of version control. Copy settings_template.json to
-# settings.json, and set the appropriate config settings for your local
-# environment in settings.json.
+# MOST of the settings you'll need to set will be in your .env file,
+# which is kept out of version control, or your environment variables.
+# See .env.template for instructions.
 
 from .base import *
 
@@ -17,6 +16,7 @@ DEBUG_TOOLBAR_PATCH_SETTINGS = False
 
 INSTALLED_APPS += (
     'debug_toolbar',
+    'sierra'
 )
 
 MIDDLEWARE_CLASSES += (

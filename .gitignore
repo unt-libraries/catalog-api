@@ -2,6 +2,7 @@
 *.log
 *.log.*
 *.iml
+*.env
 
 secrets.json
 settings.json
@@ -10,6 +11,7 @@ dump.rdb
 appendonly.aof
 celerybeat-schedule
 django_sierra
+django_sierra_test
 .cache/
 
 /pids.txt
@@ -17,3 +19,4 @@ django_sierra
 /django/sierra/docs/_build
 /solr/instances/logs/*
 /solr/instances/solr/*/data
+/docker_data/

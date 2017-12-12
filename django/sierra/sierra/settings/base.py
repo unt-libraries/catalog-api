@@ -3,92 +3,79 @@
 import os
 from unipath import Path
 
-import ujson
+import dotenv
 
 from django.core.exceptions import ImproperlyConfigured
 
 
-def get_env_variable(var_name):
-    """ Get the environment variable or return None"""
-    try:
-        return os.environ[var_name]
-    except KeyError:
-        return None
+def get_env_variable(var_name, default=None):
+    """Get the environment variable or return default value"""
+    val = os.environ.get(var_name, default)
+    return True if val == 'true' else False if val == 'false' else val
 
 
 def raise_setting_error(setting):
-    msg = 'The {} setting in settings.json is not set.'.format(setting)
-    raise ImproperlyConfigured(msg)
+    raise ImproperlyConfigured('The {} setting is not set.'.format(setting))
 
 
-with open('{}/settings.json'.format(Path(__file__).ancestor(1))) as fh:
-    local_settings = ujson.loads(fh.read())
+# Use dotenv to load env variables from a .env file
+dotenv.load_dotenv('{}/.env'.format(Path(__file__).ancestor(1)))
 
-if local_settings.get('SIERRA_DB_USER', None) is None:
-    raise_setting_error('SIERRA_DB_USER')
+# Check required settings
+required = ['SIERRA_DB_USER', 'SIERRA_DB_PASSWORD', 'SIERRA_DB_HOST',
+            'SECRET_KEY', 'LOG_FILE_DIR', 'MEDIA_ROOT', 'DEFAULT_DB_USER',
+            'DEFAULT_DB_PASSWORD']
 
-if local_settings.get('SIERRA_DB_PASSWORD', None) is None:
-    raise_setting_error('SIERRA_DB_PASSWORD')
+for setting in required:
+    if get_env_variable(setting) is None:
+        raise_setting_error(setting)
 
-if local_settings.get('SIERRA_DB_HOST', None) is None:
-    raise_setting_error('SIERRA_DB_HOST')
-
-if local_settings.get('SIERRA_DB_PASSWORD', None) is None:
-    raise_setting_error('SIERRA_DB_PASSWORD')
-
-if local_settings.get('SECRET_KEY', None) is None:
-    raise_setting_error('SECRET_KEY')
-
-if local_settings.get('LOG_FILE_DIR', None) is None:
-    raise_setting_error('LOG_FILE_DIR')
-
-if local_settings.get('MEDIA_ROOT', None) is None:
-    raise_setting_error('MEDIA_ROOT')
 
 PROJECT_DIR = '{}'.format(Path(__file__).ancestor(3))
 
 # Path to the directory where user-initiated downloads are stored.
 # Temporary MARC files get stored here before being loaded by SolrMarc.
 # Be sure to create this directory if it doesn't exist.
-MEDIA_ROOT = local_settings.get('MEDIA_ROOT')
+MEDIA_ROOT = get_env_variable('MEDIA_ROOT')
 
 # Path to the directory where static files get put when you run the 
 # collectstatic admin command. Usually only matters in production.
-STATIC_ROOT = local_settings.get('STATIC_ROOT', None)
+STATIC_ROOT = get_env_variable('STATIC_ROOT')
 
 # Path to the directory where log files go. Be sure this directory
 # exists, or else you'll get errors.
-LOG_FILE_DIR = local_settings.get('LOG_FILE_DIR')
+LOG_FILE_DIR = get_env_variable('LOG_FILE_DIR')
 
-ALLOWED_HOSTS = local_settings.get('ALLOWED_HOSTS', [])
-
-# Defines ports for Solr and Redis instances.
-SOLR_PORT = get_env_variable('SOLR_PORT') or 8983
-REDIS_PORT = get_env_variable('REDIS_PORT') or 6379
+ALLOWED_HOSTS = get_env_variable('ALLOWED_HOSTS', '').split(' ')
 
 # Defines who gets emailed when error messages happen. Should be a
 # tuple of tuples, where the inner tuple contains ('name', 'email')
-ADMINS = tuple((a[0], a[1]) for a in local_settings.get('ADMINS', ()))
+admin_list = get_env_variable('ADMINS', '').split(';')
+ADMINS = tuple(tuple(admin.split(',')) for admin in admin_list)
 MANAGERS = ADMINS
 
 DATABASES = {
     'sierra': {
         'ENGINE': 'django.db.backends.postgresql_psycopg2',
         'NAME': 'iii',
-        'USER': local_settings.get('SIERRA_DB_USER'),
-        'PASSWORD': local_settings.get('SIERRA_DB_PASSWORD'),
-        'HOST': local_settings.get('SIERRA_DB_HOST'),
+        'USER': get_env_variable('SIERRA_DB_USER'),
+        'PASSWORD': get_env_variable('SIERRA_DB_PASSWORD'),
+        'HOST': get_env_variable('SIERRA_DB_HOST'),
         'PORT': '1032',
         'TEST_MIRROR': 'sierra',
         'OPTIONS': {'autocommit': True, },
     },
+    'default': {
+        'ENGINE': get_env_variable('DEFAULT_DB_ENGINE', 
+                                   'django.db.backends.mysql'),
+        'NAME': get_env_variable('DEFAULT_DB_NAME', 'django_catalog_api'),
+        'USER': get_env_variable('DEFAULT_DB_USER'),
+        'PASSWORD': get_env_variable('DEFAULT_DB_PASSWORD'),
+        'HOST': get_env_variable('DEFAULT_DB_HOST', '127.0.0.1'),
+        'PORT': get_env_variable('DEFAULT_DB_PORT', '3306'),
+        'TEST_MIRROR': 'default'
+    }
 }
-
-DATABASES['default'] = local_settings.get('DEFAULT_DATABASE', 
-    {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': 'django_sierra',
-    })
 
 DATABASE_ROUTERS = ['sierra.routers.SierraRouter']
 
@@ -96,7 +83,7 @@ DATABASE_ROUTERS = ['sierra.routers.SierraRouter']
 # http://en.wikipedia.org/wiki/List_of_tz_zones_by_name
 # although not all choices may be available on all operating systems.
 # In a Windows environment this must be set to your system time zone.
-TIME_ZONE = local_settings.get('TIME_ZONE', 'America/Chicago')
+TIME_ZONE = get_env_variable('TIME_ZONE', 'America/Chicago')
 
 # Language code for this installation. All choices can be found here:
 # http://www.i18nguy.com/unicode/language-identifiers.html
@@ -115,16 +102,16 @@ USE_L10N = True
 # If you set this to False, Django will not use timezone-aware datetimes.
 USE_TZ = True
 
-SITE_URL_ROOT = local_settings.get('SITE_URL_ROOT', '/')
+SITE_URL_ROOT = get_env_variable('SITE_URL_ROOT', '/')
 
 # URL that handles the media served from MEDIA_ROOT. Make sure to use a
 # trailing slash.
 # Examples: "http://example.com/media/", "http://media.example.com/"
-MEDIA_URL = local_settings.get('MEDIA_URL', '/media/')
+MEDIA_URL = get_env_variable('MEDIA_URL', '/media/')
 
 # URL prefix for static files.
 # Example: "/static/", "http://static.example.com/"
-STATIC_URL = local_settings.get('STATIC_URL', '/static/')
+STATIC_URL = get_env_variable('STATIC_URL', '/static/')
 
 # List of finder classes that know how to find static files in
 # various locations.
@@ -135,7 +122,7 @@ STATICFILES_FINDERS = (
 )
 
 # Make this unique, and don't share it with anybody.
-SECRET_KEY = local_settings.get('SECRET_KEY')
+SECRET_KEY = get_env_variable('SECRET_KEY')
 
 # List of callables that know how to import templates from various sources.
 TEMPLATE_LOADERS = (
@@ -252,12 +239,14 @@ LOGGING = {
     }
 }
 
-solr_haystack_url = local_settings.get('SOLR_HAYSTACK_URL', 
-                        'http://127.0.0.1:{}/solr/haystack'.format(SOLR_PORT))
-solr_bibdata_url = local_settings.get('SOLR_BIBDATA_URL', 
-                        'http://127.0.0.1:{}/solr/bibdata'.format(SOLR_PORT))
-solr_marc_url = local_settings.get('SOLR_MARC_URL', 
-                        'http://127.0.0.1:{}/solr/marc'.format(SOLR_PORT))
+SOLR_PORT = get_env_variable('SOLR_PORT', '8983')
+SOLR_HOST = get_env_variable('SOLR_HOST', '127.0.0.1')
+solr_haystack_url = get_env_variable('SOLR_HAYSTACK_URL', 
+                    'http://{}:{}/solr/haystack'.format(SOLR_HOST, SOLR_PORT))
+solr_bibdata_url = get_env_variable('SOLR_BIBDATA_URL', 
+                    'http://{}:{}/solr/bibdata'.format(SOLR_HOST, SOLR_PORT))
+solr_marc_url = get_env_variable('SOLR_MARC_URL', 
+                    'http://{}:{}/solr/marc'.format(SOLR_HOST, SOLR_PORT))
 
 # HAYSTACK_CONNECTIONS, a required setting for Haystack
 HAYSTACK_CONNECTIONS = {
@@ -314,9 +303,10 @@ REST_FRAMEWORK = {
 }
 
 # CELERY settings
-
-redis_celery_url = local_settings.get('REDIS_CELERY_URL',
-                                'redis://localhost:{}/0'.format(REDIS_PORT))
+REDIS_CELERY_PORT = get_env_variable('REDIS_CELERY_PORT', '6379')
+REDIS_CELERY_HOST = get_env_variable('REDIS_CELERY_HOST', '127.0.0.1')
+redis_celery_url = 'redis://{}:{}/0'.format(REDIS_CELERY_HOST,
+                                            REDIS_CELERY_PORT)
 BROKER_URL = redis_celery_url
 BROKER_TRANSPORT_OPTIONS = {
     'visibility_timeout': 3600,
@@ -335,7 +325,7 @@ CELERY_CHORD_PROPAGATES = False
 
 # CORS settings
 CORS_ORIGIN_REGEX_WHITELIST = tuple(
-                        local_settings.get('CORS_ORIGIN_REGEX_WHITELIST', ()))
+            get_env_variable('CORS_ORIGIN_REGEX_WHITELIST', '').split(' '))
 CORS_ALLOW_HEADERS = (
     'x-requested-with',
     'content-type',
@@ -352,8 +342,8 @@ CORS_ALLOW_HEADERS = (
 
 # Username for the user that should be attached to Export Instances for
 # scheduled (automated) export jobs.
-EXPORTER_AUTOMATED_USERNAME = local_settings.get('EXPORTER_AUTOMATED_USERNAME',
-                                                 'django_admin')
+EXPORTER_AUTOMATED_USERNAME = get_env_variable('EXPORTER_AUTOMATED_USERNAME',
+                                               'django_admin')
 
 # Change the below to change what label is used for Exporter log
 # messages coming from Celery tasks.
@@ -375,9 +365,8 @@ EXPORTER_HAYSTACK_CONNECTIONS = {
 
 # Determines whether the Exporter jobs email site admins when a job
 # generates errors and/or warnings.
-EXPORTER_EMAIL_ON_ERROR = local_settings.get('EXPORTER_EMAIL_ON_ERROR', True)
-EXPORTER_EMAIL_ON_WARNING = local_settings.get('EXPORTER_EMAIL_ON_WARNING',
-                                               True)
+EXPORTER_EMAIL_ON_ERROR = get_env_variable('EXPORTER_EMAIL_ON_ERROR', True)
+EXPORTER_EMAIL_ON_WARNING = get_env_variable('EXPORTER_EMAIL_ON_WARNING', True)
 
 # Maps III record types to Exporter jobs that should run for those
 # record types when an "All" type export is run. Note that you can map
@@ -398,8 +387,8 @@ EXPORTER_METADATA_TYPE_REGISTRY = [
 # The path (relative or absolute) to the command that runs SolrMarc.
 SOLRMARC_COMMAND = '../../solr/solrmarc/indexfile.sh'
 # The name of the properties file to use when running SolrMarc.
-SOLRMARC_CONFIG_FILE = local_settings.get('SOLRMARC_CONFIG_FILE',
-                                          'dev_config.properties')
+SOLRMARC_CONFIG_FILE = get_env_variable('SOLRMARC_CONFIG_FILE',
+                                        'dev_config.properties')
 
 # This maps DRF views to haystack connections. Only needed for views
 # that don't use the default connection.
@@ -417,18 +406,18 @@ API_PERMISSIONS = [
     'shelflist',
 ]
 
-# REDIS_CONNECTION details connection details for the Redis instance
+# REDIS_CONNECTION stores connection details for the Redis instance
 # and database where App data for the catalog API will live. It's
-# strongly recommended that this be a different database than your
-# celery broker.
+# strongly recommended that this be a different port and/or database
+# than your Celery broker.
 REDIS_CONNECTION = {
-    'host': local_settings.get('REDIS_APPDATA_HOST', 'localhost'),
-    'port': local_settings.get('REDIS_APPDATA_PORT', REDIS_PORT),
-    'db': local_settings.get('REDIS_APPDATA_DATABASE', 1)
+    'host': get_env_variable('REDIS_APPDATA_HOST', '127.0.0.1'),
+    'port': get_env_variable('REDIS_APPDATA_PORT', '6380'),
+    'db': get_env_variable('REDIS_APPDATA_DATABASE', 0)
 }
 
 # Do we allow access to the admin interface on /admin URL?
-ADMIN_ACCESS = local_settings.get('ADMIN_ACCESS', True)
+ADMIN_ACCESS = get_env_variable('ADMIN_ACCESS', True)
 
 # Is this settings file for testing?
 TESTING = False
