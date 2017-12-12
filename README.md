@@ -842,7 +842,7 @@ want to update, and remove the ones you want to remove.
     as-is while you configure the rest of your settings. Then generate a new
     secret key according to the specific setup method you're using, and update
     the value in the environment variable.
-    * `SETTINGS_MODULE` &mdash; The settings module that you want Django to
+    * `DJANGO_SETTINGS_MODULE` &mdash; The settings module that you want Django to
     use in the current environment, in Python path syntax
     (e.g., sierra.settings.FILE). Unless you create new settings files
     that import from `base.py`, this will either be `sierra.settings.dev`
