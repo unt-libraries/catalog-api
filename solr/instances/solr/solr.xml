@@ -33,5 +33,6 @@
     <core name="haystack" instanceDir="haystack" />
     <core name="marc" instanceDir="marc" />
     <core name="libguides" instanceDir="libguides" />
+    <core name="blacklight-dev-01" instanceDir="blacklight-dev-01" />
   </cores>
 </solr>
