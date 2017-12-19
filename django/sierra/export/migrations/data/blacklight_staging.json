@@ -1,0 +1,1 @@
+[{"fields": {"path": "blacklight.exporters.BibsToBlacklightStaging", "model": "BibRecord", "order": 13, "description": "This is the export process that loads bib records into the blacklight-staging Solr core.", "label": "Load bib records into staging core for Blacklight"}, "model": "export.exporttype", "pk": "BibsToBlacklightStaging"}]
