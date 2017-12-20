@@ -7,6 +7,6 @@ before_script:
   - ./build_travis_settings.sh
   - ./docker-compose.sh pull default-db-test sierra-db-test solr-test redis-appdata-test
   - ./docker-compose.sh build manage-test test
-  - ./init-dockerdata.sh test
+  - ./init-dockerdata.sh tests
   
 script: ./docker-compose.sh run --rm test
