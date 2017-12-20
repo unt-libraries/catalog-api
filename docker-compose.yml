@@ -169,6 +169,10 @@ services:
       - redis-appdata-test
     volumes:
       - .:/project/catalog-api
+      - ./docker_data/test/logs:/project/logs
+      - ./docker_data/test/media:/project/media
+    environment:
+      - SOLRMARC_CONFIG_FILE=${TEST_SOLRMARC_CONFIG_FILE:-test_config.properties}
     working_dir: /project/catalog-api/
     networks:
       - testing
@@ -184,6 +188,8 @@ services:
       - default-db-dev
     volumes:
       - .:/project/catalog-api
+      - ./docker_data/app/logs:/project/logs
+      - ./docker_data/app/media:/project/media
     networks:
       - development
     working_dir: /project/catalog-api/django/sierra
@@ -200,11 +206,14 @@ services:
       - sierra-db-test
     volumes:
       - .:/project/catalog-api
+      - ./docker_data/test/logs:/project/logs
+      - ./docker_data/test/media:/project/media
     networks:
       - testing
     working_dir: /project/catalog-api/django/sierra
     environment:
       - DJANGO_SETTINGS_MODULE=sierra.settings.test
+      - SOLRMARC_CONFIG_FILE=${TEST_SOLRMARC_CONFIG_FILE:-test_config.properties}
     entrypoint: wait-for-it.sh -t 30 default-db-test:3306 -- wait-for-it.sh -t 30 sierra-db-test:5432 -- /project/catalog-api/django/sierra/manage.py
 
 networks:
