@@ -217,7 +217,7 @@ function migrate_sierra_db_test {
   if [[ $volume_is_ready ]]; then
     docker-compose run --rm manage-test migrate --database=sierra
     echo "Installing sierra-db-test fixtures..."
-    docker-compose run --rm manage-test loaddata --app=base --database=sierra "$(find $SIERRA_FIXTURE_PATH/*.json -exec basename {} .json \;)"
+    docker-compose run --rm manage-test loaddata --app=base --database=sierra $(find $SIERRA_FIXTURE_PATH/*.json -exec basename {} .json \; | tr '\n' ' ')
   else
     echo "Warning: Database could not be initialized; skipping migrations for \`sierra-db-test\`"
   fi
