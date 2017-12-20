@@ -169,6 +169,8 @@ services:
       - redis-appdata-test
     volumes:
       - .:/project/catalog-api
+      - ./docker_data/test/logs:/project/logs
+      - ./docker_data/test/media:/project/media
     working_dir: /project/catalog-api/
     networks:
       - testing
@@ -184,6 +186,8 @@ services:
       - default-db-dev
     volumes:
       - .:/project/catalog-api
+      - ./docker_data/app/logs:/project/logs
+      - ./docker_data/app/media:/project/media
     networks:
       - development
     working_dir: /project/catalog-api/django/sierra
@@ -200,6 +204,8 @@ services:
       - sierra-db-test
     volumes:
       - .:/project/catalog-api
+      - ./docker_data/test/logs:/project/logs
+      - ./docker_data/test/media:/project/media
     networks:
       - testing
     working_dir: /project/catalog-api/django/sierra

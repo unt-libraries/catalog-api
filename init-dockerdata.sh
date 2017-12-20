@@ -11,7 +11,7 @@ DDPATH=./docker_data
 SIERRA_FIXTURE_PATH=./django/sierra/base/fixtures
 SCRIPTNAME="$(basename "$0")"
 DEV_SERVICES=("default-db-dev" "solr-dev" "redis-celery" "redis-appdata-dev" "app" "celery-worker")
-TEST_SERVICES=("default-db-test" "sierra-db-test" "solr-test" "redis-appdata-test")
+TEST_SERVICES=("default-db-test" "sierra-db-test" "solr-test" "redis-appdata-test" "test")
 ALL_SERVICES=("${DEV_SERVICES[@]}" "${TEST_SERVICES[@]}")
 
 ### FUNCTIONS ###
@@ -29,7 +29,7 @@ function show_help {
   echo "-v        Only run volume setup on host machine (skip migrations). Cannot be"
   echo "          used with -m."
   echo "group     Provide one argument to set up multiple services. Must be \"all\","
-  echo "          \"dev\", or \"test\". \"all\" sets up all services."
+  echo "          \"dev\", or \"tests\". \"all\" sets up all services."
   echo "service   One or more service names to initialize. Note that services are set up"
   echo "          in the order specified. Use -s to see more info about services."
   echo ""
@@ -75,23 +75,26 @@ function show_services {
   echo "    The celery-worker service that runs in development. A log directory is set"
   echo "    up. No migrations."
   echo ""
-  echo "default-db-test -- test"
+  echo "default-db-test -- tests"
   echo "    The default Django MariaDB database for a test environment. Migrations are"
   echo "    needed to set up the needed Django apps. This must be set up and migrated"
   echo "    before you run initial migrations on sierra-db-test."
   echo ""
-  echo "sierra-db-test -- test"
+  echo "sierra-db-test -- tests"
   echo "    The sierra PostGreSQL database for a test environment. Migrations are"
   echo "    needed to install sierra test fixtures. But, before you run migrations for"
   echo "    the first time on sierra-db-test, you must make sure that default-db-test"
   echo "    is set up and migrated."
   echo ""
-  echo "solr-test -- test"
+  echo "solr-test -- tests"
   echo "    Empty instance of Solr for a test environment. No migrations (yet)."
   echo ""
-  echo "redis-appdata-test -- test"
+  echo "redis-appdata-test -- tests"
   echo "    Redis instance that stores some app data in test. No migrations (yet)."
   echo ""
+  echo "test -- tests"
+  echo "    Log and media directories are set up for the test environment. No "
+  echo "    migrations."
   exit 1
 }
 
@@ -273,7 +276,7 @@ for arg in $@; do
     dev)
       user_services+=("${DEV_SERVICES[@]}")
       ;;
-    test)
+    tests)
       user_services+=("${TEST_SERVICES[@]}")
       ;;
     *)
@@ -336,6 +339,10 @@ for service in ${user_services[@]}; do
       ;;
     celery-worker)
       paths=("$DDPATH/celery_worker/logs")
+      ;;
+    test)
+      paths=("$DDPATH/test/logs"
+             "$DDPATH/test/media")
       ;;
     *)
       echo ""
