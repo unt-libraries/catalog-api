@@ -188,7 +188,7 @@ class ControlField(ReadOnlyModel):
     p42 = models.CharField(max_length=1, blank=True)
     p43 = models.CharField(max_length=1, blank=True)
     occ_num = models.IntegerField(null=True, blank=True)
-    remainder = models.CharField(max_length=100, blank=True)
+    remainder = models.CharField(max_length=100, null=True, blank=True)
 
     def get_tag(self):
         return '{:03}'.format(self.control_num)
@@ -797,7 +797,7 @@ class BibRecord(MainRecordTypeModel):
     index_change_count = models.IntegerField(null=True, blank=True)
     is_on_course_reserve = models.NullBooleanField(null=True, blank=True)
     is_right_result_exact = models.NullBooleanField(null=True, blank=True)
-    allocation_rule_code = models.CharField(max_length=1, blank=True)
+    allocation_rule_code = models.CharField(max_length=1, null=True, blank=True)
     skip_num = models.IntegerField(null=True, blank=True)
     cataloging_date_gmt = models.DateTimeField(null=True, blank=True)
     marc_type_code = models.CharField(max_length=1, blank=True)
@@ -1197,7 +1197,7 @@ class HoldingRecord(MainRecordTypeModel):
                                        null=True,
                                        blank=True)
     is_inherit_loc = models.NullBooleanField(null=True, blank=True)
-    allocation_rule_code = models.CharField(max_length=1, blank=True)
+    allocation_rule_code = models.CharField(max_length=1, null=True, blank=True)
     accounting_unit = models.ForeignKey('AccountingUnit',
                                         db_column='accounting_unit_code_num',
                                         to_field='code_num',
