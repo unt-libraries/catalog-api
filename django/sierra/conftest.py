@@ -16,13 +16,19 @@ from base import models as bm
 # Base app-related fixtures
 
 @pytest.fixture
-def records_by_recnum_range():
+def sierra_records_by_recnum_range():
     """
-    A pytest fixture that returns a set of objects based on the
+    Return Sierra records by record number range.
+
+    This is a pytest fixture that returns a set of objects based on the
     provided start and (optional) end record number. Uses the
-    appropriate model based on the type of record.
+    appropriate model based on the type of record, derived from the
+    first character of the record numbers (e.g., b is BibRecord).
+
+    Metadata about the filter used is added to an `info` attribute on
+    the object queryset that is returned.
     """
-    def _records_by_recnum_range(start, end=None):
+    def _sierra_records_by_recnum_range(start, end=None):
         rectype = start[0]
         filter_options = {'record_range_from': start, 
                           'record_range_to': end or start}
@@ -32,12 +38,36 @@ def records_by_recnum_range():
         recset.info = {
             'filter_method': 'filter_by',
             'filter_args': ['record_range', filter_options],
-            'filter_kwargs': None,
+            'filter_kwargs': {},
             'export_filter_type': 'record_range',
             'export_filter_options': filter_options,
         }
         return recset
-    return _records_by_recnum_range
+    return _sierra_records_by_recnum_range
+
+
+@pytest.fixture
+def sierra_full_object_set():
+    """
+    Return a full set of objects from a Sierra (base) model.
+
+    This is a pytest fixture that returns a full set of model objects
+    based on the type of model provided.
+
+    Metadata about the filter used is added to an `info` attribute on
+    the object queryset that is returned.
+    """
+    def _sierra_full_object_set(model_name):
+        recset = getattr(bm, model_name).objects.all()
+        recset.info = {
+            'filter_method': 'all',
+            'filter_args': [],
+            'filter_kwargs': {},
+            'export_filter_type': 'full_export',
+            'export_filter_options': {}
+        }
+        return recset
+    return _sierra_full_object_set
 
 
 # Export app-related fixtures
