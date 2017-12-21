@@ -385,7 +385,8 @@ EXPORTER_METADATA_TYPE_REGISTRY = [
 ]
 
 # The path (relative or absolute) to the command that runs SolrMarc.
-SOLRMARC_COMMAND = '../../solr/solrmarc/indexfile.sh'
+SOLRMARC_COMMAND = get_env_variable('SOLRMARC_COMMAND',
+                                    '../../solr/solrmarc/indexfile.sh')
 # The name of the properties file to use when running SolrMarc.
 SOLRMARC_CONFIG_FILE = get_env_variable('SOLRMARC_CONFIG_FILE',
                                         'dev_config.properties')
