@@ -175,6 +175,7 @@ services:
       - ./docker_data/test/media:/project/media
     environment:
       - SOLRMARC_CONFIG_FILE=${TEST_SOLRMARC_CONFIG_FILE:-test_config.properties}
+      - SOLRMARC_COMMAND=/project/catalog-api/solr/solrmarc/indexfile.sh
     working_dir: /project/catalog-api/
     networks:
       - testing
