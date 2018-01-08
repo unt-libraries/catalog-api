@@ -679,7 +679,7 @@
        handleSelect="true" is not recommended for new users, but is the default
        for backwards compatibility
     -->
-  <requestDispatcher handleSelect="false" >
+  <requestDispatcher handleSelect="true" >
     <!-- Request Parsing
 
          These settings indicate how Solr Requests may be parsed, and
@@ -710,8 +710,8 @@
          using enableRemoteStreaming="true"
 
       --> 
-    <requestParsers enableRemoteStreaming="true" 
-                    multipartUploadLimitInKB="2048000"
+    <requestParsers enableRemoteStreaming="false" 
+                    multipartUploadLimitInKB="2048"
                     formdataUploadLimitInKB="2048"
                     addHttpRequestToContext="false"/>
 
@@ -798,7 +798,8 @@
        of SearchComponents (see below) and supports distributed
        queries across multiple shards
     -->
-  <requestHandler name="/select" class="solr.SearchHandler">
+
+  <requestHandler name="standard" class="solr.SearchHandler">
     <!-- default values for query parameters can be specified, these
          will be overridden by parameters in the request
       -->
@@ -1178,10 +1179,35 @@
     <lst name="spellchecker">
       <str name="name">wordbreak</str>
       <str name="classname">solr.WordBreakSolrSpellChecker</str>      
-      <str name="field">name</str>
+      <str name="field">text</str>
       <str name="combineWords">true</str>
       <str name="breakWords">true</str>
       <int name="maxChanges">10</int>
+    </lst>
+
+    <lst name="spellchecker">
+      <str name="name">creator</str>
+      <str name="field">creator</str>
+      <str name="accuracy">0.7</str>
+      <str name="buildOnOptimize">true</str>
+    </lst>
+    <lst name="spellchecker">
+      <str name="name">subject</str>
+      <str name="field">full_subjects</str>
+      <str name="accuracy">0.7</str>
+      <str name="buildOnOptimize">true</str>
+    </lst>
+    <lst name="spellchecker">
+      <str name="name">genre</str>
+      <str name="field">genre_terms</str>
+      <str name="accuracy">0.7</str>
+      <str name="buildOnOptimize">true</str>
+    </lst>
+    <lst name="spellchecker">
+      <str name="name">title</str>
+      <str name="field">full_title</str>
+      <str name="accuracy">0.7</str>
+      <str name="buildOnOptimize">true</str>
     </lst>
 
     <!-- a spellchecker that uses a different distance measure -->
@@ -1236,8 +1262,9 @@
        See http://wiki.apache.org/solr/SpellCheckComponent for details
        on the request parameters.
     -->
-  <requestHandler name="/spell" class="solr.SearchHandler" startup="lazy">
+  <requestHandler name="/suggest" class="solr.SearchHandler" startup="lazy">
     <lst name="defaults">
+      <str name="wt">json</str>
       <str name="df">text</str>
       <!-- Solr will use suggestions from both the 'default' spellchecker
            and from the 'wordbreak' spellchecker and combine them.
@@ -1753,7 +1780,246 @@
     </lst>
   </lst>
 </queryParser>
-    
+
+  <!-- Components for Blacklight -->
+ 
+  <requestHandler name="catalog-search" class="solr.SearchHandler">
+    <!-- default values for query parameters can be specified, these
+         will be overridden by parameters in the request
+      -->
+     <lst name="defaults">
+       <str name="defType">dismax</str>
+       <str name="echoParams">explicit</str>
+       <int name="rows">10</int>
+ 
+       <str name="q.alt">*:*</str>
+       <str name="mm">2&lt;-1 5&lt;-2 6&lt;90%</str>
+ 
+       <str name="qf">
+         main_title^100000
+         subtitle^50000
+         full_title^25000
+         uniform_title^5000
+         alternate_titles^1500
+         series^1500
+         related_titles^500
+         topic_facet^1000
+         genre_facet^750
+         geographic_facet^750
+         era_facet^750
+         topic_terms^500
+         genre_terms^300
+         geographic_terms^300
+         era_terms^300
+         full_subjects^200
+         creator^250
+         statement_of_responsibility^250
+         contributors^250
+         series_creator^250
+         toc_notes^100
+         text
+       </str>
+       <str name="pf">
+         main_title^1000000
+         subtitle^500000
+         full_title^250000
+         uniform_title^50000
+         alternate_titles^15000
+         series^15000
+         related_titles^5000
+         topic_facet^10000
+         genre_facet^7500
+         geographic_facet^7500
+         era_facet^7500
+         topic_terms^5000
+         genre_terms^3000
+         geographic_terms^3000
+         era_terms^3000
+         full_subjects^2000
+         creator^2500
+         contributors^2500
+         series_creator^2500
+         toc_notes^1000
+         text^10
+       </str>
+       <str name="creator_qf">
+         creator^200
+         series_creator^200
+         statement_of_responsibility^200
+         contributors^50
+       </str>
+       <str name="creator_pf">
+         creator^2000
+         series_creator^2000
+         statement_of_responsibility^2000
+         contributors^500
+       </str>
+       <str name="title_qf">
+         main_title^100000
+         subtitle^50000
+         full_title^25000
+         uniform_title^5000
+         alternate_titles^1500
+         series^1500
+         related_titles^500
+       </str>
+       <str name="title_pf">
+         main_title^1000000
+         subtitle^500000
+         full_title^250000
+         uniform_title^50000
+         alternate_titles^15000
+         series^15000
+         related_titles^5000
+       </str>
+       <str name="subject_qf">
+         topic_facet^1000
+         geographic_facet^750
+         era_facet^750
+         topic_terms^500
+         geographic_terms^300
+         era_terms^300
+         full_subjects^200
+       </str>
+       <str name="subject_pf">
+         topic_facet^10000
+         geographic_facet^7500
+         era_facet^7500
+         topic_terms^5000
+         geographic_terms^3000
+         era_terms^3000
+         full_subjects^2000
+       </str>
+       <str name="genre_qf">
+         genre_facet^1000
+         genre_terms^500
+       </str>
+       <str name="genre_pf">
+         genre_facet^10000
+         genre_terms^5000
+       </str>
+        
+       <int name="ps">3</int>
+       <float name="tie">0.01</float>
+ 
+       <!-- NOT using marc_display because it is large and will slow things down for search results -->
+       <str name="fl">
+         id, 
+         score,
+         creator,
+         contributors,
+         formats,
+         isbn_numbers, 
+         languages,
+         main_call_number,
+         material_type,
+         publishers,
+         publication_place,
+         publication_dates,
+         full_title,
+         main_title,
+         subtitle,
+         topic_terms_facet,
+         geographic_terms_facet,
+         era_terms_facet,
+         form_terms_facet,
+         genre_terms_facet,
+         urls,
+         url_labels,
+         isbn_numbers
+       </str>
+ 
+       <str name="facet">true</str>
+       <str name="facet.mincount">1</str>
+       <str name="facet.field">material_type</str>
+       <str name="facet.field">formats</str>
+       <str name="facet.field">main_call_number</str>
+       <str name="facet.field">languages</str>
+       <str name="facet.field">publication_dates</str>
+       <str name="facet.field">genre_terms_facet</str>
+       <str name="facet.field">topic_terms_facet</str>
+       <str name="facet.field">geographic_terms_facet</str>
+       <str name="facet.field">era_terms_facet</str>
+       <str name="facet.field">form_terms_facet</str>
+       <str name="facet.field">people_facet</str>
+       <str name="facet.field">corporations_facet</str>
+       <str name="facet.field">meetings_facet</str>
+        
+       <str name="spellcheck">true</str>
+       <str name="spellcheck.dictionary">default</str>
+       <str name="spellcheck.onlyMorePopular">true</str>
+       <str name="spellcheck.extendedResults">true</str>
+       <str name="spellcheck.collate">false</str>
+       <str name="spellcheck.count">5</str>
+ 
+     </lst>
+    <!-- In addition to defaults, "appends" params can be specified
+         to identify values which should be appended to the list of
+         multi-val params from the query (or the existing "defaults").
+      -->
+    <!-- In this example, the param "fq=instock:true" would be appended to
+         any query time fq params the user may specify, as a mechanism for
+         partitioning the index, independent of any user selected filtering
+         that may also be desired (perhaps as a result of faceted searching).
+ 
+         NOTE: there is *absolutely* nothing a client can do to prevent these
+         "appends" values from being used, so don't use this mechanism
+         unless you are sure you always want it.
+      -->
+    <!--
+       <lst name="appends">
+         <str name="fq">inStock:true</str>
+       </lst>
+      -->
+    <!-- "invariants" are a way of letting the Solr maintainer lock down
+         the options available to Solr clients.  Any params values
+         specified here are used regardless of what values may be specified
+         in either the query, the "defaults", or the "appends" params.
+ 
+         In this example, the facet.field and facet.query params would
+         be fixed, limiting the facets clients can use.  Faceting is
+         not turned on by default - but if the client does specify
+         facet=true in the request, these are the only facets they
+         will be able to see counts for; regardless of what other
+         facet.field or facet.query params they may specify.
+ 
+         NOTE: there is *absolutely* nothing a client can do to prevent these
+         "invariants" values from being used, so don't use this mechanism
+         unless you are sure you always want it.
+      -->
+    <!--
+       <lst name="invariants">
+         <str name="facet.field">cat</str>
+         <str name="facet.field">manu_exact</str>
+         <str name="facet.query">price:[* TO 500]</str>
+         <str name="facet.query">price:[500 TO *]</str>
+       </lst>
+      -->
+    <!-- If the default list of SearchComponents is not desired, that
+         list can either be overridden completely, or components can be
+         prepended or appended to the default list.  (see below)
+      -->
+    <!--
+       <arr name="components">
+         <str>nameOfCustomComponent1</str>
+         <str>nameOfCustomComponent2</str>
+       </arr>
+      -->
+    <arr name="last-components">
+      <str>spellcheck</str>
+    </arr>
+       
+  </requestHandler>
+ 
+  <!-- for requests to get a single document; use id=666 instead of q=id:666 -->
+  <requestHandler name="document" class="solr.SearchHandler" >
+    <lst name="defaults">
+      <str name="echoParams">all</str>
+      <str name="fl">*</str>
+      <str name="rows">1</str>
+      <str name="q">{!term f=id v=$id}</str> <!-- use id=666 instead of q=id:666 -->
+    </lst>
+  </requestHandler>
 
   <!-- Legacy config for the admin interface -->
   <admin>

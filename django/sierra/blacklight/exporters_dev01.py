@@ -32,7 +32,7 @@ class BibsToBlacklightDev01(BibsToSolr):
     def export_records(self, records, vals={}):
         log_label = type(self).__name__
         bibs_solr_url = type(self).solr_url('bibs')
-        index_prop = 'dev_index.properties'
+        bibs_indprop = '{}_index.properties'.format(type(self).cores['bibs'])
         jarfile = ('{}/../../solr/solrmarc/StanfordSearchWorksSolrMarc.jar'
                    '').format(settings.PROJECT_DIR)
         config_file = settings.SOLRMARC_CONFIG_FILE
@@ -49,7 +49,7 @@ class BibsToBlacklightDev01(BibsToSolr):
 
         cmd = ('java -Xmx1g -Dsolr.hosturl="{}" '
                '-Dsolrmarc.indexing.properties="{}" '
-               '-jar "{}" {} {}').format(bibs_solr_url, index_prop, jarfile,
+               '-jar "{}" {} {}').format(bibs_solr_url, bibs_indprop, jarfile,
                                          config_file, filepath)
 
         try:
