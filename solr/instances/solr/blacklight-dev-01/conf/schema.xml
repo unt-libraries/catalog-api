@@ -180,6 +180,9 @@
     <field name="physical_characteristics" type="text" indexed="true" stored="true" multiValued="true" />
     <field name="vern_physical_characteristics" type="textNoStem" indexed="true" stored="true" multiValued="true" />
 
+    <!-- Media Game Facet Fields -->
+    <field name="game_facet" type="string" indexed="true" stored="true" multiValued="true" />
+
     <!-- Table of Contents -->
     <field name="toc_notes" type="text" indexed="true" stored="true" multiValued="true" />
     <field name="vern_toc_notes" type="textNoStem" indexed="true" stored="true" multiValued="true" />

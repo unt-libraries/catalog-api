@@ -168,6 +168,7 @@ INSTALLED_APPS = (
     'api',
     'django.contrib.admin',
     'shelflist',
+    'blacklight',
 )
 
 SESSION_SERIALIZER = 'django.contrib.sessions.serializers.JSONSerializer'
