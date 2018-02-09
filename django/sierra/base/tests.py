@@ -6,10 +6,13 @@ methods, which are triggered when this file is imported. The test
 generators create individual test methods as appropriate and then
 attach them to the class using setattr().
 '''
+import re
+import warnings
 from inspect import isclass
 
 from django.test import TestCase
 from django.db import DatabaseError
+from django.core.exceptions import ObjectDoesNotExist
 from django.db.models.fields.related import RelatedField
 
 from .benchmarks import timeit
@@ -66,6 +69,11 @@ class BaseModelMapTests(TestCase):
                 getattr(test_row, field_name)
             except IndexError as e:
                 pass
+            except ObjectDoesNotExist as e:
+                if re.match(r'\w+ matching query does not exist', str(e)) is not None:
+                    warnings.warn('{} The Sierra database may have changed.'.format(str(e)))
+                else:
+                    self.fail(e)
             except Exception as e:
                 self.fail(e)
         do_test.__name__ = ('test_model_{}_related_field_{}_sanity'
