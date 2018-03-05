@@ -62,7 +62,9 @@ DATABASES = {
         'PASSWORD': get_env_variable('SIERRA_DB_PASSWORD'),
         'HOST': get_env_variable('SIERRA_DB_HOST'),
         'PORT': '1032',
-        'TEST_MIRROR': 'sierra',
+        'TEST': {
+            'MIRROR': 'sierra',
+        },
         'OPTIONS': {'autocommit': True, },
     },
     'default': {
@@ -73,7 +75,9 @@ DATABASES = {
         'PASSWORD': get_env_variable('DEFAULT_DB_PASSWORD'),
         'HOST': get_env_variable('DEFAULT_DB_HOST', '127.0.0.1'),
         'PORT': get_env_variable('DEFAULT_DB_PORT', '3306'),
-        'TEST_MIRROR': 'default'
+        'TEST': {
+            'MIRROR': 'default',
+        },
     }
 }
 
