@@ -72,7 +72,7 @@ class ExportInstanceAdmin(admin.ModelAdmin):
                                export_type, data)
                 reverse_url = 'admin:{}_{}_change'.format(
                     self.model._meta.app_label,
-                    self.model._meta.module_name
+                    self.model._meta.model_name
                 )
                 response = HttpResponseRedirect(reverse(reverse_url,
                     args=(form.instance.pk, )))
