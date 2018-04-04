@@ -65,7 +65,6 @@ DATABASES = {
         'TEST': {
             'MIRROR': 'sierra',
         },
-        'OPTIONS': {'autocommit': True, },
     },
     'default': {
         'ENGINE': get_env_variable('DEFAULT_DB_ENGINE', 
