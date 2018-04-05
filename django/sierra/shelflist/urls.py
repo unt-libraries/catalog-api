@@ -9,7 +9,7 @@ from api.uris import APIUris
 from .uris import ShelflistAPIUris
 
 urlpatterns = patterns('',
-    url(r'^$', RedirectView.as_view(url=reverse_lazy('api-root'))),
+    url(r'^$', RedirectView.as_view(url=reverse_lazy('api-root'), permanent=True)),
     url(APIUris.get_urlpattern('api-root', v=r'1'), views.api_root, 
         name='api-root'),
     url(APIUris.get_urlpattern('locations-list', v='1'),

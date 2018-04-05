@@ -12,7 +12,7 @@ import logging
 logger = logging.getLogger('sierra.custom')
 
 urlpatterns = patterns('',
-    url(r'^$', RedirectView.as_view(url=reverse_lazy('api-root'))),
+    url(r'^$', RedirectView.as_view(url=reverse_lazy('api-root'), permanent=True)),
     url(r'^api/', include('shelflist.urls')),
     url(r'^api/', include('api.urls'))
 ) + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
