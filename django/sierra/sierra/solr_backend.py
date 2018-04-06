@@ -15,7 +15,7 @@ values.
 index optimization isn't triggered if commit is false.
 '''
 
-from django.db.models.loading import get_model
+from django.apps import apps
 
 from haystack.backends import solr_backend, BaseEngine
 from haystack.models import SearchResult
@@ -85,7 +85,7 @@ class CustomSolrSearchBackend(solr_backend.SolrSearchBackend):
         for raw_result in raw_results.docs:
             app_label, model_name = raw_result[DJANGO_CT].split('.')
             additional_fields = {}
-            model = get_model(app_label, model_name)
+            model = apps.get_model(app_label, model_name)
 
             if model and model in indexed_models:
                 for key, value in raw_result.items():

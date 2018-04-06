@@ -56,3 +56,5 @@ class APIUser(models.Model):
         self.save()
         return permissions
 
+    class Meta:
+        app_label = 'api'

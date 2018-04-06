@@ -25,18 +25,18 @@ class SierraRouter(object):
         else:
             return 'default'
 
-    def is_sierra_model_and_is_sierra_test_db(self, db, model):
-        return (model._meta.app_label == 'base' and db == 'sierra' and
+    def is_sierra_model_and_is_sierra_test_db(self, db, app_label):
+        return (app_label == 'base' and db == 'sierra' and
                 settings.TESTING)
 
-    def is_not_sierra_model_and_is_default_db(self, db, model):
-        return (model._meta.app_label != 'base' and db == 'default')
+    def is_not_sierra_model_and_is_default_db(self, db, app_label):
+        return app_label != 'base' and db == 'default'
 
-    def allow_migrate(self, db, model):
+    def allow_migrate(self, db, app_label, model_name=None, **hints):
         """
         Allow migrations under 2 conditions: 1. we have Sierra (base
         app) models in a testing environment going into the sierra db,
         or 2. we have non-Sierra models going into the default db.
         """
-        return (self.is_sierra_model_and_is_sierra_test_db(db, model) or
-                self.is_not_sierra_model_and_is_default_db(db, model))
+        return (self.is_sierra_model_and_is_sierra_test_db(db, app_label) or
+                self.is_not_sierra_model_and_is_default_db(db, app_label))
