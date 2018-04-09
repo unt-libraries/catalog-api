@@ -65,7 +65,7 @@ def test_sierra_router_allow_migrate(model_class, database, testing, expected):
     for the given model_class and database, depending on whether or not
     it's a testing environment
     """
-    router, app_label = routers.SierraRouter(), model_class()
+    router, app_label = routers.SierraRouter(), model_class()._meta.app_label
     settings.TESTING = testing
     result = router.allow_migrate(database, app_label)
     settings.TESTING = True
