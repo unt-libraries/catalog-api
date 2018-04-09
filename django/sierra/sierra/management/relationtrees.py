@@ -115,8 +115,11 @@ class Relation(object):
 
     def get_as_through_relations(self):
         meta = self.model._meta
-        all_rels = meta.get_all_related_objects()
-        matching_rel = [rel for rel in all_rels if rel.model == self.through]
+        all_rels = [
+            f for f in meta.get_fields()
+            if (f.one_to_many or f.one_to_one) and f.auto_created and not f.concrete
+        ]
+        matching_rel = [rel for rel in all_rels if rel.related_model == self.through]
         try:
             through_name = matching_rel[0].get_accessor_name()
         except IndexError:
@@ -124,10 +127,10 @@ class Relation(object):
                    'other.'.format(self.model, self.target_model))
             raise BadRelation(msg)
         through_model = getattr(self.model, through_name).related.model
-        rel_fs = [f for f in through_model._meta.fields if f.rel]
+        rel_fs = [f for f in through_model._meta.get_fields() if f.related_model]
 
         try:
-            thru_f = [f for f in rel_fs if f.rel.to == self.target_model][0]
+            thru_f = [f for f in rel_fs if f.related_model == self.target_model][0]
         except IndexError:
             msg = ('Field for relation from model {} to {} not found.'
                    ''.format(through_model, self.target_model))
@@ -285,7 +288,7 @@ def trace_branches(model, orig_model=None, brfields=None, cache=None):
     """
     tracing, orig_model = [], orig_model or model
     meta = model._meta
-    relfields = [f for f in meta.fields if f.rel] + meta.many_to_many
+    relfields = [f for f in meta.fields if f.rel] + [f for f in meta.many_to_many]
 
     for field in relfields:
         cache = cache or []
@@ -317,4 +320,3 @@ def harvest(trees, into=None, tree_qsets=None):
     for tree in trees:
         bucket = tree.pick(into=bucket, qset=tree_qsets.get(tree, None))
     return bucket
-
