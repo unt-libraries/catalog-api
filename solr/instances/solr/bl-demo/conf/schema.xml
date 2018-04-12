@@ -86,14 +86,12 @@
 
   <fields>   
     <!-- NOTE: this is not a full list of fields in the index; dynamic fields are also used -->
-    <field name="id" type="slong" indexed="true" stored="true" multiValued="false"/>
-    <field name="record_number" type="string" indexed="true" stored="true" required="true" />
+    <field name="record_number" type="string" indexed="true" stored="true" required="true" multiValued="false" />
     <field name="item_ids" type="slong" indexed="true" stored="true" multiValued="true"/>
     <field name="item_record_numbers" type="string" indexed="true" stored="true" multiValued="true"/>
     <field name="timestamp" type="date" indexed="true" stored="true" default="NOW" multiValued="false"/>
     <!-- default, catch all search fields -->
 	<field name="text" type="text" indexed="true" stored="false" multiValued="true"/>
-    <field name="vern_all_search" type="text" indexed="true" stored="false" multiValued="true"/>
     
     <!-- Language Field -->
     <field name="languages" type="string" indexed="true" stored="true" multiValued="true" />
@@ -105,34 +103,23 @@
     <field name="oclc_numbers" type="string" indexed="true" stored="true" multiValued="true" />
     <!-- Title Fields --> 
     <field name="full_title" type="text" indexed="true" stored="true" multiValued="false"/>
-    <field name="vern_full_title" type="text" indexed="true" stored="true" multiValued="false"/>
     <field name="main_title" type="text" indexed="true" stored="true" multiValued="false"/>
-    <field name="vern_main_title" type="text" indexed="true" stored="true" multiValued="false"/>
     <field name="subtitle" type="text" indexed="true" stored="true" multiValued="false"/>
-    <field name="vern_subtitle" type="text" indexed="true" stored="true" multiValued="false"/>
     <field name="statement_of_responsibility" type="text" indexed="true" stored="true" multiValued="false"/>
-    <field name="vern_statement_of_responsibility" type="text" indexed="true" stored="true" multiValued="false"/>
     <field name="uniform_title" type="text" indexed="true" stored="true" multiValued="false"/>
-    <field name="vern_uniform_title" type="text" indexed="true" stored="true" multiValued="false"/>
     <field name="alternate_titles" type="text" indexed="true" stored="true" multiValued="true"/>
-    <field name="vern_alternate_titles" type="text" indexed="true" stored="true" multiValued="true"/>
     <field name="related_titles" type="text" indexed="true" stored="true" multiValued="true"/>
-    <field name="vern_related_titles" type="text" indexed="true" stored="true" multiValued="true"/>
     <!-- Title Sort Field -->
     <field name="title_sort" type="alphaOnlySort" indexed="true" stored="true"/>
     <!-- Series Fields -->
     <field name="series" type="text" indexed="true" stored="true" multiValued="true"/>
-    <field name="vern_series" type="text" indexed="true" stored="true" multiValued="true"/>
     <field name="series_exact" type="text" indexed="true" stored="true" multiValued="true"/>
     <!-- Author/Title Search Fields -->
     <field name="author_title_search" type="text" indexed="true" stored="true" multiValued="true"/>
     <!-- Creator/Contributor Fields -->
     <field name="creator" type="text" indexed="true" stored="true" multiValued="false"/>
-    <field name="vern_creator" type="text" indexed="true" stored="true" multiValued="false"/>
     <field name="contributors" type="text" indexed="true" stored="true" multiValued="true"/>
-    <field name="vern_contributors" type="text" indexed="true" stored="true" multiValued="true"/>
     <field name="series_creators" type="text" indexed="true" stored="true" multiValued="true"/>
-    <field name="vern_series_creators" type="text" indexed="true" stored="true" multiValued="true"/>
     <field name="people" type="text" indexed="true" stored="true" multiValued="true"/>
     <field name="corporations" type="text" indexed="true" stored="true" multiValued="true"/>
     <field name="meetings" type="text" indexed="true" stored="true" multiValued="true"/>
@@ -141,21 +128,13 @@
 
     <!-- Subject Search Fields -->
     <field name="full_subjects" type="text" indexed="true" stored="true" multiValued="true"/>
-    <field name="vern_full_subjects" type="text" indexed="true" stored="true" multiValued="true"/>
     <field name="topic_terms" type="text" indexed="true" stored="true" multiValued="true"/>
-    <field name="vern_topic_terms" type="text" indexed="true" stored="true" multiValued="true"/>
     <field name="general_terms" type="text" indexed="true" stored="true" multiValued="true"/>
-    <field name="vern_general_terms" type="text" indexed="true" stored="true" multiValued="true"/>
     <field name="genre_terms" type="text" indexed="true" stored="true" multiValued="true"/>
-    <field name="vern_genre_terms" type="text" indexed="true" stored="true" multiValued="true"/>
     <field name="geographic_terms" type="text" indexed="true" stored="true" multiValued="true"/>
-    <field name="vern_geographic_terms" type="text" indexed="true" stored="true" multiValued="true"/>
     <field name="era_terms" type="text" indexed="true" stored="true" multiValued="true"/>
-    <field name="vern_era_terms" type="text" indexed="true" stored="true" multiValued="true"/>
     <field name="form_terms" type="text" indexed="true" stored="true" multiValued="true"/>
-    <field name="vern_form_terms" type="text" indexed="true" stored="true" multiValued="true"/>
     <field name="other_terms" type="text" indexed="true" stored="true" multiValued="true"/>
-    <field name="vern_other_terms" type="text" indexed="true" stored="true" multiValued="true"/>
 
     <!-- Publication Fields -->
     <field name="imprints" type="text" indexed="true" stored="true" multiValued="true"/>
@@ -178,22 +157,18 @@
 
     <!-- Physical Fields -->
     <field name="physical_characteristics" type="text" indexed="true" stored="true" multiValued="true" />
-    <field name="vern_physical_characteristics" type="textNoStem" indexed="true" stored="true" multiValued="true" />
 
     <!-- Media Game Facet Fields -->
     <field name="game_facet" type="string" indexed="true" stored="true" multiValued="true" />
 
     <!-- Table of Contents -->
     <field name="toc_notes" type="text" indexed="true" stored="true" multiValued="true" />
-    <field name="vern_toc_notes" type="textNoStem" indexed="true" stored="true" multiValued="true" />
 
     <!-- Context -->
     <field name="context_notes" type="text" indexed="true" stored="true" multiValued="true" />
-    <field name="vern_context_notes" type="text" indexed="true" stored="true" multiValued="true" />
 
     <!-- Summary -->
     <field name="summary_notes" type="text" indexed="true" stored="true" multiValued="true" />
-    <field name="vern_summary_notes" type="text" indexed="true" stored="true" multiValued="true" />
     
     <field name="suppressed" type="boolean" indexed="true" stored="true" multiValued="false" />
     
@@ -216,15 +191,10 @@
     <dynamicField name="*_sort" type="alphaOnlySort" indexed="true" stored="false"/>
     <dynamicField name="*_unstem_search" type="textNoStem" indexed="true" stored="false" multiValued="true" />
     <dynamicField name="*spell" type="textSpell" indexed="true" stored="false" multiValued="true"/>
-
-    <!-- Finally: a few fields required for Django Haystack to be able to search this index.-->
-    <field name="django_ct" type="string" indexed="true" stored="true" multiValued="false"/>
-    <field name="django_id" type="string" indexed="true" stored="true" multiValued="false"/>
-    <field name="haystack_id" type="string" indexed="true" stored="true" multiValued="false"/>
     
   </fields>
 
-  <uniqueKey>haystack_id</uniqueKey>
+  <uniqueKey>record_number</uniqueKey>
   <defaultSearchField>text</defaultSearchField>
   <solrQueryParser defaultOperator="OR"/>
 
