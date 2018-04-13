@@ -1935,7 +1935,7 @@
        <str name="facet.field">formats</str>
        <str name="facet.field">main_call_number</str>
        <str name="facet.field">languages</str>
-       <str name="facet.field">publication_dates</str>
+       <str name="facet.field">publication_dates_facet</str>
        <str name="facet.field">genre_terms_facet</str>
        <str name="facet.field">topic_terms_facet</str>
        <str name="facet.field">geographic_terms_facet</str>
