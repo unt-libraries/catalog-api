@@ -92,6 +92,10 @@
     <field name="timestamp" type="date" indexed="true" stored="true" default="NOW" multiValued="false"/>
     <!-- default, catch all search fields -->
 	<field name="text" type="text" indexed="true" stored="false" multiValued="true"/>
+
+    <!-- Locations -->
+    <field name="bib_location_codes" type="string" indexed="true" stored="true" multiValued="true"/>
+    <field name="item_location_codes" type="string" indexed="true" stored="true" multiValued="true"/>
     
     <!-- Language Field -->
     <field name="languages" type="string" indexed="true" stored="true" multiValued="true" />

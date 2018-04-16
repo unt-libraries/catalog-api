@@ -85,15 +85,24 @@ class S2MarcBatchDemo(S2MarcBatch):
                 subfields=['a', '.{}'.format(recnum), 'b', str(r.id), 
                            'c', suppressed, 'd', material_type]
         )
-        # Add a list of attached items to the 908 field.
         marc_record.add_ordered_field(metadata_field)
+        # Add bib locations to the 911a.
+        for loc in r.locations.all():
+            loc_field = pymarc.field.Field(
+                tag='911',
+                indicators=[' ', ' '],
+                subfields=['a', loc.code]
+            )
+            marc_record.add_ordered_field(loc_field)
+
+        # Add a list of attached items to the 908 field.
         for item_link in r.bibrecorditemrecordlink_set.all():
             item = item_link.item_record
             item_field = pymarc.field.Field(
                 tag='908',
                 indicators=[' ', ' '],
                 subfields=['a', item.record_metadata.get_iii_recnum(True),
-                           'b', str(item.pk)]
+                           'b', str(item.pk), 'c', item.location.code]
             )
             marc_record.add_ordered_field(item_field)
         # For each call number in the record, add a 909 field.
