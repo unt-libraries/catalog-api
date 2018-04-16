@@ -74,7 +74,7 @@ class S2MarcBatchDemo(S2MarcBatch):
             raise S2MarcError('Skipped. No MARC fields on Bib record.', str(r))
         # Now add various metadata to the 907 field, starting with the
         # record number
-        recnum = r.record_metadata.get_iii_recnum(True)
+        recnum = r.record_metadata.get_iii_recnum(False)
         suppressed = 'true' if r.is_suppressed else 'false'
         # material_type = r.bibrecordproperty_set.all()[0].material\
         #     .materialpropertyname_set.all()[0].name
