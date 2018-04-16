@@ -226,7 +226,7 @@ class FixfldTypeMyuser(ReadOnlyModel):
 
 
 class FixfldTypeName(ReadOnlyModel):
-    fixfldtype = models.ForeignKey(FixfldType,
+    fixfldtype = models.OneToOneField(FixfldType,
                                    primary_key=True,
                                    db_column='fixfld_property_id')
     iii_language = models.ForeignKey('IiiLanguage', null=True, blank=True)
@@ -285,7 +285,7 @@ class MarclabelTypeMyuser(ReadOnlyModel):
 
 
 class MarclabelTypeName(ReadOnlyModel):
-    marclabel_type = models.ForeignKey(MarclabelType, primary_key=True)
+    marclabel_type = models.OneToOneField(MarclabelType, primary_key=True)
     iii_language = models.ForeignKey('IiiLanguage', null=True, blank=True)
     name = models.CharField(max_length=255, blank=True)
 
@@ -359,7 +359,7 @@ class PhraseType(ReadOnlyModel):
 
 
 class PhraseTypeName(ReadOnlyModel):
-    phrase_type = models.ForeignKey(PhraseType, primary_key=True)
+    phrase_type = models.OneToOneField(PhraseType, primary_key=True)
     iii_language = models.ForeignKey('IiiLanguage', null=True, blank=True)
     name = models.CharField(max_length=255, blank=True)
     plural_name = models.CharField(max_length=255, blank=True)
@@ -503,7 +503,7 @@ class RecordTypeMyuser(ReadOnlyModel):
 
 
 class RecordTypeName(ReadOnlyModel):
-    record_type = models.ForeignKey(RecordType, primary_key=True)
+    record_type = models.OneToOneField(RecordType, primary_key=True)
     name = models.CharField(max_length=255, blank=True)
     iii_language = models.ForeignKey('IiiLanguage', null=True, blank=True)
 
@@ -513,7 +513,7 @@ class RecordTypeName(ReadOnlyModel):
 
 class Subfield(ReadOnlyModel):
     record = models.ForeignKey(RecordMetadata, null=True, blank=True)
-    varfield = models.ForeignKey('Varfield', primary_key=True)
+    varfield = models.OneToOneField('Varfield', primary_key=True)
     field_type_code = models.CharField(max_length=1, blank=True)
     marc_tag = models.CharField(max_length=3, null=True, blank=True)
     marc_ind1 = models.CharField(max_length=1, blank=True)
@@ -607,7 +607,7 @@ class VarfieldType(ReadOnlyModel):
 
 
 class VarfieldTypeName(ReadOnlyModel):
-    varfield_type = models.ForeignKey(VarfieldType, primary_key=True)
+    varfield_type = models.OneToOneField(VarfieldType, primary_key=True)
     iii_language = models.ForeignKey('IiiLanguage', null=True, blank=True)
     short_name = models.CharField(max_length=20, blank=True)
     name = models.CharField(max_length=255, blank=True)
@@ -747,7 +747,7 @@ class BibLevelPropertyMyuser(ReadOnlyModel):
 
 
 class BibLevelPropertyName(ReadOnlyModel):
-    bib_level_property = models.ForeignKey(BibLevelProperty, primary_key=True)
+    bib_level_property = models.OneToOneField(BibLevelProperty, primary_key=True)
     iii_language = models.ForeignKey('IiiLanguage', null=True, blank=True)
     name = models.CharField(max_length=255, blank=True)
 
@@ -763,23 +763,18 @@ class BibRecord(MainRecordTypeModel):
                                         blank=True)
     holding_records = models.ManyToManyField('HoldingRecord',
                                              through='BibRecordHoldingRecordLink',
-                                             null=True,
                                              blank=True)
     item_records = models.ManyToManyField('ItemRecord',
                                           through='BibRecordItemRecordLink',
-                                          null=True,
                                           blank=True)
     order_records = models.ManyToManyField('OrderRecord',
                                            through='BibRecordOrderRecordLink',
-                                           null=True,
                                            blank=True)
     volume_records = models.ManyToManyField('VolumeRecord',
                                             through='BibRecordVolumeRecordLink',
-                                            null=True,
                                             blank=True)
     locations = models.ManyToManyField('Location',
                                        through='BibRecordLocation',
-                                       null=True,
                                        blank=True)
     language = models.ForeignKey('LanguageProperty',
                                  db_column='language_code',
@@ -967,7 +962,7 @@ class MaterialPropertyCategoryMyuser(ReadOnlyModel):
 
 
 class MaterialPropertyCategoryName(ReadOnlyModel):
-    material_property_category = models.ForeignKey(MaterialPropertyCategory,
+    material_property_category = models.OneToOneField(MaterialPropertyCategory,
                                                    primary_key=True)
     name = models.CharField(max_length=255, blank=True)
     iii_language = models.ForeignKey('IiiLanguage', null=True, blank=True)
@@ -991,7 +986,7 @@ class MaterialPropertyMyuser(ReadOnlyModel):
 
 
 class MaterialPropertyName(ReadOnlyModel):
-    material_property = models.ForeignKey(MaterialProperty, primary_key=True)
+    material_property = models.OneToOneField(MaterialProperty, primary_key=True)
     iii_language = models.ForeignKey('IiiLanguage', null=True, blank=True)
     name = models.CharField(max_length=255, blank=True)
     facet_text = models.CharField(max_length=500, null=True, blank=True)
@@ -1088,11 +1083,9 @@ class CourseRecord(MainRecordTypeModel):
                                         blank=True)
     bib_records = models.ManyToManyField(BibRecord,
                                          through=CourseRecordBibRecordLink,
-                                         null=True,
                                          blank=True)
     item_records = models.ManyToManyField('ItemRecord',
                                           through='CourseRecordItemRecordLink',
-                                          null=True,
                                           blank=True)
     begin_date = models.DateTimeField(null=True, blank=True)
     end_date = models.DateTimeField(null=True, blank=True)
@@ -1172,7 +1165,7 @@ class UserDefinedCcode3Myuser(ReadOnlyModel):
 class BibRecordHoldingRecordLink(ReadOnlyModel):
     id = models.BigIntegerField(primary_key=True)
     bib_record = models.ForeignKey(BibRecord, null=True, blank=True)
-    holding_record = models.ForeignKey('HoldingRecord',
+    holding_record = models.OneToOneField('HoldingRecord',
                                        unique=True,
                                        null=True,
                                        blank=True)
@@ -1190,11 +1183,9 @@ class HoldingRecord(MainRecordTypeModel):
                                         blank=True)
     item_records = models.ManyToManyField('ItemRecord',
                                           through='HoldingRecordItemRecordLink',
-                                          null=True,
                                           blank=True)
     locations = models.ManyToManyField('Location',
                                        through='HoldingRecordLocation',
-                                       null=True,
                                        blank=True)
     is_inherit_loc = models.NullBooleanField(null=True, blank=True)
     allocation_rule_code = models.CharField(max_length=1, null=True, blank=True)
@@ -1244,7 +1235,6 @@ class HoldingRecordBox(ReadOnlyModel):
                                                 blank=True)
     item_records = models.ManyToManyField('ItemRecord',
                                           through='HoldingRecordBoxItem',
-                                          null=True,
                                           blank=True)
     box_count = models.IntegerField(null=True, blank=True)
     enum_level_a = models.CharField(max_length=256, blank=True)
@@ -1387,7 +1377,7 @@ class HoldingRecordErmHolding(ReadOnlyModel):
 class HoldingRecordItemRecordLink(ReadOnlyModel):
     id = models.BigIntegerField(primary_key=True)
     holding_record = models.ForeignKey(HoldingRecord, null=True, blank=True)
-    item_record = models.ForeignKey('ItemRecord',
+    item_record = models.OneToOneField('ItemRecord',
                                     unique=True,
                                     null=True,
                                     blank=True)
@@ -1824,11 +1814,9 @@ class ItemRecord(MainRecordTypeModel):
                                         blank=True)
     transit_box_records = models.ManyToManyField('TransitBoxRecord',
                                                  through='TransitBoxRecordItemRecord',
-                                                 null=True,
                                                  blank=True)
     volume_records = models.ManyToManyField('VolumeRecord',
                                             through='VolumeRecordItemRecordLink',
-                                            null=True,
                                             blank=True)
     icode1 = models.IntegerField(null=True, blank=True)
     icode2 = models.CharField(max_length=1, blank=True)
@@ -2028,7 +2016,7 @@ class ItemRecord(MainRecordTypeModel):
 
 class ItemRecordProperty(ReadOnlyModel):
     id = models.BigIntegerField(primary_key=True)
-    item_record = models.ForeignKey(ItemRecord,
+    item_record = models.OneToOneField(ItemRecord,
                                     unique=True,
                                     null=True,
                                     blank=True)
@@ -2059,7 +2047,7 @@ class ItemStatusPropertyMyuser(ReadOnlyModel):
 
 
 class ItemStatusPropertyName(ReadOnlyModel):
-    item_status_property = models.ForeignKey(ItemStatusProperty,
+    item_status_property = models.OneToOneField(ItemStatusProperty,
                                              primary_key=True)
     iii_language = models.ForeignKey('IiiLanguage', null=True, blank=True)
     name = models.CharField(max_length=255, blank=True)
@@ -2196,7 +2184,7 @@ class ItypePropertyCategoryMyuser(ReadOnlyModel):
 
 
 class ItypePropertyCategoryName(ReadOnlyModel):
-    itype_property_category = models.ForeignKey(ItypePropertyCategory,
+    itype_property_category = models.OneToOneField(ItypePropertyCategory,
                                                 primary_key=True)
     name = models.CharField(max_length=255, blank=True)
     iii_language = models.ForeignKey('IiiLanguage', null=True, blank=True)
@@ -2220,7 +2208,7 @@ class ItypePropertyMyuser(ReadOnlyModel):
 
 
 class ItypePropertyName(ReadOnlyModel):
-    itype_property = models.ForeignKey(ItypeProperty, primary_key=True)
+    itype_property = models.OneToOneField(ItypeProperty, primary_key=True)
     iii_language = models.ForeignKey('IiiLanguage', null=True, blank=True)
     name = models.CharField(max_length=255, blank=True)
 
@@ -2259,7 +2247,7 @@ class StatisticGroupMyuser(ReadOnlyModel):
 
 
 class StatisticGroupName(ReadOnlyModel):
-    statistic_group = models.ForeignKey(StatisticGroup, primary_key=True)
+    statistic_group = models.OneToOneField(StatisticGroup, primary_key=True)
     iii_language = models.ForeignKey('IiiLanguage', null=True, blank=True)
     name = models.CharField(max_length=255, blank=True)
 
@@ -2282,7 +2270,7 @@ class TransitBoxRecordItemRecord(ReadOnlyModel):
     transit_box_record = models.ForeignKey(TransitBoxRecord,
                                            null=True,
                                            blank=True)
-    item_record = models.ForeignKey(ItemRecord,
+    item_record = models.OneToOneField(ItemRecord,
                                     db_column='item_record_metadata_id',
                                     unique=True,
                                     null=True,
@@ -2341,7 +2329,7 @@ class UserDefinedIcode2Myuser(ReadOnlyModel):
 class VolumeRecordItemRecordLink(ReadOnlyModel):
     id = models.BigIntegerField(primary_key=True)
     volume_record = models.ForeignKey('VolumeRecord', null=True, blank=True)
-    item_record = models.ForeignKey(ItemRecord,
+    item_record = models.OneToOneField(ItemRecord,
                                     unique=True,
                                     null=True,
                                     blank=True)
@@ -2521,7 +2509,7 @@ class AcqTypePropertyMyuser(ReadOnlyModel):
 
 
 class AcqTypePropertyName(ReadOnlyModel):
-    acq_type_property = models.ForeignKey(AcqTypeProperty, primary_key=True)
+    acq_type_property = models.OneToOneField(AcqTypeProperty, primary_key=True)
     iii_language = models.ForeignKey('IiiLanguage', null=True, blank=True)
     name = models.CharField(max_length=255, blank=True)
 
@@ -2532,7 +2520,7 @@ class AcqTypePropertyName(ReadOnlyModel):
 class BibRecordOrderRecordLink(ReadOnlyModel):
     id = models.BigIntegerField(primary_key=True)
     bib_record = models.ForeignKey(BibRecord, null=True, blank=True)
-    order_record = models.ForeignKey('OrderRecord',
+    order_record = models.OneToOneField('OrderRecord',
                                      unique=True,
                                      null=True,
                                      blank=True)
@@ -2561,7 +2549,7 @@ class BillingLocationPropertyMyuser(ReadOnlyModel):
 
 
 class BillingLocationPropertyName(ReadOnlyModel):
-    billing_location_property = models.ForeignKey(BillingLocationProperty,
+    billing_location_property = models.OneToOneField(BillingLocationProperty,
                                                   primary_key=True)
     iii_language = models.ForeignKey('IiiLanguage', null=True, blank=True)
     name = models.CharField(max_length=255, blank=True)
@@ -2589,7 +2577,7 @@ class ClaimActionPropertyMyuser(ReadOnlyModel):
 
 
 class ClaimActionPropertyName(ReadOnlyModel):
-    claim_action_property = models.ForeignKey(ClaimActionProperty,
+    claim_action_property = models.OneToOneField(ClaimActionProperty,
                                               primary_key=True)
     iii_language = models.ForeignKey('IiiLanguage', null=True, blank=True)
     name = models.CharField(max_length=255, blank=True)
@@ -2617,7 +2605,7 @@ class FormPropertyMyuser(ReadOnlyModel):
 
 
 class FormPropertyName(ReadOnlyModel):
-    form_property = models.ForeignKey(FormProperty, primary_key=True)
+    form_property = models.OneToOneField(FormProperty, primary_key=True)
     iii_language = models.ForeignKey('IiiLanguage', null=True, blank=True)
     name = models.CharField(max_length=255, blank=True)
 
@@ -2644,7 +2632,7 @@ class OrderNotePropertyMyuser(ReadOnlyModel):
 
 
 class OrderNotePropertyName(ReadOnlyModel):
-    order_note_property = models.ForeignKey(OrderNoteProperty, primary_key=True)
+    order_note_property = models.OneToOneField(OrderNoteProperty, primary_key=True)
     iii_language = models.ForeignKey('IiiLanguage', null=True, blank=True)
     name = models.CharField(max_length=255, blank=True)
 
@@ -2872,7 +2860,7 @@ class OrderStatusPropertyMyuser(ReadOnlyModel):
 
 
 class OrderStatusPropertyName(ReadOnlyModel):
-    order_status_property = models.ForeignKey(OrderStatusProperty,
+    order_status_property = models.OneToOneField(OrderStatusProperty,
                                               primary_key=True)
     iii_language = models.ForeignKey('IiiLanguage', null=True, blank=True)
     name = models.CharField(max_length=255, blank=True)
@@ -2900,7 +2888,7 @@ class OrderTypePropertyMyuser(ReadOnlyModel):
 
 
 class OrderTypePropertyName(ReadOnlyModel):
-    order_type_property = models.ForeignKey(OrderTypeProperty, primary_key=True)
+    order_type_property = models.OneToOneField(OrderTypeProperty, primary_key=True)
     iii_language = models.ForeignKey('IiiLanguage', null=True, blank=True)
     name = models.CharField(max_length=255, blank=True)
 
@@ -3045,7 +3033,7 @@ class ReceivingActionPropertyMyuser(ReadOnlyModel):
 
 
 class ReceivingActionPropertyName(ReadOnlyModel):
-    receiving_action_property = models.ForeignKey(ReceivingActionProperty,
+    receiving_action_property = models.OneToOneField(ReceivingActionProperty,
                                                   primary_key=True)
     iii_language = models.ForeignKey('IiiLanguage', null=True, blank=True)
     name = models.CharField(max_length=255, blank=True)
@@ -3105,7 +3093,7 @@ class TempLocationPropertyMyuser(ReadOnlyModel):
 
 
 class TempLocationPropertyName(ReadOnlyModel):
-    temp_location_property = models.ForeignKey(TempLocationProperty,
+    temp_location_property = models.OneToOneField(TempLocationProperty,
                                                primary_key=True)
     iii_language = models.ForeignKey('IiiLanguage', null=True, blank=True)
     name = models.CharField(max_length=255, blank=True)
@@ -3203,7 +3191,7 @@ class FirmPropertyMyuser(ReadOnlyModel):
 
 
 class FirmPropertyName(ReadOnlyModel):
-    firm_property = models.ForeignKey(FirmProperty, primary_key=True)
+    firm_property = models.OneToOneField(FirmProperty, primary_key=True)
     iii_language = models.ForeignKey('IiiLanguage', null=True, blank=True)
     name = models.CharField(max_length=255, blank=True)
 
@@ -3237,7 +3225,7 @@ class IiiLanguageMyuser(ReadOnlyModel):
 
 
 class IiiLanguageName(ReadOnlyModel):
-    iii_language = models.ForeignKey(IiiLanguage, primary_key=True)
+    iii_language = models.OneToOneField(IiiLanguage, primary_key=True)
     description = models.CharField(max_length=255, blank=True)
     name_iii_language_id = models.IntegerField(null=True, blank=True)
 
@@ -3264,7 +3252,7 @@ class MblockPropertyMyuser(ReadOnlyModel):
 
 
 class MblockPropertyName(ReadOnlyModel):
-    mblock_property = models.ForeignKey(MblockProperty, primary_key=True)
+    mblock_property = models.OneToOneField(MblockProperty, primary_key=True)
     iii_language = models.ForeignKey(IiiLanguage, null=True, blank=True)
     name = models.CharField(max_length=255, blank=True)
 
@@ -3291,7 +3279,7 @@ class NotificationMediumPropertyMyuser(ReadOnlyModel):
 
 
 class NotificationMediumPropertyName(ReadOnlyModel):
-    notification_medium_property = models.ForeignKey(NotificationMediumProperty,
+    notification_medium_property = models.OneToOneField(NotificationMediumProperty,
                                                      primary_key=True)
     iii_language = models.ForeignKey(IiiLanguage, null=True, blank=True)
     name = models.CharField(max_length=255, blank=True)
@@ -3587,7 +3575,7 @@ class PtypePropertyCategoryMyuser(ReadOnlyModel):
 
 
 class PtypePropertyCategoryName(ReadOnlyModel):
-    ptype_property_category = models.ForeignKey(PtypePropertyCategory,
+    ptype_property_category = models.OneToOneField(PtypePropertyCategory,
                                                 db_column='ptype_category_id',
                                                 primary_key=True)
     name = models.CharField(max_length=255, blank=True)
@@ -3615,7 +3603,7 @@ class PtypePropertyMyuser(ReadOnlyModel):
 
 
 class PtypePropertyName(ReadOnlyModel):
-    ptype_property = models.ForeignKey(PtypeProperty,
+    ptype_property = models.OneToOneField(PtypeProperty,
                                        db_column='ptype_id',
                                        primary_key=True)
     description = models.CharField(max_length=255, blank=True)
@@ -3694,7 +3682,7 @@ class GtypePropertyMyuser(ReadOnlyModel):
 
 
 class GtypePropertyName(ReadOnlyModel):
-    gtype_property = models.ForeignKey(GtypeProperty, primary_key=True)
+    gtype_property = models.OneToOneField(GtypeProperty, primary_key=True)
     iii_language = models.ForeignKey(IiiLanguage, null=True, blank=True)
     name = models.CharField(max_length=255, blank=True)
 
@@ -3710,7 +3698,6 @@ class ProgramRecord(MainRecordTypeModel):
                                         blank=True)
     locations = models.ManyToManyField('Location',
                                        through='ProgramRecordLocation',
-                                       null=True,
                                        blank=True)
     program_name = models.CharField(max_length=1024, blank=True)
     reg_allowed_code = models.CharField(max_length=1, blank=True)
@@ -3841,19 +3828,16 @@ class ResourceRecord(MainRecordTypeModel):
                                         blank=True)
     holding_records = models.ManyToManyField(HoldingRecord,
                                              through='ResourceRecordHoldingRecordRelatedLink',
-                                             null=True,
                                              blank=True)
     license_records = models.ManyToManyField(LicenseRecord,
                                              through='ResourceRecordLicenseRecordLink',
-                                             null=True,
                                              blank=True)
     order_records = models.ManyToManyField(OrderRecord,
                                            through='ResourceRecordOrderRecordLink',
-                                           null=True, blank=True)
+                                           blank=True)
     related_order_records = models.ManyToManyField(OrderRecord,
                                                    through='ResourceRecordOrderRecordRelatedLink',
                                                    related_name='related_resourcerecord_set',
-                                                   null=True,
                                                    blank=True)
     is_right_result_exact = models.NullBooleanField(null=True, blank=True)
     rights_code = models.CharField(max_length=1, blank=True)
@@ -4076,7 +4060,6 @@ class SectionRecord(MainRecordTypeModel):
                                         blank=True)
     registered_patrons = models.ManyToManyField(PatronRecord,
                                                 through='SectionRegistrationSeat',
-                                                null=True,
                                                 blank=True)
     location = models.ForeignKey('Location',
                                  db_column='location_code',
@@ -4392,7 +4375,7 @@ class VendorRecordAddressType(ReadOnlyModel):
 class BibRecordVolumeRecordLink(ReadOnlyModel):
     id = models.BigIntegerField(primary_key=True)
     bib_record = models.ForeignKey(BibRecord, null=True, blank=True)
-    volume_record = models.ForeignKey('VolumeRecord',
+    volume_record = models.OneToOneField('VolumeRecord',
                                       unique=True,
                                       null=True,
                                       blank=True)
@@ -4686,7 +4669,7 @@ class FundProperty(ReadOnlyModel):
 
 class FundSummary(ReadOnlyModel):
     id = models.IntegerField(primary_key=True)
-    fund_property = models.ForeignKey(FundProperty, unique=True, null=True,
+    fund_property = models.OneToOneField(FundProperty, unique=True, null=True,
                                       blank=True)
     appropriation = models.IntegerField(null=True, blank=True)
     expenditure = models.IntegerField(null=True, blank=True)
@@ -4731,7 +4714,7 @@ class Booking(ReadOnlyModel):
 class Checkout(ReadOnlyModel):
     id = models.BigIntegerField(primary_key=True)
     patron_record = models.ForeignKey('PatronRecord', null=True, blank=True)
-    item_record = models.ForeignKey('ItemRecord', unique=True, null=True,
+    item_record = models.OneToOneField('ItemRecord', unique=True, null=True,
                                     blank=True)
     items_display_order = models.IntegerField(null=True, blank=True)
     due_gmt = models.DateTimeField(null=True, blank=True)
@@ -4752,10 +4735,10 @@ class ColagencyCriteria(ReadOnlyModel):
     id = models.BigIntegerField(primary_key=True)
     home_libraries = models.ManyToManyField('Location',
                                             through='ColagencyCriteriaHomeLibraries',
-                                            null=True, blank=True)
+                                            blank=True)
     ptypes = models.ManyToManyField(PtypeProperty,
                                     through='ColagencyCriteriaPtypes',
-                                    null=True, blank=True)
+                                    blank=True)
     name = models.CharField(max_length=36, unique=True, blank=True)
     minimum_owed_amt = models.DecimalField(null=True, max_digits=30,
                                            decimal_places=6, blank=True)
@@ -4800,7 +4783,7 @@ class ColagencyCriteriaPtypes(ReadOnlyModel):
 
 class ColagencyPatron(ReadOnlyModel):
     id = models.BigIntegerField(primary_key=True)
-    patron_record = models.ForeignKey(PatronRecord,
+    patron_record = models.OneToOneField(PatronRecord,
                                       db_column='patron_record_metadata_id',
                                       unique=True, null=True, blank=True)
     status = models.CharField(max_length=15, blank=True)
@@ -4952,7 +4935,7 @@ class ItemCircHistory(ReadOnlyModel):
 
 class PatronsToExclude(ReadOnlyModel):
     id = models.BigIntegerField(primary_key=True)
-    patron_record = models.ForeignKey(PatronRecord,
+    patron_record = models.OneToOneField(PatronRecord,
                                       db_column='patron_record_metadata_id',
                                       unique=True, null=True, blank=True)
     time_added_to_table_gmt = models.DateTimeField(null=True, blank=True)
@@ -4968,7 +4951,7 @@ class Payment(ReadOnlyModel):
                                    blank=True)
     pmt_type_code = models.CharField(max_length=20, blank=True)
     pmt_note = models.CharField(max_length=255, blank=True)
-    patron_record = models.ForeignKey(PatronRecord,
+    patron_record = models.OneToOneField(PatronRecord,
                                       db_column='patron_record_metadata_id',
                                       unique=True, null=True, blank=True)
 
@@ -5105,7 +5088,7 @@ class B2MCategoryMyuser(ReadOnlyModel):
 
 
 class B2MCategoryName(ReadOnlyModel):
-    b2m_category = models.ForeignKey(B2MCategory, primary_key=True)
+    b2m_category = models.OneToOneField(B2MCategory, primary_key=True)
     iii_language = models.ForeignKey(IiiLanguage, null=True, blank=True)
     name = models.CharField(max_length=60, blank=True)
 
@@ -5189,7 +5172,7 @@ class CollectionMyuser(ReadOnlyModel):
 
 class EadHierarchy(ReadOnlyModel):
     id = models.BigIntegerField(primary_key=True)
-    bib_record = models.ForeignKey(BibRecord, unique=True, null=True,
+    bib_record = models.OneToOneField(BibRecord, unique=True, null=True,
                                    blank=True)
     entry = models.CharField(max_length=255, unique=True, blank=True)
 
@@ -5339,7 +5322,7 @@ class AccountingUnit(ReadOnlyModel):
 
 
 class AccountingUnitMyuser(ReadOnlyModel):
-    code = models.ForeignKey(AccountingUnit, db_column='code',
+    code = models.OneToOneField(AccountingUnit, db_column='code',
                              to_field='code_num', primary_key=True)
     name = models.CharField(max_length=20, blank=True)
 
@@ -5376,7 +5359,7 @@ class ExternalFundPropertyMyuser(ReadOnlyModel):
 
 
 class ExternalFundPropertyName(ReadOnlyModel):
-    external_fund_property = models.ForeignKey(ExternalFundProperty,
+    external_fund_property = models.OneToOneField(ExternalFundProperty,
                                                primary_key=True)
     iii_language = models.ForeignKey(IiiLanguage, null=True, blank=True)
     name = models.CharField(max_length=255, blank=True)
@@ -5411,7 +5394,7 @@ class FundMyuser(ReadOnlyModel):
                                         blank=True)
     fund_type = models.ForeignKey(FundType, db_column='fund_type',
                                   to_field='code', null=True, blank=True)
-    fund_master = models.ForeignKey(FundMaster, primary_key=True)
+    fund_master = models.OneToOneField(FundMaster, primary_key=True)
     fund_code = models.CharField(max_length=255, blank=True)
     external_fund_code_num = models.IntegerField(null=True, blank=True)
     appropriation = models.IntegerField(null=True, blank=True)
@@ -5430,7 +5413,7 @@ class FundMyuser(ReadOnlyModel):
 
 
 class FundPropertyName(ReadOnlyModel):
-    fund_property = models.ForeignKey(FundProperty, primary_key=True)
+    fund_property = models.OneToOneField(FundProperty, primary_key=True)
     iii_language = models.ForeignKey('IiiLanguage', null=True, blank=True)
     name = models.CharField(max_length=255, blank=True)
     note1 = models.CharField(max_length=255, blank=True)
@@ -5451,7 +5434,7 @@ class FundSummarySubfund(ReadOnlyModel):
 
 class FundTypeSummary(ReadOnlyModel):
     accounting_unit = models.ForeignKey(AccountingUnit, null=True, blank=True)
-    fund_type = models.ForeignKey(FundType, primary_key=True)
+    fund_type = models.OneToOneField(FundType, primary_key=True)
     last_lien_num = models.IntegerField(null=True, blank=True)
     last_voucher_num = models.IntegerField(null=True, blank=True)
 
@@ -5510,7 +5493,7 @@ class BranchMyuser(ReadOnlyModel):
 
 
 class BranchName(ReadOnlyModel):
-    branch = models.ForeignKey(Branch, primary_key=True)
+    branch = models.OneToOneField(Branch, primary_key=True)
     name = models.CharField(max_length=255, blank=True)
     iii_language = models.ForeignKey(IiiLanguage, null=True, blank=True)
 
@@ -5543,8 +5526,8 @@ class LocationChange(ReadOnlyModel):
 
 
 class LocationMyuser(ReadOnlyModel):
-    location = models.ForeignKey(Location, db_column='code', to_field='code',
-                                 primary_key=True)
+    location = models.OneToOneField(Location, db_column='code', to_field='code',
+                                    primary_key=True)
     branch = models.ForeignKey(Branch, null=True, db_column='branch_code_num',
                                to_field='code_num', blank=True)
     parent_location = models.ForeignKey('Location',
@@ -5559,7 +5542,7 @@ class LocationMyuser(ReadOnlyModel):
 
 
 class LocationName(ReadOnlyModel):
-    location = models.ForeignKey(Location, primary_key=True)
+    location = models.OneToOneField(Location, primary_key=True)
     name = models.CharField(max_length=255, blank=True)
     iii_language = models.ForeignKey(IiiLanguage, null=True, blank=True)
 
@@ -5634,7 +5617,7 @@ class AgencyPropertyMyuser(ReadOnlyModel):
 
 
 class AgencyPropertyName(ReadOnlyModel):
-    agency_property = models.ForeignKey(AgencyProperty, primary_key=True)
+    agency_property = models.OneToOneField(AgencyProperty, primary_key=True)
     iii_language = models.ForeignKey(IiiLanguage, null=True, blank=True)
     name = models.CharField(max_length=255, blank=True)
 
@@ -5661,7 +5644,7 @@ class CountryPropertyMyuser(ReadOnlyModel):
 
 
 class CountryPropertyName(ReadOnlyModel):
-    country_property = models.ForeignKey(CountryProperty, primary_key=True)
+    country_property = models.OneToOneField(CountryProperty, primary_key=True)
     iii_language = models.ForeignKey(IiiLanguage, null=True, blank=True)
     name = models.CharField(max_length=255, blank=True)
 
@@ -5692,7 +5675,7 @@ class LanguagePropertyMyuser(ReadOnlyModel):
 
 
 class LanguagePropertyName(ReadOnlyModel):
-    language_property = models.ForeignKey(LanguageProperty, primary_key=True)
+    language_property = models.OneToOneField(LanguageProperty, primary_key=True)
     iii_language = models.ForeignKey(IiiLanguage, null=True, blank=True)
     name = models.CharField(max_length=255, blank=True)
 
@@ -5721,7 +5704,7 @@ class ReceivingLocationPropertyMyuser(ReadOnlyModel):
 
 
 class ReceivingLocationPropertyName(ReadOnlyModel):
-    receiving_location_property = models.ForeignKey(ReceivingLocationProperty,
+    receiving_location_property = models.OneToOneField(ReceivingLocationProperty,
                                                     primary_key=True)
     iii_language = models.ForeignKey(IiiLanguage, null=True, blank=True)
     name = models.CharField(max_length=255, blank=True)
@@ -5761,7 +5744,7 @@ class UserDefinedPropertyMyuser(ReadOnlyModel):
 
 
 class UserDefinedPropertyName(ReadOnlyModel):
-    user_defined_property = models.ForeignKey(UserDefinedProperty,
+    user_defined_property = models.OneToOneField(UserDefinedProperty,
                                               primary_key=True)
     iii_language = models.ForeignKey(IiiLanguage, null=True, blank=True)
     name = models.CharField(max_length=255, blank=True)
@@ -6123,7 +6106,7 @@ class IiiRoleCategory(ReadOnlyModel):
 
 class IiiRoleCategoryName(ReadOnlyModel):
     iii_language = models.ForeignKey(IiiLanguage, null=True, blank=True)
-    iii_role_category = models.ForeignKey(IiiRoleCategory, primary_key=True)
+    iii_role_category = models.OneToOneField(IiiRoleCategory, primary_key=True)
     name = models.CharField(max_length=255, blank=True)
 
     class Meta(ReadOnlyModel.Meta):
@@ -6131,7 +6114,7 @@ class IiiRoleCategoryName(ReadOnlyModel):
 
 
 class IiiRoleName(ReadOnlyModel):
-    iii_role = models.ForeignKey(IiiRole, primary_key=True)
+    iii_role = models.OneToOneField(IiiRole, primary_key=True)
     iii_language = models.ForeignKey(IiiLanguage, null=True, blank=True)
     name = models.CharField(max_length=255, blank=True)
 
@@ -6146,12 +6129,12 @@ class IiiRoleName(ReadOnlyModel):
 # and contents of iii_user_group table jive.
 class IiiUser(ReadOnlyModel):
     id = models.IntegerField(primary_key=True)
-    roles = models.ManyToManyField(IiiRole, through='IiiUserIiiRole', null=True,
+    roles = models.ManyToManyField(IiiRole, through='IiiUserIiiRole',
                                    blank=True)
     locations = models.ManyToManyField(Location, through='IiiUserLocation',
-                                       null=True, blank=True)
+                                       blank=True)
     workflows = models.ManyToManyField('Workflow', through='IiiUserWorkflow',
-                                       null=True, blank=True)
+                                       blank=True)
     name = models.CharField(max_length=255, unique=True, blank=True)
     location_group_port_number = models.IntegerField(null=True, blank=True)
     iii_user_group_code = models.CharField(max_length=255, blank=True)
@@ -6207,7 +6190,7 @@ class IiiUserGroup(ReadOnlyModel):
 
 # Links IiiUsers and IiiRoles.
 class IiiUserIiiRole(ReadOnlyModel):
-    iii_user = models.ForeignKey(IiiUser, primary_key=True)
+    iii_user = models.OneToOneField(IiiUser, primary_key=True)
     iii_role = models.ForeignKey(IiiRole, null=True, blank=True)
 
     class Meta(ReadOnlyModel.Meta):
@@ -6248,7 +6231,7 @@ class SystemOptionGroup(ReadOnlyModel):
 
 # Option Group Names
 class SystemOptionGroupName(ReadOnlyModel):
-    system_option_group = models.ForeignKey(SystemOptionGroup, primary_key=True)
+    system_option_group = models.OneToOneField(SystemOptionGroup, primary_key=True)
     iii_language = models.ForeignKey(IiiLanguage, null=True, blank=True)
     name = models.CharField(max_length=255, blank=True)
 
@@ -6262,7 +6245,7 @@ class Workflow(ReadOnlyModel):
     display_order = models.IntegerField(null=True, blank=True)
     name = models.CharField(max_length=255, unique=True, blank=True)
     functions = models.ManyToManyField(Function, through='WorkflowFunction',
-                                       null=True, blank=True)
+                                       blank=True)
 
     class Meta(ReadOnlyModel.Meta):
         db_table = 'workflow'
@@ -6281,7 +6264,7 @@ class WorkflowFunction(ReadOnlyModel):
 
 # Workflow menu names
 class WorkflowName(ReadOnlyModel):
-    workflow = models.ForeignKey(Workflow, primary_key=True)
+    workflow = models.OneToOneField(Workflow, primary_key=True)
     iii_language = models.ForeignKey(IiiLanguage, null=True, blank=True)
     menu_name = models.CharField(max_length=255, blank=True)
 
