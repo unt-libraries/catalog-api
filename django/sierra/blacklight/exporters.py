@@ -123,13 +123,15 @@ class BaseSolrMarcBibsToSolr(BibsToSolr):
         os.remove(filepath)
         return vals
 
+    def get_record_id(self, record):
+        return 'base.bibrecord.{}'.format(record.id)
+
     def delete_records(self, records, vals={}):
         bibs_solr = type(self).solr_conn('bibs')
         log_label = type(self).__name__
         for r in records:
             try:
-                bibs_solr.delete(id='base.bibrecord.{}'.format(r.id),
-                                 commit=False)
+                bibs_solr.delete(id=self.get_record_id(r), commit=False)
             except Exception as e:
                 ex_type, ex, tb = sys.exc_info()
                 logger.info(traceback.extract_tb(tb))
