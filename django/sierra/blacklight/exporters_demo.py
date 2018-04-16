@@ -163,3 +163,6 @@ class BibsToBlacklightDemo(BaseSolrMarcBibsToSolr):
     
     bib2marc_class = BibsDownloadMarcDemo
     cores = {'bibs': 'bl-demo'}
+
+    def get_record_id(self, record):
+        return record.record_metadata.get_iii_recnum(False)
