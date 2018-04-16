@@ -14,6 +14,7 @@ import pysolr
 
 from django.conf import settings
 
+from base import models
 from export.sierra2marc import S2MarcBatch
 from utils import helpers
 from .exporters import BaseSolrMarcBibsToSolr, BaseBibsDownloadMarc
@@ -63,7 +64,7 @@ class S2MarcBatchDemo(S2MarcBatch):
                             subfields=re.split(r'\|([a-z0-9])', content)[1:]
                     )
                     if tag == '856' and field['u'] is not None:
-                        field['u'] = re.sub(r'^([^ ]+) ".*$', r'\1',
+                        field['u'] = re.sub(r'^([^"]+).*$', r'\1',
                                             field['u'])
                 marc_record.add_ordered_field(field)
             except Exception as e:
@@ -98,11 +99,15 @@ class S2MarcBatchDemo(S2MarcBatch):
         # Add a list of attached items to the 908 field.
         for item_link in r.bibrecorditemrecordlink_set.all():
             item = item_link.item_record
+            try:
+                item_loc = item.location.code
+            except models.Location.DoesNotExist:
+                item_loc = 'none'
             item_field = pymarc.field.Field(
                 tag='908',
                 indicators=[' ', ' '],
                 subfields=['a', item.record_metadata.get_iii_recnum(True),
-                           'b', str(item.pk), 'c', item.location.code]
+                           'b', str(item.pk), 'c', item_loc]
             )
             marc_record.add_ordered_field(item_field)
         # For each call number in the record, add a 909 field.
