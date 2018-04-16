@@ -34,7 +34,8 @@ def export_to_solr(new_exporter, export_records, delete_records, solr_conn,
         del_results = None
         if delete:
             del_exp = new_exporter(etype_code, 'full_export', 'waiting')
-            delete_records(del_exp, recset)
+            del_recset = [r.record_metadata for r in recset]
+            delete_records(del_exp, del_recset)
             del_results = solr_search(conn, {'q': '*'})
 
         return {'pre': pre_results, 'load': load_results, 'del': del_results}

@@ -165,4 +165,4 @@ class BibsToBlacklightDemo(BaseSolrMarcBibsToSolr):
     cores = {'bibs': 'bl-demo'}
 
     def get_record_id(self, record):
-        return record.record_metadata.get_iii_recnum(False)
+        return record.get_iii_recnum(False)

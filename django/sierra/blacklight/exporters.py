@@ -8,7 +8,7 @@ import subprocess
 import os
 import re
 import shlex
-import sys
+import sys, traceback
 
 import pysolr
 
@@ -17,6 +17,9 @@ from django.conf import settings
 from export import exporter
 from export.basic_exporters import BibsToSolr, BibsDownloadMarc
 from export.sierra2marc import S2MarcBatch
+
+# set up logger, for debugging
+logger = logging.getLogger('sierra.custom')
 
 
 class BaseBibsDownloadMarc(BibsDownloadMarc):
