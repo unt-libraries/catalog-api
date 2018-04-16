@@ -8,6 +8,7 @@ import subprocess
 import os
 import re
 import shlex
+import sys
 
 import pysolr
 
