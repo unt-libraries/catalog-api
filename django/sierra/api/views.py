@@ -203,6 +203,7 @@ class BibDetail(SimpleGetMixin, SimpleView):
         else:
             return obj
 
+
 class MarcList(SimpleGetMixin, SimpleView):
     '''
     Paginated list of MARC records. Use the 'limit' and 'offset' query
@@ -379,7 +380,7 @@ class CallnumbermatchesList(SimpleGetMixin, SimpleView):
         limit_p = settings.REST_FRAMEWORK.get('PAGINATE_BY_PARAM', 'limit')
         max_limit = settings.REST_FRAMEWORK.get('MAX_PAGINATE_BY', 500)
         default_limit = settings.REST_FRAMEWORK.get('PAGINATE_BY', 10)
-        limit = int(request.QUERY_PARAMS.get(limit_p, default_limit))
+        limit = int(request.query_params.get(limit_p, default_limit))
         limit = max_limit if limit > max_limit else limit
         data, i, count = [], 0, queryset.count()
         while len(data) < limit and i < count:
@@ -389,6 +390,7 @@ class CallnumbermatchesList(SimpleGetMixin, SimpleView):
             i += 1
 
         return data
+
 
 class FirstItemPerLocationList(SimpleGetMixin, SimpleView):
     '''

@@ -91,8 +91,8 @@ class SimpleGetMixin(object):
         offset_p = settings.REST_FRAMEWORK.get('PAGINATE_PARAM', 'offset')
         max_limit = settings.REST_FRAMEWORK.get('MAX_PAGINATE_BY', 500)
         default_limit = settings.REST_FRAMEWORK.get('PAGINATE_BY', 10)
-        offset = int(request.QUERY_PARAMS.get(offset_p, 0))
-        limit = int(request.QUERY_PARAMS.get(limit_p, default_limit))
+        offset = int(request.query_params.get(offset_p, 0))
+        limit = int(request.query_params.get(limit_p, default_limit))
         limit = max_limit if limit > max_limit else limit
         page = queryset[offset:offset+limit]
 
@@ -170,7 +170,7 @@ class SimplePutMixin(object):
     Simple mixin to provide a PUT method for a SimpleView-based object.
     '''
     def put(self, request, *args, **kwargs):
-        ret_val = self.update_object(request, request.DATA)
+        ret_val = self.update_object(request, request.data)
         return ret_val
 
 
@@ -181,7 +181,7 @@ class SimplePatchMixin(object):
     more info.)
     '''
     def patch(self, request, *args, **kwargs):
-        patch = request.DATA
+        patch = request.data
         obj = self.get_object()
         serializer = self.get_serializer(instance=obj,
                                          context={'request': request, 

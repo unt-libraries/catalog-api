@@ -310,7 +310,7 @@ class HaystackFilter(BaseFilterBackend):
         return queryset
 
     def filter_queryset(self, request, queryset, view):
-        request_params = self._prep_params(request.QUERY_PARAMS, view)
+        request_params = self._prep_params(request.query_params, view)
         try:
             queryset = self._apply_django_style_filters(queryset, 
                                                         request_params['data'])
