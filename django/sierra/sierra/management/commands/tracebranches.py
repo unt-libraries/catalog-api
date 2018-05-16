@@ -31,9 +31,12 @@ class Command(BaseCommand):
     python manage.py tracebranches myapp.Users
     """
 
+    def add_arguments(self, parser):
+        parser.add_argument('model', type=str)
+
     def handle(self, *args, **options):
         try:
-            model = makefixtures.get_model_from_string(args[0])
+            model = makefixtures.get_model_from_string(options['model'])
         except Exception as e:
             msg = 'The supplied model argument is invalid. {}'.format(str(e))
             raise CommandError(msg)

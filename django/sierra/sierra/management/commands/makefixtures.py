@@ -31,9 +31,12 @@ class Command(BaseCommand):
     args = '<config.json>'
     help = 'Generate fixture data according to a supplied json config file'
 
+    def add_arguments(self, parser):
+        parser.add_argument('file', type=str)
+
     def handle(self, *args, **options):
         try:
-            confdata = self.read_config_file(args[0])
+            confdata = self.read_config_file(options['file'])
         except Exception as e:
             msg = ('There was a problem reading the supplied json config '
                    'file: {}'.format(str(e)))
