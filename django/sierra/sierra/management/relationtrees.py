@@ -48,7 +48,7 @@ class Relation(object):
     """
     Access info about a relationship between two Django Model objects.
 
-    The relationship a given Relatiom object represents is from the POV
+    The relationship a given Relation object represents is from the POV
     of the model provided on init--e.g., model.fieldname. It's mainly a
     simplified way to get information about that relationship.
 
@@ -83,6 +83,7 @@ class Relation(object):
         except AttributeError:
             raise BadRelation('`model` arg must be a model object.')
         try:
+            # db.models.fields.related RelatedObjectsDescriptor object
             accessor = getattr(model, fieldname)
         except AttributeError:
             msg = '{} not found on {}'.format(fieldname, model_name)
@@ -111,7 +112,7 @@ class Relation(object):
         self.is_m2m = False if self.through is None else True
 
     def _get_target_model(self, acc):
-        return acc.field.rel.to if self.is_direct else acc.related.model
+        return acc.field.rel.to if self.is_direct else acc.related.related_model
 
     def get_as_through_relations(self):
         meta = self.model._meta
@@ -126,7 +127,7 @@ class Relation(object):
             msg = ('Models {} and {} have no `through` relation with each '
                    'other.'.format(self.model, self.target_model))
             raise BadRelation(msg)
-        through_model = getattr(self.model, through_name).related.model
+        through_model = getattr(self.model, through_name).related.related_model
         rel_fs = [f for f in through_model._meta.get_fields() if f.related_model]
 
         try:
