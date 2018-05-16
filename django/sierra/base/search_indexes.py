@@ -13,6 +13,8 @@ import re
 
 from haystack import indexes
 
+from django.core.exceptions import ObjectDoesNotExist
+
 from export import sierra2marc as s2m
 from . import models as sierra_models
 from utils import helpers
@@ -72,13 +74,13 @@ class CustomQuerySetIndex(indexes.SearchIndex):
             return self.get_model()._default_manager.all()
 
     def update(self, using=None, commit=True):
-        backend = self._get_backend(using)
+        backend = self.get_backend(using)
 
         if backend is not None:
             backend.update(self, self.index_queryset(), commit=commit)
 
     def clear(self, using=None, commit=True):
-        backend = self._get_backend(using)
+        backend = self.get_backend(using)
 
         if backend is not None:
             backend.clear(models=[self.get_model()], commit=commit)
@@ -89,19 +91,19 @@ class CustomQuerySetIndex(indexes.SearchIndex):
 
     def update_object(self, instance, using=None, commit=True, **kwargs):
         if self.should_update(instance, **kwargs):
-            backend = self._get_backend(using)
+            backend = self.get_backend(using)
 
             if backend is not None:
                 backend.update(self, [instance], commit=commit)
 
     def commit(self, using=None):
-        backend = self._get_backend(using)
+        backend = self.get_backend(using)
 
         if backend is not None:
             backend.conn.commit()
 
     def optimize(self, using=None):
-        backend = self._get_backend(using)
+        backend = self.get_backend(using)
 
         if backend is not None:
             backend.conn.optimize()
@@ -222,7 +224,7 @@ class LocationIndex(MetadataBaseIndex):
     type_name = 'Location'
     
     def prepare_label(self, obj):
-        return obj.locationname_set.all()[0].name
+        return obj.locationname.name
 
 
 class ItypeIndex(MetadataBaseIndex):
@@ -231,7 +233,7 @@ class ItypeIndex(MetadataBaseIndex):
     code = indexes.CharField(model_attr='code_num')
     
     def prepare_label(self, obj):
-        return obj.itypepropertyname_set.all()[0].name
+        return obj.itypepropertyname.name
 
 
 class ItemStatusIndex(MetadataBaseIndex):
@@ -239,7 +241,7 @@ class ItemStatusIndex(MetadataBaseIndex):
     type_name = 'ItemStatus'
 
     def prepare_label(self, obj):
-        return obj.itemstatuspropertyname_set.all()[0].name
+        return obj.itemstatuspropertyname.name
 
 
 class ItemIndex(CustomQuerySetIndex, indexes.Indexable):
@@ -475,31 +477,27 @@ class ItemIndex(CustomQuerySetIndex, indexes.Indexable):
         '''
         Due date is from any checkout records attached to the item.
         '''
-        checkouts = obj.checkout_set.all()
-        if (checkouts):
-            return checkouts[0].due_gmt
-        else:
+        try:
+            return obj.checkout.due_gmt
+        except ObjectDoesNotExist:
             return None
     
     def prepare_checkout_date(self, obj):
-        checkouts = obj.checkout_set.all()
-        if (checkouts):
-            return checkouts[0].checkout_gmt
-        else:
+        try:
+            return obj.checkout.checkout_gmt
+        except ObjectDoesNotExist:
             return None
 
     def prepare_overdue_date(self, obj):
-        checkouts = obj.checkout_set.all()
-        if (checkouts):
-            return checkouts[0].overdue_gmt
-        else:
+        try:
+            return obj.checkout.overdue_gmt
+        except ObjectDoesNotExist:
             return None
 
     def prepare_recall_date(self, obj):
-        checkouts = obj.checkout_set.all()
-        if (checkouts):
-            return checkouts[0].recall_gmt
-        else:
+        try:
+            return obj.checkout.recall_gmt
+        except ObjectDoesNotExist:
             return None
 
     def prepare_suppressed(self, obj):

@@ -436,7 +436,7 @@ class BibsDownloadMarc(exporter.Exporter):
         'bibrecorditemrecordlink_set__item_record',
         'bibrecorditemrecordlink_set__item_record__record_metadata',
         'bibrecordproperty_set',
-        'bibrecordproperty_set__material__materialpropertyname_set'
+        'bibrecordproperty_set__material__materialpropertyname'
     ]
     select_related = ['record_metadata']
     
@@ -501,7 +501,7 @@ class BibsToSolr(exporter.Exporter):
         'bibrecorditemrecordlink_set__item_record',
         'bibrecorditemrecordlink_set__item_record__record_metadata',
         'bibrecordproperty_set',
-        'bibrecordproperty_set__material__materialpropertyname_set'
+        'bibrecordproperty_set__material__materialpropertyname'
     ]
     select_related = ['record_metadata']
     
