@@ -13,6 +13,7 @@ celerybeat-schedule
 django_sierra
 django_sierra_test
 .cache/
+.pytest_cache/
 
 /pids.txt
 /django/sierra/media/*
