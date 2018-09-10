@@ -9,8 +9,8 @@ import pytest
 # Fixtures used in the below tests can be found in
 # django/sierra/base/tests/conftest.py:
 #    sierra_records_by_recnum_range, sierra_full_object_set,
-#    new_exporter, export_records, delete_records, solr_conn,
-#    solr_search
+#    new_exporter, get_records, export_records, delete_records,
+#    solr_conn, solr_search
 
 pytestmark = pytest.mark.django_db
 
@@ -60,6 +60,25 @@ def solr_exporter_test_params(sierra_records_by_recnum_range,
 
 
 # TESTS
+
+@pytest.mark.parametrize('etype_code', [
+    'BibsToSolr',
+    'EResourcesToSolr',
+    'ItemsToSolr',
+    'ItemStatusesToSolr',
+    'ItypesToSolr',
+    'LocationsToSolr'])
+def test_export_get_records(etype_code, solr_exporter_test_params,
+                            new_exporter, get_records):
+    """
+    For Exporter classes that that get data from Sierra, blah
+    """
+    exporter = new_exporter(etype_code, 'full_export', 'waiting')
+    db_records = get_records(exporter)
+    expected_records = solr_exporter_test_params[etype_code]['record_set']
+    assert len(db_records) > 0
+    assert all([rec in db_records for rec in expected_records])
+
 
 @pytest.mark.parametrize('etype_code', [
     'BibsToSolr',
