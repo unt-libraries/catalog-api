@@ -116,7 +116,7 @@ class ItemsToSolr(exporter.Exporter):
     ]
     prefetch_related = [
         'record_metadata__varfield_set',
-        'checkout_set',
+        'checkout',
         'bibrecorditemrecordlink_set',
         'bibrecorditemrecordlink_set__bib_record__record_metadata',
         'bibrecorditemrecordlink_set__bib_record__record_metadata'
