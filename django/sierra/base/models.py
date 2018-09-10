@@ -5968,7 +5968,9 @@ class BoolInfo(ReadOnlyModel):
     count = models.IntegerField(null=True, blank=True)
     record_type = models.ForeignKey(RecordType,
                                     db_column='record_type_code',
-                                    to_field='code')
+                                    to_field='code',
+                                    null=True,
+                                    blank=True)
     record_range = models.CharField(max_length=512, blank=True)
     bool_gmt = models.DateTimeField(null=True, blank=True)
     bool_query = models.TextField(blank=True)
