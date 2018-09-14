@@ -29,33 +29,38 @@ def solr_exporter_test_params(sierra_records_by_recnum_range,
         'BibsToSolr': {
             'record_set': bib_set,
             'cores': ['bibdata', 'marc'],
-            'try_delete': True
+            'try_delete': ['bibdata', 'marc']
         },
         'EResourcesToSolr': {
             'record_set': eres_set,
             'cores': ['haystack'],
-            'try_delete': True
+            'try_delete': ['haystack']
         },
         'ItemsToSolr': {
             'record_set': item_set,
             'cores': ['haystack'],
-            'try_delete': True
+            'try_delete': ['haystack']
         },
         'ItemStatusesToSolr': {
             'record_set': istatus_set,
             'cores': ['haystack'],
-            'try_delete': False
+            'try_delete': []
         },
         'ItypesToSolr': {
             'record_set': itype_set,
             'cores': ['haystack'],
-            'try_delete': False
+            'try_delete': []
         },
         'LocationsToSolr': {
             'record_set': location_set,
             'cores': ['haystack'],
-            'try_delete': False
+            'try_delete': []
         },
+        'BibsAndAttachedToSolr': {
+            'record_set': bib_set,
+            'cores': ['bibdata', 'haystack', 'marc'],
+            'try_delete': ['bibdata', 'marc']
+        }
     }
 
 
@@ -67,7 +72,8 @@ def solr_exporter_test_params(sierra_records_by_recnum_range,
     'ItemsToSolr',
     'ItemStatusesToSolr',
     'ItypesToSolr',
-    'LocationsToSolr'])
+    'LocationsToSolr',
+    'BibsAndAttachedToSolr'])
 def test_export_get_records(etype_code, solr_exporter_test_params,
                             new_exporter, get_records):
     """
@@ -86,7 +92,8 @@ def test_export_get_records(etype_code, solr_exporter_test_params,
     'ItemsToSolr',
     'ItemStatusesToSolr',
     'ItypesToSolr',
-    'LocationsToSolr'])
+    'LocationsToSolr',
+    'BibsAndAttachedToSolr'])
 def test_exports_to_solr(etype_code, solr_exporter_test_params, new_exporter,
                          export_records, delete_records, solr_conn,
                          solr_search):
@@ -105,10 +112,11 @@ def test_exports_to_solr(etype_code, solr_exporter_test_params, new_exporter,
     if try_delete:
         del_exporter = new_exporter(etype_code, 'full_export', 'waiting')
         delete_records(del_exporter, record_set)
-        del_results = {c: solr_search(conns[c], {'q': '*'}) for c in cores}
+        del_results = {c: solr_search(conns[c], {'q': '*'})
+                       for c in try_delete}
 
     for core in cores:
         assert len(pre_results[core]) == 0
         assert len(load_results[core]) > 0
-        if try_delete:
+        if core in try_delete:
             assert len(del_results[core]) == 0
