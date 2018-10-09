@@ -12,6 +12,7 @@ DEBUG = True
 TESTING = True
 
 INSTALLED_APPS += (
+    'base.tests.vcftestmodels',
     'sierra.tests.testmodels',
     'sierra'
 )
