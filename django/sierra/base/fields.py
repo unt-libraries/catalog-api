@@ -18,10 +18,125 @@ relationship. The Sierra tables will never need to do that, anyway:
 foreign keys in Sierra are always implemented as single database
 columns.
 """
+import re
+
 from django.db import models
 from django.db.models import functions
 from django.utils.functional import cached_property
 from django.core.exceptions import ValidationError
+
+
+class CompositeColumn(models.expressions.Col):
+    """
+    This is what the VirtualCompField.get_col method returns. It's
+    a Col subtype, but the `as_sql` method creates a Concat expression
+    based on the target field's `subfields`. This is of course
+    horribly inefficient in lookup queries, since it isn't indexed, but
+    it does work.
+
+    Mainly this is meant to prevent errors when something absolutely
+    requires some SQL expression representing the column and there's no
+    other way to override that.
+    """
+
+    def as_sql(self, compiler, connection):
+        """
+        Returns tuple: sql, params -- where %s is used in place of
+        caller/user-supplied values in the SQL, and `params` is that
+        list of values.
+
+        In this case, we want a Concat function that will produce the
+        desired composite value from the subparts and separator defined
+        in the main field. Fortunately, Django has an existing Concat
+        function expression class we can use. We just have to turn
+        *everything* into an `Expression` class first.
+        """
+        sep_exp = models.expressions.Value(self.target.separator)
+        exps_nested = [[f.get_col(self.alias), sep_exp]
+                       for f in self.target.subfields]
+        exps_flattened = [item for sublist in exps_nested for item in sublist]
+        return_exp = functions.Concat(*exps_flattened[:-1])
+        return return_exp.as_sql(compiler, connection)
+
+
+class CompositeValueTuple(tuple):
+    """
+    Custom tuple type that handles value conversions and validation for
+    VirtualCompField. Each instance is tied to the field that created
+    it and can be validated against it. Instances can be created
+    directly, or using `from_raw`. Casting to `str` will create a
+    composite string value, using the appropriate field separator; you
+    can round-trip the conversion by passing the string to `from_raw`.
+    """
+
+    def __new__(cls, values, field):
+        return super(CompositeValueTuple, cls).__new__(cls, tuple(values))
+
+    def __init__(self, values, field):
+        self.field = field
+
+    def __str__(self):
+        return self.to_string()
+
+    def __unicode__(self):
+        return unicode(self.to_string())
+
+    @classmethod
+    def from_raw(cls, value, field):
+        """
+        Factory method. Attempts to produce the most valid
+        CompositeValueTuple possible given the `field` and the raw
+        `value`. If the raw value is a composite string and can be
+        split using the field separator, then it casts each part to the
+        appropriate type using the `each_subfield_run_to_python` method
+        on the field. Otherwise, it creates a value using an invalid
+        (or questionably valid) set of values.
+        """
+        try:
+            cv_tuple = tuple((None if v == '' else unicode(v)
+                              for v in value.split(field.separator)))
+        except AttributeError:
+            # Not a string.
+            try:
+                cv_tuple = tuple(value)
+            except TypeError:
+                # Not a sequence--wrap in a tuple.
+                cv_tuple = (value,)
+        try:
+            return cls(field.each_subfield_run_to_python(cv_tuple), field)
+        except Exception:
+            return cls(cv_tuple, field)
+
+    def to_string(self, re_encode=False):
+        """
+        Convert this tuple to a composite string by joining on the
+        field separator value. If the string is for a regex lookup,
+        set `re_encode` to True. Default is False.
+        """
+        if re_encode:
+            separator = re.escape(self.field.separator)
+        else:
+            separator = self.field.separator
+        strings = [unicode('' if s is None else s) for s in self]
+        return unicode(separator.join(strings))
+
+    def validate(self):
+        """
+        Validate this tuple value against the `field` attribute.
+        Raises a Django ValidationError if the value is invalid.
+        """
+        value_length, expected_length = len(self), len(self.field.subfields)
+        if value_length != expected_length:
+            msg = ('instance has {} elements; expected {} ({} for field {}'
+                   ''.format(value_length, expected_length,
+                             self.field.subfield_names, self.field))
+            raise ValidationError(msg)
+        try:
+            self.field.each_subfield_run_to_python(self)
+        except Exception as e:
+            msg = 'elements {} fail type conversion: {}'.format(self, e)
+            raise ValidationError(msg)
+        return True
 
 
 class VirtualCompField(models.Field):
@@ -30,64 +145,118 @@ class VirtualCompField(models.Field):
     composed of other DB fields that is NOT backed by a DB column). Can
     be used as a PK.
 
-    The underlying purpose here is to fix some of the Sierra views
-    where a single PK is lacking. The original hack (to use a non-
-    unique field as the PK) doesn't work for generating our test DB
-    and related fixtures.
-
     Use this in your model's class definition like you would other
     Field-types. When defining an instance, you must pass a
-    `part_field_names` kwarg (tuple of strings) that tells it which
-    attributes on this model to use to compose the field. Values are
-    constructed in part_field_name order. You may pass an optional
-    `separator` (string) kwarg to tell it what string to use as a
-    separator between values. Default is underscore (_).
+    `subfield_names` kwarg (tuple of strings) that tells it which
+    attributes on this model to use to compose the field, in order.
+    Accessing the field on a model instance returns a tuple of the
+    values that compose it.
+
+    The optional `separator` kwarg is the string to use as a separator
+    when operations require that the composite field value be converted
+    to a string, such as for serialization and certain DB operations.
+    Default is "|_|".
     """
     description = ('A calculated or virtual field that can act as a composite '
                    'field, e.g. to act as a PK')
+    default_separator = '|_|'
 
-    def __init__(self, separator='_', part_field_names=None, *args, **kwargs):
+    def __init__(self, subfield_names=None, separator=default_separator,
+                 *args, **kwargs):
         self.separator = separator
-        self.part_field_names = tuple(part_field_names)
-        kwargs['serialize'] = False
+        self.subfield_names = tuple(subfield_names)
         super(VirtualCompField, self).__init__(*args, **kwargs)
 
     @property
-    def part_fields(self):
+    def subfields(self):
         """
-        This is a custom property that returns a list of the Field
-        objects that compose the composite key.
+        Custom property that returns a tuple containing the Field
+        objects (ON the reference model) that compose this field.
         """
-        return [self.model._meta.get_field(f) for f in self.part_field_names]
+        return tuple([self.model._meta.get_field(f)
+                      for f in self.subfield_names])
 
-    def _field_value_property(self):
+    @property
+    def subfield_bases(self):
         """
-        Generates a property object that can be attached to a model to
-        serve as the accessor for this field. The property calculates
-        the composite key by pulling the values from the appropriate
-        model attributes.
+        Custom property that returns a tuple containing Field objects
+        that compose this field. Relationships are followed to arrive
+        at the base Field object.
         """
-        pfnames = [name for name in self.part_field_names]
-        sep = self.separator
+        sf_list = []
+        for sf in self.subfield_names:
+            try:
+                sf_list.append(self.model._meta.get_field(sf).rel.to._meta.pk)
+            except AttributeError:
+                sf_list.append(self.model._meta.get_field(sf))
+        return tuple(sf_list)
+
+    def each_subfield_run_to_python(self, cvalue):
+        """
+        On the provided composite value (`cvalue`), run the `to_python`
+        method for each subfield that makes up this composite field.
+        Returns the results as a tuple.
+        """
+        return tuple([getattr(sf, 'to_python')(cvalue[i])
+                      for i, sf in enumerate(self.subfield_bases)])
+
+    def each_subfield_prep_exact_lookup(self, cvalue):
+        """
+        On the provided composite value (`cvalue`), run the
+        `get_prep_lookup` method (using `exact` as the lookup_type) for
+        each subfield that makes up this composite field. Returns the
+        results as a tuple.
+        """
+        return tuple([getattr(sf, 'get_prep_lookup')('exact', cvalue[i])
+                      for i, sf in enumerate(self.subfield_bases)])
+
+    def _make_field_value_property(self):
+        """
+        Private method that generates a property object that can be
+        attached to a model to serve as the accessor for this field on
+        model instances. The property calculates the composite key by
+        pulling the values from the appropriate model attributes.
+        (Used by the `contribute_to_class` method.)
+        """
+        pfnames = [name for name in self.subfield_names]
+        field = self
         def _get(instance):
-            raw_vals = [getattr(instance, pfname, None) for pfname in pfnames]
-            str_vals = []
-            for raw_val in raw_vals:
-                # If this is a relation field, we want the PK value
-                val = getattr(raw_val, 'pk', raw_val)
-                str_vals.append(unicode('' if val is None else val))
-            return sep.join(str_vals)
-        return property(_get)
+            raw = [getattr(instance, pfname, None) for pfname in pfnames]
+            # For relation fields, we want to return the PK value
+            final = [getattr(v, 'pk', v) for v in raw]
+            return CompositeValueTuple(final, self)
+
+        def _set(instance, value):
+            if _get(instance) != value:
+                raise NotImplementedError('Cannot set a virtual field value.')
+        return property(_get, _set)
+
+    def _set_up_unique_together(self, cls):
+        """
+        Private method that sets the `unique_together` _meta attribute
+        for the model this field is associated with. (Used by the
+        `contribute_to_class` method.)
+        """
+        curr_ut = list(cls._meta.unique_together)
+        orig_ut = list(cls._meta.original_attrs.get('unique_together', []))
+        new_ut_entry = tuple(self.subfield_names)
+        new_c_ut, new_o_ut = (tuple(ut + [new_ut_entry])
+                              for ut in (curr_ut, orig_ut))
+        cls._meta.unique_together = new_c_ut
+        cls._meta.original_attrs['unique_together'] = new_o_ut
 
     def contribute_to_class(self, cls, name, *args, **kwargs):
         """
         This method is called by the ModelBase metaclass' __new__
         method when new Model classes and objects are created. It does
-        two things that the parent class' `contribute_to_class` method
-        doesn't: 1) it adds a property to the model class for accessing
-        the computed composite value on model instances, and 2) if this
-        is a PK, then it adds an appropriate `unique_together`
-        constraint to the Meta object.
+        several things that the parent class' `contribute_to_class`
+        doesn't: 1) it sets the `virtual_only` kwarg (`private_only` in
+        later Django versions) but still does PK setup if this is a PK;
+        2) it adds a property to the model class for accessing
+        the computed composite value on model instances; 3) adds an
+        appropriate `unique_together` constraint to the Meta object if
+        this is a PK; and 4) sets up an appropriate `natural_key` on
+        the model class if this is a PK.
 
         WARNING: `unique_together` fails for NULL values; you can
         create duplicates when one or more of the column values is
@@ -105,16 +274,11 @@ class VirtualCompField(models.Field):
 
         super(VirtualCompField, self).contribute_to_class(cls, name, *args,
                                                           **kwargs)
-        setattr(cls, name, self._field_value_property())
+        setattr(cls, name, self._make_field_value_property())
         if self.primary_key:
             cls._meta.setup_pk(self)
-            curr_ut = list(cls._meta.unique_together)
-            orig_ut = list(cls._meta.original_attrs.get('unique_together', []))
-            new_ut_entry = tuple(self.part_field_names)
-            new_c_ut, new_o_ut = (tuple(ut + [new_ut_entry])
-                                  for ut in (curr_ut, orig_ut))
-            cls._meta.unique_together = new_c_ut
-            cls._meta.original_attrs['unique_together'] = new_o_ut
+            self._set_up_unique_together(cls)
+            setattr(cls, 'natural_key', lambda my: tuple(my.pk))
 
     def get_attname_column(self):
         """
@@ -150,9 +314,9 @@ class VirtualCompField(models.Field):
         how to serialize and then reconstruct instances of this field.
         """
         name, path, args, kwargs = super(VirtualCompField, self).deconstruct()
-        if self.separator != '_':
+        if self.separator != DEFAULT_VALUE_SEPARATOR:
             kwargs['separator'] = self.separator
-        kwargs['part_field_names'] = self.part_field_names
+        kwargs['subfield_names'] = self.subfield_names
         return name, path, args, kwargs
 
     def db_type(self, connection):
@@ -162,79 +326,42 @@ class VirtualCompField(models.Field):
         """
         return None
 
-    def decompose_value(self, value, silent=True):
+    def get_prep_lookup(self, lookup_type, value):
         """
-        Custom method used to decompose the provided value into its
-        constituent parts. Mainly used for exact match database
-        lookups. Use silent=True if you want to suppress errors, e.g.
-        so lookups on invalid values return no results instead of
-        raising errors.
+        Prep a value for lookup. Uses CompositeValueTuple methods to
+        handle type conversions. Exact matches raise a ValueError if
+        the provided lookup value is invalid for this field (e.g.,
+        wrong number of elements or inconvertible types).
         """
-        num_part_fields = len(self.part_field_names)
-        decomposed = []
-        try:
+        if lookup_type == 'exact':
+            cv_tuple = CompositeValueTuple.from_raw(value, self)
             try:
-                values = value.split(self.separator)
-            except AttributeError:
-                msg = 'Value to decompose must be a str or unicode type.'
-                raise ValidationError(msg)
-            if len(values) != num_part_fields:
-                msg = ('Value to decompose has incorrect number of parts or '
-                       'incorrect separator. Expected {} parts and `{}` '
-                       'separator.'.format(num_part_fields, self.separator))
-                raise ValidationError(msg)
-            if '' in values:
-                values = [None if v == '' else v for v in values]
-            for i, field in enumerate(self.part_fields):
-                try:
-                    to_python = field.rel.to._meta.pk.to_python
-                except AttributeError:
-                    to_python = field.to_python
-                try:
-                    decomposed.append(to_python(values[i]))
-                except ValidationError as e:
-                    msg = ('Composite value corresponding to field `{}` is '
-                           'invalid: {}'.format(field.name, e))
-                    raise ValidationError(msg)
-        except ValidationError:
-            if silent:
-                decomposed = [None] * num_part_fields
-            else:
-                raise
-        return decomposed
+                cv_tuple.validate()
+            except ValidationError as e:
+                msg = ('Problem converting {} to an exact match lookup value '
+                       'for field {}: {}'.format(value, self, e))
+                raise ValueError(msg)
+            return self.each_subfield_prep_exact_lookup(cv_tuple)
 
+        elif lookup_type == 'isnull':
+            return value
 
-class CompositeColumn(models.expressions.Col):
-    """
-    This is what the VirtualCompField.get_col method returns. It's
-    a Col subtype, but the `as_sql` method creates a Concat expression
-    based on the target field's `part_fields`. This is of course
-    horribly inefficient in lookup queries, since it isn't indexed, but
-    it does work.
+        elif lookup_type in ('range', 'in'):
+            return [CompositeValueTuple.from_raw(v, self).to_string()
+                    for v in value]
 
-    Mainly this is meant to prevent errors when something absolutely
-    requires some SQL expression representing the column and there's no
-    other way to override that.
-    """
+        else:
+            is_regex = True if 'regex' in lookup_type else False
+            cv_tuple = CompositeValueTuple.from_raw(value, self)
+            return cv_tuple.to_string(is_regex)
 
-    def as_sql(self, compiler, connection):
+    def to_python(self, value):
         """
-        Returns tuple: sql, params -- where %s is used in place of
-        caller/user-supplied values in the SQL, and `params` is that
-        list of values.
-
-        In this case, we want a Concat function that will produce the
-        desired composite value from the subparts and separator defined
-        in the main field. Fortunately, Django has an existing Concat
-        function expression class we can use. We just have to turn
-        *everything* into an `Expression` class first.
+        Use CompositeValueTuple to handle deserialization.
         """
-        sep_exp = models.expressions.Value(self.target.separator)
-        exps_nested = [[f.get_col(self.alias), sep_exp]
-                       for f in self.target.part_fields]
-        exps_flattened = [item for sublist in exps_nested for item in sublist]
-        return_exp = functions.Concat(*exps_flattened[:-1])
-        return return_exp.as_sql(compiler, connection)
+        if value is None:
+            return value
+        return CompositeValueTuple.from_raw(value, self)
 
 
 @VirtualCompField.register_lookup
@@ -246,43 +373,23 @@ class CompositeExact(models.lookups.Exact):
     lookup.
     """
 
-    def _partfield_to_sql(self, field, value, compiler, connection):
+    def _subfield_as_sql(self, field, value, compiler, connection):
         """
-        Private helper method that returns a tuple -- sql, params --
-        for each individual partfield that composes the composite field
-        along with the portion of the user-provided lookup value that
-        corresponds with that partfield.
-
-        The trick is that parts of a value can be empty; such values
-        correspond with blank or NULL in the database and translate to,
-        e.g., "(column IS NULL OR column = '')". If the field is not
-        character data, then creating a blank lookup will fail, and the
-        IS NULL lookup will be used by itself.
-
-        If the value is not empty, then a straightforward exact-match
-        lookup is used.
+        Return exact-match lookup `as_sql` result for the given field
+        and value. Lookup is converted to `isnull` if value is None.
         """
-        sql, params = None, None
         p_col = field.get_col(self.lhs.alias)
         if value is None:
-            null_lookup = field.get_lookup('isnull')(p_col, True)
-            null_sql, params = null_lookup.as_sql(compiler, connection)
-            try:
-                blank_lookup = field.get_lookup('exact')(p_col, '')
-            except ValueError:
-                sql = null_sql
-            else:
-                blank_sql, params = blank_lookup.as_sql(compiler, connection)
-                sql = '( {} OR {} )'.format(null_sql, blank_sql)
+            lookup_type, value = ('isnull', True)
         else:
-            exact_lookup = field.get_lookup('exact')(p_col, value)
-            sql, params = exact_lookup.as_sql(compiler, connection)
-        return sql, params
+            lookup_type, value = ('exact', value)
+        lookup = field.get_lookup(lookup_type)(p_col, value)
+        return lookup.as_sql(compiler, connection)
 
     def as_sql(self, compiler, connection):
         """
-        Returns tuple: sql, params -- where %s is used in place of
-        caller/user-supplied values in the SQL, and `params` is that
+        Return an SQL tuple: sql, params -- where %s is used in place
+        of caller/user-supplied values in the SQL, and `params` is that
         list of values.
 
         Normally lookups return a `left op right` style SQL expression,
@@ -296,9 +403,9 @@ class CompositeExact(models.lookups.Exact):
             sql_list, params_list = [], []
             _, rhs_params = self.get_db_prep_lookup(self.rhs, connection)
             assert len(rhs_params) == 1
-            p_values = self.lhs.target.decompose_value(rhs_params[0])
-            for i, part in enumerate(self.lhs.target.part_fields):
-                sql, params = self._partfield_to_sql(part, p_values[i],
+            part_values = rhs_params[0]
+            for i, part in enumerate(self.lhs.target.subfields):
+                sql, params = self._subfield_as_sql(part, part_values[i],
                                                      compiler, connection)
                 params_list.extend(params)
                 sql_list.append(sql)
@@ -309,4 +416,3 @@ class CompositeExact(models.lookups.Exact):
             # less efficient method of concatenating the lhs child
             # columns via the CompositeColumn.as_sql method.
             return super(CompositeExact, self).as_sql(compiler, connection)
-

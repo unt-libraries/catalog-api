@@ -7,6 +7,7 @@ import random
 import pytest
 
 from django.db import connections, models, IntegrityError
+from django.core import serializers
 
 from base import fields
 from vcftestmodels import models as vtm
@@ -50,35 +51,35 @@ def build_app_models_environment():
     app_models.make('VCFNameNumber', {
         'vcf': fields.VirtualCompField(
             primary_key=True,
-            part_field_names=['name', 'number'])
+            subfield_names=['name', 'number'])
     }, modeltype=vcf_model)
     app_models.make('VCFNumberName', {
         'vcf': fields.VirtualCompField(
             primary_key=True,
-            part_field_names=['number', 'name'])
+            subfield_names=['number', 'name'])
     }, modeltype=vcf_model)
     app_models.make('VCFParentInt', {
         'vcf': fields.VirtualCompField(
             primary_key=True,
-            part_field_names=['name', 'number', 'parent_int'])
+            subfield_names=['name', 'number', 'parent_int'])
     }, modeltype=vcf_model)
     app_models.make('VCFParentStr', {
         'vcf': fields.VirtualCompField(
             primary_key=True,
-            part_field_names=['name', 'number', 'parent_str'])
+            subfield_names=['name', 'number', 'parent_str'])
     }, modeltype=vcf_model)
     app_models.make('VCFParentIntID', {
         'vcf': fields.VirtualCompField(
             primary_key=True,
-            part_field_names=['name', 'number', 'parent_int_id'])
+            subfield_names=['name', 'number', 'parent_int_id'])
     }, modeltype=vcf_model)
     app_models.make('VCFNonPK', {
-        'vcf': fields.VirtualCompField(part_field_names=['name', 'number'])
+        'vcf': fields.VirtualCompField(subfield_names=['name', 'number'])
     }, modeltype=vcf_model)
     app_models.make('VCFHyphenSep', {
         'vcf': fields.VirtualCompField(
             primary_key=True,
-            part_field_names=['name', 'number'],
+            subfield_names=['name', 'number'],
             separator='-')
     }, modeltype=vcf_model)
     return app_models
@@ -170,6 +171,22 @@ def get_db_columns():
         return [r[0] for r in rows]
     return _get_db_columns
 
+@pytest.fixture
+def do_for_multiple_models():
+    """
+    Pytest fixture that performs a manager/queryset action across
+    multiple models and returns the results, if any. 
+    """
+    def _do_for_multiple_models(models, action):
+        results = []
+        for m in models:
+            if action == 'delete':
+                m.objects.all().delete()
+            else:
+                results.extend(getattr(m.objects, action)())
+        return results
+    return _do_for_multiple_models
+
 
 # TESTS
 
@@ -186,144 +203,80 @@ def test_vcfield_exists_but_is_virtual(modelname, testmodels,
     assert testfield.name not in get_db_columns(testmodel)
 
 
-def test_vcfield_relation_or_fkid_use_same_partfields(testmodels):
+def test_vcfield_relation_or_fkid_use_same_subfields(testmodels):
     """
     Using a ForeignKey field in a VirtualCompField's definition results
-    in the same `part_fields` as using the table column name for the FK
+    in the same `subfields` as using the table column name for the FK
     field. In other words: given a model where you have an FK relation
     to another model via the model field `parent`, where the FK ID
     value in the table column is `parent_id` -- and you want to use
     that FK relation (the ID) as part of the composite field value.
     When instantiating the VirtualCompField, you can use either the name
-    `parent` or the name `parent_id` in the `part_field_names` kwarg,
+    `parent` or the name `parent_id` in the `subfield_names` kwarg,
     so long as both are accessors for the same model field.
     """
     rel_vcf = testmodels['VCFParentInt']._meta.get_field('vcf')
     fkid_vcf = testmodels['VCFParentIntID']._meta.get_field('vcf')
-    assert rel_vcf.part_fields == fkid_vcf.part_fields
-
-
-@pytest.mark.parametrize('modelname, value, expected', [
-    ('VCFNameNumber', 'aaa_123', ('aaa', 123)),
-    ('VCFNumberName', '123_aaa', (123, 'aaa')),
-    ('VCFParentInt', 'aaa_123_1', ('aaa', 123, 1)),
-    ('VCFParentInt', 'aaa_123_', ('aaa', 123, None)),
-    ('VCFParentStr', 'aaa_123_1', ('aaa', 123, '1')),
-    ('VCFParentStr', 'aaa_123_', ('aaa', 123, None)),
-    ('VCFParentStr', 'aaa_123_a', ('aaa', 123, 'a')),
-    ('VCFParentIntID', 'aaa_123_1', ('aaa', 123, 1)),
-    ('VCFParentIntID', 'aaa_123_', ('aaa', 123, None)),
-    ('VCFHyphenSep', 'aaa-123', ('aaa', 123)),
-])
-def test_vcfield_decomposevalue_outputs_correct_data(modelname, value,
-                                                     expected,
-                                                     testmodels):
-    """
-    The VirtualCompField.decompose_value method should return the
-    correct values in the correct order, given valid input data.
-    """
-    testmodel = testmodels[modelname]
-    vcf = testmodel._meta.get_field('vcf')
-    assert tuple(vcf.decompose_value(value)) == tuple(expected)
-
-
-@pytest.mark.parametrize('modelname, value, errcheck', [
-    ('VCFNameNumber', 123, 'str or unicode'),
-    ('VCFNameNumber', 'aaa', 'incorrect number of parts'),
-    ('VCFNameNumber', 'aaa_123_456', 'incorrect number of parts'),
-    ('VCFNameNumber', 'aaa__', 'incorrect number of parts'),
-    ('VCFNameNumber', 'aaa-123', 'incorrect number of parts'),
-    ('VCFHyphenSep', 'aaa_123', 'incorrect number of parts'),
-    ('VCFNameNumber', '123_aaa', 'field `number` is invalid'),
-    ('VCFNameNumber', 'aaa_aaa', 'field `number` is invalid'),
-    ('VCFParentInt', 'aaa_123_a', 'field `parent_int` is invalid'),
-    ('VCFParentIntID', 'aaa_123_a', 'field `parent_int` is invalid'),
-])
-def test_vcfield_decomposevalue_error_silent_false(modelname, value, errcheck,
-                                                   testmodels):
-    """
-    The VirtualCompField.decompose_value method should raise the
-    appropriate ValidationError when the provided value is invalid and
-    `silent` is False.
-    """
-    testmodel = testmodels[modelname]
-    vcf = testmodel._meta.get_field('vcf')
-    with pytest.raises(fields.ValidationError) as e:
-        vcf.decompose_value(value, silent=False)
-    assert errcheck in str(e.value)
-
-
-@pytest.mark.parametrize('modelname, value, expected', [
-    ('VCFNameNumber', 123, (None, None)),
-    ('VCFNameNumber', 'aaa', (None, None)),
-    ('VCFNameNumber', 'aaa_123_456', (None, None)),
-    ('VCFNameNumber', 'aaa_aaa', (None, None)),
-    ('VCFHyphenSep', 'aaa_123', (None, None)),
-    ('VCFParentInt', 'aaa_123_a', (None, None, None)),
-    ('VCFParentInt', 'aaa', (None, None, None)),
-    ('VCFParentIntID', 'aaa_123_a', (None, None, None)),
-    ('VCFParentIntID', 'aaa', (None, None, None)),
-])
-def test_vcfield_decomposevalue_error_silent_true(modelname, value, expected,
-                                                  testmodels):
-    """
-    The VirtualCompField.decompose_value method should return a seq of
-    None values corresponding to the number of part fields when the
-    provided value is invalid and `silent` is True.
-    """
-    testmodel = testmodels[modelname]
-    vcf = testmodel._meta.get_field('vcf')
-    assert tuple(vcf.decompose_value(value, silent=True)) == tuple(expected)
+    assert rel_vcf.subfields == fkid_vcf.subfields
 
 
 @pytest.mark.parametrize('modelname, name, number, parent_int, parent_str, '
                          'expected_vcf', [
-    ('VCFNameNumber', 'aaa', 123, 1, '1', 'aaa_123'),
-    ('VCFNameNumber', 'aaa', 0, 1, '1', 'aaa_0'),
-    ('VCFNameNumber', 'aaa', None, 1, '1', 'aaa_'),
-    ('VCFNameNumber', None, 123, 1, '1', '_123'),
-    ('VCFNameNumber', '', 123, 1, '1', '_123'),
-    ('VCFNumberName', 'aaa', 123, 1, '1', '123_aaa'),
-    ('VCFNumberName', None, None, 1, '1', '_'),
-    ('VCFNonPK', 'aaa', 123, 1, '1', 'aaa_123'),
-    ('VCFParentInt', 'aaa', 123, 1, '2', 'aaa_123_1'),
-    ('VCFParentInt', 'aaa', 123, None, '2', 'aaa_123_'),
-    ('VCFParentInt', None, 123, None, '2', '_123_'),
-    ('VCFParentInt', 'aaa', None, None, '2', 'aaa__'),
-    ('VCFParentStr', 'aaa', 123, 1, '2', 'aaa_123_2'),
-    ('VCFParentStr', 'aaa', 123, 1, None, 'aaa_123_'),
-    ('VCFParentIntID', 'aaa', 123, 1, '2', 'aaa_123_1'),
-    ('VCFParentIntID', 'aaa', 123, None, '2', 'aaa_123_'),
-    ('VCFHyphenSep', 'aaa', 123, 1, '1', 'aaa-123'),
+    ('VCFNameNumber', 'aaa', 123, 1, '1', ('aaa', 123)),
+    ('VCFNameNumber', 'aaa', 0, 1, '1', ('aaa', 0)),
+    ('VCFNameNumber', 'aaa', None, 1, '1', ('aaa', None)),
+    ('VCFNameNumber', None, 123, 1, '1', (None, 123)),
+    ('VCFNameNumber', '', 123, 1, '1', ('', 123)),
+    ('VCFNumberName', 'aaa', 123, 1, '1', (123, 'aaa')),
+    ('VCFNumberName', None, None, 1, '1', (None, None)),
+    ('VCFNonPK', 'aaa', 123, 1, '1', ('aaa', 123)),
+    ('VCFHyphenSep', 'aaa', 123, 1, '1', ('aaa', 123)),
+    ('VCFParentInt', 'aaa', 123, 1, '2', ('aaa', 123, 1)),
+    ('VCFParentInt', 'aaa', 123, None, '2', ('aaa', 123, None)),
+    ('VCFParentInt', None, 123, None, '2', (None, 123, None)),
+    ('VCFParentInt', 'aaa', None, None, '2', ('aaa', None, None)),
+    ('VCFParentStr', 'aaa', 123, 1, '2', ('aaa', 123, '2')),
+    ('VCFParentStr', 'aaa', 123, 1, None, ('aaa', 123, None)),
+    ('VCFParentIntID', 'aaa', 123, 1, '2', ('aaa', 123, 1)),
+    ('VCFParentIntID', 'aaa', 123, None, '2', ('aaa', 123, None)),
 ])
 def test_vcfield_value_access(modelname, name, number, parent_int,
                               parent_str, expected_vcf, make_instance):
     """
     Accessing a VirtualCompField on a model instance should return a
-    correctly-composed value (based on the field definition).
+    list with the correct components in the correct order.
     """
     test_inst = make_instance(modelname, name, number, parent_int, parent_str)
     assert test_inst.vcf == expected_vcf
 
 
+def test_vcfield_cannot_set_value(make_instance):
+    """
+    Attempting to set a value on a VirtualCompField explicitly should
+    raise a NotImplementedError.
+    """
+    test_inst = make_instance('VCFNameNumber', 'aaa', 123, 1, '2')
+    with pytest.raises(NotImplementedError):
+        test_inst.vcf = ('should not work!', 123)
+
+
 @pytest.mark.parametrize('modelname, name, number, parent_int, parent_str, '
                          'expected_pk', [
-    ('VCFNameNumber', 'aaa', 123, 1, '1', 'aaa_123'),
-    ('VCFNameNumber', 'aaa', 0, 1, '1', 'aaa_0'),
-    ('VCFNameNumber', 'aaa', None, 1, '1', 'aaa_'),
-    ('VCFNameNumber', None, 123, 1, '1', '_123'),
-    ('VCFNameNumber', '', 123, 1, '1', '_123'),
-    ('VCFNumberName', 'aaa', 123, 1, '1', '123_aaa'),
-    ('VCFNumberName', None, None, 1, '1', '_'),
-    ('VCFParentInt', 'aaa', 123, 1, '2', 'aaa_123_1'),
-    ('VCFParentInt', 'aaa', 123, None, '2', 'aaa_123_'),
-    ('VCFParentInt', None, 123, None, '2', '_123_'),
-    ('VCFParentInt', 'aaa', None, None, '2', 'aaa__'),
-    ('VCFParentStr', 'aaa', 123, 1, '2', 'aaa_123_2'),
-    ('VCFParentStr', 'aaa', 123, 1, None, 'aaa_123_'),
-    ('VCFParentIntID', 'aaa', 123, 1, '2', 'aaa_123_1'),
-    ('VCFParentIntID', 'aaa', 123, None, '2', 'aaa_123_'),
-    ('VCFHyphenSep', 'aaa', 123, 1, '1', 'aaa-123'),
+    ('VCFNameNumber', 'aaa', 123, 1, '1', ('aaa', 123)),
+    ('VCFNameNumber', 'aaa', 0, 1, '1', ('aaa', 0)),
+    ('VCFNameNumber', 'aaa', None, 1, '1', ('aaa', None)),
+    ('VCFNameNumber', None, 123, 1, '1', (None, 123)),
+    ('VCFNameNumber', '', 123, 1, '1', ('', 123)),
+    ('VCFNumberName', 'aaa', 123, 1, '1', (123, 'aaa')),
+    ('VCFNumberName', None, None, 1, '1', (None, None)),
+    ('VCFParentInt', 'aaa', 123, 1, '2', ('aaa', 123, 1)),
+    ('VCFParentInt', 'aaa', 123, None, '2', ('aaa', 123, None)),
+    ('VCFParentInt', None, 123, None, '2', (None, 123, None)),
+    ('VCFParentInt', 'aaa', None, None, '2', ('aaa', None, None)),
+    ('VCFParentStr', 'aaa', 123, 1, '2', ('aaa', 123, '2')),
+    ('VCFParentStr', 'aaa', 123, 1, None, ('aaa', 123, None)),
+    ('VCFParentIntID', 'aaa', 123, 1, '2', ('aaa', 123, 1)),
+    ('VCFParentIntID', 'aaa', 123, None, '2', ('aaa', 123, None)),
 ])
 def test_vcfield_pk_access(modelname, name, number, parent_int, parent_str,
                            expected_pk, make_instance):
@@ -337,22 +290,21 @@ def test_vcfield_pk_access(modelname, name, number, parent_int, parent_str,
 
 @pytest.mark.parametrize('modelname, name, number, parent_int, parent_str, '
                          'expected_pk', [
-    ('VCFNameNumber', 'aaa', 123, 1, '1', 'aaa_123'),
-    ('VCFNameNumber', 'aaa', 0, 1, '1', 'aaa_0'),
-    ('VCFNameNumber', 'aaa', None, 1, '1', 'aaa_'),
-    ('VCFNameNumber', None, 123, 1, '1', '_123'),
-    ('VCFNameNumber', '', 123, 1, '1', '_123'),
-    ('VCFNumberName', 'aaa', 123, 1, '1', '123_aaa'),
-    ('VCFNumberName', None, None, 1, '1', '_'),
-    ('VCFParentInt', 'aaa', 123, 1, '2', 'aaa_123_1'),
-    ('VCFParentInt', 'aaa', 123, None, '2', 'aaa_123_'),
-    ('VCFParentInt', None, 123, None, '2', '_123_'),
-    ('VCFParentInt', 'aaa', None, None, '2', 'aaa__'),
-    ('VCFParentStr', 'aaa', 123, 1, '2', 'aaa_123_2'),
-    ('VCFParentStr', 'aaa', 123, 1, None, 'aaa_123_'),
-    ('VCFParentIntID', 'aaa', 123, 1, '2', 'aaa_123_1'),
-    ('VCFParentIntID', 'aaa', 123, None, '2', 'aaa_123_'),
-    ('VCFHyphenSep', 'aaa', 123, 1, '1', 'aaa-123'),
+    ('VCFNameNumber', 'aaa', 123, 1, '1', ('aaa', 123)),
+    ('VCFNameNumber', 'aaa', 0, 1, '1', ('aaa', 0)),
+    ('VCFNameNumber', 'aaa', None, 1, '1', ('aaa', None)),
+    ('VCFNameNumber', None, 123, 1, '1', (None, 123)),
+    ('VCFNameNumber', '', 123, 1, '1', ('', 123)),
+    ('VCFNumberName', 'aaa', 123, 1, '1', (123, 'aaa')),
+    ('VCFNumberName', None, None, 1, '1', (None, None)),
+    ('VCFParentInt', 'aaa', 123, 1, '2', ('aaa', 123, 1)),
+    ('VCFParentInt', 'aaa', 123, None, '2', ('aaa', 123, None)),
+    ('VCFParentInt', None, 123, None, '2', (None, 123, None)),
+    ('VCFParentInt', 'aaa', None, None, '2', ('aaa', None, None)),
+    ('VCFParentStr', 'aaa', 123, 1, '2', ('aaa', 123, '2')),
+    ('VCFParentStr', 'aaa', 123, 1, None, ('aaa', 123, None)),
+    ('VCFParentIntID', 'aaa', 123, 1, '2', ('aaa', 123, 1)),
+    ('VCFParentIntID', 'aaa', 123, None, '2', ('aaa', 123, None)),
 ])
 def test_vcfield_pk_lookups_work(modelname, name, number, parent_int,
                                  parent_str, expected_pk, testmodels,
@@ -448,37 +400,43 @@ def test_vcfield_nonpk_not_unique(modelname, name, number, parent_int,
 
 @pytest.mark.parametrize('modelname, name, number, parent_int, parent_str, '
                          'lookup_arg', [
-    ('VCFNameNumber', 'aaa', 123, 1, '1', 'aaa_123'),
-    ('VCFNameNumber', 'aaa', 0, 1, '1', 'aaa_0'),
-    ('VCFNameNumber', 'aaa', None, 1, '1', 'aaa_'),
-    ('VCFNameNumber', None, 123, 1, '1', '_123'),
-    ('VCFNameNumber', '', 123, 1, '1', '_123'),
-    ('VCFNumberName', 'aaa', 123, 1, '1', '123_aaa'),
-    ('VCFNumberName', None, None, 1, '1', '_'),
-    ('VCFParentInt', 'aaa', 123, 1, '2', 'aaa_123_1'),
-    ('VCFParentInt', 'aaa', 123, None, '2', 'aaa_123_'),
-    ('VCFParentInt', None, 123, None, '2', '_123_'),
-    ('VCFParentInt', 'aaa', None, None, '2', 'aaa__'),
-    ('VCFParentStr', 'aaa', 123, 1, '2', 'aaa_123_2'),
-    ('VCFParentStr', 'aaa', 123, 1, None, 'aaa_123_'),
-    ('VCFParentIntID', 'aaa', 123, 1, '2', 'aaa_123_1'),
-    ('VCFParentIntID', 'aaa', 123, None, '2', 'aaa_123_'),
-    ('VCFHyphenSep', 'aaa', 123, 1, '1', 'aaa-123'),
-    ('VCFNonPK', 'aaa', 123, 1, '1', 'aaa_123'),
-    ('VCFNonPK', None, 123, 1, '1', '_123'),
+    ('VCFNameNumber', 'aaa', 123, 1, '1', ('aaa', 123)),
+    ('VCFNameNumber', 'aaa', 123, 1, '1', ['aaa', '123']),
+    ('VCFNameNumber', 'aaa', 123, 1, '1', 'aaa|_|123'),
+    ('VCFNameNumber', 'aaa', 0, 1, '1', ['aaa', 0]),
+    ('VCFNameNumber', 'aaa', None, 1, '1', ['aaa', None]),
+    ('VCFNameNumber', 'aaa', None, 1, '1', 'aaa|_|'),
+    ('VCFNameNumber', None, 123, 1, '1', [None, 123]),
+    ('VCFNameNumber', None, 123, 1, '1', '|_|123'),
+    ('VCFNameNumber', '', 123, 1, '1', ['', 123]),
+    ('VCFNumberName', 'aaa', 123, 1, '1', [123, 'aaa']),
+    ('VCFNumberName', None, None, 1, '1', [None, None]),
+    ('VCFParentInt', 'aaa', 123, 1, '2', ['aaa', 123, 1]),
+    ('VCFParentInt', 'aaa', 123, None, '2', ['aaa', 123, None]),
+    ('VCFParentInt', None, 123, None, '2', [None, 123, None]),
+    ('VCFParentInt', 'aaa', None, None, '2', ['aaa', None, None]),
+    ('VCFParentStr', 'aaa', 123, 1, '2', ['aaa', 123, '2']),
+    ('VCFParentStr', 'aaa', 123, 1, None, ['aaa', 123, None]),
+    ('VCFParentIntID', 'aaa', 123, 1, '2', ['aaa', 123, '1']),
+    ('VCFParentIntID', 'aaa', 123, None, '2', ['aaa', 123, None]),
+    ('VCFNonPK', 'aaa', 123, 1, '1', ['aaa', 123]),
+    ('VCFNonPK', None, 123, 1, '1', [None, 123]),
+    ('VCFHyphenSep', 'aaa', 123, 1, '1', ['aaa', 123]),
+    ('VCFHyphenSep', None, 123, 1, '1', [None, 123]),
 ])
 def test_vcfield_exact_lookups_work(modelname, name, number, parent_int,
                                     parent_str, lookup_arg, testmodels,
                                     make_instance, noise_data):
     """
-    Exact-match lookups on VirtualCompFields should behave as follows:
+    Exact-match lookups on VirtualCompFields that match something
+    should behave as follows:
     * The obj manager `get` method should return the correct instance.
     * The obj manager `filter` method should return a QuerySet
       containing the correct instance (and ONLY that instance).
     * The obj manager `exclude` method should return a QuerySet that
       doesn't include the test instance.
     * The SQL produced by such lookups should contain a WHERE clause
-      with the appropriate part_field expressions ANDed together.
+      with the appropriate subfield expressions ANDed together.
     """
     tmodel = testmodels[modelname]
     test_inst = make_instance(modelname, name, number, parent_int, parent_str)
@@ -486,9 +444,9 @@ def test_vcfield_exact_lookups_work(modelname, name, number, parent_int,
     qset = tmodel.objects.filter(vcf=lookup_arg)
     exclude_qset = tmodel.objects.exclude(vcf=lookup_arg)
     where = qset.query.sql_with_params()[0].split(' WHERE ')[1]
-    vcf_cols = [pf.column for pf in tmodel._meta.get_field('vcf').part_fields]
-    partfield_pattern = r'\W.* AND .*\W'.join(vcf_cols)
-    where_pattern = r'\W{}\W'.format(partfield_pattern)
+    vcf_cols = [pf.column for pf in tmodel._meta.get_field('vcf').subfields]
+    subfield_pattern = r'\W.* AND .*\W'.join(vcf_cols)
+    where_pattern = r'\W{}\W'.format(subfield_pattern)
     assert len(tmodel.objects.all()) == 6
     assert tmodel.objects.get(vcf=lookup_arg) == test_inst
     assert len(qset) == 1 and test_inst in qset
@@ -498,25 +456,49 @@ def test_vcfield_exact_lookups_work(modelname, name, number, parent_int,
 
 @pytest.mark.parametrize('modelname, name, number, parent_int, parent_str, '
                          'lookup_arg', [
-    ('VCFParentInt', 'aaa', 123, 1, '1', 'nomatch'),
-    ('VCFParentInt', 'aaa', 123, 1, '1', 'aaa_123'),
-    ('VCFParentInt', 'aaa', 123, None, '1', 'aaa_123'),
-    ('VCFParentInt', 'aaa', 123, None, '1', 'aaa_123_None'),
+    ('VCFParentInt', 'aaa', 123, 1, '1', ['no', 'no', 'no']),
+    ('VCFParentInt', 'aaa', 123, 1, '1', 'no|_|no|_|no'),
+    ('VCFParentInt', 'aaa', 123, 1, '1', ['aaa', 123]),
+    ('VCFParentInt', 'aaa', 123, 1, '1', 'aaa|_|123'),
+    ('VCFParentInt', 'aaa', 123, None, '1', ('aaa', 123)),
+    ('VCFParentInt', 'aaa', 123, None, '1', ['aaa', 123, '']),
     ('VCFParentInt', 'aaa', 123, 1, '1', 123),
     ('VCFParentInt', 'aaa', 123, 1, '1', ''),
     ('VCFParentInt', 'aaa', 123, 1, '1', 'aaa'),
-    ('VCFParentInt', 'aaa', 123, 1, '1', 'aaa_123_456'),
-    ('VCFParentInt', 'aaa', 123, 1, '1', '123_aaa'),
-    ('VCFParentInt', 'aaa', 123, 1, '1', 'aaa_'),
-    ('VCFParentInt', 'aaa', 123, 1, '1', '_aaa'),
-    ('VCFParentInt', 'aaa', 123, 1, '1', None),
+    ('VCFParentInt', 'aaa', 123, 1, '1', ['aaa', 'aaa', 1]),
+    ('VCFParentInt', 'aaa', 123, 1, '1', {'what': 'even', 'is': 'this?'}),
+])
+def test_vcfield_exact_lookup_errors(modelname, name, number, parent_int,
+                                     parent_str, lookup_arg, testmodels,
+                                     make_instance):
+    """
+    Exact-match lookups on VirtualCompFields that have an ill-formed
+    lookup arg should raise a ValueError.
+    """
+    tmodel = testmodels[modelname]
+    test_inst = make_instance(modelname, name, number, parent_int, parent_str)
+    with pytest.raises(ValueError):
+        tmodel.objects.get(vcf=lookup_arg)
+        tmodel.objects.filter(vcf=lookup_arg)
+
+
+@pytest.mark.parametrize('modelname, name, number, parent_int, parent_str, '
+                         'lookup_arg', [
+    ('VCFNameNumber', '', 123, 1, '1', '|_|123'),
+    ('VCFParentInt', 'aaa', 123, 1, '1', ['aaa', 123, 456]),
+    ('VCFParentInt', 'aaa', 123, 1, '1', 'aaa|_|123|_|456'),
+    ('VCFParentInt', 'aaa', 123, 1, '1', ('aaa', 0, 1)),
+    ('VCFParentInt', 'aaa', 123, 1, '1', ['bbb', 123, 1]),
+    ('VCFParentInt', 'aaa', 123, 1, '1', ['aaa', '12', 1]),
+    ('VCFParentInt', 'aaa', 123, 1, '1', ['aaa', 123, '456']),
+    ('VCFParentInt', 'aaa', 123, 1, '1', ['123', '123', '456']),
 ])
 def test_vcfield_nonmatch_exact_lookups(modelname, name, number, parent_int,
                                         parent_str, lookup_arg, testmodels,
                                         make_instance):
     """
-    Exact-match lookups on VirtualCompFields that match nothing should
-    behave as follows:
+    Exact-match lookups on VirtualCompFields that match nothing but are
+    well-formed should behave as follows:
     * The obj manager `get` method should raise a DoesNotExist error.
     * The obj manager `filter` method should return a blank QuerySet.
     """
@@ -530,19 +512,19 @@ def test_vcfield_nonmatch_exact_lookups(modelname, name, number, parent_int,
 @pytest.mark.parametrize('modelname, name, number, parent_int, parent_str, '
                          'lookup_type, lookup_arg', [
     ('VCFNameNumber', 'aaa', 123, 1, '1', 'icontains', 'a'),
-    ('VCFNameNumber', 'aaa', 0, 1, '1', 'in', ['aaa_0', 'aaa_1']),
-    ('VCFNameNumber', 'aaa', 0, 1, '1', 'iexact', 'AAA_0'),
-    ('VCFNameNumber', 'aaa', None, 1, '1', 'startswith', 'aaa'),
-    ('VCFNameNumber', None, 123, 1, '1', 'endswith', '123'),
-    ('VCFNameNumber', '', 123, 1, '1', 'contains', '_'),
-    ('VCFNumberName', 'aaa', 123, 1, '1', 'gte', '123'),
-    ('VCFNumberName', 'aaa', 123, 1, '1', 'lte', '124'),
-    ('VCFNumberName', None, None, 1, '1', 'contains', '_'),
-    ('VCFParentInt', 'aaa', 123, 1, '2', 'contains', '123'),
-    ('VCFParentInt', 'aaa', 123, None, '2', 'range', ('aaa_123', 'aaa_124')),
+    ('VCFNameNumber', 'aaa', 0, 1, '1', 'in', [('aaa', 0), ('aaa', 1)]),
+    ('VCFNameNumber', 'aaa', 0, 1, '1', 'iexact', ['AAA', 0]),
+    ('VCFNameNumber', 'aaa', None, 1, '1', 'startswith', ['aa']),
+    ('VCFNameNumber', None, 123, 1, '1', 'endswith', [123]),
+    ('VCFNameNumber', '', 123, 1, '1', 'contains', 2),
+    ('VCFNumberName', 'aaa', 123, 1, '1', 'gte', [123]),
+    ('VCFNumberName', 'aaa', 123, 1, '1', 'lte', [124, None]),
+    ('VCFParentInt', 'aaa', 123, 1, '2', 'contains', [123]),
+    ('VCFParentInt', 'aaa', 123, None, '2', 'range', (['aaa', 123],
+                                                      ['aaa', 124])),
     ('VCFParentInt', None, 123, None, '2', 'isnull', False),
-    ('VCFParentInt', 'aaa', None, None, '2', 'regex', '_+'),
-    ('VCFParentStr', 'aaa', 123, 1, '2', 'regex', '^aaa[_-]12'),
+    ('VCFParentInt', 'aaa', None, None, '2', 'regex', '^aa'),
+    ('VCFParentStr', 'aaa', 123, 1, '2', 'regex', '^aaa\|_\|12'),
 ])
 def test_vcfield_other_lookups_work(modelname, name, number, parent_int,
                                     parent_str, lookup_type, lookup_arg,
@@ -555,7 +537,7 @@ def test_vcfield_other_lookups_work(modelname, name, number, parent_int,
     * The same instance should NOT appear in a QuerySet returned using
       the `exclude` obj manager method.
     * The SQL produced by such lookups should contain a WHERE clause
-      with the appropriate part_field expressions ANDed together.
+      with the appropriate subfield expressions ANDed together.
 
     Note that this test is far from comprehensive. The intention isn't
     to exhaustively test these lookups, but to test a decent enough
@@ -568,12 +550,12 @@ def test_vcfield_other_lookups_work(modelname, name, number, parent_int,
     qset = tmodel.objects.filter(**{lookup_str: lookup_arg})
     exclude_qset = tmodel.objects.exclude(**{lookup_str: lookup_arg})
     where = qset.query.sql_with_params()[0].split(' WHERE ')[1]
-    vcf_cols = [pf.column for pf in tmodel._meta.get_field('vcf').part_fields]
-    partfield_pattern = r'\W.*\W'.join(vcf_cols)
-    where_pattern = r'^CONCAT\(.*\W{}\W'.format(partfield_pattern)
+    vcf_cols = [pf.column for pf in tmodel._meta.get_field('vcf').subfields]
+    subfield_pattern = r'\W.*\W'.join(vcf_cols)
+    where_pattern = r'^CONCAT\(.*\W{}\W'.format(subfield_pattern)
     assert len(tmodel.objects.all()) == 6
-    assert test_inst in qset
-    assert test_inst not in exclude_qset
+    assert test_inst in [r for r in qset]
+    assert test_inst not in [r for r in exclude_qset]
     assert re.search(where_pattern, where)
 
 
@@ -620,3 +602,31 @@ def test_vcfield_orderby_works(modelname, data, testmodels, make_instance):
     assert [m.vcf for m in desc_qset] == desc_expected
 
 
+@pytest.mark.parametrize('modelname', TEST_MODEL_NAMES)
+def test_vcfield_serialization(modelname, testmodels, make_instance,
+                               noise_data, do_for_multiple_models):
+    """
+    Serializing and deserializing a set of random objects should result
+    in a second set that is equivalent to the first set, regardless of
+    serialization format.
+    """
+    serial_testmodels = (testmodels['ParentInt'], testmodels['ParentStr'],
+                         testmodels[modelname])
+    instances = [make_instance(modelname, *f) for f in noise_data(5)]
+    og_objects, json_objects, xml_objects = [], [], []
+    
+    og_objects = do_for_multiple_models(serial_testmodels, 'all')
+    json = serializers.serialize('json', og_objects)
+    xml = serializers.serialize('xml', og_objects)
+    do_for_multiple_models(serial_testmodels, 'delete')
+
+    for obj in serializers.deserialize('json', json):
+        obj.save()
+    json_objects = do_for_multiple_models(serial_testmodels, 'all')
+    do_for_multiple_models(serial_testmodels, 'delete')
+
+    for obj in serializers.deserialize('xml', xml):
+        obj.save()
+    xml_objects = do_for_multiple_models(serial_testmodels, 'all')
+    assert json_objects == og_objects
+    assert xml_objects == og_objects
