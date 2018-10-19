@@ -161,12 +161,18 @@ class Relation(object):
     def fetch_target_model_objects(self, source_objects):
         all_related_objs = []
         for obj in source_objects:
-            subset = getattr(obj, self.fieldname)
-            if self.is_multi:
-                subset = subset.all()
+            try:
+                subset = getattr(obj, self.fieldname)
+                if self.is_multi:
+                    subset = subset.all()
+                else:
+                    subset = [] if subset is None else [subset]
+            except self.target_model.DoesNotExist:
+                # Just skip this relation if there's nothing at the
+                # other end.
+                pass
             else:
-                subset = [] if subset is None else [subset]               
-            all_related_objs += subset
+                all_related_objs += subset
         return list(set(all_related_objs))
 
 
