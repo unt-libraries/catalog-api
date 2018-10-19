@@ -271,7 +271,7 @@
         "holding_record", 
         "holdingrecorditemrecordlink_set", 
         "item_record", 
-        "transitboxrecorditemrecord_set", 
+        "transitboxrecorditemrecord", 
         "transit_box_record", 
         "record", 
         "record_type"
@@ -281,7 +281,7 @@
         "holding_record", 
         "holdingrecorditemrecordlink_set", 
         "item_record", 
-        "transitboxrecorditemrecord_set", 
+        "transitboxrecorditemrecord", 
         "transit_box_record", 
         "record", 
         "controlfield_set"
@@ -291,7 +291,7 @@
         "holding_record", 
         "holdingrecorditemrecordlink_set", 
         "item_record", 
-        "transitboxrecorditemrecord_set", 
+        "transitboxrecorditemrecord", 
         "transit_box_record", 
         "record", 
         "leaderfield_set"
@@ -301,7 +301,7 @@
         "holding_record", 
         "holdingrecorditemrecordlink_set", 
         "item_record", 
-        "transitboxrecorditemrecord_set", 
+        "transitboxrecorditemrecord", 
         "transit_box_record", 
         "record", 
         "varfield_set"
@@ -311,7 +311,7 @@
         "holding_record", 
         "holdingrecorditemrecordlink_set", 
         "item_record", 
-        "transitboxrecorditemrecord_set", 
+        "transitboxrecorditemrecord", 
         "transit_box_record", 
         "record", 
         "subfield_set"
@@ -321,7 +321,7 @@
         "holding_record", 
         "holdingrecorditemrecordlink_set", 
         "item_record", 
-        "volumerecorditemrecordlink_set", 
+        "volumerecorditemrecordlink", 
         "volume_record", 
         "record_metadata", 
         "record_type"
@@ -331,7 +331,7 @@
         "holding_record", 
         "holdingrecorditemrecordlink_set", 
         "item_record", 
-        "volumerecorditemrecordlink_set", 
+        "volumerecorditemrecordlink", 
         "volume_record", 
         "record_metadata", 
         "controlfield_set"
@@ -341,7 +341,7 @@
         "holding_record", 
         "holdingrecorditemrecordlink_set", 
         "item_record", 
-        "volumerecorditemrecordlink_set", 
+        "volumerecorditemrecordlink", 
         "volume_record", 
         "record_metadata", 
         "leaderfield_set"
@@ -351,7 +351,7 @@
         "holding_record", 
         "holdingrecorditemrecordlink_set", 
         "item_record", 
-        "volumerecorditemrecordlink_set", 
+        "volumerecorditemrecordlink", 
         "volume_record", 
         "record_metadata", 
         "varfield_set"
@@ -361,7 +361,7 @@
         "holding_record", 
         "holdingrecorditemrecordlink_set", 
         "item_record", 
-        "volumerecorditemrecordlink_set", 
+        "volumerecorditemrecordlink", 
         "volume_record", 
         "record_metadata", 
         "subfield_set"
@@ -534,7 +534,7 @@
       [
         "bibrecorditemrecordlink_set", 
         "item_record", 
-        "transitboxrecorditemrecord_set", 
+        "transitboxrecorditemrecord", 
         "transit_box_record", 
         "record", 
         "record_type"
@@ -542,7 +542,7 @@
       [
         "bibrecorditemrecordlink_set", 
         "item_record", 
-        "transitboxrecorditemrecord_set", 
+        "transitboxrecorditemrecord", 
         "transit_box_record", 
         "record", 
         "controlfield_set"
@@ -550,7 +550,7 @@
       [
         "bibrecorditemrecordlink_set", 
         "item_record", 
-        "transitboxrecorditemrecord_set", 
+        "transitboxrecorditemrecord", 
         "transit_box_record", 
         "record", 
         "leaderfield_set"
@@ -558,7 +558,7 @@
       [
         "bibrecorditemrecordlink_set", 
         "item_record", 
-        "transitboxrecorditemrecord_set", 
+        "transitboxrecorditemrecord", 
         "transit_box_record", 
         "record", 
         "varfield_set"
@@ -566,7 +566,7 @@
       [
         "bibrecorditemrecordlink_set", 
         "item_record", 
-        "transitboxrecorditemrecord_set", 
+        "transitboxrecorditemrecord", 
         "transit_box_record", 
         "record", 
         "subfield_set"
@@ -574,7 +574,7 @@
       [
         "bibrecorditemrecordlink_set", 
         "item_record", 
-        "volumerecorditemrecordlink_set", 
+        "volumerecorditemrecordlink", 
         "volume_record", 
         "record_metadata", 
         "record_type"
@@ -582,7 +582,7 @@
       [
         "bibrecorditemrecordlink_set", 
         "item_record", 
-        "volumerecorditemrecordlink_set", 
+        "volumerecorditemrecordlink", 
         "volume_record", 
         "record_metadata", 
         "controlfield_set"
@@ -590,7 +590,7 @@
       [
         "bibrecorditemrecordlink_set", 
         "item_record", 
-        "volumerecorditemrecordlink_set", 
+        "volumerecorditemrecordlink", 
         "volume_record", 
         "record_metadata", 
         "leaderfield_set"
@@ -598,7 +598,7 @@
       [
         "bibrecorditemrecordlink_set", 
         "item_record", 
-        "volumerecorditemrecordlink_set", 
+        "volumerecorditemrecordlink", 
         "volume_record", 
         "record_metadata", 
         "varfield_set"
@@ -606,7 +606,7 @@
       [
         "bibrecorditemrecordlink_set", 
         "item_record", 
-        "volumerecorditemrecordlink_set", 
+        "volumerecorditemrecordlink", 
         "volume_record", 
         "record_metadata", 
         "subfield_set"
