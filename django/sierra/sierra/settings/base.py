@@ -90,7 +90,14 @@ TIME_ZONE = get_env_variable('TIME_ZONE', 'America/Chicago')
 
 # Language code for this installation. All choices can be found here:
 # http://www.i18nguy.com/unicode/language-identifiers.html
-LANGUAGE_CODE = 'en-us'
+LANGUAGE_CODE = get_env_variable('LANGUAGE_CODE', 'en-us')
+
+# Here you can specify the Language of your Sierra instance. This code
+# should correspond with the codes in the Sierra `iii_language` table.
+# It *should be* a MARC Language Code, I think. Whatever you specify
+# here will be used in all calls made to *_name and *_property_name
+# fields. English, `eng`, is the default.
+III_LANGUAGE_CODE = get_env_variable('III_LANGUAGE_CODE', 'eng')
 
 SITE_ID = 1
 
