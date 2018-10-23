@@ -93,15 +93,26 @@ from utils import helpers
 
 class ReadOnlyModel(models.Model):
     """
-    Basic abstract base model to disable the save and delete methods,
+    Basic abstract base model to disable the save and delete methods
     and provide a standard __unicode__ string representation.
+
+    For testing purposes: you can override the block on saving and
+    deleting by setting the `_write_override` attr to True. Doing this
+    in a production setting will not work, as, A) the router will
+    still prevent you from writing to the `sierra` DB in production,
+    and, B) III customers do not have write access to the Sierra DB.
     """
+    _write_override = False
 
     def save(self, *args, **kwargs):
-        raise NotImplementedError('Saving not allowed.')
+        if not self._write_override:
+            raise NotImplementedError('Saving not allowed.')
+        super(ReadOnlyModel, self).save(*args, **kwargs)
 
     def delete(self, *args, **kwargs):
-        raise NotImplementedError('Deleting not allowed.')
+        if not self._write_override:
+            raise NotImplementedError('Deleting not allowed.')
+        super(ReadOnlyModel, self).delete(*args, **kwargs)
 
     def __unicode__(self):
         if hasattr(self, 'code'):
@@ -156,26 +167,26 @@ class ModelWithAttachedName(ReadOnlyModel):
     accessing these property names--just use `prop_instance.get_name()`
     to get the name (string) in the primary language. Or, if you have a
     multi-lingual site, you can pass a different code in via the
-    `langcode` kwarg. There are a few models that differ from the norm;
-    in these cases the specific model can override the `get_name`
-    method to provide different params to the private method that does
-    the lookup.
+    `langcode` kwarg. The `_language_attname`, `_name_attname`, and
+    `_name_accessor` class attributes tell it how to identify the
+    language and name string on the attached *Name model. Most models
+    use the defaults, but the few that don't override them.
     """
-    def _get_name_by_params(self, langcode, get_attname,
-                            lang_attname='iii_language', accessor=None):
-        accessor = accessor or '{}name_set'.format(self._meta.model_name)
-        name_set = getattr(self, accessor)
-        name_inst = name_set.get(**{'{}__code'.format(lang_attname): langcode})
-        return getattr(name_inst, get_attname)
+    _language_attname = 'iii_language'
+    _name_attname = 'name'
+    _name_accessor = None
 
-    def get_name(self, langcode=settings.III_LANGUAGE_CODE,
-                 get_attname='name'):
+    def get_name(self, langcode=settings.III_LANGUAGE_CODE):
         """
-        Override this method in a specific model if needed to change
-        how the name string (or other, user-specified attname) is
-        accessed from that model.
+        Get the name string for the *Name model associated with this
+        property model.
         """
-        return self._get_name_by_params(langcode, get_attname)
+        cls = type(self)
+        acc = cls._name_accessor or '{}name_set'.format(self._meta.model_name)
+        get_filter = {'{}__code'.format(cls._language_attname): langcode}
+        all_name_objects = getattr(self, acc)
+        lang_name_obj = all_name_objects.get(**get_filter)
+        return getattr(lang_name_obj, cls._name_attname)
 
     class Meta(object):
         abstract = True
@@ -3362,10 +3373,8 @@ class IiiLanguage(ModelWithAttachedName):
     display_order = models.IntegerField(null=True, blank=True)
     is_right_to_left = models.NullBooleanField(null=True, blank=True)
 
-    def get_name(self, langcode=settings.III_LANGUAGE_CODE,
-                 get_attname='description'):
-        lang_attname = 'name_iii_language'
-        return self._get_name_by_params(langcode, get_attname, lang_attname)
+    _language_attname = 'name_iii_language'
+    _name_attname = 'description'
 
     class Meta(ModelWithAttachedName.Meta):
         db_table = 'iii_language'
@@ -3723,6 +3732,8 @@ class PtypeProperty(ModelWithAttachedName):
                                                 db_column='ptype_category_id',
                                                 null=True,
                                                 blank=True)
+
+    _name_attname = 'description'
 
     class Meta(ModelWithAttachedName.Meta):
         db_table = 'ptype_property'
@@ -5430,7 +5441,7 @@ class ScatCategoryName(ReadOnlyModel):
     id = models.BigIntegerField(primary_key=True)
     scat_category = models.ForeignKey(ScatCategory, null=True, blank=True)
     name = models.CharField(max_length=255, blank=True)
-    iii_language = models.ForeignKey('LanguageProperty',
+    iii_language = models.ForeignKey('IiiLanguage',
                                      db_column='iii_language_code',
                                      db_constraint=False,
                                      to_field='code', null=True, blank=True)
@@ -6329,11 +6340,6 @@ class IiiRole(ModelWithAttachedName):
     is_disabled_during_read_only_access = models.NullBooleanField(null=True,
                                                                   blank=True)
 
-    def get_name(langcode=settings.III_LANGUAGE_CODE, get_attname='name'):
-        name_inst = IiiRoleName.objects.get(iii_language__code=langcode,
-                                            iii_role_id=self.id)
-        return getattr(name_inst, get_attname)
-
     class Meta(ModelWithAttachedName.Meta):
         db_table = 'iii_role'
 
@@ -6360,16 +6366,10 @@ class IiiRoleCategoryName(ReadOnlyModel):
 
 class IiiRoleName(ReadOnlyModel):
     key = fields.VirtualCompField(primary_key=True,
-                                  subfield_names=['iii_role_id',
+                                  subfield_names=['iii_role',
                                                   'iii_language'])
-    # iii_role_id SHOULD be a ForeignKey to IiiRole, but in our system
-    # we have three rows in IiiRoleName that refer to non-existent
-    # IiiRole IDs, which ends up causing errors when we try to do
-    # things with the objects in this table. At this point modeling
-    # iii_role_id as an IntegerField is the easiest way to handle it.
-    # IiiRole still implements a `get_name` method that works, which
-    # should be all we need for this table, anyway.
-    iii_role_id = models.IntegerField()
+    iii_role = models.ForeignKey(IiiRole, null=True, blank=True,
+                                 db_constraint=False)
     iii_language = models.ForeignKey(IiiLanguage, null=True, blank=True)
     name = models.CharField(max_length=255, blank=True)
 
@@ -6509,9 +6509,7 @@ class Workflow(ModelWithAttachedName):
     functions = models.ManyToManyField(Function, through='WorkflowFunction',
                                        blank=True)
 
-    def get_name(self, lang_code=settings.III_LANGUAGE_CODE,
-                 get_attname='menu_name'):
-        return self._get_name_by_params(lang_code, get_attname)
+    _name_attname='menu_name'
 
     class Meta(ModelWithAttachedName.Meta):
         db_table = 'workflow'
