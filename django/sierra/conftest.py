@@ -4,8 +4,10 @@ Contains all shared pytest fixtures
 
 import pytest
 import pysolr
-from model_mommy import mommy
+import datetime
+import pytz
 
+from django.contrib.auth.models import User
 from django.conf import settings
 
 import utils
@@ -95,15 +97,23 @@ def status():
 
 
 @pytest.fixture
-def new_export_instance(export_type, export_filter, status):
+def new_export_instance(export_type, export_filter, status,
+                        make_model_instance):
     def _new_export_instance(et_code, ef_code, st_code):
-        return mommy.make(
+        try:
+            test_user = User.objects.get(username='test')
+        except User.DoesNotExist:
+            test_user = make_model_instance(User, 'test', 'test@test.com',
+                                            'testpass')
+        return make_model_instance(
             em.ExportInstance,
+            user=test_user,
             status=status(st_code),
             export_type=export_type(et_code),
             export_filter=export_filter(ef_code),
             errors=0,
-            warnings=0
+            warnings=0,
+            timestamp=datetime.datetime.now(pytz.utc)
         )
     return _new_export_instance
 
@@ -114,8 +124,7 @@ def new_exporter(new_export_instance):
         instance = new_export_instance(et_code, ef_code, st_code)
         exp_class = utils.load_class(instance.export_type.path)
         return exp_class(instance.pk, ef_code, et_code, options)
-    yield _new_exporter
-    em.ExportInstance.objects.all().delete()
+    return _new_exporter
 
 
 @pytest.fixture
@@ -162,3 +171,43 @@ def solr_search():
         results = conn.search(**options)
         return [r for r in results]
     return _solr_search
+
+
+@pytest.fixture
+def make_model_instance():
+    """
+    Pytest fixture. Returns a factory object that tracks model
+    instances as they're created and clears them out when a test
+    completes.
+    """
+    class TestObjectMaker(object):
+        def __init__(self):
+            self.obj_cache = []
+
+        def set_write_override(self, model, value):
+            if hasattr(model, '_write_override'):
+                model._write_override = value
+
+        def make_object(self, model, args, kwargs):
+            try:
+                return model.objects.create_user(*args, **kwargs)
+            except AttributeError:
+                return model.objects.create(*args, **kwargs)
+
+        def __call__(self, model, *args, **kwargs):
+            self.set_write_override(model, True)
+            obj = self.make_object(model, args, kwargs)
+            self.set_write_override(type(obj), False)
+            self.obj_cache.append(obj)
+            return obj
+
+        def clear(self):
+            for obj in reversed(self.obj_cache):
+                self.set_write_override(type(obj), True)
+                obj.delete()
+                self.set_write_override(type(obj), False)
+            self.obj_cache = []
+
+    maker = TestObjectMaker()
+    yield maker
+    maker.clear()
