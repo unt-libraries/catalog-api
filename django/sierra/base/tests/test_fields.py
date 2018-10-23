@@ -42,8 +42,12 @@ def build_app_models_environment():
     vcf_model = app_models.make('VCFModel', {
         'name': models.CharField(max_length=255, blank=True, null=True),
         'number': models.IntegerField(null=True),
-        'parent_int': models.ForeignKey(parent_int, null=True),
-        'parent_str': models.ForeignKey(parent_str, null=True),
+        'parent_int': models.ForeignKey(parent_int, null=True,
+                                        db_constraint=False,
+                                        on_delete=models.DO_NOTHING),
+        'parent_str': models.ForeignKey(parent_str, null=True,
+                                        db_constraint=False,
+                                        on_delete=models.DO_NOTHING),
     }, meta_options={'abstract': True})
     app_models.make('VCFNameNumber', {
         'vcf': fields.VirtualCompField(
@@ -117,7 +121,7 @@ def make_instance(testmodels):
     returns) a test model instance, given the `fields` kwargs.
 
     The `parent_int` and `parent_str` fields are converted to the
-    appropriate model instances, if needed.
+    appropriate model instances.
     """
     def _make_instance(modelname, name, number, parent_int, parent_str):
         fields = { 'name': name, 'number': number, 'parent_int': parent_int,
@@ -132,7 +136,8 @@ def make_instance(testmodels):
                     fields[pfield] = pmodel.objects.get(pk=pid)
                 except pmodel.DoesNotExist:
                     pname = 'parent{}'.format(pid)
-                    fields[pfield] = pmodel.objects.create(id=pid, name=pname)
+                    fields[pfield] = pmodel.objects.create(id=pid,
+                                                           name=pname)
         return testmodel.objects.create(**fields)
     return _make_instance
 
@@ -245,6 +250,24 @@ def test_vcfield_value_access(modelname, name, number, parent_int,
     """
     test_inst = make_instance(modelname, name, number, parent_int, parent_str)
     assert test_inst.vcf == expected_vcf
+
+
+def test_vcfield_broken_fk_value_access(testmodels, make_instance):
+    """
+    In the rare case that an FK partfield value refers to a
+    non-existent related object, the value on DB column in the table
+    for the reference object (which DOES exist) should be used if/when
+    the VirtualCompField value is accessed.
+    """
+    test_inst = make_instance('VCFParentInt', 'aaa', 123, 99, None)
+    # Deleting the ParentInt instance referenced on test_inst leaves a
+    # broken FK reference on test_inst because the FK definition uses
+    # `on_delete=models.DO_NOTHING`.
+    testmodels['ParentInt'].objects.get(pk=99).delete()
+    qset = testmodels['VCFParentInt'].objects.all()
+    assert test_inst.vcf == ('aaa', 123, 99)
+    assert len(qset) == 1
+    assert qset[0].vcf == test_inst.vcf
 
 
 def test_vcfield_cannot_set_value(make_instance):

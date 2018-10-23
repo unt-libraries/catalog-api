@@ -183,13 +183,13 @@ class VirtualCompField(models.Field):
         that compose this field. Relationships are followed to arrive
         at the base Field object.
         """
-        sf_list = []
-        for sf in self.partfield_names:
+        pf_list = []
+        for pf in self.partfield_names:
             try:
-                sf_list.append(self.model._meta.get_field(sf).rel.to._meta.pk)
+                pf_list.append(self.model._meta.get_field(pf).rel.to._meta.pk)
             except AttributeError:
-                sf_list.append(self.model._meta.get_field(sf))
-        return tuple(sf_list)
+                pf_list.append(self.model._meta.get_field(pf))
+        return tuple(pf_list)
 
     def each_partfield_run_to_python(self, cvalue):
         """
@@ -197,8 +197,8 @@ class VirtualCompField(models.Field):
         method for each partfield that makes up this composite field.
         Returns the results as a tuple.
         """
-        return tuple([getattr(sf, 'to_python')(cvalue[i])
-                      for i, sf in enumerate(self.partfield_bases)])
+        return tuple([getattr(pf, 'to_python')(cvalue[i])
+                      for i, pf in enumerate(self.partfield_bases)])
 
     def each_partfield_prep_exact_lookup(self, cvalue):
         """
@@ -207,24 +207,22 @@ class VirtualCompField(models.Field):
         each partfield that makes up this composite field. Returns the
         results as a tuple.
         """
-        return tuple([getattr(sf, 'get_prep_lookup')('exact', cvalue[i])
-                      for i, sf in enumerate(self.partfield_bases)])
+        return tuple([getattr(pf, 'get_prep_lookup')('exact', cvalue[i])
+                      for i, pf in enumerate(self.partfield_bases)])
 
     def _make_field_value_property(self):
         """
         Private method that generates a property object that can be
-        attached to a model to serve as the accessor for this field on
-        model instances. The property calculates the composite key by
-        pulling the values from the appropriate model attributes.
-        (Used by the `contribute_to_class` method.)
+        attached to a model to serve as the getter/setter for this
+        field on model instances.
         """
-        pfnames = [name for name in self.partfield_names]
-        field = self
         def _get(instance):
-            raw = [getattr(instance, pfname, None) for pfname in pfnames]
-            # For relation fields, we want to return the PK value
-            final = [getattr(v, 'pk', v) for v in raw]
-            return CompositeValueTuple(final, self)
+            values = []
+            for pfname in self.partfield_names:
+                pf = instance._meta.get_field(pfname)
+                acc = '{}_id'.format(pf.name) if pf.is_relation else pf.name
+                values.append(getattr(instance, acc, None))
+            return CompositeValueTuple(values, self)
 
         def _set(instance, value):
             if value is None:
@@ -235,8 +233,13 @@ class VirtualCompField(models.Field):
                     # the database--probably via the instance's `delete`
                     # method, so we do nothing and don't raise an error.
                     return True
-            if _get(instance) != value:
-                raise NotImplementedError('Cannot set a virtual field value.')
+            original_value = getattr(instance, self.name)
+            if original_value != value:
+                msg = ('On model {}, tried to change value for virtual field '
+                       '`{}`. Original value was {}, changed value was {}. '
+                       '(Virtual fields cannot be changed directly.)'
+                       '').format(self.model, self.name, original_value, value)
+                raise NotImplementedError(msg)
         return property(_get, _set)
 
     def _set_up_unique_together(self, cls):
