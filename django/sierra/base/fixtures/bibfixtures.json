@@ -67,11 +67,11 @@
 },
 {
   "fields": {
-    "previous_last_updated_gmt": "2018-09-26T21:20:00Z",
+    "previous_last_updated_gmt": "2018-10-05T13:02:41Z",
     "campus_code": "",
     "deletion_date_gmt": null,
-    "record_last_updated_gmt": "2018-10-05T13:02:41Z",
-    "num_revisions": 263,
+    "record_last_updated_gmt": "2018-10-23T16:46:25.469Z",
+    "num_revisions": 264,
     "record_type": "i",
     "record_num": 4264283,
     "creation_date_gmt": "2013-06-14T13:30:15Z"
@@ -165,11 +165,11 @@
 },
 {
   "fields": {
-    "previous_last_updated_gmt": "2018-10-15T20:38:49Z",
+    "previous_last_updated_gmt": "2018-10-23T13:14:14Z",
     "campus_code": "",
     "deletion_date_gmt": null,
-    "record_last_updated_gmt": "2018-10-16T13:23:18Z",
-    "num_revisions": 4488,
+    "record_last_updated_gmt": "2018-10-23T16:46:25.573Z",
+    "num_revisions": 4490,
     "record_type": "p",
     "record_num": 416497,
     "creation_date_gmt": "2011-01-21T14:54:00Z"
@@ -2869,13 +2869,13 @@
     "ptype": 31,
     "registration_count": 0,
     "attendance_total": 0,
-    "checkout_total": 243,
+    "checkout_total": 244,
     "mblock": "-",
     "itemd_count": 0,
     "highest_level_overdue_num": 1,
     "renewal_total": 9,
     "birth_date_gmt": null,
-    "activity_gmt": null,
+    "activity_gmt": "2018-10-23T16:46:23Z",
     "debit_amt": "0.000000",
     "registration_total": 0,
     "waitlist_count": 0,
@@ -2884,7 +2884,7 @@
     "patron_message_code": " ",
     "notification_medium": "-",
     "home_library_code": "unt",
-    "checkout_count": 0,
+    "checkout_count": 1,
     "pcode3": 1,
     "pcode2": "-",
     "pcode1": "c",
@@ -2942,7 +2942,7 @@
 },
 {
   "fields": {
-    "year_to_date_checkout_total": 1,
+    "year_to_date_checkout_total": 2,
     "itype": 1,
     "record_metadata": 450975830363,
     "last_checkout_gmt": "2018-09-26T21:19:27Z",
@@ -2952,7 +2952,7 @@
     "is_bib_hold": false,
     "holdings_code": "6",
     "last_checkin_gmt": "2018-09-26T21:20:18Z",
-    "checkout_total": 18,
+    "checkout_total": 19,
     "inventory_gmt": null,
     "checkout_statistic_group": 310,
     "renewal_total": 0,
@@ -3299,6 +3299,23 @@
   },
   "model": "base.bibrecorditemrecordlink",
   "pk": 4764515
+},
+{
+  "fields": {
+    "ptype": 31,
+    "overdue_count": 0,
+    "recall_gmt": null,
+    "due_gmt": "2018-12-12T10:00:00Z",
+    "items_display_order": null,
+    "checkout_gmt": "2018-10-23T16:46:23Z",
+    "patron_record": 481036753649,
+    "renewal_count": 0,
+    "loanrule_code_num": 22,
+    "item_record": 450975830363,
+    "overdue_gmt": null
+  },
+  "model": "base.checkout",
+  "pk": 1732994
 },
 {
   "fields": {

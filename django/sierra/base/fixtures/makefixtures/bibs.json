@@ -452,6 +452,13 @@
       [
         "bibrecorditemrecordlink_set", 
         "item_record", 
+        "checkout",
+        "ptype",
+        "ptype_property_category"
+      ],
+      [
+        "bibrecorditemrecordlink_set", 
+        "item_record", 
         "checkout_statistic_group"
       ], 
       [
