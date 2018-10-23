@@ -48,35 +48,35 @@ def build_app_models_environment():
     app_models.make('VCFNameNumber', {
         'vcf': fields.VirtualCompField(
             primary_key=True,
-            subfield_names=['name', 'number'])
+            partfield_names=['name', 'number'])
     }, modeltype=vcf_model)
     app_models.make('VCFNumberName', {
         'vcf': fields.VirtualCompField(
             primary_key=True,
-            subfield_names=['number', 'name'])
+            partfield_names=['number', 'name'])
     }, modeltype=vcf_model)
     app_models.make('VCFParentInt', {
         'vcf': fields.VirtualCompField(
             primary_key=True,
-            subfield_names=['name', 'number', 'parent_int'])
+            partfield_names=['name', 'number', 'parent_int'])
     }, modeltype=vcf_model)
     app_models.make('VCFParentStr', {
         'vcf': fields.VirtualCompField(
             primary_key=True,
-            subfield_names=['name', 'number', 'parent_str'])
+            partfield_names=['name', 'number', 'parent_str'])
     }, modeltype=vcf_model)
     app_models.make('VCFParentIntID', {
         'vcf': fields.VirtualCompField(
             primary_key=True,
-            subfield_names=['name', 'number', 'parent_int_id'])
+            partfield_names=['name', 'number', 'parent_int_id'])
     }, modeltype=vcf_model)
     app_models.make('VCFNonPK', {
-        'vcf': fields.VirtualCompField(subfield_names=['name', 'number'])
+        'vcf': fields.VirtualCompField(partfield_names=['name', 'number'])
     }, modeltype=vcf_model)
     app_models.make('VCFHyphenSep', {
         'vcf': fields.VirtualCompField(
             primary_key=True,
-            subfield_names=['name', 'number'],
+            partfield_names=['name', 'number'],
             separator='-')
     }, modeltype=vcf_model)
     return app_models
@@ -200,21 +200,21 @@ def test_vcfield_exists_but_is_virtual(modelname, testmodels,
     assert testfield.name not in get_db_columns(testmodel)
 
 
-def test_vcfield_relation_or_fkid_use_same_subfields(testmodels):
+def test_vcfield_relation_or_fkid_use_same_partfields(testmodels):
     """
     Using a ForeignKey field in a VirtualCompField's definition results
-    in the same `subfields` as using the table column name for the FK
+    in the same `partfields` as using the table column name for the FK
     field. In other words: given a model where you have an FK relation
     to another model via the model field `parent`, where the FK ID
     value in the table column is `parent_id` -- and you want to use
     that FK relation (the ID) as part of the composite field value.
     When instantiating the VirtualCompField, you can use either the name
-    `parent` or the name `parent_id` in the `subfield_names` kwarg,
+    `parent` or the name `parent_id` in the `partfield_names` kwarg,
     so long as both are accessors for the same model field.
     """
     rel_vcf = testmodels['VCFParentInt']._meta.get_field('vcf')
     fkid_vcf = testmodels['VCFParentIntID']._meta.get_field('vcf')
-    assert rel_vcf.subfields == fkid_vcf.subfields
+    assert rel_vcf.partfields == fkid_vcf.partfields
 
 
 @pytest.mark.parametrize('modelname, name, number, parent_int, parent_str, '
@@ -433,7 +433,7 @@ def test_vcfield_exact_lookups_work(modelname, name, number, parent_int,
     * The obj manager `exclude` method should return a QuerySet that
       doesn't include the test instance.
     * The SQL produced by such lookups should contain a WHERE clause
-      with the appropriate subfield expressions ANDed together.
+      with the appropriate partfield expressions ANDed together.
     """
     tmodel = testmodels[modelname]
     test_inst = make_instance(modelname, name, number, parent_int, parent_str)
@@ -441,9 +441,9 @@ def test_vcfield_exact_lookups_work(modelname, name, number, parent_int,
     qset = tmodel.objects.filter(vcf=lookup_arg)
     exclude_qset = tmodel.objects.exclude(vcf=lookup_arg)
     where = qset.query.sql_with_params()[0].split(' WHERE ')[1]
-    vcf_cols = [pf.column for pf in tmodel._meta.get_field('vcf').subfields]
-    subfield_pattern = r'\W.* AND .*\W'.join(vcf_cols)
-    where_pattern = r'\W{}\W'.format(subfield_pattern)
+    vcf_cols = [pf.column for pf in tmodel._meta.get_field('vcf').partfields]
+    partfield_pattern = r'\W.* AND .*\W'.join(vcf_cols)
+    where_pattern = r'\W{}\W'.format(partfield_pattern)
     assert len(tmodel.objects.all()) == 6
     assert tmodel.objects.get(vcf=lookup_arg) == test_inst
     assert len(qset) == 1 and test_inst in qset
@@ -534,7 +534,7 @@ def test_vcfield_other_lookups_work(modelname, name, number, parent_int,
     * The same instance should NOT appear in a QuerySet returned using
       the `exclude` obj manager method.
     * The SQL produced by such lookups should contain a WHERE clause
-      with the appropriate subfield expressions ANDed together.
+      with the appropriate partfield expressions ANDed together.
 
     Note that this test is far from comprehensive. The intention isn't
     to exhaustively test these lookups, but to test a decent enough
@@ -547,9 +547,9 @@ def test_vcfield_other_lookups_work(modelname, name, number, parent_int,
     qset = tmodel.objects.filter(**{lookup_str: lookup_arg})
     exclude_qset = tmodel.objects.exclude(**{lookup_str: lookup_arg})
     where = qset.query.sql_with_params()[0].split(' WHERE ')[1]
-    vcf_cols = [pf.column for pf in tmodel._meta.get_field('vcf').subfields]
-    subfield_pattern = r'\W.*\W'.join(vcf_cols)
-    where_pattern = r'^CONCAT\(.*\W{}\W'.format(subfield_pattern)
+    vcf_cols = [pf.column for pf in tmodel._meta.get_field('vcf').partfields]
+    partfield_pattern = r'\W.*\W'.join(vcf_cols)
+    where_pattern = r'^CONCAT\(.*\W{}\W'.format(partfield_pattern)
     assert len(tmodel.objects.all()) == 6
     assert test_inst in [r for r in qset]
     assert test_inst not in [r for r in exclude_qset]

@@ -284,8 +284,8 @@ class FixfldTypeMyuser(ReadOnlyModel):
 
 class FixfldTypeName(ReadOnlyModel):
     key = fields.VirtualCompField(primary_key=True,
-                                  subfield_names=['fixfldtype',
-                                                    'iii_language'])
+                                  partfield_names=['fixfldtype',
+                                                   'iii_language'])
     fixfldtype = models.ForeignKey(FixfldType,
                                    db_column='fixfld_property_id')
     iii_language = models.ForeignKey('IiiLanguage', null=True, blank=True)
@@ -347,8 +347,8 @@ class MarclabelTypeMyuser(ReadOnlyModel):
 
 class MarclabelTypeName(ReadOnlyModel):
     key = fields.VirtualCompField(primary_key=True,
-                                  subfield_names=['marclabel_type',
-                                                    'iii_language'])
+                                  partfield_names=['marclabel_type',
+                                                   'iii_language'])
     marclabel_type = models.ForeignKey(MarclabelType)
     iii_language = models.ForeignKey('IiiLanguage', null=True, blank=True)
     name = models.CharField(max_length=255, blank=True)
@@ -426,8 +426,8 @@ class PhraseType(ModelWithAttachedName):
 
 class PhraseTypeName(ReadOnlyModel):
     key = fields.VirtualCompField(primary_key=True,
-                                  subfield_names=['phrase_type',
-                                                    'iii_language'])
+                                  partfield_names=['phrase_type',
+                                                   'iii_language'])
     phrase_type = models.ForeignKey(PhraseType)
     iii_language = models.ForeignKey('IiiLanguage', null=True, blank=True)
     name = models.CharField(max_length=255, blank=True)
@@ -577,8 +577,8 @@ class RecordTypeMyuser(ReadOnlyModel):
 
 class RecordTypeName(ReadOnlyModel):
     key = fields.VirtualCompField(primary_key=True,
-                                  subfield_names=['record_type',
-                                                    'iii_language'])
+                                  partfield_names=['record_type',
+                                                   'iii_language'])
     record_type = models.ForeignKey(RecordType)
     name = models.CharField(max_length=255, blank=True)
     iii_language = models.ForeignKey('IiiLanguage', null=True, blank=True)
@@ -589,8 +589,8 @@ class RecordTypeName(ReadOnlyModel):
 
 class Subfield(ReadOnlyModel):
     key = fields.VirtualCompField(primary_key=True,
-                                  subfield_names=['varfield', 'tag',
-                                                    'occ_num'])
+                                  partfield_names=['varfield', 'tag',
+                                                   'occ_num'])
     record = models.ForeignKey(RecordMetadata, null=True, blank=True)
     varfield = models.ForeignKey('Varfield', null=True, blank=True)
     field_type_code = models.CharField(max_length=1, blank=True)
@@ -689,8 +689,8 @@ class VarfieldType(ModelWithAttachedName):
 
 class VarfieldTypeName(ReadOnlyModel):
     key = fields.VirtualCompField(primary_key=True,
-                                  subfield_names=['varfield_type',
-                                                    'iii_language'])
+                                  partfield_names=['varfield_type',
+                                                   'iii_language'])
     varfield_type = models.ForeignKey(VarfieldType)
     iii_language = models.ForeignKey('IiiLanguage', null=True, blank=True)
     short_name = models.CharField(max_length=20, blank=True)
@@ -834,8 +834,8 @@ class BibLevelPropertyMyuser(ReadOnlyModel):
 
 class BibLevelPropertyName(ReadOnlyModel):
     key = fields.VirtualCompField(primary_key=True,
-                                  subfield_names=['bib_level_property',
-                                                    'iii_language'])
+                                  partfield_names=['bib_level_property',
+                                                   'iii_language'])
     bib_level_property = models.ForeignKey(BibLevelProperty)
     iii_language = models.ForeignKey('IiiLanguage', null=True, blank=True)
     name = models.CharField(max_length=255, blank=True)
@@ -1059,8 +1059,8 @@ class MaterialPropertyCategoryMyuser(ReadOnlyModel):
 
 class MaterialPropertyCategoryName(ReadOnlyModel):
     key = fields.VirtualCompField(primary_key=True,
-                                subfield_names=['material_property_category',
-                                                  'iii_language'])
+                                partfield_names=['material_property_category',
+                                                 'iii_language'])
     material_property_category = models.ForeignKey(MaterialPropertyCategory)
     name = models.CharField(max_length=255, blank=True)
     iii_language = models.ForeignKey('IiiLanguage', null=True, blank=True)
@@ -1085,8 +1085,8 @@ class MaterialPropertyMyuser(ReadOnlyModel):
 
 class MaterialPropertyName(ReadOnlyModel):
     key = fields.VirtualCompField(primary_key=True,
-                                  subfield_names=['material_property',
-                                                    'iii_language'])
+                                  partfield_names=['material_property',
+                                                   'iii_language'])
     material_property = models.ForeignKey(MaterialProperty)
     iii_language = models.ForeignKey('IiiLanguage', null=True, blank=True)
     name = models.CharField(max_length=255, blank=True)
@@ -2158,8 +2158,8 @@ class ItemStatusPropertyMyuser(ReadOnlyModel):
 
 class ItemStatusPropertyName(ReadOnlyModel):
     key = fields.VirtualCompField(primary_key=True,
-                                  subfield_names=['item_status_property',
-                                                    'iii_language'])
+                                  partfield_names=['item_status_property',
+                                                   'iii_language'])
     item_status_property = models.ForeignKey(ItemStatusProperty)
     iii_language = models.ForeignKey('IiiLanguage', null=True, blank=True)
     name = models.CharField(max_length=255, blank=True)
@@ -2297,8 +2297,8 @@ class ItypePropertyCategoryMyuser(ReadOnlyModel):
 
 class ItypePropertyCategoryName(ReadOnlyModel):
     key = fields.VirtualCompField(primary_key=True,
-                                  subfield_names=['itype_property_category',
-                                                    'iii_language'])
+                                  partfield_names=['itype_property_category',
+                                                   'iii_language'])
     itype_property_category = models.ForeignKey(ItypePropertyCategory)
     name = models.CharField(max_length=255, blank=True)
     iii_language = models.ForeignKey('IiiLanguage', null=True, blank=True)
@@ -2323,8 +2323,8 @@ class ItypePropertyMyuser(ReadOnlyModel):
 
 class ItypePropertyName(ReadOnlyModel):
     key = fields.VirtualCompField(primary_key=True,
-                                  subfield_names=['itype_property',
-                                                    'iii_language'])
+                                  partfield_names=['itype_property',
+                                                   'iii_language'])
     itype_property = models.ForeignKey(ItypeProperty)
     iii_language = models.ForeignKey('IiiLanguage', null=True, blank=True)
     name = models.CharField(max_length=255, blank=True)
@@ -2365,8 +2365,8 @@ class StatisticGroupMyuser(ReadOnlyModel):
 
 class StatisticGroupName(ReadOnlyModel):
     key = fields.VirtualCompField(primary_key=True,
-                                  subfield_names=['statistic_group',
-                                                    'iii_language'])
+                                  partfield_names=['statistic_group',
+                                                   'iii_language'])
     statistic_group = models.ForeignKey(StatisticGroup)
     iii_language = models.ForeignKey('IiiLanguage', null=True, blank=True)
     name = models.CharField(max_length=255, blank=True)
@@ -2631,8 +2631,8 @@ class AcqTypePropertyMyuser(ReadOnlyModel):
 
 class AcqTypePropertyName(ReadOnlyModel):
     key = fields.VirtualCompField(primary_key=True,
-                                  subfield_names=['acq_type_property',
-                                                    'iii_language'])
+                                  partfield_names=['acq_type_property',
+                                                   'iii_language'])
     acq_type_property = models.ForeignKey(AcqTypeProperty)
     iii_language = models.ForeignKey('IiiLanguage', null=True, blank=True)
     name = models.CharField(max_length=255, blank=True)
@@ -2674,8 +2674,8 @@ class BillingLocationPropertyMyuser(ReadOnlyModel):
 
 class BillingLocationPropertyName(ReadOnlyModel):
     key = fields.VirtualCompField(primary_key=True,
-                                 subfield_names=['billing_location_property',
-                                                   'iii_language'])
+                                 partfield_names=['billing_location_property',
+                                                  'iii_language'])
     billing_location_property = models.ForeignKey(BillingLocationProperty)
     iii_language = models.ForeignKey('IiiLanguage', null=True, blank=True)
     name = models.CharField(max_length=255, blank=True)
@@ -2704,8 +2704,8 @@ class ClaimActionPropertyMyuser(ReadOnlyModel):
 
 class ClaimActionPropertyName(ReadOnlyModel):
     key = fields.VirtualCompField(primary_key=True,
-                                  subfield_names=['claim_action_property',
-                                                    'iii_language'])
+                                  partfield_names=['claim_action_property',
+                                                   'iii_language'])
     claim_action_property = models.ForeignKey(ClaimActionProperty)
     iii_language = models.ForeignKey('IiiLanguage', null=True, blank=True)
     name = models.CharField(max_length=255, blank=True)
@@ -2734,8 +2734,8 @@ class FormPropertyMyuser(ReadOnlyModel):
 
 class FormPropertyName(ReadOnlyModel):
     key = fields.VirtualCompField(primary_key=True,
-                                  subfield_names=['form_property',
-                                                    'iii_language'])
+                                  partfield_names=['form_property',
+                                                   'iii_language'])
     form_property = models.ForeignKey(FormProperty)
     iii_language = models.ForeignKey('IiiLanguage', null=True, blank=True)
     name = models.CharField(max_length=255, blank=True)
@@ -2764,8 +2764,8 @@ class OrderNotePropertyMyuser(ReadOnlyModel):
 
 class OrderNotePropertyName(ReadOnlyModel):
     key = fields.VirtualCompField(primary_key=True,
-                                  subfield_names=['order_note_property',
-                                                    'iii_language'])
+                                  partfield_names=['order_note_property',
+                                                   'iii_language'])
     order_note_property = models.ForeignKey(OrderNoteProperty)
     iii_language = models.ForeignKey('IiiLanguage', null=True, blank=True)
     name = models.CharField(max_length=255, blank=True)
@@ -3014,8 +3014,8 @@ class OrderStatusPropertyMyuser(ReadOnlyModel):
 
 class OrderStatusPropertyName(ReadOnlyModel):
     key = fields.VirtualCompField(primary_key=True,
-                                  subfield_names=['order_status_property',
-                                                    'iii_language'])
+                                  partfield_names=['order_status_property',
+                                                   'iii_language'])
     order_status_property = models.ForeignKey(OrderStatusProperty)
     iii_language = models.ForeignKey('IiiLanguage', null=True, blank=True)
     name = models.CharField(max_length=255, blank=True)
@@ -3044,8 +3044,8 @@ class OrderTypePropertyMyuser(ReadOnlyModel):
 
 class OrderTypePropertyName(ReadOnlyModel):
     key = fields.VirtualCompField(primary_key=True,
-                                  subfield_names=['order_type_property',
-                                                    'iii_language'])
+                                  partfield_names=['order_type_property',
+                                                   'iii_language'])
     order_type_property = models.ForeignKey(OrderTypeProperty)
     iii_language = models.ForeignKey('IiiLanguage', null=True, blank=True)
     name = models.CharField(max_length=255, blank=True)
@@ -3192,8 +3192,8 @@ class ReceivingActionPropertyMyuser(ReadOnlyModel):
 
 class ReceivingActionPropertyName(ReadOnlyModel):
     key = fields.VirtualCompField(primary_key=True,
-                                 subfield_names=['receiving_action_property',
-                                                   'iii_language'])
+                                 partfield_names=['receiving_action_property',
+                                                  'iii_language'])
     receiving_action_property = models.ForeignKey(ReceivingActionProperty)
     iii_language = models.ForeignKey('IiiLanguage', null=True, blank=True)
     name = models.CharField(max_length=255, blank=True)
@@ -3254,8 +3254,8 @@ class TempLocationPropertyMyuser(ReadOnlyModel):
 
 class TempLocationPropertyName(ReadOnlyModel):
     key = fields.VirtualCompField(primary_key=True,
-                                  subfield_names=['temp_location_property',
-                                                    'iii_language'])
+                                  partfield_names=['temp_location_property',
+                                                   'iii_language'])
     temp_location_property = models.ForeignKey(TempLocationProperty)
     iii_language = models.ForeignKey('IiiLanguage', null=True, blank=True)
     name = models.CharField(max_length=255, blank=True)
@@ -3354,8 +3354,8 @@ class FirmPropertyMyuser(ReadOnlyModel):
 
 class FirmPropertyName(ReadOnlyModel):
     key = fields.VirtualCompField(primary_key=True,
-                                  subfield_names=['firm_property',
-                                                    'iii_language'])
+                                  partfield_names=['firm_property',
+                                                   'iii_language'])
     firm_property = models.ForeignKey(FirmProperty)
     iii_language = models.ForeignKey('IiiLanguage', null=True, blank=True)
     name = models.CharField(max_length=255, blank=True)
@@ -3394,8 +3394,8 @@ class IiiLanguageMyuser(ReadOnlyModel):
 
 class IiiLanguageName(ReadOnlyModel):
     key = fields.VirtualCompField(primary_key=True,
-                                  subfield_names=['iii_language',
-                                                    'name_iii_language'])
+                                  partfield_names=['iii_language',
+                                                   'name_iii_language'])
     iii_language = models.ForeignKey(IiiLanguage,
                                      related_name='iiilanguagename_set')
     description = models.CharField(max_length=255, blank=True)
@@ -3426,8 +3426,8 @@ class MblockPropertyMyuser(ReadOnlyModel):
 
 class MblockPropertyName(ReadOnlyModel):
     key = fields.VirtualCompField(primary_key=True,
-                                  subfield_names=['mblock_property',
-                                                    'iii_language'])
+                                  partfield_names=['mblock_property',
+                                                   'iii_language'])
     mblock_property = models.ForeignKey(MblockProperty)
     iii_language = models.ForeignKey(IiiLanguage, null=True, blank=True)
     name = models.CharField(max_length=255, blank=True)
@@ -3456,8 +3456,8 @@ class NotificationMediumPropertyMyuser(ReadOnlyModel):
 
 class NotificationMediumPropertyName(ReadOnlyModel):
     key = fields.VirtualCompField(primary_key=True,
-                              subfield_names=['notification_medium_property',
-                                                'iii_language'])
+                              partfield_names=['notification_medium_property',
+                                               'iii_language'])
     notification_medium_property = models.ForeignKey(NotificationMediumProperty)
     iii_language = models.ForeignKey(IiiLanguage, null=True, blank=True)
     name = models.CharField(max_length=255, blank=True)
@@ -3760,8 +3760,8 @@ class PtypePropertyCategoryMyuser(ReadOnlyModel):
 
 class PtypePropertyCategoryName(ReadOnlyModel):
     key = fields.VirtualCompField(primary_key=True,
-                                  subfield_names=['ptype_property_category',
-                                                    'iii_language'])
+                                  partfield_names=['ptype_property_category',
+                                                   'iii_language'])
     ptype_property_category = models.ForeignKey(PtypePropertyCategory,
                                                 db_column='ptype_category_id')
     name = models.CharField(max_length=255, blank=True)
@@ -3790,8 +3790,8 @@ class PtypePropertyMyuser(ReadOnlyModel):
 
 class PtypePropertyName(ReadOnlyModel):
     key = fields.VirtualCompField(primary_key=True,
-                                  subfield_names=['ptype_property',
-                                                    'iii_language'])
+                                  partfield_names=['ptype_property',
+                                                   'iii_language'])
     ptype_property = models.ForeignKey(PtypeProperty,
                                        db_column='ptype_id')
     description = models.CharField(max_length=255, blank=True)
@@ -3871,8 +3871,8 @@ class GtypePropertyMyuser(ReadOnlyModel):
 
 class GtypePropertyName(ReadOnlyModel):
     key = fields.VirtualCompField(primary_key=True,
-                                  subfield_names=['gtype_property',
-                                                    'iii_language'])
+                                  partfield_names=['gtype_property',
+                                                   'iii_language'])
     gtype_property = models.ForeignKey(GtypeProperty)
     iii_language = models.ForeignKey(IiiLanguage, null=True, blank=True)
     name = models.CharField(max_length=255, blank=True)
@@ -5295,8 +5295,8 @@ class B2MCategoryMyuser(ReadOnlyModel):
 
 class B2MCategoryName(ReadOnlyModel):
     key = fields.VirtualCompField(primary_key=True,
-                                  subfield_names=['b2m_category',
-                                                    'iii_language'])
+                                  partfield_names=['b2m_category',
+                                                   'iii_language'])
     b2m_category = models.ForeignKey(B2MCategory)
     iii_language = models.ForeignKey(IiiLanguage, null=True, blank=True)
     name = models.CharField(max_length=60, blank=True)
@@ -5571,8 +5571,8 @@ class ExternalFundPropertyMyuser(ReadOnlyModel):
 
 class ExternalFundPropertyName(ReadOnlyModel):
     key = fields.VirtualCompField(primary_key=True,
-                                  subfield_names=['external_fund_property',
-                                                    'iii_language'])
+                                  partfield_names=['external_fund_property',
+                                                   'iii_language'])
     external_fund_property = models.ForeignKey(ExternalFundProperty)
     iii_language = models.ForeignKey(IiiLanguage, null=True, blank=True)
     name = models.CharField(max_length=255, blank=True)
@@ -5627,8 +5627,8 @@ class FundMyuser(ReadOnlyModel):
 
 class FundPropertyName(ReadOnlyModel):
     key = fields.VirtualCompField(primary_key=True,
-                                  subfield_names=['fund_property',
-                                                    'iii_language'])
+                                  partfield_names=['fund_property',
+                                                   'iii_language'])
     fund_property = models.ForeignKey(FundProperty)
     iii_language = models.ForeignKey('IiiLanguage', null=True, blank=True)
     name = models.CharField(max_length=255, blank=True)
@@ -5650,8 +5650,8 @@ class FundSummarySubfund(ReadOnlyModel):
 
 class FundTypeSummary(ReadOnlyModel):
     key = fields.VirtualCompField(primary_key=True,
-                                  subfield_names=['accounting_unit',
-                                                  'fund_type'])
+                                  partfield_names=['accounting_unit',
+                                                   'fund_type'])
     accounting_unit = models.ForeignKey(AccountingUnit, null=True, blank=True)
     fund_type = models.ForeignKey(FundType)
     last_lien_num = models.IntegerField(null=True, blank=True)
@@ -5714,7 +5714,7 @@ class BranchMyuser(ReadOnlyModel):
 
 class BranchName(ReadOnlyModel):
     key = fields.VirtualCompField(primary_key=True,
-                                  subfield_names=['branch', 'iii_language'])
+                                  partfield_names=['branch', 'iii_language'])
     branch = models.ForeignKey(Branch)
     name = models.CharField(max_length=255, blank=True)
     iii_language = models.ForeignKey(IiiLanguage, null=True, blank=True)
@@ -5767,8 +5767,8 @@ class LocationMyuser(ReadOnlyModel):
 
 class LocationName(ReadOnlyModel):
     key = fields.VirtualCompField(primary_key=True,
-                                  subfield_names=['location',
-                                                    'iii_language'])
+                                  partfield_names=['location',
+                                                   'iii_language'])
     location = models.ForeignKey(Location)
     name = models.CharField(max_length=255, blank=True)
     iii_language = models.ForeignKey(IiiLanguage, null=True, blank=True)
@@ -5845,8 +5845,8 @@ class AgencyPropertyMyuser(ReadOnlyModel):
 
 class AgencyPropertyName(ReadOnlyModel):
     key = fields.VirtualCompField(primary_key=True,
-                                  subfield_names=['agency_property',
-                                                    'iii_language'])
+                                  partfield_names=['agency_property',
+                                                   'iii_language'])
     agency_property = models.ForeignKey(AgencyProperty)
     iii_language = models.ForeignKey(IiiLanguage, null=True, blank=True)
     name = models.CharField(max_length=255, blank=True)
@@ -5875,8 +5875,8 @@ class CountryPropertyMyuser(ReadOnlyModel):
 
 class CountryPropertyName(ReadOnlyModel):
     key = fields.VirtualCompField(primary_key=True,
-                                  subfield_names=['country_property',
-                                                    'iii_language'])
+                                  partfield_names=['country_property',
+                                                   'iii_language'])
     country_property = models.ForeignKey(CountryProperty)
     iii_language = models.ForeignKey(IiiLanguage, null=True, blank=True)
     name = models.CharField(max_length=255, blank=True)
@@ -5909,8 +5909,8 @@ class LanguagePropertyMyuser(ReadOnlyModel):
 
 class LanguagePropertyName(ReadOnlyModel):
     key = fields.VirtualCompField(primary_key=True,
-                                  subfield_names=['language_property',
-                                                    'iii_language'])
+                                  partfield_names=['language_property',
+                                                   'iii_language'])
     language_property = models.ForeignKey(LanguageProperty)
     iii_language = models.ForeignKey(IiiLanguage, null=True, blank=True)
     name = models.CharField(max_length=255, blank=True)
@@ -5941,8 +5941,8 @@ class ReceivingLocationPropertyMyuser(ReadOnlyModel):
 
 class ReceivingLocationPropertyName(ReadOnlyModel):
     key = fields.VirtualCompField(primary_key=True,
-                               subfield_names=['receiving_location_property',
-                                                 'iii_language'])
+                               partfield_names=['receiving_location_property',
+                                                'iii_language'])
     receiving_location_property = models.ForeignKey(ReceivingLocationProperty)
     iii_language = models.ForeignKey(IiiLanguage, null=True, blank=True)
     name = models.CharField(max_length=255, blank=True)
@@ -5983,8 +5983,8 @@ class UserDefinedPropertyMyuser(ReadOnlyModel):
 
 class UserDefinedPropertyName(ReadOnlyModel):
     key = fields.VirtualCompField(primary_key=True,
-                                  subfield_names=['user_defined_property',
-                                                    'iii_language'])
+                                  partfield_names=['user_defined_property',
+                                                   'iii_language'])
     user_defined_property = models.ForeignKey(UserDefinedProperty)
     iii_language = models.ForeignKey(IiiLanguage, null=True, blank=True)
     name = models.CharField(max_length=255, blank=True)
@@ -6354,8 +6354,8 @@ class IiiRoleCategory(ModelWithAttachedName):
 
 class IiiRoleCategoryName(ReadOnlyModel):
     key = fields.VirtualCompField(primary_key=True,
-                                  subfield_names=['iii_role_category',
-                                                  'iii_language'])
+                                  partfield_names=['iii_role_category',
+                                                   'iii_language'])
     iii_language = models.ForeignKey(IiiLanguage, null=True, blank=True)
     iii_role_category = models.ForeignKey(IiiRoleCategory)
     name = models.CharField(max_length=255, blank=True)
@@ -6366,8 +6366,8 @@ class IiiRoleCategoryName(ReadOnlyModel):
 
 class IiiRoleName(ReadOnlyModel):
     key = fields.VirtualCompField(primary_key=True,
-                                  subfield_names=['iii_role',
-                                                  'iii_language'])
+                                  partfield_names=['iii_role',
+                                                   'iii_language'])
     iii_role = models.ForeignKey(IiiRole, null=True, blank=True,
                                  db_constraint=False)
     iii_language = models.ForeignKey(IiiLanguage, null=True, blank=True)
@@ -6448,7 +6448,7 @@ class IiiUserGroup(ReadOnlyModel):
 # Links IiiUsers and IiiRoles.
 class IiiUserIiiRole(ReadOnlyModel):
     key = fields.VirtualCompField(primary_key=True,
-                                  subfield_names=['iii_user', 'iii_role'])
+                                  partfield_names=['iii_user', 'iii_role'])
     iii_user = models.OneToOneField(IiiUser)
     iii_role = models.ForeignKey(IiiRole, null=True, blank=True)
 
@@ -6491,8 +6491,8 @@ class SystemOptionGroup(ModelWithAttachedName):
 # Option Group Names
 class SystemOptionGroupName(ReadOnlyModel):
     key = fields.VirtualCompField(primary_key=True,
-                                  subfield_names=['system_option_group',
-                                                    'iii_language'])
+                                  partfield_names=['system_option_group',
+                                                   'iii_language'])
     system_option_group = models.ForeignKey(SystemOptionGroup)
     iii_language = models.ForeignKey(IiiLanguage, null=True, blank=True)
     name = models.CharField(max_length=255, blank=True)
@@ -6529,8 +6529,8 @@ class WorkflowFunction(ReadOnlyModel):
 # Workflow menu names
 class WorkflowName(ReadOnlyModel):
     key = fields.VirtualCompField(primary_key=True,
-                                  subfield_names=['workflow',
-                                                    'iii_language'])
+                                  partfield_names=['workflow',
+                                                   'iii_language'])
     workflow = models.ForeignKey(Workflow)
     iii_language = models.ForeignKey(IiiLanguage, null=True, blank=True)
     menu_name = models.CharField(max_length=255, blank=True)
