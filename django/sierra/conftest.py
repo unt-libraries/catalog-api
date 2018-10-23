@@ -190,9 +190,12 @@ def make_model_instance():
 
         def make_object(self, model, args, kwargs):
             try:
-                return model.objects.create_user(*args, **kwargs)
-            except AttributeError:
-                return model.objects.create(*args, **kwargs)
+                return model.objects.get(*args, **kwargs)
+            except Exception:
+                try:
+                    return model.objects.create_user(*args, **kwargs)
+                except AttributeError:
+                    return model.objects.create(*args, **kwargs)
 
         def __call__(self, model, *args, **kwargs):
             self.set_write_override(model, True)
