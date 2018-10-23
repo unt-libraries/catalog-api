@@ -15,12 +15,13 @@ class SierraRouter(object):
 
     def db_for_write(self, model, **hints):
         """
-        Raises an error for write attempts to Sierra DB, and routes
-        all others to default. Note that base.models have their save
-        and delete methods disabled, so attempting to write base.models
-        should never call this code in the first place.
+        Raises an error for attempts to write to the live Sierra DB;
+        otherwise, routes TEST access on `base` models to the test
+        Sierra DB and all others to the default DB.
         """
         if model._meta.app_label == 'base':
+            if settings.TESTING:
+                return 'sierra'
             raise DatabaseError('Attempted to write to Sierra database.')
         else:
             return 'default'
