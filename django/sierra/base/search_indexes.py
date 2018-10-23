@@ -224,7 +224,7 @@ class LocationIndex(MetadataBaseIndex):
     type_name = 'Location'
     
     def prepare_label(self, obj):
-        return obj.locationname.name
+        return obj.get_name()
 
 
 class ItypeIndex(MetadataBaseIndex):
@@ -233,7 +233,7 @@ class ItypeIndex(MetadataBaseIndex):
     code = indexes.CharField(model_attr='code_num')
     
     def prepare_label(self, obj):
-        return obj.itypepropertyname.name
+        return obj.get_name()
 
 
 class ItemStatusIndex(MetadataBaseIndex):
@@ -241,7 +241,7 @@ class ItemStatusIndex(MetadataBaseIndex):
     type_name = 'ItemStatus'
 
     def prepare_label(self, obj):
-        return obj.itemstatuspropertyname.name
+        return obj.get_name()
 
 
 class ItemIndex(CustomQuerySetIndex, indexes.Indexable):

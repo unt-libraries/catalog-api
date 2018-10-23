@@ -102,8 +102,7 @@ class S2MarcBatch(object):
         # record number
         recnum = r.record_metadata.get_iii_recnum(True)
         suppressed = 'true' if r.is_suppressed else 'false'
-        material_type = r.bibrecordproperty_set.all()[0].material\
-            .materialpropertyname.name
+        material_type = r.bibrecordproperty_set.all()[0].material.get_name()
         metadata_field = pymarc.field.Field(
                 tag='907',
                 indicators=[' ', ' '],
