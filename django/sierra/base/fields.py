@@ -227,6 +227,14 @@ class VirtualCompField(models.Field):
             return CompositeValueTuple(final, self)
 
         def _set(instance, value):
+            if value is None:
+                try:
+                    instance.refresh_from_db()
+                except instance.DoesNotExist:
+                    # In this case, the object has already been deleted from
+                    # the database--probably via the instance's `delete`
+                    # method, so we do nothing and don't raise an error.
+                    return True
             if _get(instance) != value:
                 raise NotImplementedError('Cannot set a virtual field value.')
         return property(_get, _set)

@@ -14,9 +14,6 @@ from vcftestmodels import models as vtm
 
 
 # FIXTURES AND TEST DATA
-# External fixtures used below can be found in
-# django/sierra/base/tests/conftest.py:
-#    test_mset
 
 pytestmark = pytest.mark.django_db
 TEST_MODEL_NAMES = ['VCFNameNumber', 'VCFNumberName', 'VCFParentInt',
@@ -600,6 +597,19 @@ def test_vcfield_orderby_works(modelname, data, testmodels, make_instance):
     desc_qset = tmodel.objects.order_by('-vcf')
     assert [m.vcf for m in asc_qset] == asc_expected
     assert [m.vcf for m in desc_qset] == desc_expected
+
+
+@pytest.mark.parametrize('modelname', TEST_MODEL_NAMES)
+def test_vcfield_delete(modelname, testmodels, make_instance, noise_data):
+    """
+    Using the `delete` method on an instance should delete the instance
+    without raising an error.
+    """
+    tmodel = testmodels[modelname]
+    test_inst = [make_instance(modelname, *f) for f in noise_data(1)][0]
+    test_inst_pk = test_inst.pk
+    test_inst.delete()
+    assert len(tmodel.objects.filter(pk=test_inst_pk)) == 0
 
 
 @pytest.mark.parametrize('modelname', TEST_MODEL_NAMES)
