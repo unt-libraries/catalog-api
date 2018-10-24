@@ -6449,7 +6449,7 @@ class IiiUserGroup(ReadOnlyModel):
 class IiiUserIiiRole(ReadOnlyModel):
     key = fields.VirtualCompField(primary_key=True,
                                   partfield_names=['iii_user', 'iii_role'])
-    iii_user = models.OneToOneField(IiiUser)
+    iii_user = models.ForeignKey(IiiUser, null=True, blank=True)
     iii_role = models.ForeignKey(IiiRole, null=True, blank=True)
 
     class Meta(ReadOnlyModel.Meta):
