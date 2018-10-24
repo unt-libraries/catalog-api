@@ -1033,51 +1033,61 @@ file is in `.gitignore` for that reason. There is a
 Early in development we implemented a series of tests using the built-in Django
 test runner to do some simple sanity-checking to make sure the Django ORM
 models for Sierra match the structures actually in the production database.
-You can still run these tests after you first install the catalog-api to ensure
-the models match your Sierra setup. Systems may differ from institution to
+We have since converted these to run via pytest: see
+`django/sierra/base/tests/test_database.py`.
+
+When you run the full test suite, as [described below](#unit-tests), these run
+against the test Sierra database&mdash;which is useful. But, there are times
+that you'll want to run these tests against your live database to make sure the
+models are accurate. For instance, systems may differ from institution to
 institution based on what products you have, so you may end up needing to fork
 this project and update the models so they work with your own setup. It may
 also be worth running these tests after Sierra upgrades so that you can make
 sure there were no changes made to the database that break the models.
 
-If using Docker, run:
+If using Docker, run _only_ the database tests using the following:
 
-    ./docker-compose.sh run manage-dev test base
+    ./docker-compose.sh run --rm live-db-test
 
-If not using Docker, you can run:
+If not using Docker, you can use the below command, instead. If applicable,
+replace the value of the `--ds` option with whatever your DEV settings file is.
 
-    cd <project_root>/django/sierra
-    manage.py test base
+    cd <project_root>
+    pytest --ds=sierra.settings.dev django/sierra/base/tests/test_database.py
 
-Note: If any `*_maps_to_database` tests fail, it indicates that there are
-fields on the model that aren't present in the database. These are more
-serious (but often easier to fix) than `*_sanity_check` tests, which test
-to ensure that relationship fields work properly. In either case, you can
-check the models against the SierraDNA documentation and your own database
-to see where the problems lie and decide if they're worth trying to fix in
-the models. If tests fail on models that are central, like `RecordMetadata`
-or `BibRecord`, then it's a problem. If tests fail on models that are more
-peripheral, like `LocationChange`, then finding and fixing those problems
-may be less of a priority, especially if you never intend to use those
-models in your API.
+Note: Some of these tests may fail simply because the models are generally more
+restrictive than the live Sierra database. We are forcing ForeignKey-type
+relationships on a lot of fields that don't seem to have actual
+database-enforced keys in Sierra. E.g., from what I can gather, `id` fields are
+usually proper keys, while `code` fields may not be&mdash;but `code` fields are
+frequently used in a foreign-key-like capacity. I think this leads to a lot of
+the invalid codes you have in Sierra, where you have a code in a record that
+_should_ point to some entry in an administrative table (like a location), but
+it doesn't because the administrative table entry was deleted and the record
+was never updated. And there are other cases, as well. E.g., a code might use
+the string `none` instead of a null value, but there is no corresponding entry
+for `none` in the related table. Bib locations use the string `multi` to
+indicate that they have multiple locations, but there is no corresponding
+`multi` record in the location table. Etc.
 
-Presumably because the Sierra data that customers have access to is
-implemented in views instead of tables, proper data integrity is lacking in
-a few cases. (E.g., the views sometimes don't implement proper primary key
-/ foreign key relationships.) This can cause `*_sanity_check` tests to fail
-in practice on live data when they should work in theory.
+Ultimately, even though these `code` relationships aren't database-enforced
+keys, we do still want the ORM to handle the relationships for us in the
+general case where you _can_ match a code with the entry that describes it.
+Otherwise we'd have to do the matching manually, which would somewhat reduce
+the utility of the ORM.
+
 
 ### <a name="unit-tests"></a>Running Unit(ish) Tests
 
 More recently we've been working on adding unit (and integration) tests that
-run with py.test. We recommend running these tests via Docker, but it *is*
+run with pytest. We recommend running these tests via Docker, but it *is*
 possible to run them outside of Docker if you're motivated enough.
 
 If you followed the [Docker setup](#installation-docker),
       
      ./docker-compose.sh run --rm test
 
-will run all available py.test tests.
+will run all available pytest tests.
 
 If you didn't follow the Docker setup, then you should still be able to create
 a comparable test environment:
@@ -1095,7 +1105,7 @@ relevant connection details.
 
 Spin up all of the needed test databases, and then run
 
-    py.test
+    pytest
 
 
 ### <a name="testing-exports"></a>Testing Sierra Exports Manually
