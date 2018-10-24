@@ -56,7 +56,7 @@ def test_model_instance_against_database(model):
     """
     try:
         model.objects.all()[0]
-    except IndexError as e:
+    except IndexError:
         # An IndexError just means there are no records in the
         # database for this table.
         pass
@@ -72,13 +72,25 @@ def test_model_related_field_against_database(model, fieldname):
     catch basic problems with the models.
     """
     try:
-        test_row = model.objects.all()[0]
-        getattr(test_row, fieldname)
-    except IndexError as e:
+        test_instance = model.objects.all()[0]
+        getattr(test_instance, fieldname)
+    except IndexError:
+        # An IndexError just means there are no records in the
+        # database for this table.
         pass
     except ObjectDoesNotExist as e:
         if re.match(r'\w+ matching query does not exist', str(e)) is not None:
-            warnings.warn('{} The Sierra database may have changed.'.format(str(e)))
+            fk = getattr(test_instance, '{}_id'.format(fieldname))
+            msg = ('On the model {}, instance `{}` has foreign key `{}` for '
+                   'field `{}`, but a related instance or record with that PK '
+                   'was not found in the related table.'
+                   '').format(model, test_instance, fk, fieldname)
+            # Let's stop issuing this warning here, as there are
+            # legitimate cases where referential-integrity on a field
+            # we have set up as an FK isn't always guaranteed, and so
+            # we have no way to "fix" these warnings.
+            #
+            # warnings.warn(msg)
 
 
 @pytest.mark.parametrize('many_model, one_model, field_name', [
