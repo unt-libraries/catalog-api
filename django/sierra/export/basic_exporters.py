@@ -287,10 +287,11 @@ class HoldingUpdate(exporter.Exporter):
             h_rec_num = h.record_metadata.get_iii_recnum(True)
             old_er_rec_num = reverse_holdings_list.get(h_rec_num, None)
             try:
-                er_rec_num = h.resourcerecord_set.all()[0]\
-                    .record_metadata.get_iii_recnum(True)
+                er_record = h.resourcerecord_set.all()[0]
             except IndexError:
-                er_rec_num = None
+                er_record, er_rec_num = None, None
+            else:
+                er_rec_num = er_record.record_metadata.get_iii_recnum(True)
 
             if old_er_rec_num and old_er_rec_num != er_rec_num:
                 # if the current attached er rec_num in Sierra is
@@ -302,10 +303,13 @@ class HoldingUpdate(exporter.Exporter):
                     'rec_num': h_rec_num,
                     'title': None
                 })
-                er_mapping[old_er_rec_num] = old_h_data
+                er_mapping[old_er_rec_num] = {
+                    'er_record': None,
+                    'holdings': old_h_data
+                }
 
             if er_rec_num:
-                holding_data = er_mapping.get(er_rec_num, [])
+                holdings = er_mapping.get(er_rec_num, {}).get('holdings', [])
                 try:
                     vf = h.bibrecord_set.all()[0].record_metadata\
                             .varfield_set.all()
@@ -320,12 +324,16 @@ class HoldingUpdate(exporter.Exporter):
                     'title': title,
                     'rec_num': h_rec_num
                 }
-                holding_data.append(data)
-                er_mapping[er_rec_num] = holding_data
+                holdings.append(data)
+                er_mapping[er_rec_num] = {
+                    'er_record': er_record,
+                    'holdings': holdings
+                }
 
         h_vals = vals.get('holdings', {})
         #self.log('Info', er_mapping)
-        for er_rec_num, holdings in er_mapping.iteritems():
+        for er_rec_num, entry in er_mapping.iteritems():
+            er_record, holdings = entry['er_record'], entry['holdings']
             # if we've already indexed the eresource this holding is
             # attached to, then we want to pull the record from Solr
             # and make whatever changes to it rather than reindex the
@@ -367,7 +375,7 @@ class HoldingUpdate(exporter.Exporter):
             else:
                 # if we haven't indexed the record already, we'll add
                 # it using the Haystack indexer.
-                eresources.add(e)
+                eresources.add(er_record)
 
         vals['holdings'] = h_vals
 
