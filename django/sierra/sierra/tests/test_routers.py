@@ -19,9 +19,9 @@ from base import models as bm
 # FIXTURES AND TEST DATA
 # External fixtures used below can be found in
 # django/sierra/conftest.py:
-#    make_model_instance
+#    model_instance
 # 
-# The `settings` fixture used in a few tests is built into
+# The `settings` fixture used in a few tests is the one built into
 # pytest-django.
 
 pytestmark = pytest.mark.django_db
@@ -120,14 +120,14 @@ def test_db_read_routing(model_class, testing, expected, settings):
     (SIERRA_TEST_MODEL_CLASS, False, DatabaseError),
 ])
 def test_db_write_routing(model_class, testing, expected, settings,
-                          make_model_instance):
+                          model_instance):
     """
     Test that the given model_class actually writes to the given
     database, or not.
     """
     settings.TESTING = testing
     try:
-        instance = make_model_instance(model_class)
+        instance = model_instance(model_class)
     except Exception as e:
         if type(e) == expected:
             result = True

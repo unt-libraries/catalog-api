@@ -125,14 +125,14 @@ def test_exports_to_solr(test_id, solr_exporter_test_params, new_exporter,
     try_delete = test_params['try_delete']
     load_exporter = new_exporter(export_type, 'full_export', 'waiting')
     conns = {c: solr_conn(c) for c in cores}
-    pre_results = {c: solr_search(conns[c], {'q': '*'}) for c in cores}
+    pre_results = {c: solr_search(conns[c], '*') for c in cores}
     export_records(load_exporter, record_set)
-    load_results = {c: solr_search(conns[c], {'q': '*'}) for c in cores}
+    load_results = {c: solr_search(conns[c], '*') for c in cores}
     del_results = {}
     if try_delete:
         del_exporter = new_exporter(export_type, 'full_export', 'waiting')
         delete_records(del_exporter, record_set)
-        del_results = {c: solr_search(conns[c], {'q': '*'})
+        del_results = {c: solr_search(conns[c], '*')
                        for c in try_delete}
 
     for core in cores:

@@ -11,7 +11,7 @@ from base import fields as f
 # FIXTURES AND TEST DATA
 # External fixtures used below can be found in
 # django/sierra/conftest.py:
-#    make_model_instance
+#    model_instance
 
 pytestmark = pytest.mark.django_db
 
@@ -32,7 +32,7 @@ def get_attached_name_models():
 # TESTS
 
 @pytest.mark.parametrize('prop_model', get_attached_name_models())
-def test_modelattachedname_getname(prop_model, make_model_instance, settings):
+def test_modelattachedname_getname(prop_model, model_instance, settings):
     """
     The ModelWithAttachedName `get_name` method should return the
     plain-language string representing the given property's name, using
@@ -46,7 +46,7 @@ def test_modelattachedname_getname(prop_model, make_model_instance, settings):
     prop_attname = getattr(prop_model, name_accessor).related.field.name
     name_attname = prop_model._name_attname
     lang_attname = prop_model._language_attname
-    test_property = make_model_instance(prop_model, pk='999999')
+    test_property = model_instance(prop_model, pk='999999')
     eng_params = {
         name_attname: '__object name',
         lang_attname: eng,
@@ -60,8 +60,8 @@ def test_modelattachedname_getname(prop_model, make_model_instance, settings):
     if not isinstance(name_model._meta.pk, f.VirtualCompField):
         eng_params['pk'] = '999998'
         spi_params['pk'] = '999999'
-    test_name_eng = make_model_instance(name_model, **eng_params)
-    test_name_spi = make_model_instance(name_model, **spi_params)
+    test_name_eng = model_instance(name_model, **eng_params)
+    test_name_spi = model_instance(name_model, **spi_params)
     assert test_property.get_name() == '__object name'
     assert test_property.get_name('spi') == '__nombre de objeto'
 

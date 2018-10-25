@@ -14,6 +14,185 @@ import utils
 from export import models as em
 from base import models as bm
 
+# General utility fixtures and helpers
+
+class FactoryTracker(object):
+
+    def __init__(self, factory):
+        self.factory = factory
+        self.obj_cache = []
+
+    def __enter__(self):
+        self.clear()
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        self.clear()
+
+    def __call__(self, objtype, *args, **kwargs):
+        obj = self.factory.make(objtype, *args, **kwargs)
+        self.obj_cache.append(obj)
+        return obj
+
+    def clear(self):
+        for obj in reversed(self.obj_cache):
+            self.factory.unmake(obj)
+        self.obj_cache = []
+
+
+class TestInstanceFactory(object):
+
+    def _set_write_override(self, model, value):
+        """
+        Sierra models use a `_write_override` attribute to force models
+        to be writable during tests. This method sets that attribute to
+        `value` (True or False) on the supplied `model`.
+        """
+        if hasattr(model, '_write_override'):
+            model._write_override = value
+
+    def make(self, model, *args, **kwargs):
+        """
+        Make an instance of the `model` using the supplied `args` and
+        `kwargs`. This method will first try to get a model instance
+        matching the the args and kwargs and return that, just in case.
+        If this is a User model, it tries creating the instance using
+        the `create_user` helper method.
+        """
+        self._set_write_override(model, True)
+        try:
+            obj = model.objects.get(*args, **kwargs)
+        except Exception:
+            try:
+                obj = model.objects.create_user(*args, **kwargs)
+            except AttributeError:
+                obj = model.objects.create(*args, **kwargs)
+        self._set_write_override(model, False)
+        return obj
+
+    def unmake(self, obj):
+        model = type(obj)
+        self._set_write_override(model, True)
+        obj.delete()
+        self._set_write_override(model, False)
+
+
+@pytest.fixture(scope='function')
+def model_instance():
+    """
+    Function-level pytest fixture. Returns a factory object that tracks
+    model instances as they're created and clears them out when the
+    test completes.
+    """
+    with FactoryTracker(TestInstanceFactory()) as make:
+        yield make
+
+
+@pytest.fixture(scope='module')
+def global_model_instance():
+    """
+    Module-level pytest fixture. Returns a factory object that tracks
+    model instances as they're created and clears them out when the
+    module completes. This is the same as `model_instance`, except
+    instances persist throughout all tests in a module.
+    """
+    with FactoryTracker(TestInstanceFactory()) as make:
+        yield make
+
+
+# Solr-related fixtures and helpers
+
+class TestSolrRecordsetFactory(object):
+
+    def make(self, conn, *args, **kwargs):
+        docs_to_add = args[0]
+        conn.add(docs_to_add, **kwargs)
+        return (conn, [r['id'] for r in docs_to_add])
+
+    def unmake(self, obj_tuple):
+        (conn, record_ids) = obj_tuple
+        conn.delete(id=record_ids)
+
+
+@pytest.fixture(scope='function')
+def solr_recset():
+    """
+    Function-level pytest fixture. Returns a callable factory object
+    for creating sets of Solr records and adding them to the running
+    test Solr instance. It tracks all records added via the factory and
+    then clears them out when the test completes.
+    """
+    with FactoryTracker(TestSolrRecordsetFactory()) as make:
+        yield make
+
+
+@pytest.fixture(scope='module')
+def global_solr_recset():
+    """
+    Module-level pytest fixture. Returns a callable factory object for
+    creating sets of Solr records and adding them to the running test
+    Solr instance. It tracks all records added via the factory and then
+    clears them out when the module completes. This is the same as
+    `solr_recset`, except that the recordsets created persist
+    throughout all tests in a module.
+    """
+    with FactoryTracker(TestSolrRecordsetFactory()) as make:
+        yield make
+
+
+class TestSolrConnectionFactory(object):
+
+    url = 'http://{}:{}/solr'.format(settings.SOLR_HOST, settings.SOLR_PORT)
+
+    def make(self, core_name, *args, **kwargs):
+        return pysolr.Solr('{}/{}'.format(self.url, core_name), **kwargs)
+
+    def unmake(self, conn):
+        conn.delete(q='*:*')
+
+
+@pytest.fixture(scope='function')
+def solr_conn():
+    """
+    Function-level pytest fixture. Returns a callable factory object
+    for creating a pysolr connection, for interacting with a Solr core.
+    The connection is completely cleared (all records within the core
+    deleted) when the test completes.
+    """
+    with FactoryTracker(TestSolrConnectionFactory()) as make:
+        yield make
+
+
+@pytest.fixture(scope='module')
+def global_solr_conn():
+    """
+    Module-level pytest fixture. Returns a callable factory object for
+    creating a pysolr connection, for interacting with a Solr core. The
+    connection is completely cleared (all records within the core
+    deleted) when the module completes. This is the same as
+    `solr_conn`, except that the connection isn't cleared after each
+    function.
+    """
+    with FactoryTracker(TestSolrConnectionFactory()) as make:
+        yield make
+
+
+@pytest.fixture
+def solr_search():
+    """
+    Pytest fixture. Returns a search utility function that queries Solr
+    via the given connection using the given query and parameters. It
+    fetches all search results from the index and returns them.
+    """
+    def _solr_search(conn, query, **params):
+        results, page, params['start'], params['rows'] = [], True, 0, 100
+        while page:
+            page = [item for item in conn.search(query, **params)]
+            params['start'] += params['rows']
+            results.extend(page)
+        return results
+    return _solr_search
+
 
 # Base app-related fixtures
 
@@ -98,14 +277,14 @@ def status():
 
 @pytest.fixture
 def new_export_instance(export_type, export_filter, status,
-                        make_model_instance):
+                        model_instance):
     def _new_export_instance(et_code, ef_code, st_code):
         try:
             test_user = User.objects.get(username='test')
         except User.DoesNotExist:
-            test_user = make_model_instance(User, 'test', 'test@test.com',
+            test_user = model_instance(User, 'test', 'test@test.com',
                                             'testpass')
-        return make_model_instance(
+        return model_instance(
             em.ExportInstance,
             user=test_user,
             status=status(st_code),
@@ -148,69 +327,3 @@ def delete_records():
         exporter.delete_records(records)
         exporter.final_callback()
     return _delete_records
-
-
-# Utils-related fixtures
-
-@pytest.fixture
-def solr_conn():
-    url = 'http://{}:{}/solr'.format(settings.SOLR_HOST, settings.SOLR_PORT)
-    def _solr_conn(core_name):
-        connection = pysolr.Solr('{}/{}'.format(url, core_name))
-        _solr_conn.connections.append(connection)
-        return connection
-    _solr_conn.connections = []
-    yield _solr_conn
-    for conn in _solr_conn.connections:
-        conn.delete(q='*:*')
-
-
-@pytest.fixture
-def solr_search():
-    def _solr_search(conn, options):
-        results = conn.search(**options)
-        return [r for r in results]
-    return _solr_search
-
-
-@pytest.fixture
-def make_model_instance():
-    """
-    Pytest fixture. Returns a factory object that tracks model
-    instances as they're created and clears them out when a test
-    completes.
-    """
-    class TestObjectMaker(object):
-        def __init__(self):
-            self.obj_cache = []
-
-        def set_write_override(self, model, value):
-            if hasattr(model, '_write_override'):
-                model._write_override = value
-
-        def make_object(self, model, args, kwargs):
-            try:
-                return model.objects.get(*args, **kwargs)
-            except Exception:
-                try:
-                    return model.objects.create_user(*args, **kwargs)
-                except AttributeError:
-                    return model.objects.create(*args, **kwargs)
-
-        def __call__(self, model, *args, **kwargs):
-            self.set_write_override(model, True)
-            obj = self.make_object(model, args, kwargs)
-            self.set_write_override(type(obj), False)
-            self.obj_cache.append(obj)
-            return obj
-
-        def clear(self):
-            for obj in reversed(self.obj_cache):
-                self.set_write_override(type(obj), True)
-                obj.delete()
-                self.set_write_override(type(obj), False)
-            self.obj_cache = []
-
-    maker = TestObjectMaker()
-    yield maker
-    maker.clear()
