@@ -364,7 +364,9 @@ class SolrProfile(object):
         unique_fields = unique_fields or []
         solr_types = solr_types or type(self).DEFAULT_SOLR_FIELD_TYPE_MAPPING
         gen_factory = gen_factory or SolrDataGenFactory()
+        self.conn = conn
         schema = schema or self.fetch_schema(conn)
+
         filtered_fields = self._filter_schema_fields(schema['fields'],
                                                      user_fields, inclusive)
         self._check_schema_types(filtered_fields, solr_types)
@@ -512,6 +514,7 @@ class SolrFixtureFactory(object):
         `SolrProfile` object that this will use to generate data.
         """
         self.profile = profile
+        self.conn = self.profile.conn
 
     def _make_record(self, records, field_gen_overrides):
         rec = {}
