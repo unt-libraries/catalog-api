@@ -457,6 +457,8 @@ class SolrProfile(object):
             Force the given value to the right Python type.
             """
             def dtype(value):
+                if value is None:
+                    return None
                 _type = self['pytype']
                 return value if isinstance(value, _type) else _type(value)
 
@@ -517,7 +519,9 @@ class SolrFixtureFactory(object):
             gen = field_gen_overrides.get(fname, default_gen)
             if gen is not None:
                 field = self.profile.fields[fname]
-                rec[fname] = field.gen_value(gen, rec, records)
+                value = field.gen_value(gen, rec, records)
+                if value is not None:
+                    rec[fname] = value
         return rec
 
     def make_more(self, rset_one, number, **field_gen_overrides):
