@@ -370,8 +370,9 @@ class SolrProfile(object):
         filtered_fields = self._filter_schema_fields(schema['fields'],
                                                      user_fields, inclusive)
         self._check_schema_types(filtered_fields, solr_types)
-        self.fields = {
-            sf['name']: type(self).Field({
+        self.fields = {}
+        for sf in filtered_fields:
+            field = type(self).Field({
                 'name': sf['name'],
                 'is_key': sf.get('uniqueKey', False),
                 'type': sf['type'],
@@ -379,7 +380,10 @@ class SolrProfile(object):
                 'pytype': solr_types[sf['type']]['pytype'],
                 'multi': sf.get('multiValued', False),
                 'unique': sf.get('uniqueKey', sf['name'] in unique_fields)
-            }, gen_factory) for sf in filtered_fields }
+            }, gen_factory)
+            if field['is_key']:
+                self.key_name = field['name']
+            self.fields[field['name']] = field
         self.name = name
         self.set_field_gens(*(default_field_gens or tuple()))
 
