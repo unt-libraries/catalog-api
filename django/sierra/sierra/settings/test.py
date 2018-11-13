@@ -11,6 +11,10 @@ for setting in required:
 DEBUG = True
 TESTING = True
 
+ALLOWED_HOSTS += (
+    'testserver',
+)
+
 INSTALLED_APPS += (
     'base.tests.vcftestmodels',
     'sierra.tests.testmodels',
