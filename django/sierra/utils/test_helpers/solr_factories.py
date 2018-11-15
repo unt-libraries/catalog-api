@@ -458,22 +458,21 @@ class SolrProfile(object):
             else:
                 self.auto_gen = gen_factory.type(self['emtype'])
 
-        def to_python(self, value):
+        def to_python(self, val):
             """
             Force the given value to the right Python type.
             """
-            def dtype(value):
-                if value is None:
-                    return None
+            def dtype(val):
                 _type = self['pytype']
-                return value if isinstance(value, _type) else _type(value)
+                return val if isinstance(val, _type) else _type(val)
 
-            if isinstance(value, (list, tuple, set)):
-                values = [dtype(v) for v in value]
-                return values if self['multi'] else values[0]
+            if isinstance(val, (list, tuple, set)):
+                vals = [dtype(v) for v in val if v is not None]
+                if vals:
+                    return vals if self['multi'] else vals[0]
             else:
-                value = dtype(value)
-                return [value] if self['multi'] else value
+                val = dtype(val) if val is not None else None
+                return [val] if (self['multi'] and val is not None) else val
 
         def _do_gen(self, gen, record):
             return self.to_python(gen(record))

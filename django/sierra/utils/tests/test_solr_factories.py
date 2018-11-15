@@ -368,10 +368,15 @@ def test_solrdatagenfactory_precisedistributioncounter(num_cycles, max_total,
 
 
 @pytest.mark.parametrize('fname, val, expected', [
+    ('code', None, None),
     ('code', 'abc', u'abc'),
     ('code', 123, u'123'),
+    ('id', None, None),
     ('id', '123', 123),
     ('id', 123, 123),
+    ('notes', None, None),
+    ('notes', [None], None),
+    ('notes', [None, None], None),
     ('notes', 'one', [u'one']),
     ('notes', ['one', 123], [u'one', u'123']),
     ('creation_date', datetime.datetime(2015, 1, 1, 0, 0),
