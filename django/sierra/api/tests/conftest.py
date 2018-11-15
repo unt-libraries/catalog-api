@@ -23,6 +23,7 @@ def profile_definitions(global_solr_conn):
     generating test data via the *_solr_data_factory fixtures.
     """
     hs_conn = global_solr_conn('haystack')
+    bib_conn = global_solr_conn('bibdata')
     return {
         'location': {
             'conn': hs_conn,
@@ -49,6 +50,11 @@ def profile_definitions(global_solr_conn):
             'user_fields': tp.ERES_FIELDS,
             'field_gens': tp.ERES_GENS
         },
+        'bib': {
+            'conn': bib_conn,
+            'user_fields': tp.BIB_FIELDS,
+            'field_gens': tp.BIB_GENS
+        }
     }
 
 
@@ -97,6 +103,7 @@ def api_solr_env(global_api_data_factory):
         status_code=gens.choice([r['code'] for r in status_recs])
     )
     eres_recs = factory.make('eresource', 25)
+    bib_recs = factory.make('bib', 100)
     return factory
 
 
