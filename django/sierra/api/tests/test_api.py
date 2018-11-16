@@ -4,7 +4,7 @@ Contains integration tests for the `api` app.
 
 import pytest
 
-from . import solr_test_profiles as tp
+from utils.test_helpers import solr_test_profiles as tp
 
 # FIXTURES AND TEST DATA
 # External fixtures used below can be found in
