@@ -192,7 +192,7 @@ class SolrTestDataAssemblerFactory(object):
                     inclusive=pdef.get('inclusive', True),
                     unique_fields=global_unique_fields, solr_types=solr_types,
                     gen_factory=gen_factory,
-                    default_field_gens=pdef['field_gens']
+                    default_field_gens=pdef.get('field_gens', tuple())
                 )
                 self.profiles[rectype] = profile
                 self.records[rectype] = tuple()

@@ -29,15 +29,16 @@ def model_instance():
 
 
 @pytest.fixture(scope='module')
-def global_model_instance():
+def global_model_instance(django_db_blocker):
     """
     Module-level pytest fixture. Returns a factory object that tracks
     model instances as they're created and clears them out when the
     module completes. This is the same as `model_instance`, except
     instances persist throughout all tests in a module.
     """
-    with ff.FactoryTracker(ff.TestInstanceFactory()) as make:
-        yield make
+    with django_db_blocker.unblock():
+        with ff.FactoryTracker(ff.TestInstanceFactory()) as make:
+            yield make
 
 
 # Solr-related fixtures
