@@ -420,6 +420,71 @@ def sequential_date(datefield, chance=100):
     return gen
 
 
+def choose_and_link_to_parent_bib(bib_rec_pool):
+    """
+    This is will create a gen function that you can use to relate items
+    to parent bib records.
+
+    After you've created a group of test bib records, use this function
+    to make the gen for your item `parent_bib_id` field, and pass the
+    group of bib records in as the `bib_rec_pool` param.
+
+    When the gen runs, it will randomly select one bib record from the
+    provided bib_rec_pool set to be the parent bib for the item in
+    question. It will automatically create all needed links between
+    that bib record and the item record. I.e., it wil add the item's
+    'id' field value to the bib's 'item_ids' list and the item's
+    'record_number' field value to the bib's 'item_record_numbers'
+    list; it will pull values for each 'parent_' field from the bib and
+    copy it into the corresponding field in the item (e.g. bib
+    'full_title' to item 'parent_bib_title').
+
+    A couple of things to note.
+
+    First, the assignment of bibs to items is purely random. Depending
+    on the size of your bib and item record sets, you could very well
+    have some bibs that never get chosen and therefore don't have any
+    items. It is possible (though rare) to have bibs without items in
+    our live data, so it's not a problem. At the same time, bib records
+    can (and often do) have multiple items. If your bib record set is
+    smaller than your item record set, then this should work out well.
+    (E.g., 100 bibs to 200 items.)
+
+    Second, when your batch of item records are made, the gen will
+    update records in the bib set, too. So, if you've added the bib
+    record set to Solr before the item-make process runs, then you'll
+    have to add those records to Solr again afterward to make sure
+    they're updated.
+    """
+    bib_choices = tuple(br['id'] for br in bib_rec_pool)
+
+    def link(source_val, target_record, target_fname, default=None):
+        tv = target_record.get(target_fname, None) or default
+        sv = [source_val] if not isinstance(source_val, list) else source_val
+        tv = (tv + sv) if isinstance(tv, list) else sv[0]
+        target_record[target_fname] = tv
+
+    def gen(item):
+        parent_id = random.choice(bib_choices)
+        bib = [br for br in bib_rec_pool if br['id'] == parent_id][0]
+
+        # Create links from the item to the parent
+        link(item['id'], bib, 'item_ids', [])
+        link(item['record_number'], bib, 'item_record_numbers', [])
+
+        # Create links from the parent to the item
+        link(bib['record_number'], item, 'parent_bib_record_number')
+        link(bib['full_title'], item, 'parent_bib_title')
+        link(bib['creator'], item, 'parent_bib_main_author')
+        if bib.get('publication_dates', []):
+            pub_year = bib['publication_dates'][0]
+            link(pub_year, item, 'parent_bib_publication_year')
+        return parent_id
+
+    return gen
+
+
+
 ITEM_GENS = (
     ('django_ct', GENS.static('base.itemrecord')),
     ('django_id', GENS(auto_increment())),
@@ -460,11 +525,11 @@ ITEM_GENS = (
     ('recall_date', GENS(sequential_date('recall', 10))),
     ('due_date', GENS(sequential_date('due'))),
     ('overdue_date', GENS(sequential_date('overdue', 33))),
-    ('parent_bib_id', None),
     ('parent_bib_record_number', None),
     ('parent_bib_title', None),
     ('parent_bib_main_author', None),
     ('parent_bib_publication_year', None),
+    ('parent_bib_id', None),
     ('text', GENS(join_fields(['parent_bib_record_number', 'call_number',
                                'parent_bib_main_author', 'location_code',
                                'public_notes', 'parent_bib_publication_year',

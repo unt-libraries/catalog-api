@@ -97,13 +97,15 @@ def api_solr_env(global_api_data_factory):
     loc_recs = factory.make('location', 10)
     itype_recs = factory.make('itype', 10)
     status_recs = factory.make('itemstatus', 10)
+    bib_recs = factory.make('bib', 100)
     item_recs = factory.make('item', 200,
         location_code=gens.choice([r['code'] for r in loc_recs]),
         item_type_code=gens.choice([r['code'] for r in itype_recs]),
-        status_code=gens.choice([r['code'] for r in status_recs])
+        status_code=gens.choice([r['code'] for r in status_recs]),
+        parent_bib_id=gens(tp.choose_and_link_to_parent_bib(bib_recs))
     )
     eres_recs = factory.make('eresource', 25)
-    bib_recs = factory.make('bib', 100)
+    factory.save_all()
     return factory
 
 
