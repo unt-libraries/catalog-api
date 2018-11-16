@@ -104,7 +104,6 @@ def global_model_instance():
 
 # Solr-related fixtures and helpers
 
-
 class SolrTestDataFactoryMaker(object):
 
     class SolrTestDataFactory(object):
@@ -127,15 +126,21 @@ class SolrTestDataFactoryMaker(object):
 
         def make(self, rectype, number, context=None, **field_gens):
             context = context or []
-            profile = self.profiles[rectype]
-            fixture_factory = sf.SolrFixtureFactory(profile)
+            fixture_factory = sf.SolrFixtureFactory(self.profiles[rectype])
             records = tuple(fixture_factory.make_more(context, number,
                                                       **field_gens))
-            profile.conn.add(records)
             self.records[rectype] += records
             return records
 
-        def clear_records(self):
+        def save(self, rectype):
+            if self.records[rectype]:
+                self.profiles[rectype].conn.add(self.records[rectype])
+
+        def save_all(self):
+            for rectype in self.records.keys():
+                self.save(rectype)
+
+        def clear_all(self):
             for rectype, recset in self.records.items():
                 profile = self.profiles[rectype]
                 conn, key = profile.conn, profile.key_name
@@ -150,7 +155,7 @@ class SolrTestDataFactoryMaker(object):
         return factory(solr_types, global_unique_fields, gen_factory, defs)
 
     def unmake(self, factory):
-        factory.clear_records()
+        factory.clear_all()
 
 
 class TestSolrConnectionFactory(object):
