@@ -1,6 +1,5 @@
 """
-Contains `base` app test helpers.
-
+Contains test helpers for managing ORM test models and such.
 """
 
 import os
@@ -144,5 +143,3 @@ class AppModelsEnvironment(object):
     def close(self):
         self.reset()
         self.clear()
-
-

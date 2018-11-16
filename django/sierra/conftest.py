@@ -8,76 +8,14 @@ import datetime
 import pytz
 
 from django.contrib.auth.models import User
-from django.conf import settings
 
 import utils
-from utils.test_helpers import solr_factories as sf
+from utils.test_helpers import fixture_factories as ff
 from export import models as em
 from base import models as bm
 
 
-# General utility fixtures and helpers
-
-class FactoryTracker(object):
-
-    def __init__(self, factory):
-        self.factory = factory
-        self.obj_cache = []
-
-    def __enter__(self):
-        self.clear()
-        return self
-
-    def __exit__(self, exc_type, exc_value, traceback):
-        self.clear()
-
-    def __call__(self, objtype, *args, **kwargs):
-        obj = self.factory.make(objtype, *args, **kwargs)
-        self.obj_cache.append(obj)
-        return obj
-
-    def clear(self):
-        for obj in reversed(self.obj_cache):
-            self.factory.unmake(obj)
-        self.obj_cache = []
-
-
-class TestInstanceFactory(object):
-
-    def _set_write_override(self, model, value):
-        """
-        Sierra models use a `_write_override` attribute to force models
-        to be writable during tests. This method sets that attribute to
-        `value` (True or False) on the supplied `model`.
-        """
-        if hasattr(model, '_write_override'):
-            model._write_override = value
-
-    def make(self, model, *args, **kwargs):
-        """
-        Make an instance of the `model` using the supplied `args` and
-        `kwargs`. This method will first try to get a model instance
-        matching the the args and kwargs and return that, just in case.
-        If this is a User model, it tries creating the instance using
-        the `create_user` helper method.
-        """
-        self._set_write_override(model, True)
-        try:
-            obj = model.objects.get(*args, **kwargs)
-        except Exception:
-            try:
-                obj = model.objects.create_user(*args, **kwargs)
-            except AttributeError:
-                obj = model.objects.create(*args, **kwargs)
-        self._set_write_override(model, False)
-        return obj
-
-    def unmake(self, obj):
-        model = type(obj)
-        self._set_write_override(model, True)
-        obj.delete()
-        self._set_write_override(model, False)
-
+# General utility fixtures
 
 @pytest.fixture(scope='function')
 def model_instance():
@@ -86,7 +24,7 @@ def model_instance():
     model instances as they're created and clears them out when the
     test completes.
     """
-    with FactoryTracker(TestInstanceFactory()) as make:
+    with ff.FactoryTracker(ff.TestInstanceFactory()) as make:
         yield make
 
 
@@ -98,100 +36,36 @@ def global_model_instance():
     module completes. This is the same as `model_instance`, except
     instances persist throughout all tests in a module.
     """
-    with FactoryTracker(TestInstanceFactory()) as make:
+    with ff.FactoryTracker(ff.TestInstanceFactory()) as make:
         yield make
 
 
-# Solr-related fixtures and helpers
-
-class SolrTestDataFactoryMaker(object):
-
-    class SolrTestDataFactory(object):
-
-        def __init__(self, solr_types, global_unique_fields, gen_factory,
-                     profile_definitions):
-            self.profiles = {}
-            self.records = {}
-            self.gen_factory = gen_factory
-            for name, pdef in profile_definitions.items():
-                profile = sf.SolrProfile(
-                    name, pdef['conn'], user_fields=pdef['user_fields'],
-                    inclusive=pdef.get('inclusive', True),
-                    unique_fields=global_unique_fields, solr_types=solr_types,
-                    gen_factory=gen_factory,
-                    default_field_gens=pdef['field_gens']
-                )
-                self.profiles[name] = profile
-                self.records[name] = tuple()
-
-        def make(self, rectype, number, context=None, **field_gens):
-            context = context or []
-            fixture_factory = sf.SolrFixtureFactory(self.profiles[rectype])
-            records = tuple(fixture_factory.make_more(context, number,
-                                                      **field_gens))
-            self.records[rectype] += records
-            return records
-
-        def save(self, rectype):
-            if self.records[rectype]:
-                self.profiles[rectype].conn.add(self.records[rectype])
-
-        def save_all(self):
-            for rectype in self.records.keys():
-                self.save(rectype)
-
-        def clear_all(self):
-            for rectype, recset in self.records.items():
-                profile = self.profiles[rectype]
-                conn, key = profile.conn, profile.key_name
-                try:
-                    conn.delete(id=[r[key] for r in recset])
-                except ValueError:
-                    pass
-                self.records[rectype] = tuple()
-
-    def make(self, solr_types, global_unique_fields, gen_factory, defs):
-        factory = type(self).SolrTestDataFactory
-        return factory(solr_types, global_unique_fields, gen_factory, defs)
-
-    def unmake(self, factory):
-        factory.clear_all()
-
-
-class TestSolrConnectionFactory(object):
-
-    url = 'http://{}:{}/solr'.format(settings.SOLR_HOST, settings.SOLR_PORT)
-
-    def make(self, core_name, *args, **kwargs):
-        return pysolr.Solr('{}/{}'.format(self.url, core_name), **kwargs)
-
-    def unmake(self, conn):
-        conn.delete(q='*:*')
-
+# Solr-related fixtures
 
 @pytest.fixture(scope='function')
-def solr_data_factory():
+def solr_data_assembler():
     """
-    Function-level pytest fixture. Returns a callable factory object
-    for creating sets of Solr records and adding them to the running
-    test Solr instance. It tracks all records added via the factory and
-    then clears them out when the test completes.
+    Function-level pytest fixture. Returns a callable factory for
+    creating SolrTestDataAssembler objects, which allow you to make and
+    manage multiple sets of Solr test data records. It tracks all
+    records added via the factory and then clears them out when the
+    test completes.
     """
-    with FactoryTracker(SolrTestDataFactoryMaker()) as make:
+    with ff.FactoryTracker(ff.SolrTestDataAssemblerFactory()) as make:
         yield make
 
 
 @pytest.fixture(scope='module')
-def global_solr_data_factory():
+def global_solr_data_assembler():
     """
-    Module-level pytest fixture. Returns a callable factory object for
-    creating sets of Solr records and adding them to the running test
-    Solr instance. It tracks all records added via the factory and then
-    clears them out when the module completes. This is the same as
-    `solr_data_factory`, except that the records created persist
-    throughout all tests in a module.
+    Module-level pytest fixture. Returns a callable factory for
+    creating SolrTestDataAssembler objects, which allow you to make and
+    manage multiple sets of Solr test data records. It tracks all
+    records added via the factory and then clears them out when the
+    module completes. This is the same as `solr_data_assembler`, except
+    that the records created persist throughout all tests in a module.
     """
-    with FactoryTracker(SolrTestDataFactoryMaker()) as make:
+    with ff.FactoryTracker(ff.SolrTestDataAssemblerFactory()) as make:
         yield make
 
 
@@ -203,7 +77,7 @@ def solr_conn():
     The connection is completely cleared (all records within the core
     deleted) when the test completes.
     """
-    with FactoryTracker(TestSolrConnectionFactory()) as make:
+    with ff.FactoryTracker(ff.TestSolrConnectionFactory()) as make:
         yield make
 
 
@@ -217,7 +91,7 @@ def global_solr_conn():
     `solr_conn`, except that the connection isn't cleared after each
     function.
     """
-    with FactoryTracker(TestSolrConnectionFactory()) as make:
+    with ff.FactoryTracker(ff.TestSolrConnectionFactory()) as make:
         yield make
 
 

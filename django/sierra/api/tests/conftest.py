@@ -6,14 +6,14 @@ import pytest
 
 from rest_framework import test as drftest
 
-from . import solr_test_profiles as tp
+from utils.test_helpers import solr_test_profiles as tp
 
 
 # External fixtures used below can be found in
 # django/sierra/conftest.py:
 #    global_solr_conn
-#    global_solr_data_factory
-#    solr_data_factory
+#    global_solr_data_assembler
+#    solr_data_assembler
 
 
 @pytest.fixture(scope='module')
@@ -59,54 +59,54 @@ def profile_definitions(global_solr_conn):
 
 
 @pytest.fixture(scope='function')
-def api_data_factory(solr_data_factory, profile_definitions):
+def api_data_assembler(solr_data_assembler, profile_definitions):
     """
     Function-scoped pytest fixture that returns a Solr test data
-    factory. Records created via this fixture within a test function
-    are deleted when the test function finishes. (The type of factory
-    object returned is `SolrTestDataFactoryMaker.SolrTestDataFactory`,
-    from the root-level conftest file.)
+    assembler. Records created via this fixture within a test function
+    are deleted when the test function finishes. (For more info about
+    using Solr data assemblers, see the SolrTestDataAssemblerFactory
+    class in utils.test_helpers.fixture_factories.)
     """
-    return solr_data_factory(tp.SOLR_TYPES, tp.GLOBAL_UNIQUE_FIELDS,
-                             tp.GENS, profile_definitions)
+    return solr_data_assembler(tp.SOLR_TYPES, tp.GLOBAL_UNIQUE_FIELDS,
+                               tp.GENS, profile_definitions)
 
 
 @pytest.fixture(scope='module')
-def global_api_data_factory(global_solr_data_factory, profile_definitions):
+def global_api_data_assembler(global_solr_data_assembler, profile_definitions):
     """
     Module-scoped pytest fixture that returns a Solr test data
-    factory. Records created via this fixture persist while all tests
-    in the module run. (The type of factory object returned is
-    `SolrTestDataFactoryMaker.SolrTestDataFactory`, from the root-level
-    conftest file.)
+    assembler. Records created via this fixture persist while all tests
+    in the module run. (For more info about using Solr data assemblers,
+    see the SolrTestDataAssemblerFactory class in
+    utils.test_helpers.fixture_factories.)
     """
-    return global_solr_data_factory(tp.SOLR_TYPES, tp.GLOBAL_UNIQUE_FIELDS,
-                                    tp.GENS, profile_definitions)
+    return global_solr_data_assembler(tp.SOLR_TYPES, tp.GLOBAL_UNIQUE_FIELDS,
+                                      tp.GENS, profile_definitions)
 
 
 @pytest.fixture(scope='module')
-def api_solr_env(global_api_data_factory):
+def api_solr_env(global_api_data_assembler):
     """
     Pytest fixture that generates and populates Solr with some random
     background test data for API integration tests. Fixture is module-
-    scoped, so test data is regenerated each time the test module runs
-    and is NOT regenerated between tests.
+    scoped, so test data is regenerated each time the test module runs,
+    NOT between tests.
     """
-    factory = global_api_data_factory
-    gens = factory.gen_factory
-    loc_recs = factory.make('location', 10)
-    itype_recs = factory.make('itype', 10)
-    status_recs = factory.make('itemstatus', 10)
-    bib_recs = factory.make('bib', 100)
-    item_recs = factory.make('item', 200,
+    assembler = global_api_data_assembler
+    gens = assembler.gen_factory
+    loc_recs = assembler.make('location', 10)
+    itype_recs = assembler.make('itype', 10)
+    status_recs = assembler.make('itemstatus', 10)
+    bib_recs = assembler.make('bib', 100)
+    item_recs = assembler.make('item', 200,
         location_code=gens.choice([r['code'] for r in loc_recs]),
         item_type_code=gens.choice([r['code'] for r in itype_recs]),
         status_code=gens.choice([r['code'] for r in status_recs]),
         parent_bib_id=gens(tp.choose_and_link_to_parent_bib(bib_recs))
     )
-    eres_recs = factory.make('eresource', 25)
-    factory.save_all()
-    return factory
+    eres_recs = assembler.make('eresource', 25)
+    assembler.save_all()
+    return assembler
 
 
 @pytest.fixture

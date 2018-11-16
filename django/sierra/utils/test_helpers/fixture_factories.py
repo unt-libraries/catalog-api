@@ -1,0 +1,283 @@
+"""
+Provides object factories for use in pytest fixtures.
+"""
+
+import pysolr
+
+from django.conf import settings
+
+from . import solr_factories as sf
+
+
+class FactoryTracker(object):
+    """
+    Class used to wrap a factory object and provide caching/tracking
+    of objects created via that factory. Can be used as a context
+    manager, as well, to clear the factory upon entering and exiting.
+    This is meant to be used in a pytest fixture, to return a callable
+    factory for whatever kinds of objects you need to create for
+    testing, to take care of setup/cleanup automatically for you.
+
+    To use: create a factory class that defines how to `make` and
+    `unmake` certain types of objects. Whatever you want to make via
+    a pytest fixture. (Such as, a factory for creating ORM model
+    instances.) Wrap an instance of that factory class inside a call
+    to initialize a FactoryTracker object, like this:
+
+    make = FactoryTracker(MyTestObjectFactory())
+
+    Now call `make` directly, passing whatever args and kwargs to the
+    `MyTestObjectFactory` class you need to to make an object. When
+    you're finished, call make.clear() to delete all of the objects
+    that were made via that FactoryTracker object.
+
+    Use it as a context manager to take care of this automatically. In
+    a pytest fixture, you can use `yield` to make this simple:
+
+    @pytest.fixture(scope='function')
+    def obj_factory():
+        with FactoryTracker(MyTestObjectFactory()) as make:
+            yield make
+
+    Your test would then take this fixture and use it to create your
+    test objects:
+
+    def test_something(obj_factory):
+        test_obj = obj_factory('test_thing', *args, **kwargs)
+        etc.
+
+    For a function-scoped fixture, tests that use that fixture will
+    have a blank slate upon start and stop of each test. For module-
+    level fixtures, data will be generated once at the start of the
+    module's tests and then deleted when the module's tests complete.
+
+    Your factory class must implement a `make` and an `unmake`
+    method. `make` should take some kind of `type` argument plus any
+    other args and kwargs, and it should return an object. (The
+    FactoryTracker caches the object before returning it.) `unmake`
+    should take an object created via `make` (e.g., one that's been
+    cached) and do whatever it needs to do to destroy or delete that
+    object. (Or delete it from a database, Solr, etc.)
+    """
+
+    def __init__(self, factory):
+        self.factory = factory
+        self.obj_cache = []
+
+    def __enter__(self):
+        self.clear()
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        self.clear()
+
+    def __call__(self, objtype, *args, **kwargs):
+        obj = self.factory.make(objtype, *args, **kwargs)
+        self.obj_cache.append(obj)
+        return obj
+
+    def clear(self):
+        for obj in reversed(self.obj_cache):
+            self.factory.unmake(obj)
+        self.obj_cache = []
+
+
+# The rest of the classes defined here are `factory` classes, each of
+# which is suitable to use with FactoryTracker.
+
+class TestInstanceFactory(object):
+    """
+    Factory for making ORM model instances. Works with our Sierra
+    (`base` app) models as well as other types of models.
+    """
+
+    def _set_write_override(self, model, value):
+        """
+        Sierra models use a `_write_override` attribute to force models
+        to be writable during tests. This method sets that attribute to
+        `value` (True or False) on the supplied `model`.
+        """
+        if hasattr(model, '_write_override'):
+            model._write_override = value
+
+    def make(self, model, *args, **kwargs):
+        """
+        Make an instance of the `model` using the supplied `args` and
+        `kwargs`. This method will first try to get a model instance
+        matching the the args and kwargs and return that, just in case.
+        If this is a User model, it tries creating the instance using
+        the `create_user` helper method.
+        """
+        self._set_write_override(model, True)
+        try:
+            obj = model.objects.get(*args, **kwargs)
+        except Exception:
+            try:
+                obj = model.objects.create_user(*args, **kwargs)
+            except AttributeError:
+                obj = model.objects.create(*args, **kwargs)
+        self._set_write_override(model, False)
+        return obj
+
+    def unmake(self, obj):
+        model = type(obj)
+        self._set_write_override(model, True)
+        obj.delete()
+        self._set_write_override(model, False)
+
+
+class SolrTestDataAssemblerFactory(object):
+    """
+    Factory for making SolrTestDataAssembler objects, which
+    coordinate multiple solr_factories.SolrFixtureFactory objects for
+    generating and tracking Solr test data (e.g., multiple record sets
+    implemented via multiple profiles).
+    """
+
+    class SolrTestDataAssembler(object):
+        """
+        Class for wrangling multiple SolrProfile objects to create,
+        manage, save, and delete multiple record sets.
+
+        Initialize an assembler instance by passing parameters that
+        define the collection of Solr profiles you need. Each profile
+        is identified via a record type name (`rectype`) string that
+        is the key for each `profile_definitions` dict entry. Then,
+        profiles and recordsets are referenced via that key for the
+        life of the assembler, to make, save, access, and clear
+        records.
+        """
+
+        def __init__(self, solr_types, global_unique_fields, gen_factory,
+                     profile_definitions):
+            """
+            Initialize a SolrTestDataAssembler object. Arguments
+            include:
+
+            `solr_types` is a dictionary that maps Solr field types to
+            python types and solr_factories.DataEmitter types. Same as
+            the solr_factories.SolrProfile `solr_types` arg.
+
+            `global_unique_fields` is a list of field names that appear
+            in your Solr schemas that should be treated as unique. Note
+            that having fields listed here that appear in some schemas
+            but not all is okay; ones that don't apply are ignored.
+            Same as the solr_factories.SolrProfile `unique_fields` arg.
+
+            `gen_factory` is the solr_factories.SolrDataGenFactory obj
+            you want to use for creating test data "gen" functions.
+
+            `profile_definitions` is a dictionary that maps recordtype
+            id strings to profile-specific args for creating the
+            assembler's solr_factories.SolrProfile objects. E.g.:
+            { 'location': {
+                'conn': pysolr.conn('solr_core'),
+                'user_fields': ('id', 'name', 'code', 'label'),
+                'inclusive': True,
+                'field_gens': ( 'code', code_gen_function,
+                                'label', label_gen_function ) },
+              'item': { # etc.
+            } }
+
+            The rectype id strings you use in the `profile_definitions`
+            arg become the id strings you use to create and access
+            records using each profile in the other object methods.
+            """
+            self.profiles = {}
+            self.records = {}
+            self.gen_factory = gen_factory
+            for rectype, pdef in profile_definitions.items():
+                profile = sf.SolrProfile(
+                    rectype, pdef['conn'], user_fields=pdef['user_fields'],
+                    inclusive=pdef.get('inclusive', True),
+                    unique_fields=global_unique_fields, solr_types=solr_types,
+                    gen_factory=gen_factory,
+                    default_field_gens=pdef['field_gens']
+                )
+                self.profiles[rectype] = profile
+                self.records[rectype] = tuple()
+
+        def make(self, rectype, number, context=None, **field_gens):
+            """
+            Make a set of records via a 
+            solr_factories.SolrFixtureFactory for the given `rectype`
+            profile. `number` is an integer defining how many records
+            to create. `context` is an optional keyword arg providing
+            a list or tuple of exisiting records that are part of the
+            same set as the ones you want to make (e.g. for determining
+            uniqueness). `field_gens` are the kwargs for field_gen
+            overrides you want passed to the SolrFixtureFactory.
+
+            This method returns the record set you created via this
+            method call AND adds the records to self.records[rectype].
+            E.g.:
+
+                set1 = assembler.make('location', 10)
+                set2 = assembler.make('location', 5, context=set1)
+                assert len(set1) == 10
+                assert len(set2) == 5
+                assert set1 + set2 == assembler.records['location']
+
+            Note that calling `make` DOES NOT save the records to Solr.
+            """
+            context = context or []
+            fixture_factory = sf.SolrFixtureFactory(self.profiles[rectype])
+            records = tuple(fixture_factory.make_more(context, number,
+                                                      **field_gens))
+            self.records[rectype] += records
+            return records
+
+        def save(self, rectype):
+            """
+            Save this assembler's `rectype` recordset to Solr.
+            """
+            if self.records[rectype]:
+                self.profiles[rectype].conn.add(self.records[rectype])
+
+        def save_all(self):
+            """
+            Save ALL recordsets you've created via this assembler to
+            Solr.
+            """
+            for rectype in self.records.keys():
+                self.save(rectype)
+
+        def clear_all(self):
+            """
+            Delete all records you've created via this assembler from
+            Solr. Note that this does not delete the records from the
+            assembler object--you could issue a `save_all()` after
+            `clear_all()` to add them back to Solr.
+            """
+            for rectype, recset in self.records.items():
+                profile = self.profiles[rectype]
+                conn, key = profile.conn, profile.key_name
+                try:
+                    conn.delete(id=[r[key] for r in recset])
+                except ValueError:
+                    pass
+                self.records[rectype] = tuple()
+
+    def make(self, solr_types, unique_fields, gen_factory, defs):
+        return type(self).SolrTestDataAssembler(solr_types, unique_fields,
+                                                gen_factory, defs)
+
+    def unmake(self, assembler):
+        assembler.clear_all()
+
+
+class TestSolrConnectionFactory(object):
+    """
+    Factory for making Pysolr connection objects, where the `unmake`
+    method deletes all records in the associated Solr core. When
+    wrapped in a FactoryTracker object, this ensures that the Solr core
+    is cleared automatically before and after use.
+    """
+
+    url = 'http://{}:{}/solr'.format(settings.SOLR_HOST, settings.SOLR_PORT)
+
+    def make(self, core_name, *args, **kwargs):
+        return pysolr.Solr('{}/{}'.format(self.url, core_name), **kwargs)
+
+    def unmake(self, conn):
+        conn.delete(q='*:*')
