@@ -12,50 +12,78 @@ from utils.test_helpers import solr_test_profiles as tp
 #
 # django/sierra/api/tests/conftest.py:
 #     api_solr_env
+#     api_data_assembler
 #     api_client
+
+API_ROOT = '/api/v1/'
+RESOURCE_METADATA = {
+    'bibs': { 'solrtype': 'bib', 'id_field': 'record_number' },
+    'items': { 'solrtype': 'item', 'id_field': 'record_number' },
+    'eresources': { 'solrtype':  'eresource', 'id_field': 'record_number' },
+    'itemstatuses': { 'solrtype': 'itemstatus', 'id_field': 'code' },
+    'itemtypes': { 'solrtype': 'itype', 'id_field': 'code' },
+    'locations': { 'solrtype': 'location', 'id_field': 'code' }
+}
+
+@pytest.fixture
+def api_settings(settings):
+    """
+    Pytest fixture that sets a few default Django settings for the API
+    tests in this module. Returns the `settings` object. Doing setup
+    like this here via a fixture seems slightly better than putting
+    this in the `test` settings module--the relevant settings are
+    closer to the tests that use them. Just have to make sure to
+    include this fixture in all of the tests that need them.
+    """
+    settings.REST_FRAMEWORK['PAGINATE_BY_PARAM'] = 'limit'
+    settings.REST_FRAMEWORK['PAGINATE_PARAM'] = 'offset'
+    settings.REST_FRAMEWORK['SEARCH_PARAM'] = 'search'
+    settings.REST_FRAMEWORK['SEARCHTYPE_PARAM'] = 'searchtype'
+    return settings
 
 
 # TESTS
-
 
 @pytest.mark.parametrize('url, err_text', [
     ('/api/v1/items/?dueDate[gt]=2018', 'datetime was formatted incorrectly'),
     ('/api/v1/items/?recordNumber[invalid]=i10000100', 'not a valid operator'),
     ('/api/v1/items/?recordNumber[in]=i10000100', 'require an array'),
     ('/api/v1/items/?recordNumber[range]=i10000100', 'require an array'),
+    ('/api/v1/items/?recordNumber=[i1,i2]', 'Arrays of values are only used'),
     ('/api/v1/items/?nonExistent=0', 'not a valid field for filtering'),
     ('/api/v1/items/?orderBy=nonExistent', 'not a valid field for ordering'),
-
+    ('/api/v1/bibs/?searchtype=nonExistent', 'searchtype parameter must be'),
+    ('/api/v1/bibs/?search=none:none', 'undefined field'),
 ])
-def test_request_error_badquery(url, err_text, api_solr_env, api_client):
+def test_request_error_badquery(url, err_text, api_solr_env, api_client,
+                                api_settings):
     """
     Requesting from the given URL should result in a 400 error response
     (due to a bad query), which contains the given error text.
     """
     response = api_client.get(url)
     assert response.status_code == 400
-    assert 'Query filter criteria' in response.data['detail']
     assert err_text in response.data['detail']
 
 
-@pytest.mark.parametrize('resource, solrtype, default_limit, max_limit, '
-                         'limit, offset, exp_results, exp_start, exp_end, '
-                         'exp_prev_offset, exp_next_offset', [
-    ('items', 'item', 20, 50, None, None, 20, 0, 19, None, 20),
-    ('items', 'item', 20, 50, 20, None, 20, 0, 19, None, 20),
-    ('items', 'item', 20, 50, None, 0, 20, 0, 19, None, 20),
-    ('items', 'item', 20, 50, 20, 0, 20, 0, 19, None, 20),
-    ('items', 'item', 20, 50, 20, 1, 20, 1, 20, 0, 21),
-    ('items', 'item', 20, 50, 20, 20, 20, 20, 39, 0, 40),
-    ('items', 'item', 20, 50, 20, 40, 20, 40, 59, 20, 60),
-    ('items', 'item', 20, 50, 25, 20, 25, 20, 44, 0, 45),
-    ('items', 'item', 20, 50, 20, 180, 20, 180, 199, 160, None),
-    ('items', 'item', 20, 50, 20, 190, 10, 190, 199, 170, None),
-    ('items', 'item', 20, 50, 0, None, 0, 0, -1, None, 0),
-    ('items', 'item', 20, 50, 50, None, 50, 0, 49, None, 50),
-    ('items', 'item', 20, 50, 51, None, 50, 0, 49, None, 50),
-    ('items', 'item', 20, 300, 300, None, 200, 0, 199, None, None),
-    ('items', 'item', 20, 50, 20, 300, 0, 300, 199, 280, None),
+@pytest.mark.parametrize('resource, default_limit, max_limit, limit, offset, '
+                         'exp_results, exp_start, exp_end, exp_prev_offset, '
+                         'exp_next_offset', [
+    ('items', 20, 50, None, None, 20, 0, 19, None, 20),
+    ('items', 20, 50, 20, None, 20, 0, 19, None, 20),
+    ('items', 20, 50, None, 0, 20, 0, 19, None, 20),
+    ('items', 20, 50, 20, 0, 20, 0, 19, None, 20),
+    ('items', 20, 50, 20, 1, 20, 1, 20, 0, 21),
+    ('items', 20, 50, 20, 20, 20, 20, 39, 0, 40),
+    ('items', 20, 50, 20, 40, 20, 40, 59, 20, 60),
+    ('items', 20, 50, 25, 20, 25, 20, 44, 0, 45),
+    ('items', 20, 50, 20, 180, 20, 180, 199, 160, None),
+    ('items', 20, 50, 20, 190, 10, 190, 199, 170, None),
+    ('items', 20, 50, 0, None, 0, 0, -1, None, 0),
+    ('items', 20, 50, 50, None, 50, 0, 49, None, 50),
+    ('items', 20, 50, 51, None, 50, 0, 49, None, 50),
+    ('items', 20, 300, 300, None, 200, 0, 199, None, None),
+    ('items', 20, 50, 20, 300, 0, 300, 199, 280, None),
 ], ids=[
     'no limit or offset given => use defaults',
     'limit=default, no offset given => use defaults',
@@ -73,22 +101,21 @@ def test_request_error_badquery(url, err_text, api_solr_env, api_client):
     'limit > total => total results, no next page',
     'offset > total => 0 results, no next page (STRANGE: startRow, prev page)'
 ])
-def test_list_view_pagination(resource, solrtype, default_limit, max_limit,
-                              limit, offset, exp_results, exp_start, exp_end,
-                              exp_prev_offset, exp_next_offset, settings,
+def test_list_view_pagination(resource, default_limit, max_limit, limit,
+                              offset, exp_results, exp_start, exp_end,
+                              exp_prev_offset, exp_next_offset, api_settings,
                               api_solr_env, api_client):
     """
-    Requesting the resource from the the given URL using the provided
-    limit and offset parameters should result in a data structure that
-    we can paginate through in predictable ways.
+    Requesting the given resource using the provided limit and offset
+    parameters should result in a data structure that we can paginate
+    through in predictable ways.
     """
-    settings.REST_FRAMEWORK['PAGINATE_BY'] = default_limit
-    settings.REST_FRAMEWORK['MAX_PAGINATE_BY'] = max_limit
-    settings.REST_FRAMEWORK['PAGINATE_BY_PARAM'] = 'limit'
-    settings.REST_FRAMEWORK['PAGINATE_PARAM'] = 'offset'
+    api_settings.REST_FRAMEWORK['PAGINATE_BY'] = default_limit
+    api_settings.REST_FRAMEWORK['MAX_PAGINATE_BY'] = max_limit
+    solrtype = RESOURCE_METADATA[resource]['solrtype']
     exp_total = len(api_solr_env.records[solrtype])
 
-    base_url = '/api/v1/{}/'.format(resource)
+    base_url = '{}{}/'.format(API_ROOT, resource)
     limitq = 'limit={}'.format(limit) if limit is not None else ''
     offsetq = 'offset={}'.format(offset) if offset is not None else ''
     qstring = '&'.join([part for part in (limitq, offsetq) if part])
@@ -120,3 +147,59 @@ def test_list_view_pagination(resource, solrtype, default_limit, max_limit,
         assert limitq in prev_link
         assert 'offset={}'.format(exp_prev_offset) in prev_link
 
+
+@pytest.mark.parametrize('resource, test_data, search, expected', [
+    ('bibs', (
+        ('TEST1', {'creator': 'Person, Test A. 1900-'}),
+        ('TEST2', {'creator': 'Person, Test B. 1900-'}),
+     ), 'creator=Person, Test A. 1900-', ['TEST1']),
+    ('bibs', (
+        ('TEST1', {'creator': 'Person, Test A. 1900-'}),
+        ('TEST2', {'creator': 'Person, Test B. 1900-'}),
+     ), 'creator[exact]=Person, Test B. 1900-', ['TEST2']),
+    ('bibs', (
+        ('TEST1', {'creator': 'Person, Test A. 1900-'}),
+        ('TEST2', {'creator': 'Person, Test A. 1900-'}),
+        ('TEST3', {'creator': 'Person, Test B. 1900-'}),
+     ), 'creator[exact]=Person, Test A. 1900-', ['TEST1', 'TEST2']),
+    ('bibs', (
+        ('TEST1', {'creator': 'Person, Test A. 1900-'}),
+        ('TEST2', {'creator': 'Person, Test B. 1900-'}),
+     ), 'creator[exact]=Person, Test C. 1900-', None),
+])
+def test_list_view_filters(resource, test_data, search, expected, api_settings,
+                           api_solr_env, api_data_assembler, api_client):
+    """
+    Given the provided `test_data` records: requesting the given
+    `resource` using the provided search filter parameters (`search`)
+    should return each of the records in `expected` and NONE of the
+    records NOT in `expected`.
+    """
+    assembler = api_data_assembler
+    gens = assembler.gen_factory
+    solrtype = RESOURCE_METADATA[resource]['solrtype']
+    solr_id_field = RESOURCE_METADATA[resource]['id_field']
+    record_pool = api_solr_env.records[solrtype]
+    for rec_id, record in test_data:
+        datagens = {k: gens.static(v) for k, v in record.items()}
+        datagens[solr_id_field] = gens.static(rec_id)
+        record_pool += assembler.make(solrtype, 1, record_pool, **datagens)
+    assembler.save(solrtype)
+
+    test_ids = set([r[0] for r in test_data])
+    expected_ids = set(expected) if expected is not None else set()
+    not_expected_ids = test_ids - expected_ids
+
+    api_settings.REST_FRAMEWORK['PAGINATE_BY'] = 500
+    response = api_client.get('{}{}/?{}'.format(API_ROOT, resource, search))
+    serializer = response.renderer_context['view'].get_serializer()
+    api_id_field = serializer.render_field_name(solr_id_field)
+    total_found = response.data['totalCount']
+    if total_found > 0:
+        data = response.data['_embedded'][resource]
+        found_ids = set([r[api_id_field] for r in data])
+    else:
+        found_ids = set()
+    assert total_found <= 500
+    assert all([i in found_ids for i in expected_ids])
+    assert all([i not in found_ids for i in not_expected_ids])

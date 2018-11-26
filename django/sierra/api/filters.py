@@ -23,9 +23,9 @@ class FilterValidationError(Exception):
 
 
 class HaystackFilter(BaseFilterBackend):
-    '''
+    """
     Filter to let us filter Haystack SearchQuerySets.
-    '''
+    """
     reserved_params = [settings.REST_FRAMEWORK['PAGINATE_BY_PARAM'], 
                        settings.REST_FRAMEWORK['PAGINATE_PARAM'],
                        settings.REST_FRAMEWORK['ORDER_BY_PARAM'], 
@@ -75,7 +75,7 @@ class HaystackFilter(BaseFilterBackend):
     }
 
     def _validate_parameter(self, orig_p_name, p_name, operator, p_val, view):
-        '''
+        """
         Runs validation and normalization routines and returns the
         parameter name (p_name), operator (op), and parameter value
         (p_val) to use in the final query sent to Solr. orig_p_name is
@@ -92,7 +92,7 @@ class HaystackFilter(BaseFilterBackend):
         These routines return the parameter name, operator, and
         parameter value. So they each have the opportunity to modify
         each of these, if you need that level of customization.
-        '''
+        """
         try:
             filters = view.filter_fields
         except AttributeError:
@@ -160,17 +160,17 @@ class HaystackFilter(BaseFilterBackend):
         return p_name, operator, p_val
 
     def _normalize_call_number(self, orig_name, name, op, val):
-        '''
+        """
         Searches for call numbers should be compared to
         call_number_search and normalized using the same algorithm.
-        '''
+        """
         val = helpers.NormalizedCallNumber(val, 'search').normalize()
         return ('call_number_search', op, val)
 
     def _type_normalize_datetime(self, orig_name, name, op, val):
-        '''
+        """
         Base normalization for datetime filter fields.
-        '''
+        """
         date_m = re.search(r'^\d{4}\-\d{2}\-\d{2}T(\d{2}:){2}\d{2}Z$', val)
         if date_m:
             try:
@@ -190,9 +190,9 @@ class HaystackFilter(BaseFilterBackend):
         return (name, op, val)
 
     def _type_normalize_bool(self, orig_name, name, op, val):
-        '''
+        """
         Base normalization for boolean filter fields.
-        '''
+        """
         bool_m = re.match(r'(true)|(false)', val, re.IGNORECASE)
         val = True if bool_m.group(1) else False
         return (name, op, val)
@@ -217,12 +217,12 @@ class HaystackFilter(BaseFilterBackend):
         return new_order_params
 
     def _prep_params(self, params, view):
-        '''
+        """
         Prepares a QUERY_PARAMS dictionary to be passed to
         get_django_style_filters(). The QUERY_PARAMS dict is params.
         This also validates parameters and throws a BadQuery()
         exception if any do not validate.
-        '''
+        """
         param_data = {'data': {}, 'search': '', 'order_by': ''}
         validation_errors = []
         for orig_p_name, p_val in dict(params).iteritems():
@@ -323,11 +323,10 @@ class HaystackFilter(BaseFilterBackend):
             try:
                 queryset = queryset.search(request_params['search'],
                                            params=q_settings)
+                view.paginate_queryset(queryset, request)
             except SolrError as e:
-                err = ujson.loads(e.message.split('\n')[1])
                 msg = ('Query filter "search" parameter is invalid. The '
-                       'following errors were raised. {}'.format(
-                            err['error']['msg']))
+                       'following errors were raised. {}'.format(e))
                 raise exceptions.BadQuery(detail=msg)
         if request_params['order_by']:
             queryset = queryset.order_by(*request_params['order_by'])
@@ -335,19 +334,19 @@ class HaystackFilter(BaseFilterBackend):
 
 
 class MarcFilter(HaystackFilter):
-    '''
+    """
     Lets us filter "marc" resources on MARC fields, like
     245 for MARC Field 245 or 245a for MARC subfield 245a.
-    '''
+    """
 
     def _type_normalize_default(self, orig_name, name, op, val):
-        '''
+        """
         Our solr index uses mf_{marc tag} and sf_{marc and subfield
         tag} to store MARC field/subfield data. We want to accept the
         MARC tag/subfields specified without "mf_" and "sf_", so we add
         these prefixes here if needed so that they match the Solr
         fields.
-        '''
+        """
         if re.match(r'^\d{3}$', name):
             name = 'mf_{}'.format(name)
 
