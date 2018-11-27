@@ -194,6 +194,11 @@ class HaystackFilter(BaseFilterBackend):
         Base normalization for boolean filter fields.
         """
         bool_m = re.match(r'(true)|(false)', val, re.IGNORECASE)
+        if not bool_m:
+            msg = ("'{}' is an invalid value for '{}' queries on field '{}'; "
+                   "expected a boolean ('true' or 'false')."
+                   "".format(val, op, name))
+            raise FilterValidationError(msg)
         val = True if bool_m.group(1) else False
         return (name, op, val)
 

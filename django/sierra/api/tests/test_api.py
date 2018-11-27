@@ -57,6 +57,8 @@ def api_settings(settings):
     ('/api/v1/items/?orderBy=nonExistent', 'not a valid field for ordering'),
     ('/api/v1/bibs/?searchtype=nonExistent', 'searchtype parameter must be'),
     ('/api/v1/bibs/?search=none:none', 'undefined field'),
+    ('/api/v1/bibs/?suppressed=not', 'expected a boolean'),
+    ('/api/v1/bibs/?recordNumber[isnull]=not', 'expected a boolean'),
 ])
 def test_request_error_badquery(url, err_text, api_solr_env, api_client,
                                 api_settings):
