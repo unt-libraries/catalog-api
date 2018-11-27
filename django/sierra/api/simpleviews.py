@@ -113,8 +113,8 @@ class SimpleGetMixin(object):
         """
         if getattr(self, '_cached_page', None) is None:
             offset, limit = self.get_offset_limit_from_request(request)
-            total = queryset.count()
             results = queryset[offset:offset+limit]
+            total = queryset.count()
             end_row = self.get_page_end_row(total, offset, limit)
             offset = None if end_row is None else offset
             self._cached_page = {

@@ -2,6 +2,9 @@
 Contains integration tests for the `api` app.
 """
 
+from datetime import datetime
+from pytz import utc
+
 import pytest
 
 from utils.test_helpers import solr_test_profiles as tp
@@ -166,6 +169,103 @@ def test_list_view_pagination(resource, default_limit, max_limit, limit,
         ('TEST1', {'creator': 'Person, Test A. 1900-'}),
         ('TEST2', {'creator': 'Person, Test B. 1900-'}),
      ), 'creator[exact]=Person, Test C. 1900-', None),
+    ('bibs', (
+        ('TEST1', {'creator': 'Person, Test A. 1900-'}),
+        ('TEST2', {'creator': 'Person, Test B. 1900-'}),
+     ), 'creator[-exact]=Person, Test B. 1900-', ['TEST1']),
+    ('items', (
+        ('TEST1', {'call_number': 'TEST CALLNUMBER 1'}),
+        ('TEST2', {'call_number': 'TEST CALLNUMBER 2'}),
+     ), 'callNumber[exact]=TEST CALLNUMBER 2', ['TEST2']),
+    ('items', (
+        ('TEST1', {'call_number': 'TEST CALLNUMBER 1'}),
+        ('TEST2', {'call_number': 'TEST CALLNUMBER 2'}),
+        ('TEST3', {'call_number': 'TEST CALLNUMBER 2'}),
+        ('TEST4', {'call_number': 'TEST CALLNUMBER 1'}),
+        ('TEST5', {'call_number': 'TEST CALLNUMBER 2'}),
+     ), 'callNumber[exact]=TEST CALLNUMBER 2', ['TEST2', 'TEST3', 'TEST5']),
+    ('items', (
+        ('TEST1', {'call_number': 'TEST CALLNUMBER 1'}),
+        ('TEST2', {'call_number': 'TEST CALLNUMBER 2'}),
+     ), 'callNumber[exact]=TEST CALLNUMBER 3', None),
+    ('items', (
+        ('TEST1', {'call_number': 'TEST CALLNUMBER 1'}),
+        ('TEST2', {'call_number': 'TEST CALLNUMBER 2'}),
+     ), 'callNumber[-exact]=TEST CALLNUMBER 1', ['TEST2']),
+    ('items', (
+        ('TEST1', {'copy_number': '54'}),
+        ('TEST2', {'copy_number': '12'}),
+     ), 'copyNumber[exact]=54', ['TEST1']),
+    ('items', (
+        ('TEST1', {'copy_number': '54'}),
+        ('TEST2', {'copy_number': '12'}),
+        ('TEST3', {'copy_number': '54'}),
+        ('TEST4', {'copy_number': '12'}),
+     ), 'copyNumber[exact]=54', ['TEST1', 'TEST3']),
+    ('items', (
+        ('TEST1', {'copy_number': '54'}),
+        ('TEST2', {'copy_number': '12'}),
+     ), 'copyNumber[exact]=543', None),
+    ('items', (
+        ('TEST1', {'copy_number': '54'}),
+        ('TEST2', {'copy_number': '12'}),
+     ), 'copyNumber[-exact]=54', ['TEST2']),
+    ('items', (
+        ('TEST1', {'due_date': datetime(2018, 11, 30, 5, 0, 0, tzinfo=utc)}),
+        ('TEST2', {'due_date': datetime(2018, 12, 13, 9, 0, 0, tzinfo=utc)}),
+     ), 'dueDate[exact]=2018-11-30T05:00:00Z', ['TEST1']),
+    ('items', (
+        ('TEST1', {'due_date': datetime(2018, 11, 30, 5, 0, 0, tzinfo=utc)}),
+        ('TEST2', {'due_date': datetime(2018, 11, 30, 5, 0, 0, tzinfo=utc)}),
+        ('TEST3', {'due_date': datetime(2018, 12, 13, 9, 0, 0, tzinfo=utc)}),
+     ), 'dueDate[exact]=2018-11-30T05:00:00Z', ['TEST1', 'TEST2']),
+    ('items', (
+        ('TEST1', {'due_date': datetime(2018, 11, 30, 5, 0, 0, tzinfo=utc)}),
+        ('TEST2', {'due_date': datetime(2018, 12, 13, 9, 0, 0, tzinfo=utc)}),
+     ), 'dueDate[exact]=1990-01-01T08:00:00Z', None),
+    ('items', (
+        ('TEST1', {'due_date': datetime(2018, 11, 30, 5, 0, 0, tzinfo=utc)}),
+        ('TEST2', {'due_date': datetime(2018, 12, 13, 9, 0, 0, tzinfo=utc)}),
+     ), 'dueDate[-exact]=2018-11-30T05:00:00Z', ['TEST2']),
+    ('items', (
+        ('TEST1', {'suppressed': True}),
+        ('TEST2', {'suppressed': False}),
+     ), 'suppressed[exact]=true', ['TEST1']),
+    ('items', (
+        ('TEST1', {'suppressed': True}),
+        ('TEST2', {'suppressed': False}),
+        ('TEST3', {'suppressed': False}),
+     ), 'suppressed[exact]=false', ['TEST2', 'TEST3']),
+    ('items', (
+        ('TEST1', {'suppressed': False}),
+        ('TEST2', {'suppressed': False}),
+     ), 'suppressed[exact]=true', None),
+    ('items', (
+        ('TEST1', {'suppressed': True}),
+        ('TEST2', {'suppressed': False}),
+     ), 'suppressed[-exact]=true', ['TEST2']),
+], ids=[
+    'exact text (bibs/creator) | no operator specified',
+    'exact text (bibs/creator) | one match',
+    'exact text (bibs/creator) | multiple matches',
+    'exact text (bibs/creator) | no matches',
+    'exact text (bibs/creator) | negated, one match',
+    'exact string (items/call_number) | one match',
+    'exact string (items/call_number) | multiple matches',
+    'exact string (items/call_number) | no matches',
+    'exact string (items/call_number) | negated, one match',
+    'exact int (items/copy_number) | one match',
+    'exact int (items/copy_number) | multiple matches',
+    'exact int (items/copy_number) | no matches',
+    'exact int (items/copy_number) | negated, one match',
+    'exact date (items/due_date) | one match',
+    'exact date (items/due_date) | multiple matches',
+    'exact date (items/due_date) | no matches',
+    'exact date (items/due_date) | negated, one match',
+    'exact bool (bibs/suppressed) | one match',
+    'exact bool (bibs/suppressed) | multiple matches',
+    'exact bool (bibs/suppressed) | no matches',
+    'exact bool (bibs/suppressed) | negated, one match',
 ])
 def test_list_view_filters(resource, test_data, search, expected, api_settings,
                            api_solr_env, api_data_assembler, api_client):
@@ -190,16 +290,23 @@ def test_list_view_filters(resource, test_data, search, expected, api_settings,
     expected_ids = set(expected) if expected is not None else set()
     not_expected_ids = test_ids - expected_ids
 
+    api_settings.REST_FRAMEWORK['MAX_PAGINATE_BY'] = 500
     api_settings.REST_FRAMEWORK['PAGINATE_BY'] = 500
+
+    # First let's do a quick sanity check to make sure the resource
+    # returns the correct num of records before the filter is applied.
+    check_response = api_client.get('{}{}/'.format(API_ROOT, resource))
+    assert check_response.data['totalCount'] == len(record_pool)
+
+    # Now the actual filter test.
     response = api_client.get('{}{}/?{}'.format(API_ROOT, resource, search))
     serializer = response.renderer_context['view'].get_serializer()
     api_id_field = serializer.render_field_name(solr_id_field)
     total_found = response.data['totalCount']
-    if total_found > 0:
-        data = response.data['_embedded'][resource]
-        found_ids = set([r[api_id_field] for r in data])
-    else:
-        found_ids = set()
-    assert total_found <= 500
+    data = response.data.get('_embedded', {resource: []})[resource]
+    found_ids = set([r[api_id_field] for r in data])
+
+    # FAIL if we've returned any data not on this page of results.
+    assert len(data) == total_found    
     assert all([i in found_ids for i in expected_ids])
     assert all([i not in found_ids for i in not_expected_ids])

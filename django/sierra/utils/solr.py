@@ -55,7 +55,8 @@ class Queryset(object):
         self._conn = conn or connect(url=url, using=using, **kwargs)
         self._result_set = []
         self._result_offset = 0
-        self._search_params = {'q': '*:*'}
+        self._hits = None
+        self._search_params = {'q': '*:*', 'fq': []}
         self._full_response = None
         self.page_by = page_by
         kwargs['conn'] = self._conn
@@ -67,9 +68,7 @@ class Queryset(object):
             start = key.start
             new_key = key.start - self._result_offset
             rows = key.stop - key.start
-            r = self._conn.search(start=start, rows=rows,
-                                  **self._search_params)
-            self._full_response = r
+            r = self._search(start=start, rows=rows)
             return [Result(i) for i in r]
 
         if key < 0:
@@ -82,18 +81,26 @@ class Queryset(object):
                 raise IndexError()
             return self._result_set[new_key]
         except IndexError:
-            rows = self.page_by
-            r = self._conn.search(start=key, rows=rows, **self._search_params)
-            self._set_cache(r, offset=key)
-            self._full_response = r
-            if not self._result_set:
+            if self._hits is None or key < self._hits:
+                r = self._search(start=key, rows=self.page_by)
+                self._set_cache(r, offset=key)
+            if key >= self._hits or not self._result_set:
                 raise IndexError('index out of range')
             return self.__getitem__(key)
 
     def __len__(self):
-        r = self._conn.search(rows=0, **self._search_params)
-        self._full_response = r
-        return r.hits
+        if self._hits is None:
+            self._search(rows=0)
+        return self._hits
+
+    def _search(self, *args, **kwargs):
+        kwargs = kwargs or {}
+        kwargs.update(self._search_params)
+        response = self._conn.search(*args, **kwargs)
+        # print self._search_params
+        self._full_response = response
+        self._hits = response.hits
+        return response
 
     def _set_cache(self, result, offset=0):
         self._result_offset = offset
@@ -194,10 +201,9 @@ class Queryset(object):
                          str(val))
         return val
 
-    def _do_search_parameters(self, **kwargs):
-        clone = self._clone()
-        fq = clone._search_params.get('fq', [])
-        for key, val in kwargs.iteritems():
+    def _compile_filter_args(self, filter_args):
+        fq = []
+        for key, val in filter_args.iteritems():
             try:
                 field, filter_type = key.split('__')
             except ValueError:
@@ -209,20 +215,21 @@ class Queryset(object):
                 else:
                     val = self._val_to_solr_str(val)
             fq.append(f_method(field, val))
-        clone._search_params['fq'] = fq
+        return fq
+
+    def _apply_filters(self, filter_args, exclude=False):
+        fq = self._compile_filter_args(filter_args)
+        if exclude:
+            fq = ['-({})'.format(' AND '.join(fq))]
+        clone = self._clone()
+        clone._search_params['fq'].extend(fq)
         return clone
 
     def filter(self, **kwargs):
-        clone = self._do_search_parameters(**kwargs)
-        return clone
+        return self._apply_filters(kwargs, exclude=False)
 
     def exclude(self, **kwargs):
-        old_fq = ' AND '.join(self._search_params.get('fq', []))
-        self._search_params['fq'] = []
-        clone = self._do_search_parameters(**kwargs)
-        fq = ' AND '.join(clone._search_params['fq'])
-        clone._search_params['fq'] = [old_fq, '-({})'.format(fq)]
-        return clone
+        return self._apply_filters(kwargs, exclude=True)
 
     def get_one(self, **kwargs):
         """
@@ -273,10 +280,6 @@ class Queryset(object):
             sort.append('{} {}'.format(field, direction))
         sort = ', '.join(sort)
         clone._search_params['sort'] = sort
-        try:
-            len(clone)
-        except pysolr.SolrError:
-            raise
         return clone
 
     def only(self, *fields):
