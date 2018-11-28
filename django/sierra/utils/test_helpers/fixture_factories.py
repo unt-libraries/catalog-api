@@ -220,7 +220,7 @@ class SolrTestDataAssemblerFactory(object):
 
             Note that calling `make` DOES NOT save the records to Solr.
             """
-            context = context or []
+            context = context or tuple()
             fixture_factory = sf.SolrFixtureFactory(self.profiles[rectype])
             records = tuple(fixture_factory.make_more(context, number,
                                                       **field_gens))
@@ -241,6 +241,41 @@ class SolrTestDataAssemblerFactory(object):
             """
             for rectype in self.records.keys():
                 self.save(rectype)
+
+        def load_static_test_data(self, rectype, test_data, id_field='id',
+                                  context=None):
+            """
+            Helper method. Load a set of test records of the specified
+            `rectype` containing static data into Solr, using this
+            assembler. Returns the newly created records.
+
+            `test_data` should be a list or tuple of tuples, where the
+            first member of the inner tuple is an ID value and the
+            second is a dictionary of field/value pairs for the static
+            data to load. E.g.:
+
+              ( ('ID1', { 'field1': 'VAL 1', 'field2': 'VAL A' }),
+                ('ID2', { 'field1': 'VAL 2', 'field2': 'VAL B' })
+              )
+
+            `id_field` is the name of the Solr field that you're using
+            as the ID. Default is `id`, but it can be any field. The
+            point is to be able to identify your test records later.
+
+            `context` is an optional keyword arg providing a list or
+            tuple of exisiting records that are part of the same set as
+            the ones you want to make (e.g. for determining
+            uniqueness).
+            """
+            context = context or tuple()
+            records = tuple()
+            gens = self.gen_factory
+            for rec_id, record in test_data:
+                datagens = {k: gens.static(v) for k, v in record.items()}
+                datagens[id_field] = gens.static(rec_id)
+                records += self.make(rectype, 1, context + records, **datagens)
+            self.save(rectype)
+            return records
 
         def clear_all(self):
             """

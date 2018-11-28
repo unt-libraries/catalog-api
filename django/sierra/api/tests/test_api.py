@@ -18,15 +18,223 @@ from utils.test_helpers import solr_test_profiles as tp
 #     api_data_assembler
 #     api_client
 
+
+# API_ROOT: Base URL for the API we're testing.
 API_ROOT = '/api/v1/'
+
+# RESOURCE_METADATA: Lookup dict for mapping API resources to various
+# test parameters.
 RESOURCE_METADATA = {
-    'bibs': { 'solrtype': 'bib', 'id_field': 'record_number' },
-    'items': { 'solrtype': 'item', 'id_field': 'record_number' },
-    'eresources': { 'solrtype':  'eresource', 'id_field': 'record_number' },
-    'itemstatuses': { 'solrtype': 'itemstatus', 'id_field': 'code' },
-    'itemtypes': { 'solrtype': 'itype', 'id_field': 'code' },
-    'locations': { 'solrtype': 'location', 'id_field': 'code' }
+    'bibs': { 'profile': 'bib', 'id_field': 'record_number' },
+    'items': { 'profile': 'item', 'id_field': 'record_number' },
+    'eresources': { 'profile': 'eresource', 'id_field': 'record_number' },
+    'itemstatuses': { 'profile': 'itemstatus', 'id_field': 'code' },
+    'itemtypes': { 'profile': 'itype', 'id_field': 'code' },
+    'locations': { 'profile': 'location', 'id_field': 'code' }
 }
+
+
+# PARAMETERS__* constants contain parametrization data for certain
+# tests. Each should be a tuple, where the first tuple member is a
+# header string that describes the parametrization values (such as
+# what you'd pass as the first arg to pytest.mark.parametrize); the
+# others are single-entry dictionaries where the key is the parameter-
+# list ID (such as what you'd pass to pytest.mark.parametrize via its
+# `ids` kwarg) and the value is the list of parameters for that ID.
+
+# PARAMETERS__FILTER_TESTS__NORMAL: Parameters for testing API filter
+# behavior that works as expected. The provided `search` query string
+# matches the `test_data` record(s) you'd expect it to match.
+PARAMETERS__FILTER_TESTS__NORMAL = (
+    'resource, test_data, search, expected',
+    { 'exact text (bibs/creator) | no operator specified':
+        ('bibs', (
+            ('TEST1', {'creator': 'Person, Test A. 1900-'}),
+            ('TEST2', {'creator': 'Person, Test B. 1900-'}),
+         ), 'creator=Person, Test A. 1900-', ['TEST1'])
+    }, { 'exact text (bibs/creator) | one match':
+        ('bibs', (
+            ('TEST1', {'creator': 'Person, Test A. 1900-'}),
+            ('TEST2', {'creator': 'Person, Test B. 1900-'}),
+         ), 'creator[exact]=Person, Test B. 1900-', ['TEST2']),
+    }, { 'exact text (bibs/creator) | multiple matches':
+        ('bibs', (
+            ('TEST1', {'creator': 'Person, Test A. 1900-'}),
+            ('TEST2', {'creator': 'Person, Test A. 1900-'}),
+            ('TEST3', {'creator': 'Person, Test B. 1900-'}),
+         ), 'creator[exact]=Person, Test A. 1900-', ['TEST1', 'TEST2']),
+    }, { 'exact text (bibs/creator) | no matches':
+        ('bibs', (
+            ('TEST1', {'creator': 'Person, Test A. 1900-'}),
+            ('TEST2', {'creator': 'Person, Test B. 1900-'}),
+         ), 'creator[exact]=Person, Test C. 1900-', None),
+    }, { 'exact text (bibs/creator) | negated, one match':
+        ('bibs', (
+            ('TEST1', {'creator': 'Person, Test A. 1900-'}),
+            ('TEST2', {'creator': 'Person, Test B. 1900-'}),
+         ), 'creator[-exact]=Person, Test B. 1900-', ['TEST1']),
+    }, { 'exact string (items/call_number) | one match':
+        ('items', (
+            ('TEST1', {'call_number': 'TEST CALLNUMBER 1'}),
+            ('TEST2', {'call_number': 'TEST CALLNUMBER 2'}),
+         ), 'callNumber[exact]=TEST CALLNUMBER 2', ['TEST2']),
+    }, { 'exact string (items/call_number) | multiple matches':
+        ('items', (
+            ('TEST1', {'call_number': 'TEST CN 1'}),
+            ('TEST2', {'call_number': 'TEST CN 2'}),
+            ('TEST3', {'call_number': 'TEST CN 2'}),
+            ('TEST4', {'call_number': 'TEST CN 1'}),
+            ('TEST5', {'call_number': 'TEST CN 2'}),
+         ), 'callNumber[exact]=TEST CN 2', ['TEST2', 'TEST3', 'TEST5']),
+    }, { 'exact string (items/call_number) | no matches':
+        ('items', (
+            ('TEST1', {'call_number': 'TEST CALLNUMBER 1'}),
+            ('TEST2', {'call_number': 'TEST CALLNUMBER 2'}),
+         ), 'callNumber[exact]=TEST CALLNUMBER 3', None),
+    }, { 'exact string (items/call_number) | negated, one match':
+        ('items', (
+            ('TEST1', {'call_number': 'TEST CALLNUMBER 1'}),
+            ('TEST2', {'call_number': 'TEST CALLNUMBER 2'}),
+         ), 'callNumber[-exact]=TEST CALLNUMBER 1', ['TEST2']),
+    }, { 'exact int (items/copy_number) | one match':
+        ('items', (
+            ('TEST1', {'copy_number': '54'}),
+            ('TEST2', {'copy_number': '12'}),
+         ), 'copyNumber[exact]=54', ['TEST1']),
+    }, { 'exact int (items/copy_number) | multiple matches':
+        ('items', (
+            ('TEST1', {'copy_number': '54'}),
+            ('TEST2', {'copy_number': '12'}),
+            ('TEST3', {'copy_number': '54'}),
+            ('TEST4', {'copy_number': '12'}),
+         ), 'copyNumber[exact]=54', ['TEST1', 'TEST3']),
+    }, { 'exact int (items/copy_number) | no matches':
+        ('items', (
+            ('TEST1', {'copy_number': '54'}),
+            ('TEST2', {'copy_number': '12'}),
+         ), 'copyNumber[exact]=543', None),
+    }, { 'exact int (items/copy_number) | negated, one match':
+        ('items', (
+            ('TEST1', {'copy_number': '54'}),
+            ('TEST2', {'copy_number': '12'}),
+         ), 'copyNumber[-exact]=54', ['TEST2']),
+    }, { 'exact date (items/due_date) | one match':
+        ('items', (
+            ('TEST1', {'due_date': datetime(2018, 11, 30, 5, 0, 0,
+                                            tzinfo=utc)}),
+            ('TEST2', {'due_date': datetime(2018, 12, 13, 9, 0, 0,
+                                            tzinfo=utc)}),
+         ), 'dueDate[exact]=2018-11-30T05:00:00Z', ['TEST1']),
+    }, { 'exact date (items/due_date) | multiple matches':
+        ('items', (
+            ('TEST1', {'due_date': datetime(2018, 11, 30, 5, 0, 0,
+                                            tzinfo=utc)}),
+            ('TEST2', {'due_date': datetime(2018, 11, 30, 5, 0, 0,
+                                            tzinfo=utc)}),
+            ('TEST3', {'due_date': datetime(2018, 12, 13, 9, 0, 0,
+                                            tzinfo=utc)}),
+         ), 'dueDate[exact]=2018-11-30T05:00:00Z', ['TEST1', 'TEST2']),
+    }, { 'exact date (items/due_date) | no matches':
+        ('items', (
+            ('TEST1', {'due_date': datetime(2018, 11, 30, 5, 0, 0,
+                                            tzinfo=utc)}),
+            ('TEST2', {'due_date': datetime(2018, 12, 13, 9, 0, 0,
+                                            tzinfo=utc)}),
+         ), 'dueDate[exact]=1990-01-01T08:00:00Z', None),
+    }, { 'exact date (items/due_date) | negated, one match':
+        ('items', (
+            ('TEST1', {'due_date': datetime(2018, 11, 30, 5, 0, 0,
+                                            tzinfo=utc)}),
+            ('TEST2', {'due_date': datetime(2018, 12, 13, 9, 0, 0,
+                                            tzinfo=utc)}),
+         ), 'dueDate[-exact]=2018-11-30T05:00:00Z', ['TEST2']),
+    }, { 'exact bool (bibs/suppressed) | one match':
+        ('items', (
+            ('TEST1', {'suppressed': True}),
+            ('TEST2', {'suppressed': False}),
+         ), 'suppressed[exact]=true', ['TEST1']),
+    }, { 'exact bool (bibs/suppressed) | multiple matches':
+        ('items', (
+            ('TEST1', {'suppressed': True}),
+            ('TEST2', {'suppressed': False}),
+            ('TEST3', {'suppressed': False}),
+         ), 'suppressed[exact]=false', ['TEST2', 'TEST3']),
+    }, { 'exact bool (bibs/suppressed) | no matches':
+        ('items', (
+            ('TEST1', {'suppressed': False}),
+            ('TEST2', {'suppressed': False}),
+         ), 'suppressed[exact]=true', None),
+    }, { 'exact bool (bibs/suppressed) | negated, one match':
+        ('items', (
+            ('TEST1', {'suppressed': True}),
+            ('TEST2', {'suppressed': False}),
+         ), 'suppressed[-exact]=true', ['TEST2']),
+    }, { 'contains text (bibs/creator) | one match':
+        ('bibs', (
+            ('TEST1', {'creator': 'Person, Test A. 1900-'}),
+            ('TEST2', {'creator': 'Person, Test B. 1900-'}),
+         ), 'creator[contains]=A', ['TEST1']),
+    }, { 'contains text (bibs/creator) | multiple matches':
+        ('bibs', (
+            ('TEST1', {'creator': 'Person, Test A. 1900-'}),
+            ('TEST2', {'creator': 'Person, Test B. 1900-'}),
+            ('TEST3', {'creator': 'Person, Test C. 2010-'}),
+         ), 'creator[contains]=1900', ['TEST1', 'TEST2']),
+    }, { 'contains text (bibs/creator) | no matches':
+        ('bibs', (
+            ('TEST1', {'creator': 'Person, Test A. 1900-'}),
+            ('TEST2', {'creator': 'Person, Test B. 1900-'}),
+         ), 'creator[contains]=Not Here', None),
+    }, { 'contains text (bibs/creator) | negated, one match':
+        ('bibs', (
+            ('TEST1', {'creator': 'Person, Test A. 1900-'}),
+            ('TEST2', {'creator': 'Person, Test B. 1900-'}),
+         ), 'creator[-contains]=A', ['TEST2']),
+    },
+)
+
+# PARAMETERS__FILTER_TESTS__STRANGE: Parameters for testing "strange"
+# API filter behavior. The provided `search` query string doesn't match
+# the record(s) you'd normally expect, BUT the behavior IS logical (and
+# expected) based on the current API filter implementation. As we work
+# on filters, we should strive to convert these into passing normal
+# tests--i.e., make them behave like you'd actually expect.
+PARAMETERS__FILTER_TESTS__STRANGE = (
+    'resource, test_data, search, expected',
+    { 'STRANGE: exact text (bibs/creator) | works matching only one word':
+        ('bibs', (
+            ('TEST1', {'creator': 'Person, Test A. 1900-'}),
+            ('TEST2', {'creator': 'Person, Test B. 1900-'}),
+         ), 'creator[exact]=Test', ['TEST1', 'TEST2'])
+    }, { 'STRANGE: contains text (bibs/creator) | fails on multiple words':
+        ('bibs', (
+            ('TEST1', {'creator': 'Person, Test A. 1900-'}),
+            ('TEST2', {'creator': 'Person, Test B. 1900-'}),
+         ), 'creator[contains]=Test A. 1900-', None),
+    }, { 'STRANGE: contains text (bibs/creator) | fails with punctuation':
+        ('bibs', (
+            ('TEST1', {'creator': 'Person, Test A. 1900-'}),
+            ('TEST2', {'creator': 'Person, Test B. 1900-'}),
+         ), 'creator[contains]=A.', None),
+    },
+)
+
+
+def compile_params(parameters):
+    """
+    Compile a tuple of test parameters for pytest.parametrize, from one
+    of the above PARAMETERS__* constants.
+    """
+    return tuple(p.values()[0] for p in parameters[1:])
+
+
+def compile_ids(parameters):
+    """
+    Compile a tuple of test IDs for pytest.parametrize, from one of the
+    above PARAMETERS__* constants.
+    """
+    return tuple(p.keys()[0] for p in parameters[1:])
+
 
 @pytest.fixture
 def api_settings(settings):
@@ -117,8 +325,8 @@ def test_list_view_pagination(resource, default_limit, max_limit, limit,
     """
     api_settings.REST_FRAMEWORK['PAGINATE_BY'] = default_limit
     api_settings.REST_FRAMEWORK['MAX_PAGINATE_BY'] = max_limit
-    solrtype = RESOURCE_METADATA[resource]['solrtype']
-    exp_total = len(api_solr_env.records[solrtype])
+    profile = RESOURCE_METADATA[resource]['profile']
+    exp_total = len(api_solr_env.records[profile])
 
     base_url = '{}{}/'.format(API_ROOT, resource)
     limitq = 'limit={}'.format(limit) if limit is not None else ''
@@ -153,122 +361,11 @@ def test_list_view_pagination(resource, default_limit, max_limit, limit,
         assert 'offset={}'.format(exp_prev_offset) in prev_link
 
 
-@pytest.mark.parametrize('resource, test_data, search, expected', [
-    ('bibs', (
-        ('TEST1', {'creator': 'Person, Test A. 1900-'}),
-        ('TEST2', {'creator': 'Person, Test B. 1900-'}),
-     ), 'creator=Person, Test A. 1900-', ['TEST1']),
-    ('bibs', (
-        ('TEST1', {'creator': 'Person, Test A. 1900-'}),
-        ('TEST2', {'creator': 'Person, Test B. 1900-'}),
-     ), 'creator[exact]=Person, Test B. 1900-', ['TEST2']),
-    ('bibs', (
-        ('TEST1', {'creator': 'Person, Test A. 1900-'}),
-        ('TEST2', {'creator': 'Person, Test A. 1900-'}),
-        ('TEST3', {'creator': 'Person, Test B. 1900-'}),
-     ), 'creator[exact]=Person, Test A. 1900-', ['TEST1', 'TEST2']),
-    ('bibs', (
-        ('TEST1', {'creator': 'Person, Test A. 1900-'}),
-        ('TEST2', {'creator': 'Person, Test B. 1900-'}),
-     ), 'creator[exact]=Person, Test C. 1900-', None),
-    ('bibs', (
-        ('TEST1', {'creator': 'Person, Test A. 1900-'}),
-        ('TEST2', {'creator': 'Person, Test B. 1900-'}),
-     ), 'creator[-exact]=Person, Test B. 1900-', ['TEST1']),
-    ('items', (
-        ('TEST1', {'call_number': 'TEST CALLNUMBER 1'}),
-        ('TEST2', {'call_number': 'TEST CALLNUMBER 2'}),
-     ), 'callNumber[exact]=TEST CALLNUMBER 2', ['TEST2']),
-    ('items', (
-        ('TEST1', {'call_number': 'TEST CALLNUMBER 1'}),
-        ('TEST2', {'call_number': 'TEST CALLNUMBER 2'}),
-        ('TEST3', {'call_number': 'TEST CALLNUMBER 2'}),
-        ('TEST4', {'call_number': 'TEST CALLNUMBER 1'}),
-        ('TEST5', {'call_number': 'TEST CALLNUMBER 2'}),
-     ), 'callNumber[exact]=TEST CALLNUMBER 2', ['TEST2', 'TEST3', 'TEST5']),
-    ('items', (
-        ('TEST1', {'call_number': 'TEST CALLNUMBER 1'}),
-        ('TEST2', {'call_number': 'TEST CALLNUMBER 2'}),
-     ), 'callNumber[exact]=TEST CALLNUMBER 3', None),
-    ('items', (
-        ('TEST1', {'call_number': 'TEST CALLNUMBER 1'}),
-        ('TEST2', {'call_number': 'TEST CALLNUMBER 2'}),
-     ), 'callNumber[-exact]=TEST CALLNUMBER 1', ['TEST2']),
-    ('items', (
-        ('TEST1', {'copy_number': '54'}),
-        ('TEST2', {'copy_number': '12'}),
-     ), 'copyNumber[exact]=54', ['TEST1']),
-    ('items', (
-        ('TEST1', {'copy_number': '54'}),
-        ('TEST2', {'copy_number': '12'}),
-        ('TEST3', {'copy_number': '54'}),
-        ('TEST4', {'copy_number': '12'}),
-     ), 'copyNumber[exact]=54', ['TEST1', 'TEST3']),
-    ('items', (
-        ('TEST1', {'copy_number': '54'}),
-        ('TEST2', {'copy_number': '12'}),
-     ), 'copyNumber[exact]=543', None),
-    ('items', (
-        ('TEST1', {'copy_number': '54'}),
-        ('TEST2', {'copy_number': '12'}),
-     ), 'copyNumber[-exact]=54', ['TEST2']),
-    ('items', (
-        ('TEST1', {'due_date': datetime(2018, 11, 30, 5, 0, 0, tzinfo=utc)}),
-        ('TEST2', {'due_date': datetime(2018, 12, 13, 9, 0, 0, tzinfo=utc)}),
-     ), 'dueDate[exact]=2018-11-30T05:00:00Z', ['TEST1']),
-    ('items', (
-        ('TEST1', {'due_date': datetime(2018, 11, 30, 5, 0, 0, tzinfo=utc)}),
-        ('TEST2', {'due_date': datetime(2018, 11, 30, 5, 0, 0, tzinfo=utc)}),
-        ('TEST3', {'due_date': datetime(2018, 12, 13, 9, 0, 0, tzinfo=utc)}),
-     ), 'dueDate[exact]=2018-11-30T05:00:00Z', ['TEST1', 'TEST2']),
-    ('items', (
-        ('TEST1', {'due_date': datetime(2018, 11, 30, 5, 0, 0, tzinfo=utc)}),
-        ('TEST2', {'due_date': datetime(2018, 12, 13, 9, 0, 0, tzinfo=utc)}),
-     ), 'dueDate[exact]=1990-01-01T08:00:00Z', None),
-    ('items', (
-        ('TEST1', {'due_date': datetime(2018, 11, 30, 5, 0, 0, tzinfo=utc)}),
-        ('TEST2', {'due_date': datetime(2018, 12, 13, 9, 0, 0, tzinfo=utc)}),
-     ), 'dueDate[-exact]=2018-11-30T05:00:00Z', ['TEST2']),
-    ('items', (
-        ('TEST1', {'suppressed': True}),
-        ('TEST2', {'suppressed': False}),
-     ), 'suppressed[exact]=true', ['TEST1']),
-    ('items', (
-        ('TEST1', {'suppressed': True}),
-        ('TEST2', {'suppressed': False}),
-        ('TEST3', {'suppressed': False}),
-     ), 'suppressed[exact]=false', ['TEST2', 'TEST3']),
-    ('items', (
-        ('TEST1', {'suppressed': False}),
-        ('TEST2', {'suppressed': False}),
-     ), 'suppressed[exact]=true', None),
-    ('items', (
-        ('TEST1', {'suppressed': True}),
-        ('TEST2', {'suppressed': False}),
-     ), 'suppressed[-exact]=true', ['TEST2']),
-], ids=[
-    'exact text (bibs/creator) | no operator specified',
-    'exact text (bibs/creator) | one match',
-    'exact text (bibs/creator) | multiple matches',
-    'exact text (bibs/creator) | no matches',
-    'exact text (bibs/creator) | negated, one match',
-    'exact string (items/call_number) | one match',
-    'exact string (items/call_number) | multiple matches',
-    'exact string (items/call_number) | no matches',
-    'exact string (items/call_number) | negated, one match',
-    'exact int (items/copy_number) | one match',
-    'exact int (items/copy_number) | multiple matches',
-    'exact int (items/copy_number) | no matches',
-    'exact int (items/copy_number) | negated, one match',
-    'exact date (items/due_date) | one match',
-    'exact date (items/due_date) | multiple matches',
-    'exact date (items/due_date) | no matches',
-    'exact date (items/due_date) | negated, one match',
-    'exact bool (bibs/suppressed) | one match',
-    'exact bool (bibs/suppressed) | multiple matches',
-    'exact bool (bibs/suppressed) | no matches',
-    'exact bool (bibs/suppressed) | negated, one match',
-])
+@pytest.mark.parametrize('resource, test_data, search, expected',
+                         compile_params(PARAMETERS__FILTER_TESTS__NORMAL) +
+                         compile_params(PARAMETERS__FILTER_TESTS__STRANGE),
+                         ids=compile_ids(PARAMETERS__FILTER_TESTS__NORMAL) +
+                             compile_ids(PARAMETERS__FILTER_TESTS__STRANGE))
 def test_list_view_filters(resource, test_data, search, expected, api_settings,
                            api_solr_env, api_data_assembler, api_client):
     """
@@ -279,15 +376,11 @@ def test_list_view_filters(resource, test_data, search, expected, api_settings,
     """
     assembler = api_data_assembler
     gens = assembler.gen_factory
-    solrtype = RESOURCE_METADATA[resource]['solrtype']
+    profile = RESOURCE_METADATA[resource]['profile']
     solr_id_field = RESOURCE_METADATA[resource]['id_field']
-    record_pool = api_solr_env.records[solrtype]
-    for rec_id, record in test_data:
-        datagens = {k: gens.static(v) for k, v in record.items()}
-        datagens[solr_id_field] = gens.static(rec_id)
-        record_pool += assembler.make(solrtype, 1, record_pool, **datagens)
-    assembler.save(solrtype)
-
+    env_recs = api_solr_env.records[profile]
+    test_recs = assembler.load_static_test_data(profile, test_data,
+                                                solr_id_field, env_recs)
     test_ids = set([r[0] for r in test_data])
     expected_ids = set(expected) if expected is not None else set()
     not_expected_ids = test_ids - expected_ids
@@ -298,7 +391,7 @@ def test_list_view_filters(resource, test_data, search, expected, api_settings,
     # First let's do a quick sanity check to make sure the resource
     # returns the correct num of records before the filter is applied.
     check_response = api_client.get('{}{}/'.format(API_ROOT, resource))
-    assert check_response.data['totalCount'] == len(record_pool)
+    assert check_response.data['totalCount'] == len(env_recs) + len(test_recs)
 
     # Now the actual filter test.
     response = api_client.get('{}{}/?{}'.format(API_ROOT, resource, search))
