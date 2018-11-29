@@ -260,7 +260,7 @@ PARAMETERS__FILTER_TESTS__INTENDED = (
          ), 'label[-contains]=LABEL 1', ['TEST2']),
     },
 
-    # STARTS WITH (`starswith`) returns records where the beginning of
+    # STARTS WITH (`startswith`) returns records where the beginning of
     # the field value exactly matches the query text. Equivalent to a
     # LIKE "text%" SQL query.
     { 'startswith text (bibs/creator) | one word, no punct.':
@@ -676,6 +676,70 @@ PARAMETERS__FILTER_TESTS__INTENDED = (
             ('TEST2', {'label': 'A 2'}),
             ('TEST20', {'label': 'A 20'}),
          ), 'label[range]=[A 1,A 2]', ['TEST1', 'TEST10', 'TEST2']),
+    },
+
+    # IN (`in`) takes an array of values and tries to find records
+    # where the queried field value exactly matches one of the values
+    # in the array. Equivalent to an SQL IN query. It works with all
+    # field types, although it shares the `exact` operator's issues
+    # with text fields, and querying boolean fields with IN doesn't
+    # make any sense.
+    { 'in text (bibs/creator) | one match':
+        ('bibs', (
+            ('TEST1', {'creator': 'Person, Test A'}),
+            ('TEST2', {'creator': 'Person, Test B'}),
+            ('TEST3', {'creator': 'Person, Test C'}),
+         ), 'creator[in]=["Person, Test A","Person, Test D"]', ['TEST1'])
+    }, { 'in text (bibs/creator) | multiple matches':
+        ('bibs', (
+            ('TEST1', {'creator': 'Person, Test A'}),
+            ('TEST2', {'creator': 'Person, Test B'}),
+            ('TEST3', {'creator': 'Person, Test C'}),
+         ), 'creator[in]=["Person, Test A","Person, Test C"]',
+         ['TEST1', 'TEST3'])
+    }, { 'in string (locations/label) | one match':
+        ('locations', (
+            ('TEST1', {'label': 'TEST LABEL 1'}),
+            ('TEST2', {'label': 'TEST LABEL 2'}),
+         ), 'label[in]=[TEST LABEL 1,TEST LABEL 3]', ['TEST1']),
+    }, { 'in string (locations/label) | multiple matches':
+        ('locations', (
+            ('TEST1', {'label': 'TEST LABEL 1'}),
+            ('TEST2', {'label': 'TEST LABEL 2'}),
+         ), 'label[in]=[TEST LABEL 1,TEST LABEL 2]', ['TEST1', 'TEST2']),
+    }, { 'in string (locations/label) | escape quotation marks and commas':
+        ('locations', (
+            ('TEST1', {'label': 'TEST "LABEL" 1'}),
+            ('TEST2', {'label': 'TEST "LABEL" 2'}),
+            ('TEST3', {'label': 'TEST, 3'}),
+         ), 'label[in]=[TEST \\"LABEL\\" 1,"TEST \\"LABEL\\" 2",TEST\\, 3]',
+         ['TEST1', 'TEST2', 'TEST3']),
+    }, { 'in int (items/copy_number) | one match':
+        ('items', (
+            ('TEST1', {'copy_number': 54}),
+            ('TEST2', {'copy_number': 12}),
+         ), 'copyNumber[in]=[12,34,91]', ['TEST2']),
+    }, { 'in int (items/copy_number) | mutiple matches':
+        ('items', (
+            ('TEST1', {'copy_number': 54}),
+            ('TEST2', {'copy_number': 12}),
+         ), 'copyNumber[in]=[12,34,54]', ['TEST1', 'TEST2']),
+    }, { 'in date (items/due_date) | one match':
+        ('items', (
+            ('TEST1', {'due_date': datetime(2018, 11, 30, 5, 0, 0,
+                                            tzinfo=utc)}),
+            ('TEST2', {'due_date': datetime(2018, 12, 13, 9, 0, 0,
+                                            tzinfo=utc)}),
+         ), 'dueDate[in]=[2018-11-30T05:00:00Z,2019-01-30T05:00:00Z]',
+         ['TEST1']),
+    }, { 'in date (items/due_date) | multiple matches':
+        ('items', (
+            ('TEST1', {'due_date': datetime(2018, 11, 30, 5, 0, 0,
+                                            tzinfo=utc)}),
+            ('TEST2', {'due_date': datetime(2018, 12, 13, 9, 0, 0,
+                                            tzinfo=utc)}),
+         ), 'dueDate[in]=[2018-11-30T05:00:00Z,2018-12-13T09:00:00Z]',
+         ['TEST1', 'TEST2']),
     },
 )
 

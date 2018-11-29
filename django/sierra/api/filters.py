@@ -74,6 +74,32 @@ class HaystackFilter(BaseFilterBackend):
         }
     }
 
+    def _parse_array_vals(self, val_string):
+        """
+        Helper function that parses a string of array values into a
+        Python list. Arrays are comma-delimited lists of values, where
+        double-quotes MAY be used to wrap a value that includes a
+        comma, and a backslash character preceding either a double-
+        quote or a comma escapes it. Thus: ["a,b",c,d] and [a\,b,c,d]
+        both become ['a,b', 'c', 'd'].
+        """
+        vals, this_val, in_quotes, escape = [], '', False, False
+        for ch in val_string:
+            if ch == '\\':
+                escape = True
+            else:
+                if ch == ',' and not escape and not in_quotes:
+                    vals.append(this_val)
+                    this_val = ''
+                elif ch == '"' and not escape:
+                    in_quotes = not in_quotes
+                else:
+                    this_val += ch
+                escape = False
+        if this_val:
+            vals.append(this_val)
+        return vals
+
     def _validate_parameter(self, orig_p_name, p_name, operator, p_val, view):
         """
         Runs validation and normalization routines and returns the
@@ -116,7 +142,7 @@ class HaystackFilter(BaseFilterBackend):
                                             'with the \'in\' and \'range\' '
                                             'operators.')
             else:
-                p_val = list_m.group(1).split(',')
+                p_val = self._parse_array_vals(list_m.group(1))
         elif operator in ('in', 'range'):
             raise FilterValidationError('The \'in\' and \'range\' operators '
                                         'require an array of values. Use a '
