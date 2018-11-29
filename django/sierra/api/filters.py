@@ -325,16 +325,17 @@ class HaystackFilter(BaseFilterBackend):
             q_settings = None
             if request_params.get('searchtype', None):
                 q_settings = self.searchtypes[request_params['searchtype']]
-            try:
-                queryset = queryset.search(request_params['search'],
-                                           params=q_settings)
-                view.paginate_queryset(queryset, request)
-            except SolrError as e:
-                msg = ('Query filter "search" parameter is invalid. The '
-                       'following errors were raised. {}'.format(e))
-                raise exceptions.BadQuery(detail=msg)
+
+            queryset = queryset.search(request_params['search'],
+                                       params=q_settings)
         if request_params['order_by']:
             queryset = queryset.order_by(*request_params['order_by'])
+
+        try:
+            view.paginate_queryset(queryset, request)
+        except SolrError as e:
+            msg = ('Query raised Solr error. {}'.format(e))
+            raise exceptions.BadQuery(detail=msg)
         return queryset
 
 

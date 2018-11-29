@@ -97,7 +97,6 @@ class Queryset(object):
         kwargs = kwargs or {}
         kwargs.update(self._search_params)
         response = self._conn.search(*args, **kwargs)
-        # print self._search_params
         self._full_response = response
         self._hits = response.hits
         return response
@@ -147,19 +146,19 @@ class Queryset(object):
 
     def _add_gt_parameter(self, field, val):
         val = self._conn._from_python(val)
-        return u'{}:{{{} TO *}}'.format(field, val)
+        return u'{}:{{"{}" TO *}}'.format(field, val)
 
     def _add_gte_parameter(self, field, val):
         val = self._conn._from_python(val)
-        return u'{}:[{} TO *]'.format(field, val)
+        return u'{}:["{}" TO *]'.format(field, val)
 
     def _add_lt_parameter(self, field, val):
         val = self._conn._from_python(val)
-        return u'{}:{{* TO {}}}'.format(field, val)
+        return u'{}:{{* TO "{}"}}'.format(field, val)
 
     def _add_lte_parameter(self, field, val):
         val = self._conn._from_python(val)
-        return u'{}:[* TO {}]'.format(field, val)
+        return u'{}:[* TO "{}"]'.format(field, val)
 
     def _add_in_parameter(self, field, val):
         return u'{}:({})'.format(field, u' OR '.join(['"{}"'.format(
