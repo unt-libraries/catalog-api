@@ -853,6 +853,49 @@ PARAMETERS__FILTER_TESTS__INTENDED = (
             ('TEST3', {'creator': None}),
          ), 'creator[-isnull]=true', ['TEST1', 'TEST2'])
     },
+
+    # MULTIPLE ARGUMENTS: Queries that use multiple arguments should
+    # effectively "AND" them together, returning a set of records where
+    # all queried fields match all query parameters.
+    { 'multi-arg | multiple criteria against the same field':
+        ('bibs', (
+            ('TEST1', {'creator': 'Person, Test 1900-1950'}),
+            ('TEST2', {'creator': 'Person, Test 1940-2010'}),
+            ('TEST3', {'creator': 'Person, Test 1970-'}),
+         ), 'creator[contains]=Person&creator[contains]=1970', ['TEST3'])
+    }, { 'multi-arg | multiple criteria against a multi-valued field':
+        ('bibs', (
+            ('TEST1', {'sudoc_numbers': ['A 1', 'A 2', 'A 3']}),
+            ('TEST2', {'sudoc_numbers': ['B 1', 'B 2']}),
+            ('TEST3', {'sudoc_numbers': ['A 4', 'B 3']}),
+         ), 'sudocNumbers[startswith]=A&sudocNumbers[startswith]=B', ['TEST3'])
+    }, { 'multi-arg | multiple criteria against different fields':
+        ('bibs', (
+            ('TEST1', {'creator': 'Person, Test', 'suppressed': True}),
+            ('TEST2', {'creator': 'Person, Test', 'suppressed': False}),
+            ('TEST3', {'creator': 'Person, Test', 'suppressed': False}),
+         ), 'creator=Person, Test&suppressed=false', ['TEST2', 'TEST3'])
+    }, { 'multi-arg | kw query with multiple criteria':
+        ('bibs', (
+            ('TEST1', {'creator': 'Person, Test', 'suppressed': True}),
+            ('TEST2', {'creator': 'Person, Joe', 'suppressed': False}),
+            ('TEST3', {'creator': 'Person, Test', 'suppressed': False}),
+         ), 'creator[keywords]=person OR test&suppressed=false',
+         ['TEST2', 'TEST3'])
+    }, { 'multi-arg | multiple criteria with negation':
+        ('bibs', (
+            ('TEST1', {'creator': 'Person, Test 1900-1950'}),
+            ('TEST2', {'creator': 'Person, Test 1940-2010'}),
+            ('TEST3', {'creator': 'Person, Test 1970-'}),
+         ), 'creator[contains]=Person&creator[-contains]=1970',
+         ['TEST1', 'TEST2'])
+    }, { 'multi-arg | kw query with multiple criteria and negation':
+        ('bibs', (
+            ('TEST1', {'creator': 'Smith, Test', 'suppressed': True}),
+            ('TEST2', {'creator': 'Smith, Joe', 'suppressed': False}),
+            ('TEST3', {'creator': 'Person, Sally', 'suppressed': False}),
+         ), 'creator[-keywords]=person OR test&suppressed=false', ['TEST2'])
+    }, 
 )
 
 # PARAMETERS__FILTER_TESTS__STRANGE: Parameters for testing API filter
@@ -1035,6 +1078,221 @@ PARAMETERS__FILTER_TESTS__STRANGE = (
 )
 
 
+# PARAMETERS__ORDERBY_TESTS__INTENDED: Parameters for testing API
+# filters that use an orderBy parameter (to define what order to return
+# results in). These are similar to the
+# PARAMETERS__FILTER_TESTS__INTENDED parameters, but they include an
+# orderBy parameter in the search string.
+PARAMETERS__ORDERBY_TESTS__INTENDED = (
+    'resource, test_data, search, expected',
+    { 'order by int (items/copy_number) | ascending':
+        ('items', (
+            ('TEST11', {'volume': 'TEST', 'copy_number': 11}),
+            ('TEST2', {'volume': 'TEST', 'copy_number': 2}),
+            ('TEST1', {'volume': 'TEST', 'copy_number': 1}),
+            ('TEST200', {'volume': 'TEST', 'copy_number': 200}),
+            ('TEST10', {'volume': 'TEST', 'copy_number': 10}),
+            ('TEST3', {'volume': 'TEST', 'copy_number': 3}),
+         ), 'volume=TEST&orderBy=copyNumber',
+         ['TEST1', 'TEST2', 'TEST3', 'TEST10', 'TEST11', 'TEST200']),
+    }, { 'order by int (items/copy_number) | descending':
+        ('items', (
+            ('TEST11', {'volume': 'TEST', 'copy_number': 11}),
+            ('TEST2', {'volume': 'TEST', 'copy_number': 2}),
+            ('TEST1', {'volume': 'TEST', 'copy_number': 1}),
+            ('TEST200', {'volume': 'TEST', 'copy_number': 200}),
+            ('TEST10', {'volume': 'TEST', 'copy_number': 10}),
+            ('TEST3', {'volume': 'TEST', 'copy_number': 3}),
+         ), 'volume=TEST&orderBy=-copyNumber',
+         ['TEST200', 'TEST11', 'TEST10', 'TEST3', 'TEST2', 'TEST1']),
+    }, { 'order by string (items/barcode) | ascending':
+        ('items', (
+            ('TEST11', {'volume': 'TEST', 'barcode': 'A11'}),
+            ('TEST2', {'volume': 'TEST', 'barcode': 'A2'}),
+            ('TEST1', {'volume': 'TEST', 'barcode': 'A1'}),
+            ('TEST200', {'volume': 'TEST', 'barcode': 'A200'}),
+            ('TEST10', {'volume': 'TEST', 'barcode': 'A10'}),
+            ('TEST3', {'volume': 'TEST', 'barcode': 'A3'}),
+         ), 'volume=TEST&orderBy=barcode',
+         ['TEST1', 'TEST10', 'TEST11', 'TEST2', 'TEST200', 'TEST3']),
+    }, { 'order by string (items/barcode) | descending':
+        ('items', (
+            ('TEST11', {'volume': 'TEST', 'barcode': 'A11'}),
+            ('TEST2', {'volume': 'TEST', 'barcode': 'A2'}),
+            ('TEST1', {'volume': 'TEST', 'barcode': 'A1'}),
+            ('TEST200', {'volume': 'TEST', 'barcode': 'A200'}),
+            ('TEST10', {'volume': 'TEST', 'barcode': 'A10'}),
+            ('TEST3', {'volume': 'TEST', 'barcode': 'A3'}),
+         ), 'volume=TEST&orderBy=-barcode',
+         ['TEST3', 'TEST200', 'TEST2', 'TEST11', 'TEST10', 'TEST1']),
+    }, { 'order by date (items/checkout_date) | ascending':
+        ('items', (
+            ('TEST4', {'volume': 'TEST',
+                       'checkout_date': datetime(2018, 10, 11, 2, 0, 0,
+                                                  tzinfo=utc)}),
+            ('TEST1', {'volume': 'TEST',
+                       'checkout_date': datetime(2018, 2, 20, 0, 0, 0,
+                                                  tzinfo=utc)}),
+            ('TEST6', {'volume': 'TEST',
+                       'checkout_date': datetime(2019, 1, 1, 12, 0, 0,
+                                                  tzinfo=utc)}),
+            ('TEST3', {'volume': 'TEST',
+                       'checkout_date': datetime(2018, 10, 2, 2, 0, 0,
+                                                  tzinfo=utc)}),
+            ('TEST5', {'volume': 'TEST', 
+                       'checkout_date': datetime(2018, 10, 11, 11, 0, 0,
+                                                  tzinfo=utc)}),
+            ('TEST2', {'volume': 'TEST',
+                       'checkout_date': datetime(2018, 2, 20, 0, 0, 1,
+                                                  tzinfo=utc)}),
+         ), 'volume=TEST&orderBy=checkoutDate',
+         ['TEST1', 'TEST2', 'TEST3', 'TEST4', 'TEST5', 'TEST6']),
+    }, { 'order by date (items/checkout_date) | descending':
+        ('items', (
+            ('TEST4', {'volume': 'TEST',
+                       'checkout_date': datetime(2018, 10, 11, 2, 0, 0,
+                                                  tzinfo=utc)}),
+            ('TEST1', {'volume': 'TEST',
+                       'checkout_date': datetime(2018, 2, 20, 0, 0, 0,
+                                                  tzinfo=utc)}),
+            ('TEST6', {'volume': 'TEST',
+                       'checkout_date': datetime(2019, 1, 1, 12, 0, 0,
+                                                  tzinfo=utc)}),
+            ('TEST3', {'volume': 'TEST',
+                       'checkout_date': datetime(2018, 10, 2, 2, 0, 0,
+                                                  tzinfo=utc)}),
+            ('TEST5', {'volume': 'TEST', 
+                       'checkout_date': datetime(2018, 10, 11, 11, 0, 0,
+                                                  tzinfo=utc)}),
+            ('TEST2', {'volume': 'TEST',
+                       'checkout_date': datetime(2018, 2, 20, 0, 0, 1,
+                                                  tzinfo=utc)}),
+         ), 'volume=TEST&orderBy=-checkoutDate',
+         ['TEST6', 'TEST5', 'TEST4', 'TEST3', 'TEST2', 'TEST1']),
+    }, { 'order by multiple | string asc, int asc':
+        ('items', (
+            ('TEST5', {'volume': 'TEST', 'copy_number': 1, 'barcode': 'B'}),
+            ('TEST6', {'volume': 'TEST', 'copy_number': 2, 'barcode': 'B'}),
+            ('TEST2', {'volume': 'TEST', 'copy_number': 2, 'barcode': 'A'}),
+            ('TEST1', {'volume': 'TEST', 'copy_number': 1, 'barcode': 'A'}),            
+            ('TEST3', {'volume': 'TEST', 'copy_number': 10, 'barcode': 'A'}),
+            ('TEST4', {'volume': 'TEST', 'copy_number': 1, 'barcode': 'AA'}),
+         ), 'volume=TEST&orderBy=barcode,copyNumber',
+         ['TEST1', 'TEST2', 'TEST3', 'TEST4', 'TEST5', 'TEST6']),
+    }, { 'order by multiple | string desc, int desc':
+        ('items', (
+            ('TEST5', {'volume': 'TEST', 'copy_number': 1, 'barcode': 'B'}),
+            ('TEST6', {'volume': 'TEST', 'copy_number': 2, 'barcode': 'B'}),
+            ('TEST2', {'volume': 'TEST', 'copy_number': 2, 'barcode': 'A'}),
+            ('TEST1', {'volume': 'TEST', 'copy_number': 1, 'barcode': 'A'}),            
+            ('TEST3', {'volume': 'TEST', 'copy_number': 10, 'barcode': 'A'}),
+            ('TEST4', {'volume': 'TEST', 'copy_number': 1, 'barcode': 'AA'}),
+         ), 'volume=TEST&orderBy=-barcode,-copyNumber',
+         ['TEST6', 'TEST5', 'TEST4', 'TEST3', 'TEST2', 'TEST1']),
+    }, { 'order by multiple | int asc, string asc':
+        ('items', (
+            ('TEST3', {'volume': 'TEST', 'copy_number': 1, 'barcode': 'B'}),
+            ('TEST5', {'volume': 'TEST', 'copy_number': 2, 'barcode': 'B'}),
+            ('TEST4', {'volume': 'TEST', 'copy_number': 2, 'barcode': 'A'}),
+            ('TEST1', {'volume': 'TEST', 'copy_number': 1, 'barcode': 'A'}),            
+            ('TEST6', {'volume': 'TEST', 'copy_number': 10, 'barcode': 'A'}),
+            ('TEST2', {'volume': 'TEST', 'copy_number': 1, 'barcode': 'AA'}),
+         ), 'volume=TEST&orderBy=copyNumber,barcode',
+         ['TEST1', 'TEST2', 'TEST3', 'TEST4', 'TEST5', 'TEST6']),
+    }, { 'order by multiple | int desc, string desc':
+        ('items', (
+            ('TEST3', {'volume': 'TEST', 'copy_number': 1, 'barcode': 'B'}),
+            ('TEST5', {'volume': 'TEST', 'copy_number': 2, 'barcode': 'B'}),
+            ('TEST4', {'volume': 'TEST', 'copy_number': 2, 'barcode': 'A'}),
+            ('TEST1', {'volume': 'TEST', 'copy_number': 1, 'barcode': 'A'}),            
+            ('TEST6', {'volume': 'TEST', 'copy_number': 10, 'barcode': 'A'}),
+            ('TEST2', {'volume': 'TEST', 'copy_number': 1, 'barcode': 'AA'}),
+         ), 'volume=TEST&orderBy=-copyNumber,-barcode',
+         ['TEST6', 'TEST5', 'TEST4', 'TEST3', 'TEST2', 'TEST1']),
+    }, { 'order by multiple | int asc, string desc':
+        ('items', (
+            ('TEST1', {'volume': 'TEST', 'copy_number': 1, 'barcode': 'B'}),
+            ('TEST4', {'volume': 'TEST', 'copy_number': 2, 'barcode': 'B'}),
+            ('TEST5', {'volume': 'TEST', 'copy_number': 2, 'barcode': 'A'}),
+            ('TEST3', {'volume': 'TEST', 'copy_number': 1, 'barcode': 'A'}),            
+            ('TEST6', {'volume': 'TEST', 'copy_number': 10, 'barcode': 'A'}),
+            ('TEST2', {'volume': 'TEST', 'copy_number': 1, 'barcode': 'AA'}),
+         ), 'volume=TEST&orderBy=copyNumber,-barcode',
+         ['TEST1', 'TEST2', 'TEST3', 'TEST4', 'TEST5', 'TEST6']),
+    }, { 'order by multiple | int desc, string asc':
+        ('items', (
+            ('TEST1', {'volume': 'TEST', 'copy_number': 1, 'barcode': 'B'}),
+            ('TEST4', {'volume': 'TEST', 'copy_number': 2, 'barcode': 'B'}),
+            ('TEST5', {'volume': 'TEST', 'copy_number': 2, 'barcode': 'A'}),
+            ('TEST3', {'volume': 'TEST', 'copy_number': 1, 'barcode': 'A'}),            
+            ('TEST6', {'volume': 'TEST', 'copy_number': 10, 'barcode': 'A'}),
+            ('TEST2', {'volume': 'TEST', 'copy_number': 1, 'barcode': 'AA'}),
+         ), 'volume=TEST&orderBy=-copyNumber,barcode',
+         ['TEST6', 'TEST5', 'TEST4', 'TEST3', 'TEST2', 'TEST1']),
+    },
+)
+
+
+# PARAMETERS__ORDERBY_TESTS__STRANGE: Parameters for testing API
+# filters that use an orderBy parameter and don't quite behave as you
+# might expect. These are similar to the
+# PARAMETERS__FILTER_TESTS__STRANGE parameters, but they include an
+# orderBy parameter in the search string.
+PARAMETERS__ORDERBY_TESTS__STRANGE = (
+    'resource, test_data, search, expected',
+    # Order by TEXT fields: Currently we don't actually allow ordering
+    # by any text fields (hasn't been needed). If we ever enable that,
+    # we should add `strange` tests here to capture the odd ordering
+    # behavior, and then work to fix it, if it's still broken at that
+    # point.
+
+    # Order by CALL NUMBERS: Sorting items by call number is core
+    # functionality. So why am I putting it in STRANGE? Most fields
+    # actually sort on the field in the `orderBy` parameter. But for
+    # call numbers, if a request contains 'orderBy=callNumber', it
+    # uses the `call_number_sort` field instead, automatically. Which
+    # ... maybe that would be okay if `callNumberSort` weren't a field
+    # that the API exposes (which it is)! To make things even stranger,
+    # 'orderBy=callNumberSort' doesn't work, because it's not a field
+    # that's enabled for orderBy. So--it's a case where the API tries
+    # to be smarter than the API consumer, but the behavior isn't
+    # consistent with how other fields behave, so it may be confusing.
+    { 'order by call number (items/call_number) | ascending':
+        ('items', (
+            ('TEST3', {'volume': 'TEST', 'call_number_type': 'lc',
+                       'call_number': 'MT 100 .G322 2001'}),
+            ('TEST6', {'volume': 'TEST', 'call_number_type': 'lc',
+                       'call_number': 'MT 120 .G322 2001'}),
+            ('TEST1', {'volume': 'TEST', 'call_number_type': 'lc',
+                       'call_number': 'MS 100 .C35 1995'}),
+            ('TEST5', {'volume': 'TEST', 'call_number_type': 'lc',
+                       'call_number': 'MT 100.1 .A2 1999'}),
+            ('TEST2', {'volume': 'TEST', 'call_number_type': 'lc',
+                       'call_number': 'MT 20 .B5 2016'}),
+            ('TEST4', {'volume': 'TEST', 'call_number_type': 'lc',
+                       'call_number': 'MT 100.1 .A12 1999'}),
+         ), 'volume=TEST&orderBy=callNumber',
+         ['TEST1', 'TEST2', 'TEST3', 'TEST4', 'TEST5', 'TEST6']),
+    }, { 'order by call number (items/call_number) | descending':
+        ('items', (
+            ('TEST3', {'volume': 'TEST', 'call_number_type': 'lc',
+                       'call_number': 'MT 100 .G322 2001'}),
+            ('TEST6', {'volume': 'TEST', 'call_number_type': 'lc',
+                       'call_number': 'MT 120 .G322 2001'}),
+            ('TEST1', {'volume': 'TEST', 'call_number_type': 'lc',
+                       'call_number': 'MS 100 .C35 1995'}),
+            ('TEST5', {'volume': 'TEST', 'call_number_type': 'lc',
+                       'call_number': 'MT 100.1 .A2 1999'}),
+            ('TEST2', {'volume': 'TEST', 'call_number_type': 'lc',
+                       'call_number': 'MT 20 .B5 2016'}),
+            ('TEST4', {'volume': 'TEST', 'call_number_type': 'lc',
+                       'call_number': 'MT 100.1 .A12 1999'}),
+         ), 'volume=TEST&orderBy=-callNumber',
+         ['TEST6', 'TEST5', 'TEST4', 'TEST3', 'TEST2', 'TEST1']),
+    }, 
+)
+
+
 def compile_params(parameters):
     """
     Compile a tuple of test parameters for pytest.parametrize, from one
@@ -1049,6 +1307,52 @@ def compile_ids(parameters):
     above PARAMETERS__* constants.
     """
     return tuple(p.keys()[0] for p in parameters[1:])
+
+
+def assemble_test_records(resource, test_data, solr_env, assembler):
+    """
+    Test helper function that assembles & loads a set of test records
+    given a `profile` string, a set of static `test_data` records, the
+    name of the `id_field` for each record (for test_data purposes), a
+    module-level `solr_env` assembler fixture, and a function-level
+    `assembler` fixture. Returns a tuple of default solr_env records
+    (the ones loaded by the module-level fixture) and the new test
+    records that were loaded from the provided test data.
+    len(env_recs) + len(test_recs) should == the total number of Solr
+    records for that profile.
+    """
+    profile = RESOURCE_METADATA[resource]['profile']
+    id_field = RESOURCE_METADATA[resource]['id_field']
+    gens = assembler.gen_factory
+    env_recs = solr_env.records[profile]
+    test_recs = assembler.load_static_test_data(profile, test_data, id_field,
+                                                env_recs)
+    return (env_recs, test_recs)
+
+
+def do_filter_search(resource, search, api_settings, api_client):
+    """
+    Test helper function that performs the given `search` (e.g. search
+    query string) on the given API `resource` via the given
+    `api_client` fixture. Returns the list of values, in order,
+    corresponding to whatever field we're using to identify records
+    (e.g. "*id_field").
+    """
+    solr_id_field = RESOURCE_METADATA[resource]['id_field']
+    api_settings.REST_FRAMEWORK['MAX_PAGINATE_BY'] = 500
+    api_settings.REST_FRAMEWORK['PAGINATE_BY'] = 500
+    qs = '&'.join(['='.join([urllib.quote_plus(v) for v in pair.split('=')])
+                  for pair in search.split('&')])
+    response = api_client.get('{}{}/?{}'.format(API_ROOT, resource, qs))
+    serializer = response.renderer_context['view'].get_serializer()
+    api_id_field = serializer.render_field_name(solr_id_field)
+    total_found = response.data['totalCount']
+    data = response.data.get('_embedded', {resource: []})[resource]
+    # reality check: FAIL if there's any data returned on a different
+    # page of results. If we don't return ALL available data, further
+    # assertions will be invalid.
+    assert len(data) == total_found
+    return [r[api_id_field] for r in data]
 
 
 @pytest.fixture
@@ -1190,36 +1494,41 @@ def test_list_view_filters(resource, test_data, search, expected, api_settings,
     should return each of the records in `expected` and NONE of the
     records NOT in `expected`.
     """
-    assembler = api_data_assembler
-    gens = assembler.gen_factory
-    profile = RESOURCE_METADATA[resource]['profile']
-    solr_id_field = RESOURCE_METADATA[resource]['id_field']
-    env_recs = api_solr_env.records[profile]
-    test_recs = assembler.load_static_test_data(profile, test_data,
-                                                solr_id_field, env_recs)
     test_ids = set([r[0] for r in test_data])
     expected_ids = set(expected) if expected is not None else set()
     not_expected_ids = test_ids - expected_ids
-
-    api_settings.REST_FRAMEWORK['MAX_PAGINATE_BY'] = 500
-    api_settings.REST_FRAMEWORK['PAGINATE_BY'] = 500
+    erecs, trecs = assemble_test_records(resource, test_data, api_solr_env,
+                                         api_data_assembler)
 
     # First let's do a quick sanity check to make sure the resource
     # returns the correct num of records before the filter is applied.
     check_response = api_client.get('{}{}/'.format(API_ROOT, resource))
-    assert check_response.data['totalCount'] == len(env_recs) + len(test_recs)
+    assert check_response.data['totalCount'] == len(erecs) + len(trecs)
 
-    # Now the actual filter test.
-    qs = '&'.join(['='.join([urllib.quote_plus(v) for v in pair.split('=')])
-                  for pair in search.split('&')])
-    response = api_client.get('{}{}/?{}'.format(API_ROOT, resource, qs))
-    serializer = response.renderer_context['view'].get_serializer()
-    api_id_field = serializer.render_field_name(solr_id_field)
-    total_found = response.data['totalCount']
-    data = response.data.get('_embedded', {resource: []})[resource]
-    found_ids = set([r[api_id_field] for r in data])
-
-    # FAIL if we've returned any data not on this page of results.
-    assert len(data) == total_found    
+    found_ids = set(do_filter_search(resource, search, api_settings,
+                                     api_client))
     assert all([i in found_ids for i in expected_ids])
     assert all([i not in found_ids for i in not_expected_ids])
+
+
+@pytest.mark.parametrize('resource, test_data, search, expected',
+                         compile_params(PARAMETERS__ORDERBY_TESTS__INTENDED) +
+                         compile_params(PARAMETERS__ORDERBY_TESTS__STRANGE),
+                         ids=compile_ids(PARAMETERS__ORDERBY_TESTS__INTENDED) +
+                             compile_ids(PARAMETERS__ORDERBY_TESTS__STRANGE))
+def test_list_view_orderby(resource, test_data, search, expected, api_settings,
+                           api_solr_env, api_data_assembler, api_client):
+    """
+    Given the provided `test_data` records: requesting the given
+    `resource` using the provided search filter parameters (`search`)
+    (which include an `orderBy` parameter), should return records in
+    the `expected` order.
+    """
+    profile = RESOURCE_METADATA[resource]['profile']
+    solr_id_field = RESOURCE_METADATA[resource]['id_field']
+    erecs, trecs = assemble_test_records(resource, test_data, api_solr_env,
+                                         api_data_assembler)
+    print [r.get('call_number_sort', None) for r in trecs]
+    found_ids = do_filter_search(resource, search, api_settings, api_client)
+    assert found_ids == expected
+
