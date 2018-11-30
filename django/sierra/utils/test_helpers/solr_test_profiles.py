@@ -635,9 +635,12 @@ def full_title(record):
 
 def sortable_text_field(fieldname):
     def gens(record):
-        val = record[fieldname]
+        try:
+            val = record[fieldname]
+        except KeyError:
+            return None
         no_punct = re.sub(r'[`~!@#$%^&*()-=_+{}\[\]|\\;\',./:"<>?]', '', val)
-        return re.sub(r'\s+', ' ', val)
+        return re.sub(r'\s+', ' ', no_punct)
     return gens
 
 
@@ -662,7 +665,7 @@ def random_agent(person_weight=8, corp_weight=1, meeting_weight=1):
 
 
 def statement_of_resp(record):
-    return 'by {}'.format(record['creator'])
+    return 'by {}'.format(record.get('creator', 'Unknown'))
 
 
 def imprints(record):

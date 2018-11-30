@@ -478,6 +478,11 @@ PARAMETERS__FILTER_TESTS__INTENDED = (
             ('TEST3', {'creator': 'Smith, Sonia B.'}),
             ('TEST4', {'creator': 'Baker, Joseph'}),
          ), 'creator[keywords]=*so*', ['TEST2', 'TEST3']),
+    }, { 'keywords text (bibs/creator) | negated':
+        ('bibs', (
+            ('TEST1', {'creator': 'Person, Test Alpha'}),
+            ('TEST2', {'creator': 'Person, Test Beta'}),
+         ), 'creator[-keywords]=Alpha', ['TEST2']),
     },
 
     # NUMERIC OPERATORS: `gt`, `gte`, `lt`, `lte`, and `range`. These
@@ -531,6 +536,42 @@ PARAMETERS__FILTER_TESTS__INTENDED = (
             ('TEST54', {'copy_number': 54}),
             ('TEST55', {'copy_number': 55}),
          ), 'copyNumber[lte]=52', ['TEST50', 'TEST51', 'TEST52']),
+    }, { 'gt int (items/copy_number) | negated':
+        ('items', (
+            ('TEST50', {'copy_number': 50}),
+            ('TEST51', {'copy_number': 51}),
+            ('TEST52', {'copy_number': 52}),
+            ('TEST53', {'copy_number': 53}),
+            ('TEST54', {'copy_number': 54}),
+            ('TEST55', {'copy_number': 55}),
+         ), 'copyNumber[-gt]=52', ['TEST50', 'TEST51', 'TEST52']),
+    }, { 'gte int (items/copy_number) | negated':
+        ('items', (
+            ('TEST50', {'copy_number': 50}),
+            ('TEST51', {'copy_number': 51}),
+            ('TEST52', {'copy_number': 52}),
+            ('TEST53', {'copy_number': 53}),
+            ('TEST54', {'copy_number': 54}),
+            ('TEST55', {'copy_number': 55}),
+         ), 'copyNumber[-gte]=52', ['TEST50', 'TEST51']),
+    }, { 'lt int (items/copy_number) | negated':
+        ('items', (
+            ('TEST50', {'copy_number': 50}),
+            ('TEST51', {'copy_number': 51}),
+            ('TEST52', {'copy_number': 52}),
+            ('TEST53', {'copy_number': 53}),
+            ('TEST54', {'copy_number': 54}),
+            ('TEST55', {'copy_number': 55}),
+         ), 'copyNumber[-lt]=52', ['TEST52', 'TEST53', 'TEST54', 'TEST55']),
+    }, { 'lte int (items/copy_number) | negated':
+        ('items', (
+            ('TEST50', {'copy_number': 50}),
+            ('TEST51', {'copy_number': 51}),
+            ('TEST52', {'copy_number': 52}),
+            ('TEST53', {'copy_number': 53}),
+            ('TEST54', {'copy_number': 54}),
+            ('TEST55', {'copy_number': 55}),
+         ), 'copyNumber[-lte]=52', ['TEST53', 'TEST54', 'TEST55']),
     }, { 'gt date (items/due_date) | field val > query val':
         ('items', (
             ('TEST1', {'due_date': datetime(2018, 11, 30, 10, 0, 0,
@@ -626,9 +667,29 @@ PARAMETERS__FILTER_TESTS__INTENDED = (
          ), 'label[lte]=A 10', ['TEST1', 'TEST10']),
     },
 
-    # RANGE (`range`) takes an array of two values -- [start, end] --
+    # OPERATORS THAT TAKE ARRAYS: The next two operators we're testing
+    # take arrays as arguments: `range` and `in`. Arrays are comma-
+    # separated lists of values that are surrounded in square brackets,
+    # such as: [1,2,3]. There are a few things to note about our array
+    # syntax.
+    # * Quotation marks can be used to surround any values, but they
+    # are optional. If used, any commas appearing between the quotation
+    # marks are interpreted literally, not as value separators. (Like
+    # most CSV syntaxes.) E.g.: ["Smith, James","Jones, Susan"] is an
+    # array containing two values, each of which contains a comma.
+    # * A backslash character can be used to escape commas you want to
+    # use literally (instead of using the quotation mark syntax). E.g.:
+    # [Smith\, James, Jones\, Susan] is equivalent to the above.
+    # * A backslash character escapes a quotation mark you need to use
+    # literally in the query. [A book about \"something\"] (includes
+    # the quotation marks as part of the query).
+    # * Spaces included after commas are interpreted literally. E.g.,
+    # with the array [1, 2, 3], the second value is " 2" and the third
+    # is " 3".
+
+    # RANGE (`range`) takes an array of two values -- [start,end] --
     # and returns results where the value in the queried field is in
-    # the provided range. The range filter is INCLUSIVE: [1, 3] matches
+    # the provided range. The range filter is inclusive: [1,3] matches
     # both 1 and 3 (and the range of values between).
     { 'range int (items/copy_number) | multi-value range':
         ('items', (
@@ -657,6 +718,15 @@ PARAMETERS__FILTER_TESTS__INTENDED = (
             ('TEST54', {'copy_number': 54}),
             ('TEST55', {'copy_number': 55}),
          ), 'copyNumber[range]=[90,100]', None),
+    }, { 'range int (items/copy_number) | negated':
+        ('items', (
+            ('TEST50', {'copy_number': 50}),
+            ('TEST51', {'copy_number': 51}),
+            ('TEST52', {'copy_number': 52}),
+            ('TEST53', {'copy_number': 53}),
+            ('TEST54', {'copy_number': 54}),
+            ('TEST55', {'copy_number': 55}),
+         ), 'copyNumber[-range]=[52,54]', ['TEST50', 'TEST51', 'TEST55']),
     }, { 'range date (items/due_date) | multi-value range':
         ('items', (
             ('TEST1', {'due_date': datetime(2018, 11, 30, 10, 0, 0,
@@ -714,6 +784,11 @@ PARAMETERS__FILTER_TESTS__INTENDED = (
             ('TEST3', {'label': 'TEST, 3'}),
          ), 'label[in]=[TEST \\"LABEL\\" 1,"TEST \\"LABEL\\" 2",TEST\\, 3]',
          ['TEST1', 'TEST2', 'TEST3']),
+    }, { 'in string (locations/label) | negated':
+        ('locations', (
+            ('TEST1', {'label': 'TEST LABEL 1'}),
+            ('TEST2', {'label': 'TEST LABEL 2'}),
+         ), 'label[-in]=[TEST LABEL 1,TEST LABEL 3]', ['TEST2']),
     }, { 'in int (items/copy_number) | one match':
         ('items', (
             ('TEST1', {'copy_number': 54}),
@@ -740,6 +815,43 @@ PARAMETERS__FILTER_TESTS__INTENDED = (
                                             tzinfo=utc)}),
          ), 'dueDate[in]=[2018-11-30T05:00:00Z,2018-12-13T09:00:00Z]',
          ['TEST1', 'TEST2']),
+    },
+
+    # IS NULL (`isnull`) always takes a boolean value as the query
+    # argument. If false, returns records where the queried field
+    # exists; if true, returns records where the queried field does not
+    # exist. Note: behavior doesn't change based on field type, so just
+    # testing one type of field is sufficient.
+    { 'isnull text (bibs/creator) | true: one match':
+        ('bibs', (
+            ('TEST1', {'creator': 'Person, Test A'}),
+            ('TEST2', {'creator': 'Person, Test B'}),
+            ('TEST3', {'creator': None}),
+         ), 'creator[isnull]=true', ['TEST3'])
+    }, { 'isnull text (bibs/creator) | false: multiple matches':
+        ('bibs', (
+            ('TEST1', {'creator': 'Person, Test A'}),
+            ('TEST2', {'creator': 'Person, Test B'}),
+            ('TEST3', {'creator': None}),
+         ), 'creator[isnull]=false', ['TEST1', 'TEST2'])
+    }, { 'isnull text (bibs/creator) | true: no matches':
+        ('bibs', (
+            ('TEST1', {'creator': 'Person, Test A'}),
+            ('TEST2', {'creator': 'Person, Test B'}),
+            ('TEST3', {'creator': 'Person, Test C'}),
+         ), 'creator[isnull]=true', None)
+    }, { 'isnull text (bibs/creator) | false: no matches':
+        ('bibs', (
+            ('TEST1', {'creator': None}),
+            ('TEST2', {'creator': None}),
+            ('TEST3', {'creator': None}),
+         ), 'creator[isnull]=false', None)
+    }, { 'isnull text (bibs/creator) | negated':
+        ('bibs', (
+            ('TEST1', {'creator': 'Person, Test A'}),
+            ('TEST2', {'creator': 'Person, Test B'}),
+            ('TEST3', {'creator': None}),
+         ), 'creator[-isnull]=true', ['TEST1', 'TEST2'])
     },
 )
 

@@ -219,7 +219,7 @@ class Queryset(object):
     def _apply_filters(self, filter_args, exclude=False):
         fq = self._compile_filter_args(filter_args)
         if exclude:
-            fq = ['-({})'.format(' AND '.join(fq))]
+            fq = [q[1:] if (q[0] == '-') else ('-' + q) for q in fq]
         clone = self._clone()
         clone._search_params['fq'].extend(fq)
         return clone
