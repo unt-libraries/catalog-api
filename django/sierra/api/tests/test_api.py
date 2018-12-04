@@ -3,6 +3,7 @@ Contains integration tests for the `api` app.
 """
 
 import urllib
+import random
 from datetime import datetime
 from pytz import utc
 
@@ -26,13 +27,29 @@ API_ROOT = '/api/v1/'
 # RESOURCE_METADATA: Lookup dict for mapping API resources to various
 # test parameters.
 RESOURCE_METADATA = {
-    'bibs': { 'profile': 'bib', 'id_field': 'record_number' },
-    'items': { 'profile': 'item', 'id_field': 'record_number' },
-    'eresources': { 'profile': 'eresource', 'id_field': 'record_number' },
-    'itemstatuses': { 'profile': 'itemstatus', 'id_field': 'code' },
-    'itemtypes': { 'profile': 'itype', 'id_field': 'code' },
-    'locations': { 'profile': 'location', 'id_field': 'code' }
+    'bibs': { 'profile': 'bib', 'id_field': 'record_number',
+              'links': { 'items': 'items' } },
+    'items': { 'profile': 'item', 'id_field': 'record_number',
+               'links': { 'bibs': 'parentBib', 'locations': 'location',
+                          'itemtypes': 'itemtype',
+                          'itemstatuses': 'itemstatus' } },
+    'eresources': { 'profile': 'eresource', 'id_field': 'record_number',
+                    'links': None },
+    'itemstatuses': { 'profile': 'itemstatus', 'id_field': 'code',
+                      'links': { 'items': 'items' } },
+    'itemtypes': { 'profile': 'itype', 'id_field': 'code',
+                   'links': { 'items': 'items' } },
+    'locations': { 'profile': 'location', 'id_field': 'code',
+                   'links': { 'items': 'items' } }
 }
+
+def compile_resource_links():
+    """
+    Return a (resource, links) tuple for RESOURCE_METADATA entries that
+    have a `links` element, for test parametrization.
+    """
+    return [(k, v['links']) for k, v in RESOURCE_METADATA.items()
+            if v.get('links', None)]
 
 
 # PARAMETERS__* constants contain parametrization data for certain
@@ -1696,7 +1713,7 @@ def assemble_test_records(resource, test_data, solr_env, assembler):
     return (env_recs, test_recs)
 
 
-def do_filter_search(resource, search, api_settings, api_client):
+def do_filter_search(resource, search, api_client):
     """
     Test helper function that performs the given `search` (e.g. search
     query string) on the given API `resource` via the given
@@ -1705,8 +1722,6 @@ def do_filter_search(resource, search, api_settings, api_client):
     (e.g. "*id_field").
     """
     solr_id_field = RESOURCE_METADATA[resource]['id_field']
-    api_settings.REST_FRAMEWORK['MAX_PAGINATE_BY'] = 500
-    api_settings.REST_FRAMEWORK['PAGINATE_BY'] = 500
     qs = '&'.join(['='.join([urllib.quote_plus(v) for v in pair.split('=')])
                   for pair in search.split('&')])
     response = api_client.get('{}{}/?{}'.format(API_ROOT, resource, qs))
@@ -1719,6 +1734,50 @@ def do_filter_search(resource, search, api_settings, api_client):
     # assertions will be invalid.
     assert len(data) == total_found
     return [r[api_id_field] for r in data]
+
+
+def pick_reference_object_having_link(objects, link_field):
+    """
+    Test helper function that picks an object (in JSON terms) from the
+    list of `objects` -- e.g., from an API list view -- and randomly
+    chooses one that has the given `link_field` populated.
+    """
+    choices = [o for o in objects if o['_links'].get(link_field, None)]
+    return random.choice(choices)
+
+
+def assert_obj_fields_match_serializer(obj, serializer):
+    """
+    Test helper function that asserts that the given `obj` conforms to
+    the given `serializer` -- all fields on the serializer are
+    represented on the object.
+    """
+    for field_name in serializer.fields:
+        assert serializer.render_field_name(field_name) in obj
+
+
+def get_linked_view_and_objects(client, ref_obj, link_field):
+    """
+    Test helper function: given a `client` object fixture and
+    `ref_obj` (i.e. reference object, from the API) -- grab objects
+    from the given `link_field` and return them. Returns a tuple:
+    (view_obj, linked_objs). For the sake of normalization, the
+    returned linked_objs is ALWAYS a list, even if the link references
+    a single object.
+    """
+    linked_objs = []
+    try:
+        resp = client.get(ref_obj['_links'][link_field]['href'])
+    except TypeError:
+        for link in ref_obj['_links'][link_field]:
+            resp = client.get(link['href'])
+            linked_objs.append(resp.data)
+    else:
+        try:
+            linked_objs = resp.data['_embedded'].values()[0]
+        except KeyError:
+            linked_objs = [resp.data]
+    return resp.renderer_context['view'], linked_objs
 
 
 @pytest.fixture
@@ -1735,10 +1794,53 @@ def api_settings(settings):
     settings.REST_FRAMEWORK['PAGINATE_PARAM'] = 'offset'
     settings.REST_FRAMEWORK['SEARCH_PARAM'] = 'search'
     settings.REST_FRAMEWORK['SEARCHTYPE_PARAM'] = 'searchtype'
+    settings.REST_FRAMEWORK['MAX_PAGINATE_BY'] = 500
+    settings.REST_FRAMEWORK['PAGINATE_BY'] = 500
     return settings
 
 
 # TESTS
+
+@pytest.mark.parametrize('resource', RESOURCE_METADATA.keys())
+def test_standard_resource(resource, api_settings, api_solr_env, api_client):
+    """
+    Standard resources (each with a "list" and "detail" view) should
+    have objects available in an "_embedded" object in the list view,
+    and accessing an object's "_links / self" URL should give you the
+    same data object. Data objects should have fields matching the
+    associated view serializer's `fields` attribute.
+    """
+    list_resp = api_client.get('{}{}/'.format(API_ROOT, resource))
+    objects = list_resp.data['_embedded'][resource]
+    ref_obj = pick_reference_object_having_link(objects, 'self')
+    detail_resp = api_client.get(ref_obj['_links']['self']['href'])
+    detail_obj = detail_resp.data
+    assert ref_obj == detail_obj
+
+    serializer = detail_resp.renderer_context['view'].get_serializer()
+    assert_obj_fields_match_serializer(detail_obj, serializer)
+
+
+@pytest.mark.parametrize('resource, links', compile_resource_links())
+def test_standard_resource_links(resource, links, api_settings, api_solr_env,
+                                 api_client):
+    """
+    Accessing linked resources from standard resources (via _links)
+    should return the expected resource(s).
+    """
+    resp = api_client.get('{}{}/'.format(API_ROOT, resource))
+    objects = resp.data['_embedded'][resource]
+    for linked_resource, field in links.items():
+        ref_obj = pick_reference_object_having_link(objects, field)
+        lview, lobjs = get_linked_view_and_objects(api_client, ref_obj, field)
+        assert lview.resource_name == linked_resource
+        assert_obj_fields_match_serializer(lobjs[0], lview.get_serializer())
+
+        revfield = RESOURCE_METADATA[linked_resource]['links'][resource]
+        _, rev_objs = get_linked_view_and_objects(api_client, lobjs[0],
+                                                  revfield)
+        assert ref_obj in rev_objs
+
 
 @pytest.mark.parametrize('url, err_text', [
     ('items/?dueDate[gt]=2018', 'datetime was formatted incorrectly'),
@@ -1871,8 +1973,7 @@ def test_list_view_filters(resource, test_data, search, expected, api_settings,
     check_response = api_client.get('{}{}/'.format(API_ROOT, resource))
     assert check_response.data['totalCount'] == len(erecs) + len(trecs)
 
-    found_ids = set(do_filter_search(resource, search, api_settings,
-                                     api_client))
+    found_ids = set(do_filter_search(resource, search, api_client))
     assert all([i in found_ids for i in expected_ids])
     assert all([i not in found_ids for i in not_expected_ids])
 
@@ -1895,6 +1996,6 @@ def test_list_view_orderby(resource, test_data, search, expected, api_settings,
     erecs, trecs = assemble_test_records(resource, test_data, api_solr_env,
                                          api_data_assembler)
     print [r.get('call_number_sort', None) for r in trecs]
-    found_ids = do_filter_search(resource, search, api_settings, api_client)
+    found_ids = do_filter_search(resource, search, api_client)
     assert found_ids == expected
 
