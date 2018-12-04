@@ -420,6 +420,47 @@ def sequential_date(datefield, chance=100):
     return gen
 
 
+class Link(object):
+    """
+    Helper / container class for creating links between two different
+    record types.
+    """
+
+    @staticmethod
+    def link(source_val, target_record, target_fname, multi=False):
+        """
+        Create a link between two records by adding the `source_val`
+        value(s) to the `target_record` at the field described by the
+        `target_fname` (e.g. target field name). If the target field
+        is multi-valued (`multi` is True), then it adds the value(s)
+        to the existing value list. If the source is multi-valued but
+        the target isn't, it grabs the first value from the source.
+        """
+        sv = source_val if isinstance(source_val, list) else [source_val]
+        tv = (target_record.get(target_fname, []) + sv) if multi else sv[0]
+        target_record[target_fname] = tv
+
+    @classmethod
+    def from_item_to_bib(cls, item, bib):
+        cls.link(item['id'], bib, 'item_ids', multi=True)
+        cls.link(item['record_number'], bib, 'item_record_numbers', multi=True)
+
+    @classmethod
+    def from_bib_to_item(cls, bib, item):
+        cls.link(bib['id'], item, 'parent_bib_id')
+        cls.link(bib['record_number'], item, 'parent_bib_record_number')
+        cls.link(bib['full_title'], item, 'parent_bib_title')
+        cls.link(bib['creator'], item, 'parent_bib_main_author')
+        if bib.get('publication_dates', []):
+            pub_year = bib['publication_dates'][0]
+            cls.link(pub_year, item, 'parent_bib_publication_year')
+
+    @classmethod
+    def link_bib_and_item(cls, bib, item):
+        cls.from_item_to_bib(item, bib)
+        cls.from_bib_to_item(bib, item)
+
+
 def choose_and_link_to_parent_bib(bib_rec_pool):
     """
     This is will create a gen function that you can use to relate items
@@ -458,28 +499,11 @@ def choose_and_link_to_parent_bib(bib_rec_pool):
     """
     bib_choices = tuple(br['id'] for br in bib_rec_pool)
 
-    def link(source_val, target_record, target_fname, default=None):
-        tv = target_record.get(target_fname, None) or default
-        sv = [source_val] if not isinstance(source_val, list) else source_val
-        tv = (tv + sv) if isinstance(tv, list) else sv[0]
-        target_record[target_fname] = tv
-
     def gen(item):
         parent_id = random.choice(bib_choices)
         bib = [br for br in bib_rec_pool if br['id'] == parent_id][0]
-
-        # Create links from the item to the parent
-        link(item['id'], bib, 'item_ids', [])
-        link(item['record_number'], bib, 'item_record_numbers', [])
-
-        # Create links from the parent to the item
-        link(bib['record_number'], item, 'parent_bib_record_number')
-        link(bib['full_title'], item, 'parent_bib_title')
-        link(bib['creator'], item, 'parent_bib_main_author')
-        if bib.get('publication_dates', []):
-            pub_year = bib['publication_dates'][0]
-            link(pub_year, item, 'parent_bib_publication_year')
-        return parent_id
+        Link.link_bib_and_item(bib, item)
+        return bib['id']
 
     return gen
 
