@@ -383,7 +383,7 @@ class CallnumbermatchesList(SimpleGetMixin, SimpleView):
     resource_name = 'callnumber_matches'
     filter_fields = ['call_number', 'location_code', 'call_number_type']
 
-    def paginate(self, queryset, request):
+    def get_page_data(self, queryset, request):
         # for paging, we only use the 'limit'
         limit_p = settings.REST_FRAMEWORK.get('PAGINATE_BY_PARAM', 'limit')
         max_limit = settings.REST_FRAMEWORK.get('MAX_PAGINATE_BY', 500)
@@ -413,7 +413,7 @@ class FirstItemPerLocationList(SimpleGetMixin, SimpleView):
     resource_name = 'firstitemperlocation'
     filter_fields = ['call_number', 'call_number_type', 'barcode']
 
-    def paginate(self, queryset, request):
+    def get_page_data(self, queryset, request):
         ff = self.facet_field
         facets = queryset.full_response.facets['facet_fields'][ff]
         fields = ['id', 'parent_bib_title', 'parent_bib_record_number',

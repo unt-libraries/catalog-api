@@ -12,6 +12,7 @@ import pytest
 from utils.test_helpers import solr_test_profiles as tp
 
 # FIXTURES AND TEST DATA
+# ---------------------------------------------------------------------
 # External fixtures used below can be found in
 # django/sierra/conftest.py:
 #
@@ -25,31 +26,40 @@ from utils.test_helpers import solr_test_profiles as tp
 API_ROOT = '/api/v1/'
 
 # RESOURCE_METADATA: Lookup dict for mapping API resources to various
-# test parameters.
+# parameters for setting up tests.
 RESOURCE_METADATA = {
-    'bibs': { 'profile': 'bib', 'id_field': 'record_number',
-              'links': { 'items': 'items' } },
-    'items': { 'profile': 'item', 'id_field': 'record_number',
-               'links': { 'bibs': 'parentBib', 'locations': 'location',
-                          'itemtypes': 'itemtype',
-                          'itemstatuses': 'itemstatus' } },
-    'eresources': { 'profile': 'eresource', 'id_field': 'record_number',
-                    'links': None },
-    'itemstatuses': { 'profile': 'itemstatus', 'id_field': 'code',
-                      'links': { 'items': 'items' } },
-    'itemtypes': { 'profile': 'itype', 'id_field': 'code',
-                   'links': { 'items': 'items' } },
-    'locations': { 'profile': 'location', 'id_field': 'code',
-                   'links': { 'items': 'items' } }
+    'bibs': {
+        'profile': 'bib',
+        'id_field': 'record_number',
+        'links': { 'items': 'items' }
+    },
+    'items': {
+        'profile': 'item',
+        'id_field': 'record_number',
+        'links': { 'bibs': 'parentBib', 'locations': 'location',
+                   'itemtypes': 'itemtype', 'itemstatuses': 'itemstatus' }
+    },
+    'eresources': {
+        'profile': 'eresource',
+        'id_field': 'record_number',
+        'links': None
+    },
+    'itemstatuses': {
+        'profile': 'itemstatus',
+        'id_field': 'code',
+        'links': { 'items': 'items' }
+    },
+    'itemtypes': {
+        'profile': 'itype',
+        'id_field': 'code',
+        'links': { 'items': 'items' }
+    },
+    'locations': {
+        'profile': 'location',
+        'id_field': 'code',
+        'links': { 'items': 'items' }
+    }
 }
-
-def compile_resource_links():
-    """
-    Return a (resource, links) tuple for RESOURCE_METADATA entries that
-    have a `links` element, for test parametrization.
-    """
-    return [(k, v['links']) for k, v in RESOURCE_METADATA.items()
-            if v.get('links', None)]
 
 
 # PARAMETERS__* constants contain parametrization data for certain
@@ -1675,6 +1685,202 @@ PARAMETERS__ORDERBY_TESTS__STRANGE = (
     }, 
 )
 
+# TESTDATA__FIRSTITEMPERLOCATION: We use a consistent set of test data
+# for testing the firstitemperlocation resource.
+TESTDATA__FIRSTITEMPERLOCATION = (
+    ( 'atest1',
+        { 'location_code': 'atest',
+          'barcode': '1',
+          'call_number': 'BB 1234 C35 1990',
+          'call_number_type': 'lc' } ),
+    ( 'atest2',
+        { 'location_code': 'atest',
+          'barcode': '2',
+          'call_number': 'BB 1234 A22 2000',
+          'call_number_type': 'lc' } ),
+    ( 'atest3',
+        { 'location_code': 'atest',
+          'barcode': '3',
+          'call_number': 'BC 2345 F80',
+          'call_number_type': 'lc' } ),
+    ( 'atest4',
+        { 'location_code': 'atest',
+          'barcode': '4',
+          'call_number': 'BB 1234',
+          'call_number_type': 'sudoc' } ),
+    ( 'btest1',
+        { 'location_code': 'btest',
+          'barcode': '3',
+          'call_number': 'BB 1234 D99',
+          'call_number_type': 'lc' } ),
+    ( 'btest2',
+        { 'location_code': 'btest',
+          'barcode': '4',
+          'call_number': 'BB 1234 A22',
+          'call_number_type': 'sudoc' } ),
+    ( 'btest3',
+        { 'location_code': 'btest',
+          'barcode': '5',
+          'call_number': 'CC 9876 H43',
+          'call_number_type': 'lc' } ),
+    ( 'btest4',
+        { 'location_code': 'btest',
+          'barcode': '6',
+          'call_number': 'BB 1234',
+          'call_number_type': 'sudoc' } ),
+    ( 'ctest1',
+        { 'location_code': 'ctest',
+          'barcode': '8',
+          'call_number': 'BB 1234 D99 2016',
+          'call_number_type': 'lc' } ),
+    ( 'ctest2',
+        { 'location_code': 'ctest',
+          'barcode': '9',
+          'call_number': 'CC 1234 A22',
+          'call_number_type': 'other' } ),
+    ( 'ctest3',
+        { 'location_code': 'ctest',
+          'barcode': '10',
+          'call_number': '900.1 H43',
+          'call_number_type': 'dewey' } ),
+    ( 'ctest4',
+        { 'location_code': 'ctest',
+          'barcode': '11',
+          'call_number': 'AB 1234',
+          'call_number_type': 'other' } ),
+)
+
+PARAMETERS__FIRSTITEMPERLOCATION = (
+    ('test_data, search, expected'),
+    { 'LC call number type | A match at each location':
+        (TESTDATA__FIRSTITEMPERLOCATION,
+         'callNumber[startswith]=BB 12&callNumberType=lc',
+         ['atest2', 'btest1', 'ctest1']),
+    }, { 'LC call number type | A match at one location':
+        (TESTDATA__FIRSTITEMPERLOCATION,
+         'callNumber[startswith]=BC&callNumberType=lc',
+         ['atest3']),
+    }, { 'LC call number type | No matches':
+        (TESTDATA__FIRSTITEMPERLOCATION,
+         'callNumber[startswith]=D&callNumberType=lc',
+         None),
+    }, { 'SUDOC call number type | A match at two locations':
+        (TESTDATA__FIRSTITEMPERLOCATION,
+         'callNumber[startswith]=BB&callNumberType=sudoc',
+         ['atest4', 'btest4']),
+    }, { 'DEWEY call number type | A match at one location':
+        (TESTDATA__FIRSTITEMPERLOCATION,
+         'callNumber[startswith]=900&callNumberType=dewey',
+         ['ctest3']),
+    }, { 'OTHER call number type | A match at one location':
+        (TESTDATA__FIRSTITEMPERLOCATION,
+         'callNumber[startswith]=C&callNumberType=other',
+         ['ctest2']),
+    }, { 'BARCODE | A match at two locations':
+        (TESTDATA__FIRSTITEMPERLOCATION,
+         'barcode=3',
+         ['atest3', 'btest1']),
+    }, 
+)
+
+# TESTDATA__CALLNUMBERMATCHES: We use a consistent set of test data for
+# testing the callnumbermatches resource.
+TESTDATA__CALLNUMBERMATCHES = (
+    ( 'atest1',
+        { 'location_code': 'atest',
+          'call_number': 'ZZZ 1005',
+          'call_number_type': 'lc' } ),
+    ( 'atest2',
+        { 'location_code': 'atest',
+          'call_number': 'ZZZ 1000',
+          'call_number_type': 'lc' } ),
+    ( 'atest3',
+        { 'location_code': 'atest',
+          'call_number': 'ZZZ 1001',
+          'call_number_type': 'lc' } ),
+    ( 'btest1',
+        { 'location_code': 'btest',
+          'call_number': 'ZZZ 1003',
+          'call_number_type': 'lc' } ),
+    ( 'btest2',
+        { 'location_code': 'btest',
+          'call_number': 'ZZZ 1002',
+          'call_number_type': 'lc' } ),
+    ( 'btest3',
+        { 'location_code': 'btest',
+          'call_number': 'ZZZ 1004',
+          'call_number_type': 'lc' } ),
+    ( 'ctest1',
+        { 'location_code': 'ctest',
+          'call_number': 'ZZZ 1.3',
+          'call_number_type': 'sudoc' } ),
+    ( 'ctest2',
+        { 'location_code': 'ctest',
+          'call_number': 'ZZZ 1.2',
+          'call_number_type': 'sudoc' } ),
+    ( 'ctest3',
+        { 'location_code': 'ctest',
+          'call_number': 'ZZZ 1.1',
+          'call_number_type': 'sudoc' } ),
+)
+
+PARAMETERS__CALLNUMBERMATCHES = (
+    ('test_data, search, expected'),
+    { 'Match all locations, all CN types':
+        (TESTDATA__CALLNUMBERMATCHES,
+         'callNumber[startswith]=ZZZ',
+         ['ZZZ 1.1', 'ZZZ 1.2', 'ZZZ 1.3', 'ZZZ 1000', 'ZZZ 1001', 'ZZZ 1002',
+          'ZZZ 1003', 'ZZZ 1004', 'ZZZ 1005']),
+    }, { 'Match all locations, all CN types, with limit':
+        (TESTDATA__CALLNUMBERMATCHES,
+         'callNumber[startswith]=ZZZ&limit=4',
+         ['ZZZ 1.1', 'ZZZ 1.2', 'ZZZ 1.3', 'ZZZ 1000']),
+    }, { 'Match all locations, LC type':
+        (TESTDATA__CALLNUMBERMATCHES,
+         'callNumber[startswith]=ZZZ&callNumberType=lc',
+         ['ZZZ 1000', 'ZZZ 1001', 'ZZZ 1002', 'ZZZ 1003', 'ZZZ 1004',
+          'ZZZ 1005']),
+    }, { 'Match all locations, SUDOC type':
+        (TESTDATA__CALLNUMBERMATCHES,
+         'callNumber[startswith]=ZZZ&callNumberType=sudoc',
+         ['ZZZ 1.1', 'ZZZ 1.2', 'ZZZ 1.3']),
+    }, { 'Match location atest, all CN types':
+        (TESTDATA__CALLNUMBERMATCHES,
+         'callNumber[startswith]=ZZZ&locationCode=atest',
+         ['ZZZ 1000', 'ZZZ 1001', 'ZZZ 1005']),
+    }, { 'Match location btest, all CN types':
+        (TESTDATA__CALLNUMBERMATCHES,
+         'callNumber[startswith]=ZZZ&locationCode=btest',
+         ['ZZZ 1002', 'ZZZ 1003', 'ZZZ 1004']),
+    }, { 'Match location ctest, all CN types':
+        (TESTDATA__CALLNUMBERMATCHES,
+         'callNumber[startswith]=ZZZ&locationCode=ctest',
+         ['ZZZ 1.1', 'ZZZ 1.2', 'ZZZ 1.3']),
+    }, { 'Match location atest, LC type':
+        (TESTDATA__CALLNUMBERMATCHES,
+         'callNumber[startswith]=ZZZ&callNumberType=lc&locationCode=atest',
+         ['ZZZ 1000', 'ZZZ 1001', 'ZZZ 1005']),
+    }, { 'Match location ctest, LC type':
+        (TESTDATA__CALLNUMBERMATCHES,
+         'callNumber[startswith]=ZZZ&callNumberType=lc&locationCode=ctest',
+         []),
+    }, { 'Match one call number':
+        (TESTDATA__CALLNUMBERMATCHES,
+         'callNumber[startswith]=ZZZ1001',
+         ['ZZZ 1001']),
+    }, 
+)
+
+# HELPER FUNCTIONS for compiling test data into pytest parameters
+
+def compile_resource_links(resources):
+    """
+    Return a (resource, links) tuple for RESOURCE_METADATA (or similar)
+    entries that have a `links` element, for test parametrization.
+    """
+    return [(k, v['links']) for k, v in resources.items()
+            if v.get('links', None)]
+
 
 def compile_params(parameters):
     """
@@ -1692,49 +1898,7 @@ def compile_ids(parameters):
     return tuple(p.keys()[0] for p in parameters[1:])
 
 
-def assemble_test_records(resource, test_data, solr_env, assembler):
-    """
-    Test helper function that assembles & loads a set of test records
-    given a `profile` string, a set of static `test_data` records, the
-    name of the `id_field` for each record (for test_data purposes), a
-    module-level `solr_env` assembler fixture, and a function-level
-    `assembler` fixture. Returns a tuple of default solr_env records
-    (the ones loaded by the module-level fixture) and the new test
-    records that were loaded from the provided test data.
-    len(env_recs) + len(test_recs) should == the total number of Solr
-    records for that profile.
-    """
-    profile = RESOURCE_METADATA[resource]['profile']
-    id_field = RESOURCE_METADATA[resource]['id_field']
-    gens = assembler.gen_factory
-    env_recs = solr_env.records[profile]
-    test_recs = assembler.load_static_test_data(profile, test_data, id_field,
-                                                env_recs)
-    return (env_recs, test_recs)
-
-
-def do_filter_search(resource, search, api_client):
-    """
-    Test helper function that performs the given `search` (e.g. search
-    query string) on the given API `resource` via the given
-    `api_client` fixture. Returns the list of values, in order,
-    corresponding to whatever field we're using to identify records
-    (e.g. "*id_field").
-    """
-    solr_id_field = RESOURCE_METADATA[resource]['id_field']
-    qs = '&'.join(['='.join([urllib.quote_plus(v) for v in pair.split('=')])
-                  for pair in search.split('&')])
-    response = api_client.get('{}{}/?{}'.format(API_ROOT, resource, qs))
-    serializer = response.renderer_context['view'].get_serializer()
-    api_id_field = serializer.render_field_name(solr_id_field)
-    total_found = response.data['totalCount']
-    data = response.data.get('_embedded', {resource: []})[resource]
-    # reality check: FAIL if there's any data returned on a different
-    # page of results. If we don't return ALL available data, further
-    # assertions will be invalid.
-    assert len(data) == total_found
-    return [r[api_id_field] for r in data]
-
+# HELPER FUNCTIONS used in tests
 
 def pick_reference_object_having_link(objects, link_field):
     """
@@ -1780,6 +1944,56 @@ def get_linked_view_and_objects(client, ref_obj, link_field):
     return resp.renderer_context['view'], linked_objs
 
 
+def assemble_test_records(profile, id_field, test_data, solr_env, assembler):
+    """
+    Test helper function that assembles & loads a set of test records
+    given a `profile` string, a set of static `test_data` records, the
+    name of the `id_field` for each record (for test_data purposes), a
+    module-level `solr_env` assembler fixture, and a function-level
+    `assembler` fixture. Returns a tuple of default solr_env records
+    (the ones loaded by the module-level fixture) and the new test
+    records that were loaded from the provided test data.
+    len(env_recs) + len(test_recs) should == the total number of Solr
+    records for that profile.
+    """
+    gens = assembler.gen_factory
+    env_recs = solr_env.records[profile]
+    test_recs = assembler.load_static_test_data(profile, test_data, id_field,
+                                                env_recs)
+    return (env_recs, test_recs)
+
+
+def do_filter_search(resource, search, client):
+    """
+    Test helper function that performs the given `search` (e.g. search
+    query string) on the given API `resource` via the given
+    `api_client` fixture. Returns the response.
+    """
+    qs = '&'.join(['='.join([urllib.quote_plus(v) for v in pair.split('=')])
+                  for pair in search.split('&')])
+    return client.get('{}{}/?{}'.format(API_ROOT, resource, qs))
+
+
+def get_found_ids(solr_id_field, response):
+    """
+    Returns a list of values for identifying test records, in order,
+    from the given `response` object. (Usually the response will come
+    from calling `do_filter_search`.) `solr_id_field` is the name of
+    that ID field as it exists in Solr.
+    """
+    serializer = response.renderer_context['view'].get_serializer()
+    api_id_field = serializer.render_field_name(solr_id_field)
+    total_found = response.data['totalCount']
+    data = response.data.get('_embedded', {'data': []}).values()[0]
+    # reality check: FAIL if there's any data returned on a different
+    # page of results. If we don't return ALL available data, further
+    # assertions will be invalid.
+    assert len(data) == total_found
+    return [r[api_id_field] for r in data]
+
+
+# PYTEST FIXTURES
+
 @pytest.fixture
 def api_settings(settings):
     """
@@ -1800,6 +2014,7 @@ def api_settings(settings):
 
 
 # TESTS
+# ---------------------------------------------------------------------
 
 @pytest.mark.parametrize('resource', RESOURCE_METADATA.keys())
 def test_standard_resource(resource, api_settings, api_solr_env, api_client):
@@ -1821,7 +2036,8 @@ def test_standard_resource(resource, api_settings, api_solr_env, api_client):
     assert_obj_fields_match_serializer(detail_obj, serializer)
 
 
-@pytest.mark.parametrize('resource, links', compile_resource_links())
+@pytest.mark.parametrize('resource, links',
+                         compile_resource_links(RESOURCE_METADATA))
 def test_standard_resource_links(resource, links, api_settings, api_solr_env,
                                  api_client):
     """
@@ -1965,15 +2181,19 @@ def test_list_view_filters(resource, test_data, search, expected, api_settings,
     test_ids = set([r[0] for r in test_data])
     expected_ids = set(expected) if expected is not None else set()
     not_expected_ids = test_ids - expected_ids
-    erecs, trecs = assemble_test_records(resource, test_data, api_solr_env,
-                                         api_data_assembler)
+
+    profile = RESOURCE_METADATA[resource]['profile']
+    id_field = RESOURCE_METADATA[resource]['id_field']
+    erecs, trecs = assemble_test_records(profile, id_field, test_data,
+                                         api_solr_env, api_data_assembler)
 
     # First let's do a quick sanity check to make sure the resource
     # returns the correct num of records before the filter is applied.
     check_response = api_client.get('{}{}/'.format(API_ROOT, resource))
     assert check_response.data['totalCount'] == len(erecs) + len(trecs)
 
-    found_ids = set(do_filter_search(resource, search, api_client))
+    response = do_filter_search(resource, search, api_client)
+    found_ids = set(get_found_ids(id_field, response))
     assert all([i in found_ids for i in expected_ids])
     assert all([i not in found_ids for i in not_expected_ids])
 
@@ -1992,10 +2212,73 @@ def test_list_view_orderby(resource, test_data, search, expected, api_settings,
     the `expected` order.
     """
     profile = RESOURCE_METADATA[resource]['profile']
-    solr_id_field = RESOURCE_METADATA[resource]['id_field']
-    erecs, trecs = assemble_test_records(resource, test_data, api_solr_env,
-                                         api_data_assembler)
+    id_field = RESOURCE_METADATA[resource]['id_field']
+    erecs, trecs = assemble_test_records(profile, id_field, test_data,
+                                         api_solr_env, api_data_assembler)
     print [r.get('call_number_sort', None) for r in trecs]
-    found_ids = do_filter_search(resource, search, api_client)
+    response = do_filter_search(resource, search, api_client)
+    found_ids = get_found_ids(id_field, response)
     assert found_ids == expected
 
+
+@pytest.mark.parametrize('test_data, search, expected',
+                         compile_params(PARAMETERS__FIRSTITEMPERLOCATION),
+                         ids=compile_ids(PARAMETERS__FIRSTITEMPERLOCATION))
+def test_firstitemperlocation_list(test_data, search, expected, api_settings,
+                                   api_solr_env, api_data_assembler,
+                                   api_client):
+    """
+    The `firstitemperlocation` resource is basically a custom filter
+    for `items` that submits a facet-query to Solr asking for the first
+    item at each location code that matches the provided call number
+    (plus cn type) or barcode. (Used by the Inventory App when doing a
+    call number or barcode lookup without providing a location.)
+    """
+    lcodes = set([r['location_code'] for _, r in test_data])
+    data = {
+        'locations': tuple((code, {'label': code}) for code in lcodes),
+        'items': test_data
+    }
+
+    test_ids = set([r[0] for r in test_data])
+    expected_ids = set(expected) if expected is not None else set()
+    not_expected_ids = test_ids - expected_ids
+
+    for resource in data.keys():
+        profile = RESOURCE_METADATA[resource]['profile']
+        id_field = RESOURCE_METADATA[resource]['id_field']
+        assemble_test_records(profile, id_field, data[resource], api_solr_env,
+                              api_data_assembler)
+
+    rsp = do_filter_search('firstitemperlocation', search, api_client)
+    found_ids = set(get_found_ids(RESOURCE_METADATA['items']['id_field'], rsp))
+    assert all([i in found_ids for i in expected_ids])
+    assert all([i not in found_ids for i in not_expected_ids])
+
+
+@pytest.mark.parametrize('test_data, search, expected',
+                         compile_params(PARAMETERS__CALLNUMBERMATCHES),
+                         ids=compile_ids(PARAMETERS__CALLNUMBERMATCHES))
+def test_callnumbermatches_list(test_data, search, expected, api_settings,
+                                api_solr_env, api_data_assembler,
+                                api_client):
+    """
+    The `callnumbermatches` resource simply returns an array of
+    callnumber strings, in order, matching the critera that's given.
+    It's used to power the callnumber autocomplete in the Inventory
+    App.
+    """
+    lcodes = set([r['location_code'] for _, r in test_data])
+    data = {
+        'locations': tuple((code, {'label': code}) for code in lcodes),
+        'items': test_data
+    }
+
+    for resource in data.keys():
+        profile = RESOURCE_METADATA[resource]['profile']
+        id_field = RESOURCE_METADATA[resource]['id_field']
+        assemble_test_records(profile, id_field, data[resource], api_solr_env,
+                              api_data_assembler)
+
+    response = do_filter_search('callnumbermatches', search, api_client)
+    assert response.data == expected
