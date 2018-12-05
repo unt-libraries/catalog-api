@@ -2,11 +2,16 @@
 Contains pytest fixtures shared amongst test files for the `api` app.
 """
 
+import hashlib
+from datetime import datetime
+
 import pytest
 
+from django.contrib.auth.models import User
 from rest_framework import test as drftest
 
 from utils.test_helpers import solr_test_profiles as tp
+from api.models import APIUser
 
 
 # External fixtures used below can be found in
@@ -14,6 +19,7 @@ from utils.test_helpers import solr_test_profiles as tp
 #    global_solr_conn
 #    global_solr_data_assembler
 #    solr_data_assembler
+#    model_instance
 
 
 @pytest.fixture(scope='module')
@@ -117,3 +123,52 @@ def api_client():
     """
     return drftest.APIClient()
 
+
+@pytest.fixture(scope='function')
+def new_api_user(model_instance):
+    """
+    Pytest fixture that gives you a function to use to generate APIUser
+    instances using the `model_instance` fixture--which will ensure the
+    instances you create are deleted after a test function runs.
+    """
+    def _new_api_user(username, email, password, secret, first_name='',
+                      last_name='', permissions=None, default=False):
+        try:
+            return APIUser.objects.get(user__username=username)
+        except APIUser.DoesNotExist:
+            pass
+
+        try:
+            user = User.objects.get(username=username)
+        except User.DoesNotExist:
+            user = model_instance(User, username, email=email,
+                                  password=password, first_name=first_name,
+                                  last_name=last_name)
+        api_user = model_instance(APIUser, user=user)
+        api_user.set_secret(secret)
+        api_user.set_permissions(permissions=permissions, default=default)
+        return api_user
+    return _new_api_user
+
+
+@pytest.fixture
+def simple_sig_auth_credentials():
+    """
+    Pytest fixture that generates auth headers for the given `api_user`
+    instance and optional `request_body` string so that a request using
+    the custom api.simpleauth.SimpleSignatureAuthentication mechanism
+    authenticates.
+    """
+    def _simple_sig_auth_credentials(api_user, request_body=''):
+        since_1970 = (datetime.now() - datetime(1970, 1, 1))
+        timestamp = str(int(since_1970.total_seconds() * 1000))
+        hasher = hashlib.sha256('{}{}{}{}'.format(api_user.user.username,
+                                                  api_user.secret, timestamp,
+                                                  request_body))
+        signature = hasher.hexdigest()
+        return {
+            'HTTP_X_USERNAME': 'test',
+            'HTTP_X_TIMESTAMP': timestamp,
+            'HTTP_AUTHORIZATION': 'Basic {}'.format(signature)
+        }
+    return _simple_sig_auth_credentials

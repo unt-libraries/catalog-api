@@ -8,6 +8,7 @@ from datetime import datetime
 from pytz import utc
 
 import pytest
+from django.contrib.auth.models import User
 
 from utils.test_helpers import solr_test_profiles as tp
 
@@ -2016,6 +2017,92 @@ def api_settings(settings):
 # TESTS
 # ---------------------------------------------------------------------
 
+@pytest.mark.django_db
+def test_apiusers_authenticated_requests(api_client, new_api_user,
+                                         simple_sig_auth_credentials):
+    """
+    The apiusers resource requires authentication to access; users that
+    can authenticate can view the apiusers list and details of a single
+    apiuser. Authentication must be renewed after each request.
+    """
+    api_user = new_api_user('test', 'test@test.com', 'password', 'secret',
+                            'Test', 'Person', default=True)
+    api_client.credentials(**simple_sig_auth_credentials(api_user))
+    list_resp = api_client.get('{}apiusers/'.format(API_ROOT))
+    assert list_resp.status_code == 200
+
+    api_client.credentials(**simple_sig_auth_credentials(api_user))
+    detail_resp = api_client.get('{}apiusers/{}'.format(API_ROOT, 'test'))
+    serializer = detail_resp.renderer_context['view'].get_serializer()
+    assert_obj_fields_match_serializer(detail_resp.data, serializer)
+
+
+@pytest.mark.django_db
+def test_apiusers_not_django_users(model_instance, api_client, new_api_user,
+                                   simple_sig_auth_credentials):
+    """
+    Django Users that don't have associated APIUsers records should
+    not appear in the list of apiusers.
+    """
+    api_user = new_api_user('test', 'test@test.com', 'password', 'secret',
+                            'Test', 'Person', default=True)
+    user = model_instance(User, 'bob', 'bob@bob.com', 'bobpassword')
+    api_client.credentials(**simple_sig_auth_credentials(api_user))
+    response = api_client.get('{}apiusers/'.format(API_ROOT))
+    usernames = [r['username'] for r in response.data['_embedded']['apiusers']]
+    assert 'test' in usernames
+    assert 'bob' not in usernames
+
+
+@pytest.mark.django_db
+def test_apiusers_unauthenticated_requests_fail(api_client, new_api_user):
+    """
+    Requesting an apiuser list or detail view without providing any
+    authentication credentials should result in a 403 error.
+    """
+    api_user = new_api_user('test', 'test@test.com', 'password', 'secret',
+                            'Test', 'Person', default=True)
+    list_resp = api_client.get('{}apiusers/'.format(API_ROOT))
+    detail_resp = api_client.get('{}apiusers/test'.format(API_ROOT))
+    assert list_resp.status_code == 403
+    assert detail_resp.status_code == 403
+
+
+@pytest.mark.django_db
+def test_apiusers_wrong_username_requests_fail(api_client, new_api_user,
+                                               simple_sig_auth_credentials):
+    """
+    Providing an incorrect username/password pair in authentication
+    headers results in a 403 error.
+    """
+    api_user1 = new_api_user('test', 'test@test.com', 'password', 'secret',
+                             'Test', 'Person', default=True)
+    api_user2 = new_api_user('test2', 'test2@test.com', 'pword2', 'secret2',
+                             'Test2', 'Person', default=True)
+    credentials = simple_sig_auth_credentials(api_user1)
+    credentials['HTTP_X_USERNAME'] = 'test2'
+    api_client.credentials(**credentials)
+    list_resp = api_client.get('{}apiusers/'.format(API_ROOT))
+    assert list_resp.status_code == 403
+
+
+@pytest.mark.django_db
+def test_apiusers_repeated_requests_fail(api_client, new_api_user,
+                                         simple_sig_auth_credentials):
+    """
+    Attempting to beat apiusers authentication by submitting multiple
+    requests without renewing credentials should result in a 403 error
+    on the second request.
+    """
+    api_user = new_api_user('test', 'test@test.com', 'password', 'secret',
+                            'Test', 'Person', default=True)
+    api_client.credentials(**simple_sig_auth_credentials(api_user))
+    resp_one = api_client.get('{}apiusers/'.format(API_ROOT))
+    resp_two = api_client.get('{}apiusers/'.format(API_ROOT))
+    assert resp_one.status_code == 200
+    assert resp_two.status_code == 403
+
+
 @pytest.mark.parametrize('resource', RESOURCE_METADATA.keys())
 def test_standard_resource(resource, api_settings, api_solr_env, api_client):
     """
@@ -2282,3 +2369,4 @@ def test_callnumbermatches_list(test_data, search, expected, api_settings,
 
     response = do_filter_search('callnumbermatches', search, api_client)
     assert response.data == expected
+
