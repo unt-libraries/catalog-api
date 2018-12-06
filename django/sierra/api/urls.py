@@ -1,4 +1,4 @@
-from django.conf.urls import patterns, url
+from django.conf.urls import url
 from django.conf import settings
 from django.core.urlresolvers import reverse_lazy
 from django.views.generic import RedirectView
@@ -7,9 +7,10 @@ from rest_framework.urlpatterns import format_suffix_patterns
 from . import views
 from .uris import APIUris
 
-urlpatterns = patterns('',
-    url(r'^$', RedirectView.as_view(url=reverse_lazy('api-root'), permanent=True)),
-    url(APIUris.get_urlpattern('api-root', v=r'1'), views.api_root, 
+urlpatterns = [
+    url(r'^$', RedirectView.as_view(url=reverse_lazy('api-root'),
+                                    permanent=True)),
+    url(APIUris.get_urlpattern('api-root', v=r'1'), views.api_root,
         name='api-root'),
     url(APIUris.get_urlpattern('apiusers-list', v=r'1'),
         views.APIUserList.as_view(), name='apiusers-list'),
@@ -53,6 +54,6 @@ urlpatterns = patterns('',
     url(APIUris.get_urlpattern('firstitemperlocation-list', v=r'1'),
         views.FirstItemPerLocationList.as_view(), 
         name='firstitemperlocation-list'),
-)
+]
 
 urlpatterns = format_suffix_patterns(urlpatterns, allowed=['json', 'html'])
