@@ -125,7 +125,25 @@ def api_client():
 
 
 @pytest.fixture(scope='function')
-def new_api_user(model_instance):
+def apiuser_with_custom_defaults():
+    """
+    Function-level pytest fixture; returns a function to use for
+    updating the APIUser class with custom default permissions.
+    Restores the original defaults after the test runs.
+    """
+    def _apiuser_with_custom_defaults(defaults=None):
+        defaults = defaults or {'test_create': False, 'test_update': False,
+                                'test_delete': False}
+        APIUser.permission_defaults = defaults.copy()
+        return APIUser
+
+    old_defaults = APIUser.permission_defaults.copy()
+    yield _apiuser_with_custom_defaults
+    APIUser.permission_defaults = old_defaults
+
+
+@pytest.fixture(scope='function')
+def new_api_user(apiuser_with_custom_defaults, model_instance):
     """
     Pytest fixture that gives you a function to use to generate APIUser
     instances using the `model_instance` fixture--which will ensure the
@@ -133,9 +151,10 @@ def new_api_user(model_instance):
     """
     def _new_api_user(username, email, password, secret, first_name='',
                       last_name='', permissions=None, default=False):
+        apiuser_class = apiuser_with_custom_defaults()
         try:
-            return APIUser.objects.get(user__username=username)
-        except APIUser.DoesNotExist:
+            return apiuser_class.objects.get(user__username=username)
+        except apiuser_class.DoesNotExist:
             pass
 
         try:
@@ -144,7 +163,7 @@ def new_api_user(model_instance):
             user = model_instance(User, username, email=email,
                                   password=password, first_name=first_name,
                                   last_name=last_name)
-        api_user = model_instance(APIUser, user=user)
+        api_user = model_instance(apiuser_class, user=user)
         api_user.set_secret(secret)
         api_user.set_permissions(permissions=permissions, default=default)
         return api_user
