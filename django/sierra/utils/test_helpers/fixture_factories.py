@@ -122,8 +122,25 @@ class TestInstanceFactory(object):
     def unmake(self, obj):
         model = type(obj)
         self._set_write_override(model, True)
-        obj.delete()
+        try:
+            obj.delete()
+        except AssertionError:
+            pass
         self._set_write_override(model, False)
+
+
+class TestInstanceInitFactory(TestInstanceFactory):
+    """
+    Factory for making ORM model instances, where the `make` method
+    only calls `__init__`, rather than the manager's `create` method.
+    """
+
+    def make(self, model, *args, **kwargs):
+        """
+        Make an instance of the `model` using the supplied `args` and
+        `kwargs`. The instance is created by calling __init__.
+        """
+        return model(*args, **kwargs)
 
 
 class SolrTestDataAssemblerFactory(object):

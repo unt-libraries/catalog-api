@@ -128,6 +128,28 @@ def test_model_instance_fixtures(glob_count, model_instance,
     assert all(past_glob_instances_exist)
 
 
+@pytest.mark.parametrize('count', [0, 1])
+def test_model_init_instance_fixture(count, model_init_instance):
+    """
+    Creating a model instance using `model_init_instance` during a test
+    should create the model object, but the object should not yet be
+    saved to the database until the `save` method is called.
+    """
+    tmodel = TEST_MODEL_CLASS
+    loc_code, loc_name = 'lt1', 'LOCAL_TEST'
+    loc_instance_exists = len(tmodel.objects.filter(code=loc_code)) == 1
+    new_loc_instance = model_init_instance(tmodel, code=loc_code,
+                                           name=loc_name)
+    new_loc_instance_saved_no = len(tmodel.objects.filter(code=loc_code)) == 1
+    tmodel._write_override = True
+    new_loc_instance.save()
+    tmodel._write_override = False
+    new_loc_instance_saved_yes = len(tmodel.objects.filter(code=loc_code)) == 1
+    assert not loc_instance_exists
+    assert not new_loc_instance_saved_no
+    assert new_loc_instance_saved_yes
+
+
 @pytest.mark.parametrize('iter_count', [0, 1, 2, 3])
 def test_solr_data_assembler_fixtures(iter_count, test_assembler,
                                       test_solr_env, solr_search,

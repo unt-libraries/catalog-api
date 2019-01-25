@@ -22,7 +22,8 @@ def model_instance():
     """
     Function-level pytest fixture. Returns a factory object that tracks
     model instances as they're created and clears them out when the
-    test completes.
+    test completes. Instances are created via the manager's `create`
+    method.
     """
     with ff.FactoryTracker(ff.TestInstanceFactory()) as make:
         yield make
@@ -39,6 +40,18 @@ def global_model_instance(django_db_blocker):
     with django_db_blocker.unblock():
         with ff.FactoryTracker(ff.TestInstanceFactory()) as make:
             yield make
+
+
+@pytest.fixture(scope='function')
+def model_init_instance():
+    """
+    Function-level pytest fixture. Returns a factory object that tracks
+    model instances as they're created and clears them out when the
+    test completes. Instances are created via the model's `__init__`
+    method.
+    """
+    with ff.FactoryTracker(ff.TestInstanceInitFactory()) as make:
+        yield make
 
 
 # Solr-related fixtures
