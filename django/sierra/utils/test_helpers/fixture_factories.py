@@ -129,18 +129,19 @@ class TestInstanceFactory(object):
         self._set_write_override(model, False)
 
 
-class TestInstanceInitFactory(TestInstanceFactory):
+class TestInstanceCallerFactory(TestInstanceFactory):
     """
     Factory for making ORM model instances, where the `make` method
-    only calls `__init__`, rather than the manager's `create` method.
+    utilizes *any* callable object to generate the test instance.
     """
 
-    def make(self, model, *args, **kwargs):
+    def make(self, callable_object, *args, **kwargs):
         """
-        Make an instance of the `model` using the supplied `args` and
-        `kwargs`. The instance is created by calling __init__.
+        Make an ORM model instance using the supplied `args` and
+        `kwargs`. The instance is created by calling the supplied
+        `callable_object` using the supplied args and kwargs.
         """
-        return model(*args, **kwargs)
+        return callable_object(*args, **kwargs)
 
 
 class SolrTestDataAssemblerFactory(object):

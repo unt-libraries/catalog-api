@@ -43,14 +43,14 @@ def global_model_instance(django_db_blocker):
 
 
 @pytest.fixture(scope='function')
-def model_init_instance():
+def model_instance_caller():
     """
     Function-level pytest fixture. Returns a factory object that tracks
     model instances as they're created and clears them out when the
-    test completes. Instances are created via the model's `__init__`
-    method.
+    test completes. Instances are created using whatever callable obj
+    is passed to the factory.
     """
-    with ff.FactoryTracker(ff.TestInstanceInitFactory()) as make:
+    with ff.FactoryTracker(ff.TestInstanceCallerFactory()) as make:
         yield make
 
 
