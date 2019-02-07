@@ -8,16 +8,27 @@ import ujson
 
 from django.conf import settings
 from django.core.exceptions import ObjectDoesNotExist
-from django.db import models
+from django.db import models, transaction, IntegrityError
 from django.contrib.auth.models import User
+from django.contrib.auth import authenticate
 
-from api.managers import APIUserManager
+
+class APIUserException(Exception):
+    pass
+
+
+class UserExists(APIUserException):
+    pass
 
 
 def get_permission_defaults_from_apps():
     """
-    Utility function that gathers permissions and default values from
-    apps that are configured in settings.API_PERMISSIONS.
+    Return all valid permissions and their default values as a dict.
+
+    Gathers permissions from apps that are configured in
+    settings.API_PERMISSIONS. Apps that want to contribute permissions
+    to the APIUser model must have a `permissions` module that supplies
+    a DEFAULTS dict.
     """
     permission_defaults = {}
     for app_name in settings.API_PERMISSIONS:
@@ -26,8 +37,89 @@ def get_permission_defaults_from_apps():
     return permission_defaults
 
 
-class APIUserException(Exception):
-    pass
+def remove_null_kwargs(**kwargs):
+    """
+    Return a kwargs dict having items with a None value removed.
+    """
+    return {k: v for k, v in kwargs.items() if v is not None}
+
+
+class APIUserManager(models.Manager):
+
+    @staticmethod
+    def _set_new_user_password(user, pw):
+        un = user.username
+        if pw is None:
+            msg = ('APIUser for {} not created: Django user not found and not '
+                   'created. (You need to provide a password!)'.format(un))
+            raise APIUserException(msg)
+        user.set_password(pw)
+        user.save()
+
+    @staticmethod
+    def _existing_password_is_okay(user, pw):
+        un = user.username
+        return (pw is None) or (bool(authenticate(username=un, password=pw)))
+
+    @staticmethod
+    def _apiuser_already_exists(user):
+        try:
+            api_user = user.apiuser
+        except ObjectDoesNotExist:
+            return False
+        return True
+
+    @transaction.atomic
+    def create_user(self, username, secret_text, permissions_dict=None,
+                    password=None, email=None, first_name=None,
+                    last_name=None):
+        """
+        Create, save, and return a new APIUser object.
+
+        If no Django user with the given username exists, it is created
+        along with the APIUser, using the provided password, email,
+        first_name, and last_name. (In this case at least a password
+        must be provided. The other fields are optional.)
+
+        If a Django user with the given username already exists but has
+        no related APIUser, the APIUser is created and related to the
+        existing user. In this case, if a password, email, first_name,
+        or last_name are provided, then those are also matched when
+        fetching the user. Any parameters you provide that are
+        different than the ones in the database cause an error.
+
+        If a Django user with the given username AND an associated
+        APIUser already exist, a `UserExists` error is raised.
+        """
+        kwargs = remove_null_kwargs(email=email, first_name=first_name,
+                                    last_name=last_name)
+        try:
+            user, created = User.objects.get_or_create(username=username,
+                                                       **kwargs)
+            if created:
+                self._set_new_user_password(user, password)
+            else:
+                if not self._existing_password_is_okay(user, password):
+                    raise IntegrityError(1062, 'Attempted to create'
+                                               'duplicate user')
+                elif self._apiuser_already_exists(user):
+                    msg = ('Could not create APIUser for Django user {}. '
+                           'APIUser already exists.'.format(username))
+                    raise UserExists(msg)
+
+        except IntegrityError as (ie_num, detail):
+            if ie_num == 1062:
+                detail = ('Existing Django user found, but it may not be '
+                          'the correct one. Its details do not match the ones '
+                          'supplied.')
+            msg = ('Could not create APIUser for Django user {}. {}'
+                   ''.format(username, detail))
+            raise APIUserException(msg)
+
+        api_user = self.model(user=user, secret_text=secret_text,
+                              permissions_dict=permissions_dict)
+        api_user.save()
+        return api_user
 
 
 class APIUser(models.Model):
@@ -52,10 +144,11 @@ class APIUser(models.Model):
         `permissions_dict` is a Python dict w/permissions to override
         the defaults.
         """
-        permissions_dict = kwargs.pop('permissions_dict', {})
+        pdict = ujson.decode(kwargs.pop('permissions', '{}')) or {}
+        pdict.update(kwargs.pop('permissions_dict', {}) or {})
         secret_text = kwargs.pop('secret_text', None)
         super(APIUser, self).__init__(*args, **kwargs)
-        self.update_permissions(permissions_dict)
+        self.update_permissions(pdict)
         if not self.secret and secret_text is not None:
             self.secret = self.encode_secret(secret_text)
 
@@ -74,25 +167,28 @@ class APIUser(models.Model):
             raise APIUserException(msg)
         super(APIUser, self).save(*args, **kwargs)
 
-    def update_and_save(secret_text=None, permissions_dict=None, email=None,
-                        password=None, first_name=None, last_name=None):
+    @transaction.atomic
+    def update_and_save(self, secret_text=None, permissions_dict=None,
+                        password=None, email=None, first_name=None,
+                        last_name=None):
         """
         Update AND SAVE an existing APIUser with any or all new values.
         For any of `email`, `password`, `first_name`, and `last_name`,
         the related User object is updated with the appropriate
         value(s).
         """
-        user_kwargs = {'password': password, 'email': email,
-                       'first_name': first_name, 'last_name': last_name}
-        if any([v is not None for v in user_kwargs.values()]):
-            for field, value in user_kwargs.items():
-                if value is not None:
-                    setattr(self.user, field, value)
-            self.user.save()
-        if secret_text:
+        kwargs = remove_null_kwargs(password=password, email=email,
+                                    first_name=first_name, last_name=last_name)
+        for field, value in kwargs.items():
+            if field == 'password':
+                self.user.set_password(value)
+            else:
+                setattr(self.user, field, value)
+        if secret_text is not None:
             self.secret = self.encode_secret(secret_text)
         if permissions_dict:
             self.update_permissions(permissions_dict)
+        self.user.save()
         self.save()
         return self
 
@@ -113,6 +209,10 @@ class APIUser(models.Model):
         permissions = type(self).permission_defaults.copy()
         permissions.update(ujson.decode(self.permissions))
         for pname, pvalue in permissions_dict.items():
+            if not isinstance(pvalue, bool):
+                msg = ('Permission values must be set to a boolean True or '
+                       'False. "{}" is not valid.').format(pvalue)
+                raise APIUserException(msg)
             if pname in permissions:
                 permissions[pname] = pvalue
             else:
