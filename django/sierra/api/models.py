@@ -121,6 +121,54 @@ class APIUserManager(models.Manager):
         api_user.save()
         return api_user
 
+    def batch_import_users(self, user_records):
+        """
+        Create and/or update a list of APIUsers in one batch operation.
+
+        APIUsers are created (if they do not already exist) or updated
+        (if they already exist) based on the provided `user_records`
+        arg. Returns a tuple: (created, updated, errors), where:
+            `errors` is a list of (exception, record) tuples,
+            `created` is a list of APIUser objs that were created, and
+            `updated` is a list of APIUser objs that were updated.
+
+        The `user_records` arg should be a list of dictionaries, where
+        each dict contains a `username` plus optional `secret_text`,
+        `permissions_dict`, `password`, `email`, `first_name`, and
+        `last_name` elements. A username is of course required, and a
+        secret and password are required if the APIUser is being
+        created; otherwise, elements that are either set to None or not
+        included at all are not set or changed.
+
+        E.g., if you wanted to update secrets for a list of existing
+        APIUsers, you could provide ONLY the `username` and
+        `secret_text` for each.
+        """
+        created, updated, errors = [], [], []
+        kwarg_names = ('permissions_dict', 'email', 'first_name', 'last_name',
+                       'password')
+        for i, udata in enumerate(user_records):
+            secret_text = udata.get('secret_text', None)
+            kwargs = {k: udata.get(k, None) for k in kwarg_names}
+            try:
+                try:
+                    username = udata['username']
+                except KeyError:
+                    msg = ('User in row {} has no username. (Username is '
+                           'required.)'.format(i+1))
+                    raise APIUserException(msg)
+                try:
+                    au = self.get(user__username=username)
+                except ObjectDoesNotExist:
+                    au = self.create_user(username, secret_text, **kwargs)
+                    created.append(au)
+                else:
+                    au.update_and_save(secret_text, **kwargs)
+                    updated.append(au)
+            except APIUserException as e:
+                errors.append((e, udata))
+        return (created, updated, errors)
+
 
 class APIUser(models.Model):
     """

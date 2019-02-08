@@ -27,6 +27,48 @@ pytestmark = pytest.mark.django_db
 #   apiuser_with_custom_defaults
 
 
+def calculate_expected_apiuser_details(test_cls, new, start=None):
+    """
+    Calculate and return the expected values for an APIUser instance.
+
+    This is a utility function used in a few of the tests. It
+    determines the expected final attributes for an APIUser for tests
+    that test create/update operations. `test_cls` is the APIUser test
+    class that test uses. `new` is a dict containing data attributes
+    for the new/updated APIUser. And `start` is a dict containing data
+    attributes for the existing user that `new` is updating, if you're
+    testing an update operation. Expected values are returned as a
+    dict.
+    """
+    exp, start = {}, (start or {})
+    exp['permissions_dict'] = test_cls.permission_defaults.copy()
+    exp['permissions_dict'].update(start.get('permissions_dict', None) or {})
+    exp['permissions_dict'].update(new.get('permissions_dict', None) or {})
+    exp['permissions'] = ujson.encode(exp['permissions_dict'])
+
+    key_fields = ('username', 'secret_text', 'password', 'email', 'first_name',
+                  'last_name')
+    for k in key_fields:
+        new_val = new.get(k, None)
+        default = start.get(k, None) or ''
+        exp[k] = new_val if new_val is not None else default
+
+    exp['secret'] = test_cls.encode_secret(exp['secret_text'])
+    return exp
+
+
+def assert_apiuser_matches_expected_data(apiuser, expected):
+    """
+    Assert that an `apiuser` obj matches `expected` data.
+    """
+    assert apiuser.secret == expected['secret']
+    assert apiuser.permissions == expected['permissions']
+    assert authenticate(username=expected['username'],
+                        password=expected['password'])
+    assert apiuser.user.email == expected['email']
+    assert apiuser.user.first_name == expected['first_name']
+    assert apiuser.user.last_name == expected['last_name']
+
 
 # TESTS
 # ---------------------------------------------------------------------
@@ -320,6 +362,15 @@ def test_apiuser_creation_permission_errors(apiuser_with_custom_defaults,
     (None, None, 'new_password', None, None, None),
     (None, None, None, None, 'new_f', None),
     ('', None, '', '', '', ''),
+], ids=[
+    'all fields updated',
+    'no data provided; nothing updated',
+    'only new secret_text value',
+    'provided data is the same as the existing data; nothing updated',
+    'some provided data is the same and some is new',
+    'only new password value',
+    'only new first_name value',
+    'provided data is all blank strings'
 ])
 def test_apiuser_updateandsave_works_correctly(apiuser_with_custom_defaults,
                                                secret_text, permissions_dict,
@@ -329,38 +380,48 @@ def test_apiuser_updateandsave_works_correctly(apiuser_with_custom_defaults,
     and/or associated user based on the provided details. Missing
     details are not updated and left alone.
     """
+    # Initialization.
     start_secret = 'secret'
-    start_kwargs = {'username': 'test_user', 'password': 'password',
-                    'email': 'email', 'first_name': 'first',
-                    'last_name': 'last'}
-    new_kwargs = remove_null_kwargs(secret_text=secret_text, password=pw,
-                                    permissions_dict=permissions_dict,
-                                    email=email, first_name=fn, last_name=ln)
+    start_udata = {'username': 'test_user', 'password': 'password',
+                   'email': 'email', 'first_name': 'first',
+                   'last_name': 'last'}
+    new_udata = remove_null_kwargs(secret_text=secret_text, password=pw,
+                                   permissions_dict=permissions_dict,
+                                   email=email, first_name=fn, last_name=ln)
+
+    # Setup: Create our test APIUser class.
     custom_defaults = {'first': False, 'second': False, 'third': False}
     test_cls = apiuser_with_custom_defaults(custom_defaults)
-    user = User.objects.create_user(**start_kwargs)
+
+    # Setup: Create existing User and APIUser instances.
+    user = User.objects.create_user(**start_udata)
     apiuser = test_cls(secret_text=start_secret, user=user)
     apiuser.save()
-    apiuser.update_and_save(**new_kwargs)
 
-    cmp_apiuser = test_cls.objects.get(user__username=start_kwargs['username'])
-    cmp_user = User.objects.get(username=start_kwargs['username'])
-    exp_permissions = custom_defaults.copy()
-    exp_permissions.update(permissions_dict or {})
-    exp_secret = (secret_text if secret_text is not None else start_secret)
-    exp_pw = (pw if pw is not None else start_kwargs['password'])
-    exp_email = (email if email is not None else start_kwargs['email'])
-    exp_first_name = (fn if fn is not None else start_kwargs['first_name'])
-    exp_last_name = (ln if ln is not None else start_kwargs['last_name'])
+    # Test: Call `update_and_save` with new user data.
+    apiuser.update_and_save(**new_udata)
 
-    assert cmp_apiuser == apiuser
-    assert cmp_user == apiuser.user
-    assert apiuser.secret == test_cls.encode_secret(exp_secret)
-    assert ujson.decode(apiuser.permissions) == exp_permissions
-    assert authenticate(username=start_kwargs['username'], password=exp_pw)
-    assert apiuser.user.email == exp_email
-    assert apiuser.user.first_name == exp_first_name
-    assert apiuser.user.last_name == exp_last_name
+    # Post-test: Formulate expected results
+    exp_apiuser = test_cls.objects.get(user__username=start_udata['username'])
+    exp_user = User.objects.get(username=start_udata['username'])
+    start_apiuser_data = start_udata.copy()
+    start_apiuser_data['secret_text'] = start_secret
+    exp = calculate_expected_apiuser_details(test_cls, new_udata,
+                                             start_apiuser_data)
+
+    # Results: Are the User and APIUser in the DB a match for what was
+    # updated?
+    assert exp_apiuser == apiuser
+    assert exp_user == apiuser.user
+
+    # Results: Does this APIUser have the correct (updated) values?
+    assert apiuser.secret == exp['secret']
+    assert apiuser.permissions == exp['permissions']
+    assert authenticate(username=start_udata['username'],
+                        password=exp['password'])
+    assert apiuser.user.email == exp['email']
+    assert apiuser.user.first_name == exp['first_name']
+    assert apiuser.user.last_name == exp['last_name']
 
 
 def test_user_state_on_apiuser_updatesave_error(apiuser_with_custom_defaults):
@@ -493,4 +554,190 @@ def test_apiuser_setallpermissionstovalue_errors(apiuser_with_custom_defaults):
     apiuser = test_cls()
     with pytest.raises(APIUserException):
         apiuser.set_all_permissions_to_value('not a boolean')
-    
+
+
+@pytest.mark.parametrize('start_vals, new_vals, err_vals', [
+    (
+        [],
+        [('un1', 'pw1', 'em1', 'fn1', 'ln1', 'se1', {'first': True})],
+        []
+    ), (
+        [],
+        [('un1', 'pw1', 'em1', 'fn1', 'ln1', 'se1', {'first': True}),
+         ('un2', 'pw2', 'em2', 'fn2', 'ln2', 'se2', {'third': True})],
+        []
+    ), (
+        [],
+        [],
+        [('un1', 'pw1', 'em1', 'fn1', 'ln1', None, {'first': True})]
+    ), (
+        [],
+        [],
+        [('un1', None, 'em1', 'fn1', 'ln1', 'se1', {'first': True})]
+    ), (
+        [],
+        [],
+        [(None, 'pw1', 'em1', 'fn1', 'ln1', 'se1', {'first': True})]
+    ), (
+        [('un1', 'pw1', 'em1', 'fn1', 'ln1', 'se1', None),
+         ('un2', 'pw2', 'em2', 'fn2', 'ln2', 'se2', None)],
+        [('un3', 'pw3', 'em3', 'fn3', 'ln3', 'se3', {'first': True})],
+        []
+    ), (
+        [('un1', 'pw1', 'em1', 'fn1', 'ln1', 'se1', None),
+         ('un2', 'pw2', 'em2', 'fn2', 'ln2', 'se2', None)],
+        [('un3', 'pw3', 'em3', 'fn3', 'ln3', 'se3', {'first': True}),
+         ('un4', 'pw4', 'em4', 'fn4', 'ln4', 'se4', {'third': True})],
+        []
+    ), (
+        [('un1', 'pw1', 'em1', 'fn1', 'ln1', 'se1', None),
+         ('un2', 'pw2', 'em2', 'fn2', 'ln2', 'se2', None)],
+        [('un3', 'pw3', 'em3', 'fn3', 'ln3', 'se3', {'first': True}),
+         ('un4', 'pw4', 'em4', 'fn4', 'ln4', 'se4', {'third': True})],
+        [('un5', None, 'em3', 'fn3', 'ln3', 'se3', {'first': True}),
+         ('un6', 'pw4', 'em4', 'fn4', 'ln4', None, {'third': True})]
+    ), (
+        [('un1', 'pw1', 'em1', 'fn1', 'ln1', 'se1', None),
+         ('un2', 'pw2', 'em2', 'fn2', 'ln2', 'se2', None)],
+        [],
+        [('un1', None, None, None, None, None, {'first': 'ERROR'}),
+         ('un2', None, None, None, None, None, {'fourth': False})]
+    ), (
+        [('un1', 'pw1', 'em1', 'fn1', 'ln1', 'se1', None),
+         ('un2', 'pw2', 'em2', 'fn2', 'ln2', 'se2', None)],
+        [('un1', 'npw', 'nem', 'nfn', 'nln', 'nse', {'second': True})],
+        []
+    ), (
+        [('un1', 'pw1', 'em1', 'fn1', 'ln1', 'se1', None),
+         ('un2', 'pw2', 'em2', 'fn2', 'ln2', 'se2', None)],
+        [('un1', None, None, None, None, None, None)],
+        []
+    ), (
+        [('un1', 'pw1', 'em1', 'fn1', 'ln1', 'se1', None),
+         ('un2', 'pw2', 'em2', 'fn2', 'ln2', 'se2', None)],
+        [('un2', 'pw2', 'em2', 'fn2', 'ln2', 'se2', None)],
+        []
+    ), (
+        [('un1', 'pw1', 'em1', 'fn1', 'ln1', 'se1', None),
+         ('un2', 'pw2', 'em2', 'fn2', 'ln2', 'se2', None)],
+        [('un2', None, 'nem', None, None, None, None)],
+        []
+    ), (
+        [('un1', 'pw1', 'em1', 'fn1', 'ln1', 'se1', None),
+         ('un2', 'pw2', 'em2', 'fn2', 'ln2', 'se2', None),
+         ('un3', 'pw3', 'em3', 'fn3', 'ln3', 'se3', None)],
+        [('un1', 'npw', '', None, None, None, None),
+         ('un3', None, '', None, None, None, {'first': True})],
+        []
+    ), (
+        [('un1', 'pw1', 'em1', 'fn1', 'ln1', 'se1', None),
+         ('un2', 'pw2', 'em2', 'fn2', 'ln2', 'se2', None),
+         ('un3', 'pw3', 'em3', 'fn3', 'ln3', 'se3', None)],
+        [('un1', 'npw', '', None, None, None, None),
+         ('un3', None, '', None, None, None, {'first': True}),
+         ('un4', 'pw4', 'em4', 'fn4', 'ln4', 'se4', {'third': True}),
+         ('un5', 'pw5', 'em5', 'fn5', 'ln5', 'se5', {'second': True})],
+        []
+    ), (
+        [('un1', 'pw1', 'em1', 'fn1', 'ln1', 'se1', None),
+         ('un2', 'pw2', 'em2', 'fn2', 'ln2', 'se2', None),
+         ('un3', 'pw3', 'em3', 'fn3', 'ln3', 'se3', None)],
+        [('un1', 'npw', '', None, None, None, None),
+         ('un4', 'pw4', 'em4', 'fn4', 'ln4', 'se4', {'third': True}),
+         ('un5', 'pw5', 'em5', 'fn5', 'ln5', 'se5', {'second': True})],
+        [('un3', None, '', None, None, None, {'first': 0}),
+         ('un6', None, '', None, None, None, None),
+         ('un7', 'pw7', 'em7', 'fn7,' 'ln7', None, None)]
+    ),
+], ids=[
+    'none exist, create one; no errors',
+    'none exist, create some; no errors',
+    'none exist, create none; one creation error (missing secret)',
+    'none exist, create none; one creation error (missing password)',
+    'none exist, create none; one creation error (missing username)',
+    'some exist, create one; no errors',
+    'some exist, create some; no errors',
+    'some exist, create some; some creation errors',
+    'some exist; create none; some update errors',
+    'some exist, update one (all new field data); no errors',
+    'some exist, update one (no data provided, so nothing updated); no errors',
+    'some exist, update one (no new data, so nothing updated); no errors',
+    'some exist, update one (one new value); no errors',
+    'some exist, update some; no errors',
+    'some exist, update some, create some; no errors',
+    'some exist, update one, create some; creation and update errors',
+])
+def test_apiuser_batchimport_works(apiuser_with_custom_defaults, start_vals,
+                                   new_vals, err_vals):
+    """
+    The APIUser manager's `batch_import_users` method should: create
+    new Users/APIUsers for ones that don't already exist; update
+    Users/APIUsers for ones that do exist; and return lists of the
+    APIUser objects that were created and updated.
+
+    If a create/update operation produces errors (e.g. if a password
+    or secret aren't provided for a new user, if a username isn't
+    provided, etc.): it should log the error and go on to the next
+    user. The user that triggered the error should not be created or
+    modified. The list of errors and user records that caused them is
+    returned.
+    """
+    # Initialization
+    fields = ('username', 'password', 'email', 'first_name', 'last_name',
+              'secret_text', 'permissions_dict')
+    start_udata = [{fields[i]: v for i, v in enumerate(u)} for u in start_vals]
+    new_udata = [{fields[i]: v for i, v in enumerate(u)} for u in new_vals]
+    err_udata = [{fields[i]: v for i, v in enumerate(u)} for u in err_vals]
+    start_unames = [u['username'] for u in start_udata]
+    new_unames = [u['username'] for u in new_udata]
+    err_unames = [u['username'] for u in err_udata]
+
+    # Setup: Create our test APIUser class.
+    custom_defaults = {'first': False, 'second': False, 'third': False}
+    test_cls = apiuser_with_custom_defaults(custom_defaults)
+    apiuser = test_cls()
+
+    # Setup: Create the users that already exist.
+    for start in start_udata:
+        kwargs = start.copy()
+        args = [kwargs.pop('username'), kwargs.pop('secret_text')]
+        test_cls.objects.create_user(*args, **kwargs)
+
+    # Test: Batch import new users.
+    the_batch = new_udata + err_udata
+    (created, updated, errors) = test_cls.objects.batch_import_users(the_batch)
+
+    # Results: Were the expected users created and/or updated?
+    exp_created = list(set(new_unames) - set(start_unames))
+    exp_updated = list(set(new_unames) & set(start_unames))
+    assert set(exp_created) == set([u.user.username for u in created])
+    assert set(exp_updated) == set([u.user.username for u in updated])
+
+    # Results: Does the new user data match expectations?
+    for new in new_udata:
+        apiuser = test_cls.objects.get(user__username=new['username'])
+        start = [u for u in start_udata if u['username'] == new['username']]
+        start = start[0] if len(start) else {}
+        exp = calculate_expected_apiuser_details(test_cls, new, start)
+        assert_apiuser_matches_expected_data(apiuser, exp)
+
+    # Results: Were the correct number of errors raised?
+    assert len(errors) == len(err_udata)
+
+    # Results: Confirm that anything that raised an error is in its
+    #          initial state.
+    err_dicts = [e[1] for e in errors]
+    for err in err_udata:
+        assert err in err_dicts
+        if err['username']:
+            if err['username'] in start_unames:
+                apiuser = test_cls.objects.get(user__username=err['username'])
+                start = [u for u in start_udata
+                         if u['username'] == err['username']]
+                exp = calculate_expected_apiuser_details(test_cls, start[0])
+                assert_apiuser_matches_expected_data(apiuser, exp)
+            else:
+                with pytest.raises(test_cls.DoesNotExist):
+                    test_cls.objects.get(user__username=err['username'])
+                with pytest.raises(User.DoesNotExist):
+                    User.objects.get(username=err['username'])
