@@ -105,6 +105,18 @@ def test_apiuser_save_requires_user(apiuser_with_custom_defaults):
         u.save()
 
 
+def test_apiuser_save_requires_username(apiuser_with_custom_defaults):
+    """
+    Attempting to save an APIUser that has a related user with no
+    username should raise an APIUserException.
+    """
+    test_cls = apiuser_with_custom_defaults()
+    u = User(username='', password='pw')
+    api_u = test_cls(secret_text='secret', user=u)
+    with pytest.raises(APIUserException):
+        api_u.save()
+
+
 @pytest.mark.parametrize('password, email, first_name, last_name', [
     ('password', 'email', 'first_name', 'last_name'),
     ('password', None, None, None),
@@ -137,29 +149,21 @@ def test_apiuser_creation_creates_new_user(apiuser_with_custom_defaults,
     assert apiuser.user.last_name == (last_name or '')
 
 
-def test_apiuser_creation_requires_password(apiuser_with_custom_defaults):
+@pytest.mark.parametrize('username, secret, password', [
+    (None, 'se1', 'pw1'),
+    ('', 'se1', 'pw1'),
+    ('un1', None, 'pw1'),
+    ('un1', 'se1', None),
+])
+def test_apiuser_creation_required_field_errors(apiuser_with_custom_defaults,
+                                                username, secret, password):
     """
     When creating a new APIUser (via the manager `create_user` method),
-    if there is no existing User obj with the provided username, but no
-    `password` parameter is provided to use when creating a new User,
-    an error should be raised.
+    not providing a required field should raise an error. Note that the
+    `password` field is only required if you are creating an APIUser
+    where a User doesn't already exist and has to be created. Also,
+    blank usernames are NOT allowed, but blank secrets/passwords are.
     """
-    username, secret = 'test_user', 'secret'
-    test_cls = apiuser_with_custom_defaults()
-    user_preexists = bool(len(User.objects.filter(username=username)))
-
-    assert not user_preexists
-    with pytest.raises(APIUserException):
-        u = test_cls.objects.create_user(username, secret)
-
-
-def test_apiuser_creation_requires_secret_text(apiuser_with_custom_defaults):
-    """
-    When creating a new APIUser (via the manager `create_user` method),
-    the `secret_text` arg is required not to be None. If the caller
-    forces None to be passed, then saving the object raises an error.
-    """
-    username, secret, password = 'test_user', None, 'password'
     test_cls = apiuser_with_custom_defaults()
     with pytest.raises(APIUserException):
         u = test_cls.objects.create_user(username, secret, password=password)
@@ -440,7 +444,7 @@ def test_user_state_on_apiuser_updatesave_error(apiuser_with_custom_defaults):
     apiuser.save()
 
     user_email_before = User.objects.get(username=username).email
-    apiuser.secret = None
+    apiuser.user.username = ''
     with pytest.raises(APIUserException):
         apiuser.update_and_save(email=new_email)
     user_email_after = User.objects.get(username=username).email
@@ -556,40 +560,80 @@ def test_apiuser_setallpermissionstovalue_errors(apiuser_with_custom_defaults):
         apiuser.set_all_permissions_to_value('not a boolean')
 
 
-@pytest.mark.parametrize('start_vals, new_vals, err_vals', [
+@pytest.mark.parametrize('fields, start_vals, new_vals, err_vals', [
     (
+        ('username', 'password', 'email', 'first_name', 'last_name',
+         'secret_text', 'permissions_dict'),
         [],
         [('un1', 'pw1', 'em1', 'fn1', 'ln1', 'se1', {'first': True})],
         []
     ), (
+        ('username', 'password', 'email', 'first_name', 'last_name',
+         'secret_text', 'permissions_dict'),
         [],
         [('un1', 'pw1', 'em1', 'fn1', 'ln1', 'se1', {'first': True}),
          ('un2', 'pw2', 'em2', 'fn2', 'ln2', 'se2', {'third': True})],
         []
     ), (
+        ('username', 'password', 'email', 'first_name', 'last_name',
+         'secret_text', 'permissions_dict'),
         [],
         [],
         [('un1', 'pw1', 'em1', 'fn1', 'ln1', None, {'first': True})]
     ), (
+        ('username', 'password', 'email', 'first_name', 'last_name',
+         'secret_text', 'permissions_dict'),
         [],
         [],
         [('un1', None, 'em1', 'fn1', 'ln1', 'se1', {'first': True})]
     ), (
+        ('username', 'password', 'email', 'first_name', 'last_name',
+         'secret_text', 'permissions_dict'),
         [],
         [],
         [(None, 'pw1', 'em1', 'fn1', 'ln1', 'se1', {'first': True})]
     ), (
+        ('username', 'password', 'email', 'first_name', 'last_name',
+         'secret_text', 'permissions_dict'),
+        [],
+        [],
+        [('', 'pw1', 'em1', 'fn1', 'ln1', 'se1', {'first': True})]
+    ), (
+        ('username', 'password', 'email', 'fname', 'last_name',
+         'secret_text', 'permissions_dict'),
+        [],
+        [],
+        [('un1', 'pw1', 'em1', 'fn1', 'ln1', 'se1', {'first': True})]
+    ), (
+        ('username', 'password', 'email', 'first_name', 'last_name',
+         'secret_text', 'permissions_dict', 'undefined_field'),
+        [],
+        [],
+        [('un1', 'pw1', 'em1', 'fn1', 'ln1', 'se1', {'first': True}, '')]
+    ), (
+        ('username', 'password', 'email', 'first_name', 'last_name',
+         'secret_text', 'permissions_dict'),
+        [],
+        [],
+        [('un1', 'pw1', 'em1', 'fn1', 'ln1', 'se1', {'fourth': True})]
+    ), (
+        ('username', 'password', 'email', 'first_name', 'last_name',
+         'secret_text', 'permissions_dict'),
         [('un1', 'pw1', 'em1', 'fn1', 'ln1', 'se1', None),
          ('un2', 'pw2', 'em2', 'fn2', 'ln2', 'se2', None)],
         [('un3', 'pw3', 'em3', 'fn3', 'ln3', 'se3', {'first': True})],
         []
     ), (
+        ('username', 'password', 'email', 'first_name', 'last_name',
+         'secret_text', 'permissions_dict'),
         [('un1', 'pw1', 'em1', 'fn1', 'ln1', 'se1', None),
          ('un2', 'pw2', 'em2', 'fn2', 'ln2', 'se2', None)],
         [('un3', 'pw3', 'em3', 'fn3', 'ln3', 'se3', {'first': True}),
          ('un4', 'pw4', 'em4', 'fn4', 'ln4', 'se4', {'third': True})],
         []
     ), (
+        ('username', 'password', 'email', 'first_name', 'last_name',
+         'secret_text', 'permissions_dict'),
         [('un1', 'pw1', 'em1', 'fn1', 'ln1', 'se1', None),
          ('un2', 'pw2', 'em2', 'fn2', 'ln2', 'se2', None)],
         [('un3', 'pw3', 'em3', 'fn3', 'ln3', 'se3', {'first': True}),
@@ -597,32 +641,44 @@ def test_apiuser_setallpermissionstovalue_errors(apiuser_with_custom_defaults):
         [('un5', None, 'em3', 'fn3', 'ln3', 'se3', {'first': True}),
          ('un6', 'pw4', 'em4', 'fn4', 'ln4', None, {'third': True})]
     ), (
+        ('username', 'password', 'email', 'first_name', 'last_name',
+         'secret_text', 'permissions_dict'),
         [('un1', 'pw1', 'em1', 'fn1', 'ln1', 'se1', None),
          ('un2', 'pw2', 'em2', 'fn2', 'ln2', 'se2', None)],
         [],
         [('un1', None, None, None, None, None, {'first': 'ERROR'}),
          ('un2', None, None, None, None, None, {'fourth': False})]
     ), (
+        ('username', 'password', 'email', 'first_name', 'last_name',
+         'secret_text', 'permissions_dict'),
         [('un1', 'pw1', 'em1', 'fn1', 'ln1', 'se1', None),
          ('un2', 'pw2', 'em2', 'fn2', 'ln2', 'se2', None)],
         [('un1', 'npw', 'nem', 'nfn', 'nln', 'nse', {'second': True})],
         []
     ), (
+        ('username', 'password', 'email', 'first_name', 'last_name',
+         'secret_text', 'permissions_dict'),
         [('un1', 'pw1', 'em1', 'fn1', 'ln1', 'se1', None),
          ('un2', 'pw2', 'em2', 'fn2', 'ln2', 'se2', None)],
         [('un1', None, None, None, None, None, None)],
         []
     ), (
+        ('username', 'password', 'email', 'first_name', 'last_name',
+         'secret_text', 'permissions_dict'),
         [('un1', 'pw1', 'em1', 'fn1', 'ln1', 'se1', None),
          ('un2', 'pw2', 'em2', 'fn2', 'ln2', 'se2', None)],
         [('un2', 'pw2', 'em2', 'fn2', 'ln2', 'se2', None)],
         []
     ), (
+        ('username', 'password', 'email', 'first_name', 'last_name',
+         'secret_text', 'permissions_dict'),
         [('un1', 'pw1', 'em1', 'fn1', 'ln1', 'se1', None),
          ('un2', 'pw2', 'em2', 'fn2', 'ln2', 'se2', None)],
         [('un2', None, 'nem', None, None, None, None)],
         []
     ), (
+        ('username', 'password', 'email', 'first_name', 'last_name',
+         'secret_text', 'permissions_dict'),
         [('un1', 'pw1', 'em1', 'fn1', 'ln1', 'se1', None),
          ('un2', 'pw2', 'em2', 'fn2', 'ln2', 'se2', None),
          ('un3', 'pw3', 'em3', 'fn3', 'ln3', 'se3', None)],
@@ -630,6 +686,8 @@ def test_apiuser_setallpermissionstovalue_errors(apiuser_with_custom_defaults):
          ('un3', None, '', None, None, None, {'first': True})],
         []
     ), (
+        ('username', 'password', 'email', 'first_name', 'last_name',
+         'secret_text', 'permissions_dict'),
         [('un1', 'pw1', 'em1', 'fn1', 'ln1', 'se1', None),
          ('un2', 'pw2', 'em2', 'fn2', 'ln2', 'se2', None),
          ('un3', 'pw3', 'em3', 'fn3', 'ln3', 'se3', None)],
@@ -639,6 +697,8 @@ def test_apiuser_setallpermissionstovalue_errors(apiuser_with_custom_defaults):
          ('un5', 'pw5', 'em5', 'fn5', 'ln5', 'se5', {'second': True})],
         []
     ), (
+        ('username', 'password', 'email', 'first_name', 'last_name',
+         'secret_text', 'permissions_dict'),
         [('un1', 'pw1', 'em1', 'fn1', 'ln1', 'se1', None),
          ('un2', 'pw2', 'em2', 'fn2', 'ln2', 'se2', None),
          ('un3', 'pw3', 'em3', 'fn3', 'ln3', 'se3', None)],
@@ -654,7 +714,11 @@ def test_apiuser_setallpermissionstovalue_errors(apiuser_with_custom_defaults):
     'none exist, create some; no errors',
     'none exist, create none; one creation error (missing secret)',
     'none exist, create none; one creation error (missing password)',
-    'none exist, create none; one creation error (missing username)',
+    'none exist, create none; one creation error (missing username, None)',
+    'none exist, create none; one creation error (missing username, empty)',
+    'none exist, create none; one creation error (field misnamed)',
+    'none exist, create none; one creation error (unknown field)',
+    'none exist, create none; one creation error (unknown permission)',
     'some exist, create one; no errors',
     'some exist, create some; no errors',
     'some exist, create some; some creation errors',
@@ -667,8 +731,8 @@ def test_apiuser_setallpermissionstovalue_errors(apiuser_with_custom_defaults):
     'some exist, update some, create some; no errors',
     'some exist, update one, create some; creation and update errors',
 ])
-def test_apiuser_batchimport_works(apiuser_with_custom_defaults, start_vals,
-                                   new_vals, err_vals):
+def test_apiusermgr_batchimport_works(apiuser_with_custom_defaults, fields,
+                                      start_vals, new_vals, err_vals):
     """
     The APIUser manager's `batch_import_users` method should: create
     new Users/APIUsers for ones that don't already exist; update
@@ -683,8 +747,6 @@ def test_apiuser_batchimport_works(apiuser_with_custom_defaults, start_vals,
     returned.
     """
     # Initialization
-    fields = ('username', 'password', 'email', 'first_name', 'last_name',
-              'secret_text', 'permissions_dict')
     start_udata = [{fields[i]: v for i, v in enumerate(u)} for u in start_vals]
     new_udata = [{fields[i]: v for i, v in enumerate(u)} for u in new_vals]
     err_udata = [{fields[i]: v for i, v in enumerate(u)} for u in err_vals]
@@ -741,3 +803,103 @@ def test_apiuser_batchimport_works(apiuser_with_custom_defaults, start_vals,
                     test_cls.objects.get(user__username=err['username'])
                 with pytest.raises(User.DoesNotExist):
                     User.objects.get(username=err['username'])
+
+
+@pytest.mark.parametrize('table, expected', [
+    (
+        [['username', 'secret_text', 'password', 'email', 'first_name',
+         'last_name', 'first', 'second', 'third'],
+         ['un1', 'se1', 'pw1', 'em1', 'fn1', 'ln1', 'true', 'true', 'true']],
+        [('un1', 'pw1', 'em1', 'fn1', 'ln1', 'se1',
+          {'first': True, 'second': True, 'third': True}),]
+    ),
+    (
+        [['username', 'secret_text', 'password', 'email', 'first_name',
+         'last_name', 'first', 'second', 'third'],
+         ['un1', 'se1', 'pw1', 'em1', 'fn1', 'ln1', 'true', 'true', 'true'],
+         ['un2', 'se2', 'pw2', 'em2', 'fn2', 'ln2', 'true', 'true', 'true'],
+         ['un3', 'se3', 'pw3', 'em3', 'fn3', 'ln3', 'true', 'true', 'true']],
+        [('un1', 'pw1', 'em1', 'fn1', 'ln1', 'se1',
+          {'first': True, 'second': True, 'third': True}),
+         ('un2', 'pw2', 'em2', 'fn2', 'ln2', 'se2',
+          {'first': True, 'second': True, 'third': True}),
+         ('un3', 'pw3', 'em3', 'fn3', 'ln3', 'se3',
+          {'first': True, 'second': True, 'third': True}),]
+    ),
+    (
+        [['second', 'last_name', 'secret_text', 'email', 'username', 'first',
+          'password', 'third', 'first_name'],
+         ['true', 'ln1', 'se1', 'em1', 'un1', 'true', 'pw1', 'true', 'fn1']],
+        [('un1', 'pw1', 'em1', 'fn1', 'ln1', 'se1',
+          {'first': True, 'second': True, 'third': True}),]
+    ),
+    (
+        [['username'], ['un1'], ['un2'], ['un3']],
+        [('un1', None, None, None, None, None, None),
+         ('un2', None, None, None, None, None, None),
+         ('un3', None, None, None, None, None, None),]
+    ),
+    (
+        [['username', 'second'],
+         ['un1', 'true']],
+        [('un1', None, None, None, None, None, {'second': True}),]
+    ),
+], ids=[
+    'one row, all fields entered',
+    'multiple rows, all fields entered',
+    'field order does not matter',
+    'allowed to have fields missing',
+    'allowed to have only some permissions'
+])
+def test_apiusermgr_tabletobatch_works(apiuser_with_custom_defaults, table,
+                                       expected):
+    """
+    Running a list of rows through the APIUserManager's
+    `table_to_batch` method should return a list of data dicts suitable
+    for passing in as a batch to the `batch_import_users` method.
+    """
+    # Set up "expected" values.
+    exp_fields = ('username', 'password', 'email', 'first_name', 'last_name',
+                  'secret_text', 'permissions_dict')
+    exp_batch = [{exp_fields[i]: v for i, v in enumerate(u) if v is not None}
+                  for u in expected]
+
+    # Set up test class.
+    custom_defaults = {'first': False, 'second': False, 'third': False}
+    test_cls = apiuser_with_custom_defaults(custom_defaults)
+
+    batch = test_cls.objects.table_to_batch(table)
+    assert batch == exp_batch
+
+
+@pytest.mark.parametrize('bool_str, expected', [
+    ('0', False),
+    ('000000', False),
+    ('f', False),
+    ('F', False),
+    ('false', False),
+    ('False', False),
+    ('FALSE', False),
+    ('1', True),
+    ('01', True),
+    ('t', True),
+    ('T', True),
+    ('True', True),
+    ('TRUE', True),
+    ('', False)
+])
+def test_apiusermgr_tabletobatch_permission_vals(apiuser_with_custom_defaults,
+                                                 bool_str, expected):
+    """
+    The `permission_*` fields used in a CSV file run through the
+    APIUserManager's `table_to_batch` method should be interpreted
+    correctly: '0' or anything beginning with 'f' or 'F' is False; a
+    blank string is None; everything else is True.
+    """
+    custom_defaults = {'first': False, 'second': False, 'third': False}
+    test_cls = apiuser_with_custom_defaults(custom_defaults)
+    table = [['username', 'first'], ['un1', bool_str]]
+    batch = test_cls.objects.table_to_batch(table)
+    assert batch[0]['permissions_dict']['first'] == expected
+
+

@@ -3,6 +3,8 @@ Contains models for api app.
 """
 import hashlib
 import importlib
+import csv
+import re
 
 import ujson
 
@@ -93,9 +95,10 @@ class APIUserManager(models.Manager):
         """
         kwargs = remove_null_kwargs(email=email, first_name=first_name,
                                     last_name=last_name)
+        user_model = self.model._meta.get_field('user').related_model
         try:
-            user, created = User.objects.get_or_create(username=username,
-                                                       **kwargs)
+            user, created = user_model.objects.get_or_create(username=username,
+                                                             **kwargs)
             if created:
                 self._set_new_user_password(user, password)
             else:
@@ -143,20 +146,24 @@ class APIUserManager(models.Manager):
         E.g., if you wanted to update secrets for a list of existing
         APIUsers, you could provide ONLY the `username` and
         `secret_text` for each.
+
+        A dict with one or more elements NOT in the ones listed above
+        (and not a valid permission key) is an error: the element may
+        be a misnamed field or an extra field.
         """
         created, updated, errors = [], [], []
         kwarg_names = ('permissions_dict', 'email', 'first_name', 'last_name',
                        'password')
-        for i, udata in enumerate(user_records):
-            secret_text = udata.get('secret_text', None)
-            kwargs = {k: udata.get(k, None) for k in kwarg_names}
+        valid_fields = set(('secret_text', 'username') + kwarg_names)
+        for record in user_records:
+            secret_text = record.get('secret_text', None)
+            kwargs = {k: record.get(k, None) for k in kwarg_names}
+            username = record.get('username', None)
+            unknown_fields = tuple(set(record.keys()) - valid_fields)
             try:
-                try:
-                    username = udata['username']
-                except KeyError:
-                    msg = ('User in row {} has no username. (Username is '
-                           'required.)'.format(i+1))
-                    raise APIUserException(msg)
+                if unknown_fields:
+                    msg = 'Unknown fields in record: {}'.format(unknown_fields)
+                    raise(APIUserException(msg))
                 try:
                     au = self.get(user__username=username)
                 except ObjectDoesNotExist:
@@ -166,8 +173,38 @@ class APIUserManager(models.Manager):
                     au.update_and_save(secret_text, **kwargs)
                     updated.append(au)
             except APIUserException as e:
-                errors.append((e, udata))
+                errors.append((e, record))
         return (created, updated, errors)
+
+    def table_to_batch(self, table):
+        """
+        Convert a list of data rows to an APIUser import batch.
+
+        Pass an iterable object containing rows of tabular APIUser data
+        fields and get a list of dictionaries (a "batch") suitable for
+        passing into the `batch_import_users` method.
+
+        The first row of the iterable object should contain column
+        names. Columns should be named so that they can be converted
+        directly to dict keys; permissions should use the permission
+        key as the column name and a string ('true' or 'false') as the
+        value.
+        """
+        def _str_to_bool(string):
+            return False if re.match(r'([Ff]|0+$|$)', string) else True
+
+        permission_columns = self.model.permission_defaults.keys()
+        rows = (r for r in table)
+        colnames = rows.next()
+        user_records = []
+        for row in rows:
+            rec = {col: row[i] for i, col in enumerate(colnames)}
+            perm_dict = {c: _str_to_bool(rec.pop(c))
+                            for c in permission_columns if c in rec}
+            if perm_dict:
+                rec['permissions_dict'] = perm_dict
+            user_records.append(rec)
+        return user_records
 
 
 class APIUser(models.Model):
@@ -202,16 +239,23 @@ class APIUser(models.Model):
 
     def save(self, *args, **kwargs):
         """
-        An APIUser MUST have a `secret` and a `user` relation before
-        the object is saved; otherwise, an APIUserException is raised.
+        An APIUser MUST have a `secret` and a `user` relation, and the
+        user must have a non-blank username, before the APIUser obj is
+        saved. Otherwise, an APIUserException is raised.
         """
+        msg = ''
         if not self.secret:
             msg = 'APIUser obj cannot be saved without a `secret`.'
-            raise APIUserException(msg)
-        try:
-            self.user
-        except User.DoesNotExist:
-            msg = 'APIUser obj cannot be saved without a related user.'
+        else:
+            try:
+                self.user
+            except User.DoesNotExist:
+                msg = 'APIUser obj cannot be saved without a related user.'
+            else:
+                if not self.user.username:
+                    msg = ('APIUser obj cannot be save if the related user '
+                           'has a blank `username`.')
+        if msg:
             raise APIUserException(msg)
         super(APIUser, self).save(*args, **kwargs)
 
