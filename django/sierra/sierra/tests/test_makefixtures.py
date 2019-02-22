@@ -16,23 +16,12 @@ from sierra.management.commands import makefixtures
 
 
 # FIXTURES AND TEST DATA
+# ---------------------------------------------------------------------
+# External fixtures used below can be found in
+# django/sierra/conftest.py:
+#    make_tmpfile
 
 pytestmark = pytest.mark.django_db
-
-
-@pytest.fixture(scope='module')
-def mytempdir(tmpdir_factory):
-    return tmpdir_factory.mktemp('data')
-
-
-@pytest.fixture(scope='module')
-def make_tmpfile(mytempdir):
-    def make(data, filename):
-        path = mytempdir.join(filename)
-        with open(str(path), 'w') as fh:
-            fh.write(data)
-        return path
-    return make
 
 
 @pytest.fixture

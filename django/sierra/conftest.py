@@ -17,6 +17,30 @@ from base import models as bm
 
 # General utility fixtures
 
+@pytest.fixture(scope='module')
+def mytempdir(tmpdir_factory):
+    """
+    Module-level fixture for creating a temporary dir for testing
+    purposes.
+    """
+    return tmpdir_factory.mktemp('data')
+
+
+@pytest.fixture(scope='module')
+def make_tmpfile(mytempdir):
+    """
+    Module-level factory fixture for creating a data file in a temp
+    directory. Pass the `data` to write along with the `filename`;
+    returns a full absolute path to the written file.
+    """
+    def make(data, filename):
+        path = mytempdir.join(filename)
+        with open(str(path), 'w') as fh:
+            fh.write(data)
+        return path
+    return make
+
+
 @pytest.fixture(scope='function')
 def model_instance():
     """
