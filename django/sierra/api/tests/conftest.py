@@ -124,34 +124,6 @@ def api_client():
     return drftest.APIClient()
 
 
-@pytest.fixture(scope='function')
-def new_api_user(apiuser_with_custom_defaults, model_instance):
-    """
-    Pytest fixture that gives you a function to use to generate APIUser
-    instances using the `model_instance` fixture--which will ensure the
-    instances you create are deleted after a test function runs.
-    """
-    def _new_api_user(username, email, password, secret, first_name='',
-                      last_name='', permissions=None, default=False):
-        apiuser_class = apiuser_with_custom_defaults()
-        try:
-            return apiuser_class.objects.get(user__username=username)
-        except apiuser_class.DoesNotExist:
-            pass
-
-        try:
-            user = User.objects.get(username=username)
-        except User.DoesNotExist:
-            user = model_instance(User, username, email=email,
-                                  password=password, first_name=first_name,
-                                  last_name=last_name)
-        api_user = model_instance(apiuser_class, user=user)
-        api_user.set_secret(secret)
-        api_user.set_permissions(permissions=permissions, default=default)
-        return api_user
-    return _new_api_user
-
-
 @pytest.fixture
 def simple_sig_auth_credentials():
     """
