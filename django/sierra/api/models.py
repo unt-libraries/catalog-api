@@ -155,7 +155,7 @@ class APIUserManager(models.Manager):
         kwarg_names = ('permissions_dict', 'email', 'first_name', 'last_name',
                        'password')
         valid_fields = set(('secret_text', 'username') + kwarg_names)
-        for record in user_records:
+        for i, record in enumerate(user_records):
             secret_text = record.get('secret_text', None)
             kwargs = {k: record.get(k, None) for k in kwarg_names}
             username = record.get('username', None)
@@ -173,7 +173,7 @@ class APIUserManager(models.Manager):
                     au.update_and_save(secret_text, **kwargs)
                     updated.append(au)
             except APIUserException as e:
-                errors.append((e, record))
+                errors.append((i+1, record, e))
         return (created, updated, errors)
 
     def table_to_batch(self, table):
