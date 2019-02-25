@@ -13,6 +13,7 @@ import utils
 from utils.test_helpers import fixture_factories as ff
 from export import models as em
 from base import models as bm
+from api.models import APIUser
 
 
 # General utility fixtures
@@ -283,3 +284,23 @@ def delete_records():
         exporter.delete_records(records)
         exporter.final_callback()
     return _delete_records
+
+
+# API App related fixtures
+
+@pytest.fixture(scope='function')
+def apiuser_with_custom_defaults():
+    """
+    Function-level pytest fixture; returns a function to use for
+    updating the APIUser class with custom default permissions.
+    Restores the original defaults after the test runs.
+    """
+    def _apiuser_with_custom_defaults(defaults=None):
+        defaults = defaults or {'test_create': False, 'test_update': False,
+                                'test_delete': False}
+        APIUser.permission_defaults = defaults.copy()
+        return APIUser
+
+    old_defaults = APIUser.permission_defaults.copy()
+    yield _apiuser_with_custom_defaults
+    APIUser.permission_defaults = old_defaults

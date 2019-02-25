@@ -21,10 +21,8 @@ pytestmark = pytest.mark.django_db
 # ---------------------------------------------------------------------
 # External fixtures used below can be found in
 # django/sierra/conftest.py:
-#   
-#
-# django/sierra/api/tests/conftest.py:
 #   apiuser_with_custom_defaults
+#
 
 
 def calculate_expected_apiuser_details(test_cls, new, start=None):
@@ -901,5 +899,3 @@ def test_apiusermgr_tabletobatch_permission_vals(apiuser_with_custom_defaults,
     table = [['username', 'first'], ['un1', bool_str]]
     batch = test_cls.objects.table_to_batch(table)
     assert batch[0]['permissions_dict']['first'] == expected
-
-
