@@ -327,10 +327,9 @@ class TestSolrConnectionFactory(object):
     is cleared automatically before and after use.
     """
 
-    url = 'http://{}:{}/solr'.format(settings.SOLR_HOST, settings.SOLR_PORT)
-
-    def make(self, core_name, *args, **kwargs):
-        return pysolr.Solr('{}/{}'.format(self.url, core_name), **kwargs)
+    def make(self, conn_name, *args, **kwargs):
+        url = settings.HAYSTACK_CONNECTIONS[conn_name]['URL']
+        return pysolr.Solr(url, **kwargs)
 
     def unmake(self, conn):
         conn.delete(q='*:*')
