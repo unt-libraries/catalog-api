@@ -1,14 +1,13 @@
-'''
+"""
 Default base Exporters are defined here.
 
 ExportType entities translate 1:1 to Exporter subclasses. For each
 ExportType you define, you're going to have a class defined here that
 inherits from the base Exporter class. Your ExportType.code should
 match the class name that handles that ExportType.
-'''
+"""
 from __future__ import unicode_literals
 import logging
-import sys, traceback
 import re
 import subprocess
 import os
@@ -26,6 +25,9 @@ from utils import helpers, redisobjs, solr, dict_merge
 logger = logging.getLogger('sierra.custom')
 
 
+SOLR_CONNS = settings.EXPORTER_HAYSTACK_CONNECTIONS
+
+
 def collapse_vals(vals):
     new_vals = {}
     for v in vals:
@@ -33,81 +35,84 @@ def collapse_vals(vals):
     return new_vals
 
 
-class MetadataToSolrExporter(exporter.Exporter):
-    '''
+class MetadataToSolrExporter(exporter.ToSolrExporter):
+    """
     Subclassable exporter subclass. Subclass this to create simple
     exporters for "metadata" that is in your III system--Locations,
-    Itypes, Ptypes, Material Types, etc. You should just need to
-    specify a model_name and (haystack) index.
-    '''
-    model_name = ''
-    hs_conn = None
-    index_class = None
-    
-    def __init__(self, *args, **kwargs):
-        c_name = self.__class__.__name__
-        self.hs_conn = settings.EXPORTER_HAYSTACK_CONNECTIONS[c_name]
-        super(MetadataToSolrExporter, self).__init__(*args, **kwargs)
+    Itypes, Ptypes, Material Types, etc.
+    """
+
+    index_settings = (
+        ('first_index_name', {
+            'class': None,  # haystack.SearchIndex
+            'core': None    # Solr core string, e.g. 'bibdata'
+        }),
+        ('second_index_name', {
+            'class': None,  # haystack.SearchIndex
+            'core': None    # Solr core string, e.g. 'bibdata'
+        }),
+    )
 
     def get_records(self):
-        return getattr(sierra_models, self.model_name).objects.all()
+        return self.model.objects.all()
 
     def get_deletions(self):
         return None
 
-    def export_records(self, records, vals={}):
-        # Note that our export_records process doesn't even use the
-        # records that are passed to it--it just sends an "update"
-        # call to the indexer and the indexer grabs the records
-        # straight from the model. We still define the get_records
-        # method because this gives our export dispatcher task a 
-        # record count which it logs on the export instance.
-        log_label = self.__class__.__name__
-        try:
-            self.index_class().reindex(using=self.hs_conn, commit=False)
-        except Exception as e:
-            ex_type, ex, tb = sys.exc_info()
-            logger.info(traceback.extract_tb(tb))
-            self.log('Error', e, log_label)
-        return vals
-
-    def final_callback(self, vals={}, status='success'):
-        self.log('Info', 'Committing updates to Solr...')
-        index = self.index_class()
-        index.commit(using=self.hs_conn)
+    def update_index(self, index_name, records):
+        self.indexes[index_name].reindex(commit=False, queryset=records)
 
 
 class LocationsToSolr(MetadataToSolrExporter):
-    '''
+    """
     Defines process to load Locations into Solr.
-    '''
-    model_name = 'Location'
-    index_class = indexes.LocationIndex
+    """
+    model = sierra_models.Location
+    index_settings = (
+        ('Locations', {
+            'class': indexes.LocationIndex,
+            'core': SOLR_CONNS['LocationsToSolr']
+        }),
+    )
 
 
 class ItypesToSolr(MetadataToSolrExporter):
-    '''
+    """
     Defines process to load Itypes into Solr.
-    '''
-    model_name = 'ItypeProperty'
-    index_class = indexes.ItypeIndex
+    """
+    model = sierra_models.ItypeProperty
+    index_settings = (
+        ('Itypes', {
+            'class': indexes.ItypeIndex,
+            'core': SOLR_CONNS['ItypesToSolr']
+        }),
+    )
 
 
 class ItemStatusesToSolr(MetadataToSolrExporter):
-    '''
+    """
     Defines process to load item statuses into Solr.
-    '''
-    model_name = 'ItemStatusProperty'
-    index_class = indexes.ItemStatusIndex
+    """
+    model = sierra_models.ItemStatusProperty
+    index_settings = (
+        ('ItemStatuses', {
+            'class': indexes.ItemStatusIndex,
+            'core': SOLR_CONNS['ItemStatusesToSolr']
+        }),
+    )
 
 
-class ItemsToSolr(exporter.Exporter):
-    '''
+class ItemsToSolr(exporter.ToSolrExporter):
+    """
     Defines processes that load item records into Solr.
-    '''
-    hs_conn = settings.EXPORTER_HAYSTACK_CONNECTIONS['ItemsToSolr']
-    model_name = 'ItemRecord'
-    index_class = indexes.ItemIndex
+    """
+    model = sierra_models.ItemRecord
+    index_settings = (
+        ('Items', {
+            'class': indexes.ItemIndex,
+            'core': SOLR_CONNS['ItemsToSolr']
+        }),
+    )
     deletion_filter = [
         {
             'deletion_date_gmt__isnull': False,
@@ -125,44 +130,18 @@ class ItemsToSolr(exporter.Exporter):
     ]
     select_related = ['record_metadata', 'location', 'itype']
 
-    def export_records(self, records, vals={}):
-        log_label = self.__class__.__name__
-        index = self.index_class(queryset=records)
-        try:
-            index.update(using=self.hs_conn, commit=True)
-        except Exception as e:
-            ex_type, ex, tb = sys.exc_info()
-            logger.info(traceback.extract_tb(tb))
-            self.log('Error', e, log_label)
-        return vals
 
-    def delete_records(self, records, vals={}):
-        log_label = self.__class__.__name__
-        index = self.index_class()
-        for i in records:
-            try:
-                index.remove_object('base.itemrecord.{}'.format(str(i.id)),
-                                    using=self.hs_conn, commit=True)
-            except Exception as e:
-                ex_type, ex, tb = sys.exc_info()
-                logger.info(traceback.extract_tb(tb))
-                self.log('Error', 'Record {}: {}'
-                         ''.format(str(i), e), log_label)
-        return vals
-
-    def final_callback(self, vals={}, status='success'):
-        self.log('Info', 'Committing updates to Solr...')
-        index = self.index_class()
-        index.commit(using=self.hs_conn)
-
-
-class EResourcesToSolr(exporter.Exporter):
-    '''
-    Defines processes that load item records into Solr.
-    '''
-    hs_conn = settings.EXPORTER_HAYSTACK_CONNECTIONS['EResourcesToSolr']
-    model_name = 'ResourceRecord'
-    index_class = indexes.ElectronicResourceIndex
+class EResourcesToSolr(exporter.ToSolrExporter):
+    """
+    Defines processes that load resource records into Solr.
+    """
+    model = sierra_models.ResourceRecord
+    index_settings = (
+        ('EResources', {
+            'class': indexes.ElectronicResourceIndex,
+            'core': SOLR_CONNS['EResourcesToSolr']
+        }),
+    )
     deletion_filter = [
         {
             'deletion_date_gmt__isnull': False,
@@ -180,40 +159,18 @@ class EResourcesToSolr(exporter.Exporter):
     max_rec_chunk = 20
 
     def export_records(self, records, vals={}):
-        log_label = self.__class__.__name__
-        index = self.index_class(queryset=records)
         try:
-            index.update(using=self.hs_conn, commit=False)
+            self.indexes['EResources'].update(commit=False, queryset=records)
         except Exception as e:
-            ex_type, ex, tb = sys.exc_info()
-            logger.info(traceback.extract_tb(tb))
-            self.log('Error', e, log_label)
+            self.log_error(e)
         else:
             h_lists = vals.get('h_lists', {})
-            h_lists.update(index.h_lists)
+            h_lists.update(self.indexes['EResources'].h_lists)
             vals['h_lists'] = h_lists
         return vals
 
-    def delete_records(self, records, vals={}):
-        log_label = self.__class__.__name__
-        index = self.index_class()
-        for i in records:
-            try:
-                index.remove_object('base.resourcerecord.{}'.format(str(i.id)),
-                                    using=self.hs_conn, commit=False)
-            except Exception as e:
-                ex_type, ex, tb = sys.exc_info()
-                logger.info(traceback.extract_tb(tb))
-                self.log('Error', 'Record {}: {}'
-                         ''.format(str(i), e), log_label)
-        return vals
-
-    def final_callback(self, vals={}, status='success'):
-        if type(vals) is list:
-            vals = collapse_vals(vals)
-
-        self.log('Info', 'Committing updates to Solr and Redis...')
-
+    def commit_to_redis(self, vals):
+        self.log('Info', 'Committing EResource updates to Redis...')
         rev_handler = redisobjs.RedisObject('reverse_holdings_list', '0')
         reverse_holdings_list = rev_handler.get() or {}
         for er_rec_num, h_list in vals.get('h_lists', {}).iteritems():
@@ -229,12 +186,15 @@ class EResourcesToSolr(exporter.Exporter):
 
         rev_handler.set(reverse_holdings_list)
 
-        index = self.index_class()
-        index.commit(using=self.hs_conn)
+    def final_callback(self, vals={}, status='success'):
+        if isinstance(vals, (list, tuple)):
+            vals = collapse_vals(vals)
+        self.commit_to_redis(vals)
+        self.commit_indexes()
 
 
-class HoldingUpdate(exporter.Exporter):
-    '''
+class HoldingUpdate(exporter.CompoundMixin, exporter.Exporter):
+    """
     Checks for updates to holdings and updates linked EResources as
     needed.
 
@@ -249,17 +209,16 @@ class HoldingUpdate(exporter.Exporter):
     our Sierra DB access to a minimium. We're also using Redis to store
     an index of holding record IDs to the Solr holdings field index to
     help us manage this (since we need a way to identify holdings
-    records by more than just their title)
-    '''
-    hs_conn = settings.EXPORTER_HAYSTACK_CONNECTIONS['HoldingUpdate']
-    model_name = 'HoldingRecord'
-    index_class = indexes.ElectronicResourceIndex
-    deletion_filter = [
-        {
-            'deletion_date_gmt__isnull': False,
-            'record_type__code': 'c'
-        }
-    ]
+    records by more than just their title).
+    """
+    model = sierra_models.HoldingRecord
+    exporter_names = ('EResourcesToSolr',)
+    # deletion_filter = [
+    #     {
+    #         'deletion_date_gmt__isnull': False,
+    #         'record_type__code': 'c'
+    #     }
+    # ]
     prefetch_related = [
         'bibrecord_set',
         'bibrecord_set__record_metadata__varfield_set',
@@ -270,14 +229,11 @@ class HoldingUpdate(exporter.Exporter):
 
     def __init__(self, *args, **kwargs):
         super(HoldingUpdate, self).__init__(*args, **kwargs)
-        er_et = export_models.ExportType.objects.get(pk='EResourcesToSolr')
-        self.eresources_to_solr = er_et.get_exporter_class()
-        self.max_rec_chunk = self.eresources_to_solr.max_rec_chunk
+        er_to_solr = self.exporter_classes['EResourcesToSolr']
+        self.max_rec_chunk = er_to_solr.max_rec_chunk
 
     def export_records(self, records, vals={}):
-        log_label = self.__class__.__name__
-        eresources = set()
-        er_mapping = {}
+        eresources, er_mapping = set(), {}
         # First we loop through the holding records and determine which
         # eresources need to be updated. er_mapping maps eresource rec
         # nums to lists of holdings rec nums to update.
@@ -382,28 +338,15 @@ class HoldingUpdate(exporter.Exporter):
         if eresources:
             eresources = list(eresources)
             er_vals = vals.get('eresources', {})
-            er_vals.update(self.eresources_to_solr(self.instance.pk,
-                self.export_filter, self.export_type, self.options)
-                .export_records(eresources, er_vals))
+            er_to_solr = self.exporters['EResourcesToSolr']
+            er_vals.update(er_to_solr.export_records(eresources, er_vals))
             vals['eresources'] = er_vals
 
         return vals
 
-    def delete_records(self, records, vals={}):
-        return vals
-
-    def final_callback(self, vals={}, status='success'):
-        if type(vals) is list:
-            vals = collapse_vals(vals)
-
+    def commit_to_redis(self, vals):
+        self.log('Info', 'Committing Holdings updates to Redis...')
         h_vals = vals.get('holdings', {})
-        er_vals = vals.get('eresources', {})
-
-        self.eresources_to_solr(self.instance.pk, self.export_filter,
-            self.export_type, self.options).final_callback(er_vals, status)
-
-        # commit changes to Redis and commit deletions to Solr
-        self.log('Info', 'Committing updates to Redis...')
         rev_handler = redisobjs.RedisObject('reverse_holdings_list', '0')
         reverse_h_list = rev_handler.get()
         for er_rec_num, lists in h_vals.iteritems():
@@ -427,14 +370,20 @@ class HoldingUpdate(exporter.Exporter):
             record.save()
             er_handler.set(h_list)
         rev_handler.set(reverse_h_list)
-        index = self.index_class()
-        index.commit(using=self.hs_conn)
-    
+
+    def final_callback(self, vals={}, status='success'):
+        if isinstance(vals, (list, tuple)):
+            vals = collapse_vals(vals)
+
+        er_vals = vals.get('eresources', {})
+        self.exporters['EResourcesToSolr'].final_callback(er_vals, status)
+        self.commit_to_redis(vals)
+
 
 class BibsDownloadMarc(exporter.Exporter):
-    '''
+    """
     Defines processes that convert Sierra bib records to MARC.
-    '''
+    """
     max_rec_chunk = 1000
     parallel = False
     model_name = 'BibRecord'
@@ -447,9 +396,6 @@ class BibsDownloadMarc(exporter.Exporter):
         'bibrecordproperty_set__material__materialpropertyname_set'
     ]
     select_related = ['record_metadata']
-    
-    def get_deletions(self):
-        return None
         
     def export_records(self, records, vals={}):
         log_label = self.__class__.__name__
@@ -484,19 +430,24 @@ class BibsDownloadMarc(exporter.Exporter):
                     ''.format(settings.MEDIA_URL, vals['marcfile']), log_label)
 
 
-class BibsToSolr(exporter.Exporter):
-    '''
+class BibsToSolr(exporter.CompoundMixin, exporter.ToSolrExporter):
+    """
     Defines processes that export Sierra/MARC bibs out to Solr. Note
     that we instantiate a BibsDownloadMarc exporter first because we
     need to output a MARC file that will be indexed using Solrmarc.
-    '''
-    max_rec_chunk = 1000
-    bibs_hs_conn = settings.EXPORTER_HAYSTACK_CONNECTIONS['BibsToSolr:BIBS']
-    marc_hs_conn = settings.EXPORTER_HAYSTACK_CONNECTIONS['BibsToSolr:MARC']
-    model_name = 'BibRecord'
-    bibs_index_class = indexes.BibIndex
-    marc_index_class = indexes.MarcIndex
-    bib2marc_class = BibsDownloadMarc
+    """
+    model = sierra_models.BibRecord
+    index_settings = (
+        ('Bibs', {
+            'class': indexes.BibIndex,
+            'core': SOLR_CONNS['BibsToSolr:BIBS']
+        }),
+        ('MARC', {
+            'class': indexes.MarcIndex,
+            'core': SOLR_CONNS['BibsToSolr:MARC']
+        })
+    )
+    exporter_names = ('BibsDownloadMarc',)
     deletion_filter = [
         {
             'deletion_date_gmt__isnull': False,
@@ -512,19 +463,16 @@ class BibsToSolr(exporter.Exporter):
         'bibrecordproperty_set__material__materialpropertyname_set'
     ]
     select_related = ['record_metadata']
+    max_rec_chunk = 1000
     
     def export_records(self, records, vals={}):
-        log_label = self.__class__.__name__
         cmd = 'bash'
         index_script = settings.SOLRMARC_COMMAND
         config_file = settings.SOLRMARC_CONFIG_FILE
         filedir = settings.MEDIA_ROOT
         if filedir[-1] != '/':
             filedir = '{}/'.format(filedir)
-        bib_converter = self.bib2marc_class(
-            self.instance.pk, self.export_filter, self.export_type,
-            self.options
-        )
+        bib_converter = self.exporters['BibsDownloadMarc']
         ret_vals = bib_converter.export_records(records, vals={})
         filename = ret_vals['marcfile']
         filepath = '{}{}'.format(filedir, filename)
@@ -540,7 +488,7 @@ class BibsToSolr(exporter.Exporter):
             for line in error_lines:
                 self.log('Error', line)
             self.log('Error', 'Solrmarc process did not run successfully.',
-                     log_label)
+                     self.log_label)
         else:
             error_lines = output.split("\n")
             del(error_lines[-1])
@@ -552,48 +500,77 @@ class BibsToSolr(exporter.Exporter):
                     elif re.match(r'^ERROR', line):
                         self.log('Error', line, log_label)
 
-            # if all went well, we now try to output JSON-MARC to the
-            # MARC index
-            index = self.marc_index_class(queryset=records)
+            # if all went well, we now try to index the MARC record
             try:
-                index.update(using=self.marc_hs_conn, commit=False)
+                self.update_index('MARC', records)
             except Exception as e:
-                ex_type, ex, tb = sys.exc_info()
-                logger.info(traceback.extract_tb(tb))
-                self.log('Error', e, log_label)
+                self.log_error(e)
 
         # delete the file when we're done so we don't take up space
         os.remove(filepath)
         return vals
 
-    def delete_records(self, records, vals={}):
-        log_label = self.__class__.__name__
-        bibs_index = self.bibs_index_class()
-        marc_index = self.marc_index_class()
-        for i in records:
-            try:
-                bibs_index.remove_object('base.bibrecord.{}'.format(str(i.id)),
-                                    using=self.bibs_hs_conn, commit=False)
-                marc_index.remove_object('base.bibrecord.{}'.format(str(i.id)),
-                                    using=self.marc_hs_conn, commit=False)
-            except Exception as e:
-                ex_type, ex, tb = sys.exc_info()
-                logger.info(traceback.extract_tb(tb))
-                self.log('Error', 'Record {}: {}'
-                         ''.format(str(i), e), log_label)
+
+class AttachedRecordExporter(exporter.CompoundMixin, exporter.Exporter):
+    """
+    Base class for creating exporters that export a main set of records
+    plus one or more sets of attached records.
+    """
+    exporter_names = tuple()
+
+    @property
+    def main_name(self):
+        return self.exporter_classes.keys()[0]
+
+    @property
+    def attached_names(self):
+        return self.exporter_classes.keys()[1:]
+
+    @property
+    def prefetch_related(self):
+        return self.exporter_classes[self.main_name].prefetch_related
+
+    @property
+    def select_related(self):
+        return self.exporter_classes[self.main_name].select_related
+
+    @property
+    def deletion_filter(self):
+        return self.exporter_classes[self.main_name].deletion_filter
+
+    def get_attached_records(self, record):
+        pass
+
+    def build_record_sets(self, records):
+        record_sets = {self.main_name: records}
+        for record in records:
+            attached = self.get_attached_records(record)
+            for key in self.attached_names:
+                record_sets[key] = record_sets.get(key, [])
+                record_sets[key].extend(attached[key])
+        return record_sets
+
+    def export_records(self, records, vals={}):
+        rsets = self.build_record_sets(records)
+        for key, exporter in self.exporters.items():
+            rset = list(set(rsets[key]))
+            vals[key] = vals.get(key, {})
+            vals[key].update(exporter.export_records(rset, vals[key]))
         return vals
 
+    def delete_records(self, records, vals={}):
+        return self.exporters[self.main_name].delete_records(records, vals)
+
     def final_callback(self, vals={}, status='success'):
-        log_label = self.__class__.__name__
-        self.log('Info', 'Committing updates to Solr...', log_label)
-        bibs_index = self.bibs_index_class()
-        marc_index = self.marc_index_class()
-        bibs_index.commit(using=self.bibs_hs_conn)
-        marc_index.commit(using=self.marc_hs_conn)
+        if type(vals) is list:
+            vals = collapse_vals(vals)
+
+        for key, exporter in self.exporters.items():
+            exporter.final_callback(vals.get(key, {}), status)
 
 
-class ItemsBibsToSolr(exporter.Exporter):
-    '''
+class ItemsBibsToSolr(AttachedRecordExporter):
+    """
     Exports item records based on the provided export_filter using the
     existing ItemsToSolr job and then grabs the items' parent bibs and
     exports them using BibsToSolr.
@@ -601,138 +578,57 @@ class ItemsBibsToSolr(exporter.Exporter):
     If using this in production, make sure to use it in conjunction
     with a bib loader, like BibsToSolr or BibsItemsToSolr. That way
     bib records that need to be deleted will actually get deleted.
-    '''
-    model_name = 'ItemRecord'
-    deletion_filter = [
-        {
-            'deletion_date_gmt__isnull': False,
-            'record_type__code': 'i'
-        }
-    ]
-    
-    def __init__(self, *args, **kwargs):
-        super(ItemsBibsToSolr, self).__init__(*args, **kwargs)
-        item_et = export_models.ExportType.objects.get(pk='ItemsToSolr')
-        bib_et = export_models.ExportType.objects.get(pk='BibsToSolr')
-        items_to_solr = item_et.get_exporter_class()
-        bibs_to_solr = bib_et.get_exporter_class()
-        self.prefetch_related = items_to_solr.prefetch_related
-        self.prefetch_related.extend([
+    """
+    model = sierra_models.ItemRecord
+    exporter_names = ('ItemsToSolr', 'BibsToSolr')
+
+    @property
+    def prefetch_related(self):
+        return self.exporter_classes[self.main_name].prefetch_related + [
             'bibrecorditemrecordlink_set__bib_record'
                 '__bibrecorditemrecordlink_set',
             'bibrecorditemrecordlink_set__bib_record'
                 '__bibrecorditemrecordlink_set__item_record',
             'bibrecorditemrecordlink_set__bib_record'
-                '__bibrecorditemrecordlink_set__item_record__record_metadata',
-        ])
-        self.select_related = items_to_solr.select_related
-        self.items_to_solr = items_to_solr
-        self.bibs_to_solr = bibs_to_solr
-    
-    def export_records(self, records, vals={}):
-        bibs = []
-        for r in records:
-            bibs.append(r.bibrecorditemrecordlink_set.all()[0].bib_record)
-        self.items_to_solr(self.instance.pk, self.export_filter,
-            self.export_type, self.options).export_records(records)
-        self.bibs_to_solr(self.instance.pk, self.export_filter,
-            self.export_type, self.options).export_records(bibs)
-        return vals
+                '__bibrecorditemrecordlink_set__item_record__record_metadata'
+        ]
 
-    def delete_records(self, records, vals={}):
-        self.items_to_solr(self.instance.pk, self.export_filter,
-            self.export_type, self.options).delete_records(records)
-        return vals
-
-    def final_callback(self, vals={}, status='success'):
-        self.items_to_solr(self.instance.pk, self.export_filter,
-            self.export_type, self.options).final_callback(vals, status)
-        self.bibs_to_solr(self.instance.pk, self.export_filter,
-            self.export_type, self.options).final_callback(vals, status)
+    def get_attached_records(self, r):
+        return {
+            'BibsToSolr': [
+                bl.bib_record for bl in r.bibrecorditemrecordlink_set.all()
+            ]
+        }
 
 
-class BibsAndAttachedToSolr(exporter.Exporter):
-    '''
+class BibsAndAttachedToSolr(AttachedRecordExporter):
+    """
     Exports bib records based on the provided export_filter using the
     existing BibsToSolr job and then grabs any attached items and
     holdings and exports them using the specified export processes.
-    '''
-    model_name = 'BibRecord'
-    deletion_filter = [
-        {
-            'deletion_date_gmt__isnull': False,
-            'record_type__code': 'b'
-        }
-    ]
-    select_related = BibsToSolr.select_related
+    """
+    model = sierra_models.BibRecord
+    exporter_names = ('BibsToSolr', 'ItemsToSolr', 'HoldingUpdate')
     max_rec_chunk = 100
 
-    def __init__(self, *args, **kwargs):
-        super(BibsAndAttachedToSolr, self).__init__(*args, **kwargs)
-        item_et = export_models.ExportType.objects.get(pk='ItemsToSolr')
-        bib_et = export_models.ExportType.objects.get(pk='BibsToSolr')
-        holding_et = export_models.ExportType.objects.get(pk='HoldingUpdate')
-        items_to_solr = item_et.get_exporter_class()
-        bibs_to_solr = bib_et.get_exporter_class()
-        holdings_to_solr = holding_et.get_exporter_class()
-        self.prefetch_related = bibs_to_solr.prefetch_related
-        self.prefetch_related.extend([
+    @property
+    def prefetch_related(self):
+        return self.exporter_classes[self.main_name].prefetch_related + [
             'holding_records',
             'holding_records__bibrecord_set',
             'holding_records__bibrecord_set__record_metadata__varfield_set',
             'holding_records__resourcerecord_set',
-            'holding_records__resourcerecord_set__record_metadata'\
+            'holding_records__resourcerecord_set__record_metadata'
                 '__varfield_set',
             'holding_records__resourcerecord_set__holding_records'
-        ])
-        self.select_related = bibs_to_solr.select_related
-        self.items_to_solr = items_to_solr
-        self.bibs_to_solr = bibs_to_solr
-        self.holdings_to_solr = holdings_to_solr
+        ]
 
-    def export_records(self, records, vals={}):
-        log_label = self.__class__.__name__
-        items, holdings = [], []
-
-        for r in records:
-            items.extend([bl.item_record 
-                         for bl in r.bibrecorditemrecordlink_set.all()])
-            holdings.extend([h for h in r.holding_records.all()])
-
-        i_vals = vals.get('items', {})
-        h_vals = vals.get('holdings', {})
-        b_vals = vals.get('bibs', {})
-
-        i_vals.update(self.items_to_solr(self.instance.pk, self.export_filter,
-            self.export_type, self.options).export_records(items, i_vals))
-        h_vals.update(self.holdings_to_solr(self.instance.pk,
-            self.export_filter, self.export_type, self.options)
-            .export_records(holdings, h_vals))
-        b_vals.update(self.bibs_to_solr(self.instance.pk, self.export_filter,
-            self.export_type, self.options).export_records(records, b_vals))
-
-        vals['items'] = i_vals
-        vals['holdings'] = h_vals
-        vals['bibs'] = b_vals
-
-        return vals
-
-    def delete_records(self, records, vals={}):
-        self.bibs_to_solr(self.instance.pk, self.export_filter,
-            self.export_type, self.options).delete_records(records)
-        return vals
-
-    def final_callback(self, vals={}, status='success'):
-        if type(vals) is list:
-            vals = collapse_vals(vals)
-
-        i_vals = vals.get('items', {})
-        h_vals = vals.get('holdings', {})
-        b_vals = vals.get('bibs', {})
-
-        self.items_to_solr(self.instance.pk, self.export_filter,
-            self.export_type, self.options).final_callback(i_vals, status)
-        self.holdings_to_solr(self.instance.pk, self.export_filter,
-            self.export_type, self.options).final_callback(h_vals, status)
-        self.bibs_to_solr(self.instance.pk, self.export_filter,
-            self.export_type, self.options).final_callback(b_vals, status)
+    def get_attached_records(self, r):
+        return {
+            'ItemsToSolr': [
+                bl.item_record for bl in r.bibrecorditemrecordlink_set.all()
+            ],
+            'HoldingUpdate': [
+                h for h in r.holding_records.all()
+            ]
+        }

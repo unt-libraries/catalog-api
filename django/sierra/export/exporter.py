@@ -1,15 +1,18 @@
-'''
+"""
 Exporter module. Contains the class definition for the Exporter class,
 which you can subclass to create your own Exporters to export data out
 of Sierra.
 
 Define your subclasses in a separate module and then hook it into your
 project using the EXPORTER_MODULE_REGISTRY Django setting.
-'''
+"""
 
 from __future__ import unicode_literals
 
 import logging
+import sys
+import traceback
+from collections import OrderedDict
 
 from django.db.models import F
 from django.utils import timezone as tz
@@ -24,7 +27,7 @@ class ExportError(Exception):
     pass
 
 class Exporter(object):
-    '''
+    """
     Exporter class. Subclass this to define your export jobs. Your
     class names should match exactly 1:1 with the ExportType.codes
     you've defined.
@@ -85,7 +88,7 @@ class Exporter(object):
     testing your export jobs, and adjust those numbers accordingly for
     your subclass.
     
-    '''
+    """
     record_filter = []
     deletion_filter = []
     prefetch_related = []
@@ -93,11 +96,11 @@ class Exporter(object):
     max_rec_chunk = 3000
     max_del_chunk = 1000
     parallel = True
-    model_name = ''
+    model = ''
 
     def __init__(self, instance_pk, export_filter, export_type, options={},
                  log_label=''):
-        '''
+        """
         Arguments: instance_pk is the pk for the export_instance
         attached to the export job; export_filter is the export_filter
         id string for this job; export_type is the export_type id
@@ -105,7 +108,7 @@ class Exporter(object):
         containing specs for export_filter (date range, record range,
         etc.) Log_label is the label used in log messages to show the
         source of the message.
-        '''
+        """
         self.instance = ExportInstance.objects.get(pk=instance_pk)
         self.status = 'unknown'
         self.export_filter = export_filter
@@ -126,14 +129,14 @@ class Exporter(object):
                                   'There is no last-updated date to use for '
                                   'this job.')
             self.options['latest_time'] = latest.timestamp
-        # set up our logger for this process
-        logger = logging.getLogger('exporter.file')
-        self.logger = logger
+        # set up our loggers for this process
+        self.logger = logging.getLogger('exporter.file')
+        self.console_logger = logging.getLogger('sierra.custom')
 
 
-    def _base_get_records(self, model_name, filters, select_related=None,
+    def _base_get_records(self, model, filters, select_related=None,
                           prefetch_related=[], fail_on_zero=False):
-        '''
+        """
         Default method for getting records using self.export_filter.
         Returns the queryset. Generally you won't want to override this
         in your subclass--override get_records and get_deletions
@@ -143,8 +146,7 @@ class Exporter(object):
         record types and have the benefit of the RecordMetadata table.
         If this is not the case, you'll need to write your own
         get_records and get_deletions methods that don't use this.
-        '''
-        model = getattr(sierra_models, model_name)
+        """
         try:
             # do base record filter.
             records = model.objects.filter_by(self.export_filter, 
@@ -162,6 +164,7 @@ class Exporter(object):
                 records = records.prefetch_related(*prefetch_related)
                 
         except Exception as e:
+            model_name = model._meta.object_name
             raise ExportError('Could not retrieve records from {} via '
                     'export filter {} using options '
                     '{}, default filter {}: {}.'
@@ -176,11 +179,11 @@ class Exporter(object):
         return records
 
     def log(self, type, message, label=''):
-        '''
+        """
         Generates a log item for this export.
         Takes parameters: type and message. Type should be 'Error',
         'Warning', or 'Info'; message is the log message.
-        '''
+        """
         label = label if label else self.log_label
         message = '[{}] {}'.format(label, message)
         getattr(self.logger, type.lower())(message)
@@ -191,10 +194,19 @@ class Exporter(object):
                 self.instance.errors = F('errors') + 1
             self.instance.save()
 
+    def log_error(self, e_msg):
+        """
+        Helper for logging errors, including logging a traceback out to
+        the console, if applicable.
+        """
+        ex_type, ex, tb = sys.exc_info()
+        self.console_logger.info(traceback.extract_tb(tb))
+        self.log('Error', e_msg, self.log_label)
+
     def save_status(self):
-        '''
+        """
         Saves self.status to the database.
-        '''
+        """
         try:
             status = Status.objects.get(pk=self.status)
         except Status.DoesNotExist:
@@ -206,16 +218,16 @@ class Exporter(object):
         self.instance.save()
 
     def get_records(self):
-        '''
+        """
         Should return a full queryset or list of record objects based
         on the export filter passed into the class at initialization.
         If your export job is using one of the main III record types as
         its primary focus, then you can/should use the
         _base_get_records() method to make this simple. Otherwise 
         you'll have to override this (get_records) in your subclass.
-        '''
+        """
         try:
-            in_records = self._base_get_records(self.model_name, 
+            in_records = self._base_get_records(self.model,
                             self.record_filter,
                             select_related=self.select_related,
                             prefetch_related=self.prefetch_related)
@@ -224,23 +236,19 @@ class Exporter(object):
         return in_records
 
     def get_deletions(self):
-        '''
+        """
         Like get_records, but returns a queryset of objects that
         represent things that should be deleted. If you haven't set
         self.deletion_filter, then this will just return None.
-        '''
+        """
         if self.deletion_filter:
-            try:
-                deletions = self._base_get_records('RecordMetadata',
-                                                   self.deletion_filter)
-            except ExportError:
-                raise
-            return deletions
+            return self._base_get_records(sierra_models.RecordMetadata,
+                                          self.deletion_filter)
         else:
             return None
 
     def export_records(self, records, vals={}):
-        '''
+        """
         Override this method in your subclasses.
         
         When passed a queryset (e.g., from self.get_records()), this
@@ -266,11 +274,11 @@ class Exporter(object):
         only have access to the vals passed to it from the last export
         or delete job chunk that ran (e.g. as a dict rather than a list
         of dicts).
-        '''
+        """
         return vals
 
     def delete_records(self, records, vals={}):
-        '''
+        """
         Override this method in your subclasses only if you need to do
         deletions.
         
@@ -278,14 +286,137 @@ class Exporter(object):
         should delete the records as necessary. Like export_records,
         you may take/return a dictionary of values to pass info from
         task to task.
-        '''
+        """
         return vals
 
     def final_callback(self, vals={}, status='success'):
-        '''
+        """
         Override this method in your subclasses if you need to provide
         something that runs once at the end of an export job that's
         been broken up into tasks.
-        '''
+        """
         pass
 
+
+class ToSolrExporter(Exporter):
+    """
+    Exporter subclass for exporting records to Solr.
+
+    The `index_settings` class property contains definitions for one
+    or more index objects (e.g. Haystack SearchIndex objects), tying
+    the index `class` to the default Solr `core` to use for that class.
+    It's a tuple of tuples, which translates to an OrderedDict with the
+    `new_indexes` class method. Index names become the OrderedDict's
+    keys, and are just a way to reference specific indexes for a
+    specific class.
+
+    Instance methods are defined to handle common operations for basic
+    ToSolrExporter subclasses: deleting records, updating indexes, and
+    committing indexes.
+    """
+
+    index_settings = (
+        ('first_index_name', {
+            'class': None,  # haystack.SearchIndex
+            'core': None    # Solr core string, e.g. 'bibdata'
+        }),
+        ('second_index_name', {
+            'class': None,  # haystack.SearchIndex
+            'core': None    # Solr core string, e.g. 'bibdata'
+        }),
+    )
+
+    @classmethod
+    def get_indexes(cls):
+        return OrderedDict(
+            (k, v['class'](using=v['core'])) for k, v in cls.index_settings
+        )
+
+    @property
+    def indexes(self):
+        try:
+            return self._indexes
+        except AttributeError:
+            self._indexes = type(self).get_indexes()
+        return self._indexes
+
+    def update_index(self, index_name, records):
+        self.indexes[index_name].update(commit=False, queryset=records)
+
+    def delete_record_from_index(self, index_name, record):
+        index = self.indexes[index_name]
+        index.remove_object(index.get_qualified_id(record.id), commit=False)
+
+    def export_records(self, records, vals={}):
+        try:
+            for index_name in self.indexes.keys():
+                self.update_index(index_name, records)
+        except Exception as e:
+            self.log_error(e)
+        return vals
+
+    def delete_records(self, records, vals={}):
+        for record in records:
+            try:
+                for index_name in self.indexes.keys():
+                    self.delete_record_from_index(index_name, record)
+            except Exception as e:
+                self.log_error('Record {}: {}'.format(record, e))
+        return vals
+
+    def commit_indexes(self):
+        for name, index in self.indexes.items():
+            self.log('Info', 'Committing {} updates to Solr...'.format(name))
+            index.commit()
+
+    def final_callback(self, vals={}, status='success'):
+        self.commit_indexes()
+
+
+class CompoundMixin(object):
+    """
+    Mixin for helping define Compound exporter jobs.
+
+    If you have an exporter that needs to call other exporters in order
+    to, e.g., index records in multiple indexes, use this mixin to help
+    manage how you access the children exporters.
+
+    To use it, include the mixin in your class definition (before the
+    main class), and then provide a list/tuple of child exporter names
+    in `exporter_names`. Then:
+
+    * Access exporter classes via an OrderedDict property
+      `exporter_classes`. (Keys are exporter names.)
+    * Access exporter instances via an OrderedDict property
+      `exporters`. (Keys are exporter names.)
+    """
+    exporter_names = tuple()
+
+    @classmethod
+    def get_exporter_classes(cls):
+        return OrderedDict(
+            (k, ExportType.objects.get(pk=k).get_exporter_class())
+                for k in cls.exporter_names
+        )
+
+    def make_exporters(self):
+        return OrderedDict(
+            (k, v(self.instance.pk, self.export_filter, self.export_type,
+                  self.options)) for k, v in self.exporter_classes.items()
+        )
+
+    @property
+    def exporter_classes(self):
+        try:
+            return self._exporter_classes
+        except AttributeError:
+            self._exporter_classes = type(self).get_exporter_classes()
+        return self._exporter_classes
+
+    @property
+    def exporters(self):
+        try:
+            return self._exporters
+        except AttributeError:
+            self._exporters = self.make_exporters()
+        return self._exporters

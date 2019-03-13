@@ -1,12 +1,14 @@
 """
-Contains all shared pytest fixtures
+Contains all shared pytest fixtures and hooks
 """
 
 import pytest
+import redis
 import pysolr
 import datetime
 import pytz
 
+from django.conf import settings
 from django.contrib.auth.models import User
 
 import utils
@@ -14,6 +16,18 @@ from utils.test_helpers import fixture_factories as ff
 from export import models as em
 from base import models as bm
 from api.models import APIUser
+
+
+# HOOKS -- These control setup / teardown for all tests.
+
+def pytest_runtest_teardown(item, nextitem):
+    """
+    Flush the Redis appdata store after every single test. We can get
+    away with this for Redis because it's fast. (There is no
+    discernable difference in test run time with and without this.)
+    """
+    conn = redis.StrictRedis(**settings.REDIS_CONNECTION)
+    conn.flushdb()
 
 
 # General utility fixtures
@@ -210,6 +224,32 @@ def sierra_full_object_set():
 
 # Export app-related fixtures
 
+@pytest.fixture(scope='module')
+def configure_export_type_classpaths(django_db_blocker):
+    """
+    Module-level pytest fixture that lets you modify the `path` field
+    for one or more ExportType instances. Types that have been
+    overridden are cached the first time, and then they are restored
+    at the end of the module's tests.
+    """
+    def _save_classpath(code, path):
+        obj = em.ExportType.objects.get(code=code)
+        obj.path = path
+        obj.save()
+
+    cache = {}
+    def _configure_export_type_classpaths(mapping):
+        for code, path in mapping.items():
+            if code not in cache:
+                cache[code] = em.ExportType.objects.get(code=code).path
+            _save_classpath(code, path)
+
+    with django_db_blocker.unblock():
+        yield _configure_export_type_classpaths
+
+        for code, path in cache.items():
+            _save_classpath(code, path)
+
 
 @pytest.fixture
 def export_type():
@@ -284,6 +324,24 @@ def delete_records():
         exporter.delete_records(records)
         exporter.final_callback()
     return _delete_records
+
+
+@pytest.fixture
+def assert_records_are_indexed():
+    def _assert_records_are_indexed(index, record_set, results):
+        id_fname = index.reserved_fields['haystack_id']
+        meta = index.get_model()._meta
+
+        for record in record_set:
+            cmp_id = '{}.{}.{}'.format(meta.app_label, meta.model_name,
+                                       record.pk)
+            result = [r for r in results if r[id_fname] == cmp_id][0]
+            for field in result.keys():
+                schema_field = index.get_schema_field(field)
+                assert schema_field is not None
+                assert schema_field['stored']
+                
+    return _assert_records_are_indexed
 
 
 # API App related fixtures

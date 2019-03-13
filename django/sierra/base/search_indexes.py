@@ -1,4 +1,4 @@
-'''
+"""
 Contains code for Haystack to build search indexes for Sierra API.
 
 IMPORTANT: All Solr indexes should be managed by Haystack EXCEPT any
@@ -7,11 +7,12 @@ generating schemas for our SolrMarc indexes. But we do want to allow
 Haystack to search them. In order to do that, we have to include a
 BibIndex class with the bare minimum attributes to make it a valid
 Haystack SearchIndex class.
-'''
+"""
 from __future__ import unicode_literals
-import re
+import ujson
+import fnmatch
 
-from haystack import indexes
+from haystack import indexes, constants, utils
 
 from django.core.exceptions import ObjectDoesNotExist
 
@@ -25,7 +26,7 @@ logger = logging.getLogger('sierra.custom')
 
 
 def cat_fields(data, include=(), exclude=()):
-    '''
+    """
     Takes a 'prepared_data' structure from an indexes.SearchIndex-
     derived object and unnests it, returning a space-joined string.
     Specify 'include' to include only certain fields or 'exclude' to
@@ -33,7 +34,7 @@ def cat_fields(data, include=(), exclude=()):
     deriving the Haystack full-text document field ("text") for
     Haystack indexes. Just call this using the index object's "prepare"
     method so you're using the prepare_FOO version of each field.
-    '''
+    """
     values = []
     for i in data:
         if data[i] is not None and ((include and i in include) 
@@ -46,75 +47,142 @@ def cat_fields(data, include=(), exclude=()):
 
 
 class CustomQuerySetIndex(indexes.SearchIndex):
-    '''
-    Custom implementation of SearchIndex class that lets us pass
-    in a custom queryset at initialization for update purposes--lets
-    us tell Haystack to index this particular queryset when an update()
-    is issued. To do this, use kwarg queryset. THIS IS TOTALLY
-    OPTIONAL. Not specifying a default queryset is totes okay.
+    """
+    Custom implementation of Haystack's SearchIndex class intended to
+    provide more control over indexing operations.
 
-    This also overrides the update(), clear(), and reindex() methods to
-    expose a "commit" option, which allows you to perform an update
-    without committing it to Solr.
+    (Note: some of the below features may only work using a Solr
+    backend.)
 
-    Finally, this provides commit() and optimize() methods, which allow
-    you to commit changes and optimize the index manually. May only
-    work with the solr backend.
-    '''
-    def __init__(self, *args, **kwargs):
-        default_queryset = kwargs.pop('queryset', None)
-        super(indexes.SearchIndex, self).__init__(*args, **kwargs)
-        if default_queryset is not None:
-            self.default_queryset = default_queryset
+    First, custom querysets. Default Haystack behavior is to index ALL
+    instances of the underlying model any time the `update` or
+    `reindex` methods are called. This implements an optional
+    `queryset` kwarg on __init__, `update` and `reindex`. If a queryset
+    is provided directly to `update` or `reindex`, then only the
+    objects in that queryset are indexed. If a queryset is provided to
+    __init__, then that becomes the default queryset, used if no
+    queryset is provided to `update` or `reindex`. If no queryset is
+    provided at all, then it falls back on the default Haystack
+    behavior.
+
+    Second, exposes a `commit` option for `update`, `clear`, and
+    `reindex`. Default Haystack behavior is to commit automatically
+    when an index action is finished. But this lets you pass
+    `commit=False` to skip the final commit.
+
+    Third, provides commit() and optimize() methods, which allow
+    you to commit changes and optimize the index manually.
+
+    Fourth, adds a `using` kwarg to __init__, allowing you to set a
+    default Solr core name. It's optional and can still be overridden
+    via the `using` kwarg on any method that performs an index
+    operation.
+
+    Fifth, adds utilities for introspecting a Solr index and validating
+    that a field belongs to that schema, including dynamic fields.
+    """
+
+    reserved_fields = {
+        'haystack_id': constants.ID,
+        'django_ct': constants.DJANGO_CT,
+        'django_id': constants.DJANGO_ID
+    }
+
+    def __init__(self, queryset=None, using=None):
+        super(CustomQuerySetIndex, self).__init__()
+        self.default_queryset = queryset
+        self.using = using
+
+    def get_django_ct(self):
+        return utils.get_model_ct(self.get_model())
+
+    def get_qualified_id(self, _id):
+        return '{}.{}'.format(self.get_django_ct(), _id)
+
+    def get_backend(self, using=None):
+        using = using or self.using
+        return super(CustomQuerySetIndex, self).get_backend(using)
+
+    @property
+    def solr_schema(self):
+        try:
+            self._solr_schema = self._solr_schema
+        except AttributeError:
+            conn = self.get_backend().conn
+            json_data = conn._send_request('get', 'schema?wt=json')
+            self._solr_schema = ujson.loads(json_data)['schema']
+        return self._solr_schema
+
+    def get_schema_field(self, name, dynamic=None):
+        """
+        Return a dict from the Solr schema for a field matching `name`.
+
+        Optionally, the kwarg `dynamic` lets you limit the lookup to
+        dynamic fields only (True) or non-dynamic fields only (False).
+        None, the default, looks up `name` in both types of fields.
+
+        For non-dynamic fields, `name` must match the field name
+        exactly. Dynamic field names are defined using filesystem-like
+        wildcards. E.g., field "author_facet" matches dynamic field
+        "*_facet".
+
+        Returns the first match found, or None. Non-dynamic fields are
+        searched first.
+        """
+        fields = []
+        if dynamic in (None, False):
+            fields.extend(self.solr_schema['fields'])
+        if dynamic in (None, True):
+            fields.extend(self.solr_schema['dynamicFields'])
+
+        for field in fields:
+            if fnmatch.fnmatch(name, field['name']):
+                return field
+        return None
 
     def index_queryset(self, using=None):
-        try:
-            return self.default_queryset
-        except AttributeError:
+        if self.default_queryset is None:
             return self.get_model()._default_manager.all()
+        return self.default_queryset
 
-    def update(self, using=None, commit=True):
+    def update(self, using=None, commit=True, queryset=None):
         backend = self.get_backend(using)
-
+        queryset = self.index_queryset() if queryset is None else queryset
         if backend is not None:
-            backend.update(self, self.index_queryset(), commit=commit)
+            backend.update(self, queryset, commit=commit)
 
     def clear(self, using=None, commit=True):
         backend = self.get_backend(using)
-
         if backend is not None:
             backend.clear(models=[self.get_model()], commit=commit)
 
-    def reindex(self, using=None, commit=True):
+    def reindex(self, using=None, commit=True, queryset=None):
         self.clear(using=using, commit=commit)
-        self.update(using=using, commit=commit)
+        self.update(using=using, commit=commit, queryset=queryset)
 
     def update_object(self, instance, using=None, commit=True, **kwargs):
         if self.should_update(instance, **kwargs):
             backend = self.get_backend(using)
-
             if backend is not None:
                 backend.update(self, [instance], commit=commit)
 
     def commit(self, using=None):
         backend = self.get_backend(using)
-
         if backend is not None:
             backend.conn.commit()
 
     def optimize(self, using=None):
         backend = self.get_backend(using)
-
         if backend is not None:
             backend.conn.optimize()
 
 
 class BibIndex(CustomQuerySetIndex, indexes.Indexable):
-    '''
+    """
     WARNING: This is a total hack to force Haystack to register our
     BibRecord model as being indexed by Haystack. This is the only way
     to get it to search our non-Haystack-managed SolrMarc index(es).
-    '''
+    """
     text = indexes.CharField(document=True)
     
     def get_model(self):
@@ -122,10 +190,10 @@ class BibIndex(CustomQuerySetIndex, indexes.Indexable):
 
 
 class MarcIndex(CustomQuerySetIndex, indexes.Indexable):
-    '''
+    """
     Class to index MARC in Solr so that it's searchable by field and
     subfield.
-    '''
+    """
     id = indexes.IntegerField()
     text = indexes.CharField(document=True)
     record_number = indexes.FacetCharField()
@@ -137,16 +205,16 @@ class MarcIndex(CustomQuerySetIndex, indexes.Indexable):
     mf_008 = indexes.FacetCharField(stored=False)
     json = indexes.FacetCharField()
 
-    def __init__(self, *args, **kwargs):
-        super(MarcIndex, self).__init__(*args, **kwargs)
+    def __init__(self, queryset=None, using=None):
+        super(MarcIndex, self).__init__(queryset=queryset, using=using)
         for mf in range(10,1000):
-            setattr(self, 'mf_{:03d}'.format(mf),
-                    indexes.FacetCharField(stored=False))
+            fname = 'mf_{:03d}'.format(mf)
+            setattr(self, fname, indexes.FacetCharField(stored=False))
             for sf in ['0','1','2','3','4','5','6','7','8','9','a','b','c','d',
                        'e','f','g','h','i','j','k','l','m','n','o','p','q','r',
                        's','t','u','v','w','x','y','z']:
-                setattr(self, 'sf_{:03d}{}'.format(mf, sf),
-                        indexes.FacetCharField(stored=False))
+                sfname = 'sf_{:03d}{}'.format(mf, sf)
+                setattr(self, sfname, indexes.FacetCharField(stored=False))
 
     def get_model(self):
         return sierra_models.BibRecord
@@ -184,9 +252,8 @@ class MarcIndex(CustomQuerySetIndex, indexes.Indexable):
         return self.prepared_data
 
 
-
 class MetadataBaseIndex(CustomQuerySetIndex, indexes.Indexable):
-    '''
+    """
     Subclassable class for creating III "metadata" indexes -- 
     Locations, Itypes, etc. (E.g. admin parameters.) Most of them are
     just key/value pairs (code/label), so they follow a predictable
@@ -194,13 +261,14 @@ class MetadataBaseIndex(CustomQuerySetIndex, indexes.Indexable):
     type_name and any fields and/or prepare methods that need to be
     customized. The prepare_label method will always need to be
     overridden. See LocationIndex, etc., below for examples.
-    '''
+    """
     model = None
     type_name = ''
     text = indexes.CharField(document=True, use_template=False)
     code = indexes.FacetCharField(model_attr='code')
     label = indexes.FacetCharField()
     type = indexes.FacetCharField()
+    _version_ = indexes.IntegerField()
     
     def get_model(self):
         return self.model
@@ -359,31 +427,31 @@ class ItemIndex(CustomQuerySetIndex, indexes.Indexable):
             return None
 
     def prepare_call_number(self, obj):
-        '''
+        """
         Prepare call_number field. We only want one call number per
         item, so we use the item call number (if present) or the bib
         call number.
-        '''
+        """
         (cn, ctype) = self.get_call_number(obj)
         return cn
 
     def prepare_call_number_type(self, obj):
-        '''
+        """
         Prepare call_number_type field. This determines the "type" of
         call number on an item: lc, dewey, sudoc, or other. (Different
         types of call numbers sort differently.)
-        '''
+        """
         (cn, ctype) = self.get_call_number(obj)
         return ctype
     
     def prepare_call_number_sort(self, obj):
-        '''
+        """
         Prepare call_number_sort field. This prepares a version of each
         call_number that should sort correctly when sorted as a string. 
         LPCD 100,000 --> LPCD!0000100000,
         PT8142.Z5 A5613 1988 --> PT!0000008142!Z5!A!0000005613
         !0000001988. 
-        '''
+        """
         (cn, ctype) = self.get_call_number(obj)
         if cn is not None:
             try:
@@ -393,28 +461,28 @@ class ItemIndex(CustomQuerySetIndex, indexes.Indexable):
         return cn
 
     def prepare_call_number_search(self, obj):
-        '''
+        """
         Prepare call_number_search field. This prepares a version of a
         call number that's normalized for searching. (Should not
         depend on call number type.)
-        '''
+        """
         (cn, ctype) = self.get_call_number(obj)
         if cn is not None:
             cn = helpers.NormalizedCallNumber(cn, 'search').normalize()
         return cn
 
     def prepare_volume(self, obj):
-        '''
+        """
         Prepare the volume number; grab it from the varfields on this
         item record.
-        '''
+        """
         item_vf_set = obj.record_metadata.varfield_set.all()
         return helpers.get_varfield_vals(item_vf_set, 'v')
 
     def prepare_volume_sort(self, obj):
-        '''
+        """
         Prepares a sortable volume field, like call_number_sort.
-        '''
+        """
         vol = self.prepare_volume(obj)
         if vol is not None:
             try:
@@ -424,48 +492,48 @@ class ItemIndex(CustomQuerySetIndex, indexes.Indexable):
         return vol
 
     def prepare_barcode(self, obj):
-        '''
+        """
         Prepare the barcode; grab it from the varfields on this item
         record.
-        '''
+        """
         item_vf_set = obj.record_metadata.varfield_set.all()
         return helpers.get_varfield_vals(item_vf_set, 'b')
 
     def prepare_long_messages(self, obj):
-        '''
+        """
         Prepare the "long_messages" (or m-tagged varfields)
-        '''
+        """
         item_vf_set = obj.record_metadata.varfield_set.all()
         return helpers.get_varfield_vals(item_vf_set, 'm', many=True)
 
     def prepare_internal_notes(self, obj):
-        '''
+        """
         Prepare the internal_notes (or x- and n-tagged varfields)
-        '''
+        """
         item_vf_set = obj.record_metadata.varfield_set.all()
         inotes = helpers.get_varfield_vals(item_vf_set, 'x', many=True)
         inotes.extend(helpers.get_varfield_vals(item_vf_set, 'n', many=True))
         return inotes
 
     def prepare_public_notes(self, obj):
-        '''
+        """
         Prepare public_notes (or i-tagged varfields)
-        '''
+        """
         item_vf_set = obj.record_metadata.varfield_set.all()
         return helpers.get_varfield_vals(item_vf_set, 'p', many=True)
 
     def prepare_item_type_code(self, obj):
-        '''
+        """
         Prepare item_type_code field--convert from int to str
-        '''
+        """
         return str(obj.itype.code_num)
 
     def prepare_location_code(self, obj):
-        '''
+        """
         Prepare item location--just grab the code from the location.
         We're not using the location name here because we don't want
         to have to reindex items just because a location label changes.
-        '''
+        """
         code = ''
         try:
             code = obj.location.code
@@ -474,9 +542,9 @@ class ItemIndex(CustomQuerySetIndex, indexes.Indexable):
         return code
     
     def prepare_due_date(self, obj):
-        '''
+        """
         Due date is from any checkout records attached to the item.
-        '''
+        """
         try:
             return obj.checkout.due_gmt
         except ObjectDoesNotExist:
@@ -501,9 +569,9 @@ class ItemIndex(CustomQuerySetIndex, indexes.Indexable):
             return None
 
     def prepare_suppressed(self, obj):
-        '''
+        """
         We want suppressed to be true if the bib OR item is suppressed.
-        '''
+        """
         if (obj.icode2 != '-'):
             return True
         else:
