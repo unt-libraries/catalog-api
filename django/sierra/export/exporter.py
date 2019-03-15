@@ -453,10 +453,15 @@ class CompoundMixin(object):
     class Child(object):
 
         def __init__(self, name, expclass=None):
-            if expclass is None:
-                expclass = ExportType.objects.get(pk=name).get_exporter_class()
             self.name = name
-            self.expclass = expclass
+            self._expclass = expclass
+
+        @property
+        def expclass(self):
+            if self._expclass is None:
+                ec = ExportType.objects.get(pk=self.name).get_exporter_class()
+                self._expclass = ec
+            return self._expclass
 
         def derive_records(self, parent_record):
             return [parent_record]

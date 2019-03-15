@@ -186,7 +186,10 @@ class HoldingUpdate(CompoundMixin, Exporter):
         'resourcerecord_set__record_metadata__varfield_set',
         'resourcerecord_set__holding_records'
     ]
-    max_rec_chunk = children_config[0].expclass.max_rec_chunk
+    
+    def __init__(self, *args, **kwargs):
+        super(HoldingUpdate, self).__init__(*args, **kwargs)
+        self.max_rec_chunk = self.children['EResourcesToSolr'].max_rec_chunk
 
     def export_records(self, records, vals={}):
         eresources, er_mapping = set(), {}
