@@ -106,6 +106,7 @@ def test_export_get_records(test_id, solr_exporter_test_params,
     'ItemStatusesToSolr',
     'ItypesToSolr',
     'LocationsToSolr',
+    'ItemsBibsToSolr',
     'BibsAndAttachedToSolr: Plain Bib Only',
     'BibsAndAttachedToSolr: EResource Bib (with holdings)'])
 def test_exports_to_solr(test_id, solr_exporter_test_params, new_exporter,
