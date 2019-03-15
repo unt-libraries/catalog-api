@@ -10,10 +10,17 @@ from utils import solr
 
 class ShelflistItemIndex(search_indexes.ItemIndex):
     """
-    Adds storage for user-entered fields, which don't exist in Sierra.
-    Whenever Sierra item records are reindexed, we need to make sure
-    the values for the user-entered fields that are in the index don't
-    get overwritten with blank values.
+    Custom haystack SearchIndex object that is based on the base
+    search_indexes.ItemIndex, but does two extra things.
+
+    One, it adds storage for user-entered fields that don't exist in
+    Sierra. Whenever Sierra item records are reindexed, we need to make
+    sure the values for the user-entered fields that are in the index
+    don't get overwritten with blank values.
+
+    Two, it adds a `location_set` property to an object, which lets us
+    store the set of location codes for records modified via an index
+    update.
     """
     shelf_status = indexes.FacetCharField(null=True)
     inventory_notes = indexes.MultiValueField(null=True)
@@ -24,7 +31,16 @@ class ShelflistItemIndex(search_indexes.ItemIndex):
 
     def __init__(self, *args, **kwargs):
         super(ShelflistItemIndex, self).__init__(*args, **kwargs)
-        self.solr_conn = solr.connect()
+        self.location_set = set()
+
+    def update(self, using=None, commit=True, queryset=None):
+        self.location_set = set()
+        super(ShelflistItemIndex, self).update(using, commit, queryset)
+
+    def prepare_location_code(self, obj):
+        code = super(ShelflistItemIndex, self).prepare_location_code(obj)
+        self.location_set = self.location_set | set([code])
+        return code
 
     def has_any_user_data(self, obj):
         """
@@ -44,7 +60,8 @@ class ShelflistItemIndex(search_indexes.ItemIndex):
         """
         self.prepared_data = super(ShelflistItemIndex, self).prepare(obj)
         if not self.has_any_user_data(obj):
-            item = solr.Queryset(conn=self.solr_conn).get_one(id=obj.id)
+            conn = self.get_backend().conn
+            item = solr.Queryset(conn=conn).get_one(id=obj.id)
             if item:
                 for field in self.user_data_fields:
                     self.prepared_data[field] = getattr(item, field, None)
