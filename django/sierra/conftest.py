@@ -134,6 +134,16 @@ def solr_conn():
         yield make
 
 
+@pytest.fixture(scope='function')
+def solr_conns(solr_conn, settings):
+    """
+    Function-level pytest fixture. Returns a dict of all configured
+    Solr connections using the `solr_conn` fixture, to help ensure Solr
+    records are cleared when a test finishes or raises an error.
+    """
+    return {name: solr_conn(name) for name in settings.HAYSTACK_CONNECTIONS}
+
+
 @pytest.fixture(scope='module')
 def global_solr_conn():
     """
@@ -327,10 +337,17 @@ def delete_records():
 
 
 @pytest.fixture
-def assert_records_are_indexed():
-    def _assert_records_are_indexed(index, record_set, results):
+def assert_records_are_indexed(solr_conns, solr_search):
+    """
+    Pytest fixture that returns a test helper function for checking
+    that the provided `record_set` has been indexed by the provided
+    `index` object appropriately.
+    """
+    def _assert_records_are_indexed(index, record_set):
         id_fname = index.reserved_fields['haystack_id']
         meta = index.get_model()._meta
+        conn = solr_conns[getattr(index, 'using', 'default')]
+        results = solr_search(conn, '*')
 
         for record in record_set:
             cmp_id = '{}.{}.{}'.format(meta.app_label, meta.model_name,
@@ -340,7 +357,6 @@ def assert_records_are_indexed():
                 schema_field = index.get_schema_field(field)
                 assert schema_field is not None
                 assert schema_field['stored']
-                
     return _assert_records_are_indexed
 
 
