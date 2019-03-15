@@ -1,7 +1,7 @@
 """
-Exporter module. Contains the class definition for the Exporter class,
-which you can subclass to create your own Exporters to export data out
-of Sierra.
+Exporter module. Contains the class definition for the Exporter class
+and a few subclasses to help you create your own Exporters to export
+data out of Sierra.
 
 Define your subclasses in a separate module and then hook it into your
 project using the EXPORTER_MODULE_REGISTRY Django setting.
@@ -12,13 +12,13 @@ from __future__ import unicode_literals
 import logging
 import sys
 import traceback
-from collections import OrderedDict
+from collections import OrderedDict, namedtuple
 
 from django.db.models import F
 from django.utils import timezone as tz
 from django.conf import settings
 
-from utils import helpers
+from utils import helpers, dict_merge
 from base import models as sierra_models
 from .models import ExportInstance, ExportType, Status
 
@@ -247,6 +247,13 @@ class Exporter(object):
         else:
             return None
 
+    @staticmethod
+    def collapse_vals(vals):
+        new_vals = {}
+        for v in vals:
+            new_vals = dict_merge(new_vals, v)
+        return new_vals
+
     def export_records(self, records, vals={}):
         """
         Override this method in your subclasses.
@@ -300,57 +307,74 @@ class Exporter(object):
 
 class ToSolrExporter(Exporter):
     """
-    Exporter subclass for exporting records to Solr.
+    Exporter type for helping export records out to Solr.
 
-    The `index_settings` class property contains definitions for one
-    or more index objects (e.g. Haystack SearchIndex objects), tying
-    the index `class` to the default Solr `core` to use for that class.
-    It's a tuple of tuples, which translates to an OrderedDict with the
-    `new_indexes` class method. Index names become the OrderedDict's
-    keys, and are just a way to reference specific indexes for a
-    specific class.
+    To use: first, subclass this type. In your subclass, override the
+    `index_config` class attribute. It should contain a list (or tuple)
+    of Index objects, each of which wraps a Haystack SearchIndex object
+    that your exporter outputs to. Initialize each Index object by
+    passing a name (string) you want to use to reference that index,
+    the Haystack SearchIndex class to wrap, and the Haystack connection
+    name (string) to use to connect to that index.
 
-    Instance methods are defined to handle common operations for basic
-    ToSolrExporter subclasses: deleting records, updating indexes, and
-    committing indexes.
+    When you instantiate an object using your subclass, you'll gain
+    access to an `indexes` property. This is an OrderedDict allowing
+    you to reference instantiated index objects by name.
+
+    Note that the Index class monkey-patches a couple of methods onto
+    the Haystack SearchIndex class when it spawns a new instance:
+    `do_update` defines how an index update is done (e.g. if called
+    from the exporter `export_records` method), and `do_delete` defines
+    how to delete a record from the index (e.g. if called from the
+    exporter `delete_records` method). You can customize these--or add
+    your own--by subclassing the Index class in your subclass and then
+    using your subclasses Index class in `index_config`.
+
+    Instance methods on ToSolrExporter are defined for basic export,
+    delete, and commit operations. Essentially, each of these loops
+    through the `indexes` instances and calls `do_update`, `do_delete`,
+    or `commit` on each one, in order. For more complex behavior, you
+    can override these in your subclass.
     """
+    class Index(namedtuple('Index', ['name', 'indexclass', 'conn'])):
 
-    index_settings = (
-        ('first_index_name', {
-            'class': None,  # haystack.SearchIndex
-            'core': None    # Solr core string, e.g. 'bibdata'
-        }),
-        ('second_index_name', {
-            'class': None,  # haystack.SearchIndex
-            'core': None    # Solr core string, e.g. 'bibdata'
-        }),
-    )
+        def do_update(self, instance, records):
+            instance.update(commit=False, queryset=records)
+
+        def do_delete(self, instance, record):
+            instance.remove_object(instance.get_qualified_id(record.id),
+                                   commit=False)
+
+        def spawn_instance(self, parent_name):
+            nclassname = str('{}->{}'.format(parent_name, self.name))
+            nclass_attrs = {
+                'config': self,
+                'do_update': lambda s, recs: s.config.do_update(s, recs),
+                'do_delete': lambda s, rec: s.config.do_delete(s, rec)
+            }
+            new_class = type(nclassname, (self.indexclass,), nclass_attrs)
+            return new_class(using=self.conn)
+
+    index_config = tuple()
 
     @classmethod
-    def get_indexes(cls):
+    def spawn_indexes(cls, parent_name='Exporter'):
         return OrderedDict(
-            (k, v['class'](using=v['core'])) for k, v in cls.index_settings
+            (i.name, i.spawn_instance(parent_name)) for i in cls.index_config
         )
 
     @property
     def indexes(self):
         try:
-            return self._indexes
+            self._indexes = self._indexes
         except AttributeError:
-            self._indexes = type(self).get_indexes()
+            self._indexes = type(self).spawn_indexes(self.export_type)
         return self._indexes
-
-    def update_index(self, index_name, records):
-        self.indexes[index_name].update(commit=False, queryset=records)
-
-    def delete_record_from_index(self, index_name, record):
-        index = self.indexes[index_name]
-        index.remove_object(index.get_qualified_id(record.id), commit=False)
 
     def export_records(self, records, vals={}):
         try:
-            for index_name in self.indexes.keys():
-                self.update_index(index_name, records)
+            for index in self.indexes.values():
+                index.do_update(records)
         except Exception as e:
             self.log_error(e)
         return vals
@@ -358,8 +382,8 @@ class ToSolrExporter(Exporter):
     def delete_records(self, records, vals={}):
         for record in records:
             try:
-                for index_name in self.indexes.keys():
-                    self.delete_record_from_index(index_name, record)
+                for index in self.indexes.values():
+                    index.do_delete(record)
             except Exception as e:
                 self.log_error('Record {}: {}'.format(record, e))
         return vals
@@ -373,50 +397,149 @@ class ToSolrExporter(Exporter):
         self.commit_indexes()
 
 
+class MetadataToSolrExporter(ToSolrExporter):
+    """
+    Base class for creating exporters to export simple Sierra
+    "metadata" to Solr: Locations, Itypes, Ptypes, Material Types, etc.
+    """
+    class Index(ToSolrExporter.Index):
+
+        def do_update(self, instance, records):
+            instance.reindex(commit=False, queryset=records)
+
+    index_config = tuple()
+
+    def get_records(self):
+        return self.model.objects.all()
+
+    def get_deletions(self):
+        return None
+
+
 class CompoundMixin(object):
     """
     Mixin for helping define Compound exporter jobs.
 
     If you have an exporter that needs to call other exporters in order
     to, e.g., index records in multiple indexes, use this mixin to help
-    manage how you access the children exporters.
+    manage how you access and work with the child exporters.
 
-    To use it, include the mixin in your class definition (before the
-    main class), and then provide a list/tuple of child exporter names
-    in `exporter_names`. Then:
+    To use: first, include the mixin in your class definition (before
+    the main Exporter class). Then override the `children_config` class
+    attribute in your subclass. It should be a tuple of Child objects,
+    where each defines a child exporter. Initialize each by passing the
+    exporter name--i.e., the export_type identifier string for that
+    exporter type.
 
-    * Access exporter classes via an OrderedDict property
-      `exporter_classes`. (Keys are exporter names.)
-    * Access exporter instances via an OrderedDict property
-      `exporters`. (Keys are exporter names.)
+    When you instantiate an object using your subclass, you'll gain
+    access to a `children` property. This is an OrderedDict allowing
+    you to reference instantiated children exporter objects by name.
+
+    Note that the Child class monkey-patches a new method onto each
+    spawned exporter instance, `derive_records`. This method defines
+    how a child exporter derives its input records when given a record
+    from the main, parent exporter's record_set. Your subclass should
+    also subclass Child if it needs to override the default behavior
+    (which just returns a list containing the parent_record).
+    Example: BibsAndAttached is a Compound exporter that exports a set
+    of bib records to Solr along with the items and holdings attached
+    to each bib record in that set. The `derive_records` method for the
+    ItemsChild type takes a bib record (model instance) and returns the
+    list of attached items. The parent exporter exposes a
+    `generate_record_sets` method, which uses the `derive_records`
+    method on each child exporter to compile those record_sets.
     """
-    exporter_names = tuple()
+
+    class Child(object):
+
+        def __init__(self, name, expclass=None):
+            if expclass is None:
+                expclass = ExportType.objects.get(pk=name).get_exporter_class()
+            self.name = name
+            self.expclass = expclass
+
+        def derive_records(self, parent_record):
+            return [parent_record]
+
+        def spawn_instance(self, parent_pk, parent_export_filter,
+                           parent_export_type, parent_options):
+            nclassname = str('{}->{}'.format(parent_export_type, self.name))
+            nclass_attrs = {
+                '_config': self,
+                'derive_records': lambda s, rec: s._config.derive_records(rec)
+            }
+            new_class = type(nclassname, (self.expclass,), nclass_attrs)
+            return new_class(parent_pk, parent_export_filter,
+                             parent_export_type, options=parent_options)
+
+    children_config = tuple()
 
     @classmethod
-    def get_exporter_classes(cls):
+    def spawn_children(cls, parent_args):
         return OrderedDict(
-            (k, ExportType.objects.get(pk=k).get_exporter_class())
-                for k in cls.exporter_names
-        )
-
-    def make_exporters(self):
-        return OrderedDict(
-            (k, v(self.instance.pk, self.export_filter, self.export_type,
-                  self.options)) for k, v in self.exporter_classes.items()
+            (c.name, c.spawn_instance(*parent_args))
+                for c in cls.children_config
         )
 
     @property
-    def exporter_classes(self):
+    def children(self):
         try:
-            return self._exporter_classes
+            self._children = self._children
         except AttributeError:
-            self._exporter_classes = type(self).get_exporter_classes()
-        return self._exporter_classes
+            args = (self.instance.pk, self.export_filter, self.export_type,
+                    self.options)
+            self._children = type(self).spawn_children(args)
+        return self._children
+
+    def generate_record_sets(self, record_set):
+        child_rsets = {name: [] for name in self.children.keys()}
+        for record in record_set:
+            for name, child in self.children.items():
+                child_rsets[name].extend(child.derive_records(record))
+        return {k: list(set(v)) for k, v in child_rsets.items()}
+
+
+class AttachedRecordExporter(CompoundMixin, Exporter):
+    """
+    Base class for creating exporters that export a main set of records
+    plus one or more sets of attached records.
+    """
+    Child = CompoundMixin.Child
+    children_config = tuple()
 
     @property
-    def exporters(self):
-        try:
-            return self._exporters
-        except AttributeError:
-            self._exporters = self.make_exporters()
-        return self._exporters
+    def main_child(self):
+        return self.children.items()[0][1]
+
+    @property
+    def attached_children(self):
+        return [c[1] for c in self.children.items()[1:]]
+
+    @property
+    def prefetch_related(self):
+        return self.main_child.prefetch_related
+
+    @property
+    def select_related(self):
+        return self.main_child.select_related
+
+    @property
+    def deletion_filter(self):
+        return self.main_child.deletion_filter
+
+    def export_records(self, records, vals={}):
+        record_sets = self.generate_record_sets(records)
+        for name, child in self.children.items():
+            rset = record_sets[name]
+            vals[name] = vals.get(name, {})
+            vals[name].update(child.export_records(rset, vals[name]))
+        return vals
+
+    def delete_records(self, records, vals={}):
+        return self.main_child.delete_records(records, vals)
+
+    def final_callback(self, vals={}, status='success'):
+        if type(vals) is list:
+            vals = self.collapse_vals(vals)
+        for name, child in self.children.items():
+            child.final_callback(vals.get(name, {}), status)

@@ -17,9 +17,10 @@ from django.conf import settings
 from base import models as sierra_models
 from base import search_indexes as indexes
 from export import models as export_models
-from . import exporter
-from .sierra2marc import S2MarcError, S2MarcBatch
-from utils import helpers, redisobjs, solr, dict_merge
+from export.exporter import (Exporter, ToSolrExporter, MetadataToSolrExporter,
+                             CompoundMixin, AttachedRecordExporter)
+from export.sierra2marc import S2MarcError, S2MarcBatch
+from utils import helpers, redisobjs, solr
 
 # set up logger, for debugging
 logger = logging.getLogger('sierra.custom')
@@ -28,91 +29,50 @@ logger = logging.getLogger('sierra.custom')
 SOLR_CONNS = settings.EXPORTER_HAYSTACK_CONNECTIONS
 
 
-def collapse_vals(vals):
-    new_vals = {}
-    for v in vals:
-        new_vals = dict_merge(new_vals, v)
-    return new_vals
-
-
-class MetadataToSolrExporter(exporter.ToSolrExporter):
-    """
-    Subclassable exporter subclass. Subclass this to create simple
-    exporters for "metadata" that is in your III system--Locations,
-    Itypes, Ptypes, Material Types, etc.
-    """
-
-    index_settings = (
-        ('first_index_name', {
-            'class': None,  # haystack.SearchIndex
-            'core': None    # Solr core string, e.g. 'bibdata'
-        }),
-        ('second_index_name', {
-            'class': None,  # haystack.SearchIndex
-            'core': None    # Solr core string, e.g. 'bibdata'
-        }),
-    )
-
-    def get_records(self):
-        return self.model.objects.all()
-
-    def get_deletions(self):
-        return None
-
-    def update_index(self, index_name, records):
-        self.indexes[index_name].reindex(commit=False, queryset=records)
-
-
 class LocationsToSolr(MetadataToSolrExporter):
     """
     Defines process to load Locations into Solr.
     """
-    model = sierra_models.Location
-    index_settings = (
-        ('Locations', {
-            'class': indexes.LocationIndex,
-            'core': SOLR_CONNS['LocationsToSolr']
-        }),
+    Index = MetadataToSolrExporter.Index
+    index_config = (
+        Index('Locations', indexes.LocationIndex,
+              SOLR_CONNS['LocationsToSolr']),
     )
+    model = sierra_models.Location
 
 
 class ItypesToSolr(MetadataToSolrExporter):
     """
     Defines process to load Itypes into Solr.
     """
-    model = sierra_models.ItypeProperty
-    index_settings = (
-        ('Itypes', {
-            'class': indexes.ItypeIndex,
-            'core': SOLR_CONNS['ItypesToSolr']
-        }),
+    Index = MetadataToSolrExporter.Index
+    index_config = (
+        Index('Itypes', indexes.ItypeIndex, SOLR_CONNS['ItypesToSolr']),
     )
+    model = sierra_models.ItypeProperty
 
 
 class ItemStatusesToSolr(MetadataToSolrExporter):
     """
     Defines process to load item statuses into Solr.
     """
-    model = sierra_models.ItemStatusProperty
-    index_settings = (
-        ('ItemStatuses', {
-            'class': indexes.ItemStatusIndex,
-            'core': SOLR_CONNS['ItemStatusesToSolr']
-        }),
+    Index = MetadataToSolrExporter.Index
+    index_config = (
+        Index('ItemStatuses', indexes.ItemStatusIndex,
+              SOLR_CONNS['ItemStatusesToSolr']),
     )
+    model = sierra_models.ItemStatusProperty
 
 
-class ItemsToSolr(exporter.ToSolrExporter):
+class ItemsToSolr(ToSolrExporter):
     """
     Defines processes that load item records into Solr.
     """
-    model = sierra_models.ItemRecord
-    index_settings = (
-        ('Items', {
-            'class': indexes.ItemIndex,
-            'core': SOLR_CONNS['ItemsToSolr']
-        }),
+    Index = ToSolrExporter.Index
+    index_config = (
+        Index('Items', indexes.ItemIndex, SOLR_CONNS['ItemsToSolr']),
     )
+    model = sierra_models.ItemRecord
     deletion_filter = [
         {
             'deletion_date_gmt__isnull': False,
@@ -131,17 +91,16 @@ class ItemsToSolr(exporter.ToSolrExporter):
     select_related = ['record_metadata', 'location', 'itype']
 
 
-class EResourcesToSolr(exporter.ToSolrExporter):
+class EResourcesToSolr(ToSolrExporter):
     """
     Defines processes that load resource records into Solr.
     """
-    model = sierra_models.ResourceRecord
-    index_settings = (
-        ('EResources', {
-            'class': indexes.ElectronicResourceIndex,
-            'core': SOLR_CONNS['EResourcesToSolr']
-        }),
+    Index = ToSolrExporter.Index
+    index_config = (
+        Index('EResources', indexes.ElectronicResourceIndex,
+              SOLR_CONNS['EResourcesToSolr']),
     )
+    model = sierra_models.ResourceRecord
     deletion_filter = [
         {
             'deletion_date_gmt__isnull': False,
@@ -160,7 +119,7 @@ class EResourcesToSolr(exporter.ToSolrExporter):
 
     def export_records(self, records, vals={}):
         try:
-            self.indexes['EResources'].update(commit=False, queryset=records)
+            self.indexes['EResources'].do_update(records)
         except Exception as e:
             self.log_error(e)
         else:
@@ -188,12 +147,12 @@ class EResourcesToSolr(exporter.ToSolrExporter):
 
     def final_callback(self, vals={}, status='success'):
         if isinstance(vals, (list, tuple)):
-            vals = collapse_vals(vals)
+            vals = self.collapse_vals(vals)
         self.commit_to_redis(vals)
         self.commit_indexes()
 
 
-class HoldingUpdate(exporter.CompoundMixin, exporter.Exporter):
+class HoldingUpdate(CompoundMixin, Exporter):
     """
     Checks for updates to holdings and updates linked EResources as
     needed.
@@ -211,8 +170,9 @@ class HoldingUpdate(exporter.CompoundMixin, exporter.Exporter):
     help us manage this (since we need a way to identify holdings
     records by more than just their title).
     """
+    Child = CompoundMixin.Child
+    children_config = (Child('EResourcesToSolr'),)
     model = sierra_models.HoldingRecord
-    exporter_names = ('EResourcesToSolr',)
     # deletion_filter = [
     #     {
     #         'deletion_date_gmt__isnull': False,
@@ -226,11 +186,7 @@ class HoldingUpdate(exporter.CompoundMixin, exporter.Exporter):
         'resourcerecord_set__record_metadata__varfield_set',
         'resourcerecord_set__holding_records'
     ]
-
-    def __init__(self, *args, **kwargs):
-        super(HoldingUpdate, self).__init__(*args, **kwargs)
-        er_to_solr = self.exporter_classes['EResourcesToSolr']
-        self.max_rec_chunk = er_to_solr.max_rec_chunk
+    max_rec_chunk = children_config[0].expclass.max_rec_chunk
 
     def export_records(self, records, vals={}):
         eresources, er_mapping = set(), {}
@@ -338,7 +294,7 @@ class HoldingUpdate(exporter.CompoundMixin, exporter.Exporter):
         if eresources:
             eresources = list(eresources)
             er_vals = vals.get('eresources', {})
-            er_to_solr = self.exporters['EResourcesToSolr']
+            er_to_solr = self.children['EResourcesToSolr']
             er_vals.update(er_to_solr.export_records(eresources, er_vals))
             vals['eresources'] = er_vals
 
@@ -373,20 +329,20 @@ class HoldingUpdate(exporter.CompoundMixin, exporter.Exporter):
 
     def final_callback(self, vals={}, status='success'):
         if isinstance(vals, (list, tuple)):
-            vals = collapse_vals(vals)
+            vals = self.collapse_vals(vals)
 
         er_vals = vals.get('eresources', {})
-        self.exporters['EResourcesToSolr'].final_callback(er_vals, status)
+        self.children['EResourcesToSolr'].final_callback(er_vals, status)
         self.commit_to_redis(vals)
 
 
-class BibsDownloadMarc(exporter.Exporter):
+class BibsDownloadMarc(Exporter):
     """
     Defines processes that convert Sierra bib records to MARC.
     """
     max_rec_chunk = 1000
     parallel = False
-    model_name = 'BibRecord'
+    model = sierra_models.BibRecord
     prefetch_related = [
         'record_metadata__varfield_set',
         'bibrecorditemrecordlink_set',
@@ -398,7 +354,6 @@ class BibsDownloadMarc(exporter.Exporter):
     select_related = ['record_metadata']
         
     def export_records(self, records, vals={}):
-        log_label = self.__class__.__name__
         batch = S2MarcBatch(records)
         out_recs = batch.to_marc()
         try:
@@ -407,12 +362,10 @@ class BibsDownloadMarc(exporter.Exporter):
             else:
                 vals['marcfile'] = batch.to_file(out_recs, append=False)
         except IOError as e:
-            self.log('Error', 'Error writing to output file: {}'.format(e), 
-                     log_label)
+            self.log('Error', 'Error writing to output file: {}'.format(e))
         else:
             for e in batch.errors:
-                self.log('Warning', 'Record {}: {}'.format(e.id, e.msg),
-                         log_label)
+                self.log('Warning', 'Record {}: {}'.format(e.id, e.msg))
             if 'success_count' in vals:
                 vals['success_count'] += batch.success_count
             else:
@@ -420,34 +373,27 @@ class BibsDownloadMarc(exporter.Exporter):
         return vals
 
     def final_callback(self, vals={}, status='success'):
-        log_label = self.__class__.__name__
         if 'success_count' in vals:
             self.log('Info', '{} records successfully '
-                    'processed.'.format(vals['success_count']), log_label)
+                    'processed.'.format(vals['success_count']))
         if 'marcfile' in vals:
             self.log('Info', '<a href="{}{}">Download File</a> '
                     '(Link expires after 24 hrs.)'
-                    ''.format(settings.MEDIA_URL, vals['marcfile']), log_label)
+                    ''.format(settings.MEDIA_URL, vals['marcfile']))
 
 
-class BibsToSolr(exporter.CompoundMixin, exporter.ToSolrExporter):
+class BibsToSolr(CompoundMixin, ToSolrExporter):
     """
-    Defines processes that export Sierra/MARC bibs out to Solr. Note
-    that we instantiate a BibsDownloadMarc exporter first because we
-    need to output a MARC file that will be indexed using Solrmarc.
+    Defines processes that export Sierra/MARC bibs out to Solr.
     """
-    model = sierra_models.BibRecord
-    index_settings = (
-        ('Bibs', {
-            'class': indexes.BibIndex,
-            'core': SOLR_CONNS['BibsToSolr:BIBS']
-        }),
-        ('MARC', {
-            'class': indexes.MarcIndex,
-            'core': SOLR_CONNS['BibsToSolr:MARC']
-        })
+    Index = ToSolrExporter.Index
+    Child = CompoundMixin.Child
+    index_config = (
+        Index('Bibs', indexes.BibIndex, SOLR_CONNS['BibsToSolr:BIBS']),
+        Index('MARC', indexes.MarcIndex, SOLR_CONNS['BibsToSolr:MARC'])
     )
-    exporter_names = ('BibsDownloadMarc',)
+    children_config = (Child('BibsDownloadMarc'),)
+    model = sierra_models.BibRecord
     deletion_filter = [
         {
             'deletion_date_gmt__isnull': False,
@@ -472,7 +418,7 @@ class BibsToSolr(exporter.CompoundMixin, exporter.ToSolrExporter):
         filedir = settings.MEDIA_ROOT
         if filedir[-1] != '/':
             filedir = '{}/'.format(filedir)
-        bib_converter = self.exporters['BibsDownloadMarc']
+        bib_converter = self.children['BibsDownloadMarc']
         ret_vals = bib_converter.export_records(records, vals={})
         filename = ret_vals['marcfile']
         filepath = '{}{}'.format(filedir, filename)
@@ -487,8 +433,7 @@ class BibsToSolr(exporter.CompoundMixin, exporter.ToSolrExporter):
             error_lines = e.output.split("\n")
             for line in error_lines:
                 self.log('Error', line)
-            self.log('Error', 'Solrmarc process did not run successfully.',
-                     self.log_label)
+            self.log('Error', 'Solrmarc process did not run successfully.')
         else:
             error_lines = output.split("\n")
             del(error_lines[-1])
@@ -496,77 +441,19 @@ class BibsToSolr(exporter.CompoundMixin, exporter.ToSolrExporter):
                 for line in error_lines:
                     line = re.sub(r'^\s+', '', line)
                     if re.match(r'^WARN', line):
-                        self.log('Warning', line, log_label)
+                        self.log('Warning', line)
                     elif re.match(r'^ERROR', line):
-                        self.log('Error', line, log_label)
+                        self.log('Error', line)
 
             # if all went well, we now try to index the MARC record
             try:
-                self.update_index('MARC', records)
+                self.indexes['MARC'].do_update(records)
             except Exception as e:
                 self.log_error(e)
 
         # delete the file when we're done so we don't take up space
         os.remove(filepath)
         return vals
-
-
-class AttachedRecordExporter(exporter.CompoundMixin, exporter.Exporter):
-    """
-    Base class for creating exporters that export a main set of records
-    plus one or more sets of attached records.
-    """
-    exporter_names = tuple()
-
-    @property
-    def main_name(self):
-        return self.exporter_classes.keys()[0]
-
-    @property
-    def attached_names(self):
-        return self.exporter_classes.keys()[1:]
-
-    @property
-    def prefetch_related(self):
-        return self.exporter_classes[self.main_name].prefetch_related
-
-    @property
-    def select_related(self):
-        return self.exporter_classes[self.main_name].select_related
-
-    @property
-    def deletion_filter(self):
-        return self.exporter_classes[self.main_name].deletion_filter
-
-    def get_attached_records(self, record):
-        pass
-
-    def build_record_sets(self, records):
-        record_sets = {self.main_name: records}
-        for record in records:
-            attached = self.get_attached_records(record)
-            for key in self.attached_names:
-                record_sets[key] = record_sets.get(key, [])
-                record_sets[key].extend(attached[key])
-        return record_sets
-
-    def export_records(self, records, vals={}):
-        rsets = self.build_record_sets(records)
-        for key, exporter in self.exporters.items():
-            rset = list(set(rsets[key]))
-            vals[key] = vals.get(key, {})
-            vals[key].update(exporter.export_records(rset, vals[key]))
-        return vals
-
-    def delete_records(self, records, vals={}):
-        return self.exporters[self.main_name].delete_records(records, vals)
-
-    def final_callback(self, vals={}, status='success'):
-        if type(vals) is list:
-            vals = collapse_vals(vals)
-
-        for key, exporter in self.exporters.items():
-            exporter.final_callback(vals.get(key, {}), status)
 
 
 class ItemsBibsToSolr(AttachedRecordExporter):
@@ -579,12 +466,19 @@ class ItemsBibsToSolr(AttachedRecordExporter):
     with a bib loader, like BibsToSolr or BibsItemsToSolr. That way
     bib records that need to be deleted will actually get deleted.
     """
+    Child = AttachedRecordExporter.Child
+
+    class BibChild(Child):
+        def derive_records(self, parent_record):
+            bib_links = parent_record.bibrecorditemrecordlink_set.all()
+            return [link.bib_record for link in bib_links]
+
+    children_config = (Child('ItemsToSolr'), BibChild('BibsToSolr'))
     model = sierra_models.ItemRecord
-    exporter_names = ('ItemsToSolr', 'BibsToSolr')
 
     @property
     def prefetch_related(self):
-        return self.exporter_classes[self.main_name].prefetch_related + [
+        return self.main_child.prefetch_related + [
             'bibrecorditemrecordlink_set__bib_record'
                 '__bibrecorditemrecordlink_set',
             'bibrecorditemrecordlink_set__bib_record'
@@ -593,13 +487,6 @@ class ItemsBibsToSolr(AttachedRecordExporter):
                 '__bibrecorditemrecordlink_set__item_record__record_metadata'
         ]
 
-    def get_attached_records(self, r):
-        return {
-            'BibsToSolr': [
-                bl.bib_record for bl in r.bibrecorditemrecordlink_set.all()
-            ]
-        }
-
 
 class BibsAndAttachedToSolr(AttachedRecordExporter):
     """
@@ -607,13 +494,25 @@ class BibsAndAttachedToSolr(AttachedRecordExporter):
     existing BibsToSolr job and then grabs any attached items and
     holdings and exports them using the specified export processes.
     """
+    Child = AttachedRecordExporter.Child
+
+    class ItemChild(Child):
+        def derive_records(self, parent_record):
+            item_links = parent_record.bibrecorditemrecordlink_set.all()
+            return [link.item_record for link in item_links]
+
+    class HoldingChild(Child):
+        def derive_records(self, parent_record):
+            return [h for h in parent_record.holding_records.all()]
+
+    children_config = (Child('BibsToSolr'), ItemChild('ItemsToSolr'),
+                       HoldingChild('HoldingUpdate'))
     model = sierra_models.BibRecord
-    exporter_names = ('BibsToSolr', 'ItemsToSolr', 'HoldingUpdate')
     max_rec_chunk = 100
 
     @property
     def prefetch_related(self):
-        return self.exporter_classes[self.main_name].prefetch_related + [
+        return self.main_child.prefetch_related + [
             'holding_records',
             'holding_records__bibrecord_set',
             'holding_records__bibrecord_set__record_metadata__varfield_set',
@@ -622,13 +521,3 @@ class BibsAndAttachedToSolr(AttachedRecordExporter):
                 '__varfield_set',
             'holding_records__resourcerecord_set__holding_records'
         ]
-
-    def get_attached_records(self, r):
-        return {
-            'ItemsToSolr': [
-                bl.item_record for bl in r.bibrecorditemrecordlink_set.all()
-            ],
-            'HoldingUpdate': [
-                h for h in r.holding_records.all()
-            ]
-        }
