@@ -11,7 +11,6 @@ import pytz
 from django.conf import settings
 from django.contrib.auth.models import User
 
-import utils
 from utils.test_helpers import fixture_factories as ff
 from export import models as em
 from base import models as bm
@@ -235,30 +234,40 @@ def sierra_full_object_set():
 # Export app-related fixtures
 
 @pytest.fixture(scope='module')
-def configure_export_type_classpaths(django_db_blocker):
+def configure_export_types(django_db_blocker):
     """
-    Module-level pytest fixture that lets you modify the `path` field
-    for one or more ExportType instances. Types that have been
-    overridden are cached the first time, and then they are restored
-    at the end of the module's tests.
-    """
-    def _save_classpath(code, path):
-        obj = em.ExportType.objects.get(code=code)
-        obj.path = path
-        obj.save()
+    Module-level pytest fixture for handling ExportType setup and
+    teardown. Modify the `path` field (classpath string tying the
+    ExportType to the Exporter class that should handle jobs of that
+    ET) for a group of ET instances. Provide the list of ET codes or
+    names (`et_codes`) and a new `base_path` to use. Original paths are
+    restored after all module tests have run.
 
-    cache = {}
-    def _configure_export_type_classpaths(mapping):
-        for code, path in mapping.items():
-            if code not in cache:
-                cache[code] = em.ExportType.objects.get(code=code).path
-            _save_classpath(code, path)
+    Returns a dict mapping ET codes to ET instances (with new
+    classpaths).
+    """
+
+    path_cache, et_cache = {}, {}
+
+    def _configure_export_types(et_codes, base_path=None):
+        etypes = {}
+        for et_code in et_codes:
+            export_type = em.ExportType.objects.get(code=et_code)
+            if base_path and et_code not in path_cache:
+                new_path = '{}.{}'.format(base_path, et_code)
+                path_cache[et_code] = export_type.path
+                export_type.path = new_path
+                export_type.save()
+            etypes[et_code] = export_type
+        et_cache.update(etypes)
+        return etypes
 
     with django_db_blocker.unblock():
-        yield _configure_export_type_classpaths
+        yield _configure_export_types
 
-        for code, path in cache.items():
-            _save_classpath(code, path)
+        for et_code, original_path in path_cache.items():
+            et_cache[et_code].path = original_path
+            et_cache[et_code].save()
 
 
 @pytest.fixture
@@ -308,7 +317,7 @@ def new_export_instance(export_type, export_filter, status,
 def new_exporter(new_export_instance):
     def _new_exporter(et_code, ef_code, st_code, options={}):
         instance = new_export_instance(et_code, ef_code, st_code)
-        exp_class = utils.load_class(instance.export_type.path)
+        exp_class = instance.export_type.get_exporter_class()
         return exp_class(instance.pk, ef_code, et_code, options)
     return _new_exporter
 
@@ -337,27 +346,101 @@ def delete_records():
 
 
 @pytest.fixture
-def assert_records_are_indexed(solr_conns, solr_search):
+def get_records_from_index(solr_conns, solr_search):
+    """
+    Pytest fixture that resturns a test helper function for getting
+    records from the provided `record_set` from the provided `index`
+    object.
+    """
+    def _get_records_from_index(index, record_set):
+        id_fname = index.reserved_fields['haystack_id']
+        meta = index.get_model()._meta
+        conn = solr_conns[getattr(index, 'using', 'default')]
+        results = solr_search(conn, '*')
+
+        found_records = {}
+        for record in record_set:
+            cmp_id = '{}.{}.{}'.format(meta.app_label, meta.model_name,
+                                       record.pk)
+            matches = [r for r in results if r[id_fname] == cmp_id]
+            if len(matches) == 1:
+                found_records[record.pk] = matches[0]
+        return found_records
+    return _get_records_from_index
+
+
+@pytest.fixture
+def assert_records_are_indexed(get_records_from_index):
     """
     Pytest fixture that returns a test helper function for checking
     that the provided `record_set` has been indexed by the provided
     `index` object appropriately.
     """
     def _assert_records_are_indexed(index, record_set):
-        id_fname = index.reserved_fields['haystack_id']
-        meta = index.get_model()._meta
-        conn = solr_conns[getattr(index, 'using', 'default')]
-        results = solr_search(conn, '*')
-
+        results = get_records_from_index(index, record_set)
         for record in record_set:
-            cmp_id = '{}.{}.{}'.format(meta.app_label, meta.model_name,
-                                       record.pk)
-            result = [r for r in results if r[id_fname] == cmp_id][0]
+            result = results[record.pk]
             for field in result.keys():
                 schema_field = index.get_schema_field(field)
                 assert schema_field is not None
                 assert schema_field['stored']
     return _assert_records_are_indexed
+
+
+@pytest.fixture
+def assert_records_are_not_indexed(get_records_from_index):
+    """
+    Pytest fixture that returns a test helper function for checking
+    that records in the provided `record_set` are NOT indexed in the
+    Solr index represented by the provided `index` object.
+    """
+    def _assert_records_are_not_indexed(index, record_set):
+        assert not get_records_from_index(index, record_set)
+    return _assert_records_are_not_indexed
+
+
+@pytest.fixture
+def assert_all_exported_records_are_indexed(assert_records_are_indexed):
+    """
+    Pytest fixture that returns a test helper function for checking
+    that the provided `record_set` has been indexed correctly as a
+    result of the provided `exporter` class running its
+    `export_records` method.
+    """
+    def _assert_all_exported_records_are_indexed(exporter, record_set):
+        # Check results in all indexes for the parent test_exporter.
+        test_indexes = getattr(exporter, 'indexes', {}).values()
+        for index in test_indexes:
+            assert_records_are_indexed(index, record_set)
+        # Check results in all child indexes (if any).
+        if hasattr(exporter, 'children'):
+            child_rsets = exporter.generate_record_sets(record_set)
+            for child_name, child in exporter.children.items():
+                child_indexes = getattr(child, 'indexes', {}).values()
+                for index in child_indexes:
+                    assert_records_are_indexed(index, child_rsets[child_name])
+    return _assert_all_exported_records_are_indexed
+
+
+@pytest.fixture
+def assert_deleted_records_are_not_indexed(assert_records_are_not_indexed):
+    """
+    Pytest fixture that returns a test helper function for checking
+    that records in the provided `record_set` have been removed from
+    the appropriate indexes as the result of the provided `exporter`
+    class running its `delete_records` method.
+    """
+    def _assert_deleted_records_are_not_indexed(exporter, record_set):
+        # If the parent exporter has indexes, check them.
+        indexes = getattr(exporter, 'indexes', {}).values()
+        # Otherwise, if the parent has a `main_child` that has indexes,
+        # then those are the ones to check.
+        if not indexes and hasattr(exporter, 'main_child'):
+            indexes = getattr(exporter.main_child, 'indexes', {}).values()
+
+        for index in indexes:
+            assert_records_are_not_indexed(index, record_set)
+    return _assert_deleted_records_are_not_indexed
 
 
 # API App related fixtures
