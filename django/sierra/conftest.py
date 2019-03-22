@@ -96,6 +96,18 @@ def model_instance_caller():
         yield make
 
 
+@pytest.fixture(scope='function')
+def installed_test_class():
+    """
+    Function-level pytest fixture for temporarily installing a test
+    class onto a particular module. The class may be installed as a
+    brand new attribute, or it may override an existing class. Any
+    changes are reverted after the test runs.
+    """
+    with ff.FactoryTracker(ff.TestClassRegistry()) as make:
+        yield make
+
+
 # Solr-related fixtures
 
 @pytest.fixture(scope='function')

@@ -2,6 +2,7 @@
 Provides object factories for use in pytest fixtures.
 """
 
+import importlib
 import pysolr
 
 from django.conf import settings
@@ -333,3 +334,37 @@ class TestSolrConnectionFactory(object):
 
     def unmake(self, conn):
         conn.delete(q='*:*')
+
+
+class TestClassRegistry(object):
+    """
+    "Factory" that dynamically registers a class as an attribute on an
+    existing module, and then unregisters and deletes the class after
+    use. If the test class has the same name as an existing class, then
+    the original class is overridden during the test and then restored
+    afterward.
+
+    This is useful when you need a test or fixture to create a mock or
+    disposable class for testing, but you need to register the class on
+    on an actual module so the code under test has a pathway to access
+    the test class, when/if you can't just use dependency injection.
+
+    (If you actually need a mock object, use the pytest_mock fixtures
+    instead. This is mainly for creating test classes that need
+    functionality beyond what a mock can supply.)
+    """
+
+    def make(self, testclass, modpath):
+        mod = importlib.import_module(modpath)
+        oldclass = getattr(mod, testclass.__name__, None)
+        setattr(mod, testclass.__name__, testclass)
+        return (modpath, testclass, oldclass)
+
+    def unmake(self, cached_classtuple):
+        modpath, testclass, oldclass = cached_classtuple
+        mod = importlib.import_module(modpath)
+        if oldclass is None:
+            delattr(mod, testclass.__name__)
+        else:
+            setattr(mod, testclass.__name__, oldclass)
+        del(testclass)

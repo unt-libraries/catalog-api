@@ -8,6 +8,7 @@ don't have to duplicate those fixtures here to test them.
 """
 
 import pytest
+import importlib
 
 from base import models as bm
 from utils.test_helpers import solr_test_profiles as tp
@@ -22,10 +23,19 @@ from utils.test_helpers import solr_test_profiles as tp
 #     global_solr_data_assembler
 #     global_solr_conn
 #     solr_search
+#     installed_test_class
 
 pytestmark = pytest.mark.django_db
 
 TEST_MODEL_CLASS = bm.FixfldTypeMyuser
+
+
+class ExistingTestClass(object):
+    """
+    This is just a dummy test class for use in the tests of
+    `installed_test_class`.
+    """
+    arg = None
 
 
 @pytest.fixture(scope='module')
@@ -204,3 +214,53 @@ def test_solr_data_assembler_fixtures(iter_count, test_assembler,
     assert len(test_assembler.records['item']) == 10
     assert end_num_locrecs_in_solr == 11
     assert end_num_itemrecs_in_solr == 110
+
+
+@pytest.mark.parametrize('count', [0, 1])
+def test_installed_test_class_fixture__new(count, installed_test_class):
+    """
+    Registering a test class via `installed_test_class` during a test
+    should add the specified class to the module at the specified path.
+    If a class by that name did not already exist in that namespace,
+    then the class should simply be removed after the test.
+    """
+    modpath = 'utils.tests.test_fixture_factories'
+    classname = 'NewTestClass'
+    testclass = type(classname, (object,), {'arg': count})
+
+    mod = importlib.import_module(modpath)
+    class_installed_before = hasattr(mod, classname)
+    result_tuple = installed_test_class(testclass, modpath)
+    mod = importlib.import_module(modpath)
+    class_installed_after = hasattr(mod, classname)
+
+    assert not class_installed_before
+    assert class_installed_after
+    assert result_tuple == (modpath, testclass, None)
+    assert getattr(mod, classname).arg == count
+
+
+@pytest.mark.parametrize('count', [0, 1])
+def test_installed_test_class_fixture__override(count, installed_test_class):
+    """
+    Registering a test class via `installed_test_class` during a test
+    should override an existing class at that path, if one exists.
+    After the test, the original class should be restored.
+    """
+    modpath = 'utils.tests.test_fixture_factories'
+    classname = 'ExistingTestClass'
+    testclass = type(classname, (object,), {'arg': count})
+
+    mod = importlib.import_module(modpath)
+    before_class = getattr(mod, classname)
+
+    result_tuple = installed_test_class(testclass, modpath)
+    
+    mod = importlib.import_module(modpath)
+    after_class = getattr(mod, classname)
+
+    assert after_class == testclass
+    assert before_class != testclass
+    assert result_tuple == (modpath, testclass, before_class)
+    assert getattr(before_class, 'arg') == None
+    assert getattr(after_class, 'arg') == count
