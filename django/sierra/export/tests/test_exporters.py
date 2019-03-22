@@ -38,6 +38,29 @@ def record_sets(sierra_records_by_recnum_range, sierra_full_object_set):
 
 # TESTS
 
+@pytest.mark.parametrize('et_code', [
+    ('BibsToSolr'),
+    ('EResourcesToSolr'),
+    ('ItemsToSolr'),
+    ('ItemStatusesToSolr'),
+    ('ItypesToSolr'),
+    ('LocationsToSolr'),
+    ('ItemsBibsToSolr'),
+    ('BibsAndAttachedToSolr')
+])
+def test_exporter_class_versions(et_code, new_exporter, basic_exporter_class):
+    """
+    For all exporter types / classes that are under test in this test
+    module, what we get from the `basic_exporter_class` fixture should
+    be derived from the `export` app.
+    """
+    expclass = basic_exporter_class(et_code)
+    exporter = new_exporter(expclass, 'full_export', 'waiting')
+    assert exporter.app_name == 'export'
+    for child_etcode, child in getattr(exporter, 'children', {}).items():
+        assert child.app_name == 'export'
+
+
 @pytest.mark.parametrize('et_code, rset_code', [
     ('BibsToSolr', 'bib_set'),
     ('EResourcesToSolr', 'eres_set'),

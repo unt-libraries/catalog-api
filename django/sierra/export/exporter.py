@@ -97,6 +97,7 @@ class Exporter(object):
     max_del_chunk = 1000
     parallel = True
     model = ''
+    app_name = 'export'
 
     def __init__(self, instance_pk, export_filter, export_type, options={},
                  log_label=''):
