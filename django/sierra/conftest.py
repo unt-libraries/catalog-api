@@ -26,7 +26,11 @@ def pytest_runtest_teardown(item, nextitem):
     discernable difference in test run time with and without this.)
     """
     conn = redis.StrictRedis(**settings.REDIS_CONNECTION)
-    conn.flushdb()
+    try:
+        conn.flushdb()
+    except Exception:
+        # Occasionally flushdb fails. If it does, just try again.
+        conn.flushdb()
 
 
 # General utility fixtures
