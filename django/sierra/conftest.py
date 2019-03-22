@@ -421,17 +421,17 @@ def get_records():
 
 @pytest.fixture
 def export_records():
-    def _export_records(exporter, records):
-        exporter.export_records(records)
-        exporter.final_callback()
+    def _export_records(exporter, records, vals={}):
+        vals = exporter.export_records(records, vals=vals)
+        exporter.final_callback(vals=vals, status='success')
     return _export_records
 
 
 @pytest.fixture
 def delete_records():
-    def _delete_records(exporter, records):
-        exporter.delete_records(records)
-        exporter.final_callback()
+    def _delete_records(exporter, records, vals={}):
+        vals = exporter.delete_records(records, vals=vals)
+        exporter.final_callback(vals=vals, status='success')
     return _delete_records
 
 
