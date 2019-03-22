@@ -101,23 +101,23 @@ class TestInstanceFactory(object):
         if hasattr(model, '_write_override'):
             model._write_override = value
 
-    def make(self, model, *args, **kwargs):
+    def make(self, _model, *args, **kwargs):
         """
-        Make an instance of the `model` using the supplied `args` and
+        Make an instance of the `_model` using the supplied `args` and
         `kwargs`. This method will first try to get a model instance
         matching the the args and kwargs and return that, just in case.
         If this is a User model, it tries creating the instance using
         the `create_user` helper method.
         """
-        self._set_write_override(model, True)
+        self._set_write_override(_model, True)
         try:
-            obj = model.objects.get(*args, **kwargs)
+            obj = _model.objects.get(*args, **kwargs)
         except Exception:
             try:
-                obj = model.objects.create_user(*args, **kwargs)
+                obj = _model.objects.create_user(*args, **kwargs)
             except AttributeError:
-                obj = model.objects.create(*args, **kwargs)
-        self._set_write_override(model, False)
+                obj = _model.objects.create(*args, **kwargs)
+        self._set_write_override(_model, False)
         return obj
 
     def unmake(self, obj):
