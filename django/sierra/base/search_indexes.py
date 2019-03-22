@@ -12,7 +12,7 @@ from __future__ import unicode_literals
 import ujson
 import fnmatch
 
-from haystack import indexes, constants, utils
+from haystack import indexes, constants, utils, exceptions
 
 from django.core.exceptions import ObjectDoesNotExist
 
@@ -92,6 +92,7 @@ class CustomQuerySetIndex(indexes.SearchIndex):
         super(CustomQuerySetIndex, self).__init__()
         self.default_queryset = queryset
         self.using = using
+        self.last_batch_errors = []
 
     def get_django_ct(self):
         return utils.get_model_ct(self.get_model())
@@ -175,6 +176,15 @@ class CustomQuerySetIndex(indexes.SearchIndex):
         backend = self.get_backend(using)
         if backend is not None:
             backend.conn.optimize()
+
+    def full_prepare(self, obj):
+        try:
+            super(CustomQuerySetIndex, self).full_prepare(obj)
+        except Exception as e:
+            self.last_batch_errors.append((str(obj), e))
+            raise exceptions.SkipDocument()
+        else:
+            return self.prepared_data
 
 
 class BibIndex(CustomQuerySetIndex, indexes.Indexable):

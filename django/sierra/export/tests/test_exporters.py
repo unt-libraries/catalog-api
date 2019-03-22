@@ -9,7 +9,8 @@ import pytest
 # django/sierra/base/tests/conftest.py:
 #    sierra_records_by_recnum_range, sierra_full_object_set,
 #    new_exporter, get_records, export_records, delete_records,
-#    derive_exporter_class, assert_all_exported_records_are_indexed,
+#    setattr_model_instance, derive_exporter_class
+#    assert_all_exported_records_are_indexed,
 #    assert_deleted_records_are_not_indexed,
 #    assert_records_are_indexed, assert_records_are_not_indexed
 
@@ -29,7 +30,7 @@ def record_sets(sierra_records_by_recnum_range, sierra_full_object_set):
         'bib_set': sierra_records_by_recnum_range('b4371446'),
         'er_bib_set': sierra_records_by_recnum_range('b5784429'),
         'eres_set': sierra_records_by_recnum_range('e1001249'),
-        'item_set': sierra_records_by_recnum_range('i4264281'),
+        'item_set': sierra_records_by_recnum_range('i4264281', 'i4278316'),
         'itype_set': sierra_full_object_set('ItypeProperty'),
         'istatus_set': sierra_full_object_set('ItemStatusProperty'),
         'location_set': sierra_full_object_set('Location')
@@ -141,3 +142,37 @@ def test_export_delete_records(et_code, rset_code, basic_exporter_class,
     delete_records(exporter, input_record_set)
 
     assert_deleted_records_are_not_indexed(exporter, input_record_set)
+
+
+def test_tosolrexporter_index_update_errors(basic_exporter_class, record_sets,
+                                            new_exporter, export_records,
+                                            setattr_model_instance,
+                                            assert_records_are_indexed,
+                                            assert_records_are_not_indexed):
+    """
+    When updating indexes via a ToSolrExporter, if one record causes an
+    error during preparation (e.g. via the haystack SearchIndex obj),
+    the export process should: 1) skip that record, and 2) log the
+    error as a warning on the exporter. Other records in the same batch
+    should still be indexed.
+    """
+    records = record_sets['item_set']
+    expclass = basic_exporter_class('ItemsToSolr')
+    invalid_loc_code = '_____'
+    exporter = new_exporter(expclass, 'full_export', 'waiting')
+
+    def prepare_location_code(obj):
+        code = obj.location_id
+        if code == invalid_loc_code:
+            raise Exception('Code not valid')
+        return code
+
+    exporter.indexes['Items'].prepare_location_code = prepare_location_code
+    setattr_model_instance(records[0], 'location_id', invalid_loc_code)
+    export_records(exporter, records)
+
+    assert_records_are_not_indexed(exporter.indexes['Items'],
+                                   [records[0]])
+    assert_records_are_indexed(exporter.indexes['Items'], records[1:])
+    assert len(exporter.indexes['Items'].last_batch_errors) == 1
+

@@ -378,6 +378,11 @@ class ToSolrExporter(Exporter):
                 index.do_update(records)
         except Exception as e:
             self.log_error(e)
+
+        for index in self.indexes.values():
+            for obj_str, e in index.last_batch_errors:
+                msg = '{} update skipped due to error: {}'.format(obj_str, e)
+                self.log('Warning', msg)
         return vals
 
     def delete_records(self, records, vals={}):
