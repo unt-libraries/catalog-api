@@ -3,13 +3,16 @@ Contains all shared pytest fixtures and hooks
 """
 
 import pytest
+import importlib
 import redis
 import pysolr
 import datetime
 import pytz
+from collections import OrderedDict
 
 from django.conf import settings
 from django.contrib.auth.models import User
+from django.db.models import ObjectDoesNotExist
 
 from utils.test_helpers import fixture_factories as ff
 from export import models as em
@@ -94,6 +97,46 @@ def model_instance_caller():
     """
     with ff.FactoryTracker(ff.TestInstanceCallerFactory()) as make:
         yield make
+
+
+@pytest.fixture(scope='function')
+def setattr_model_instance():
+    """
+    Function-level pytest fixture. Yields a function that you can use
+    to temporarily set model instance attributes, intended to be used
+    to change data on a "permanent" fixture (like mock Sierra records),
+    just for the duration of a test. Use it like you would `setattr`:
+    setattr_model_instance(instance, attr, new_val). The first time an
+    attribute is changed, the original DB value is cached. When the
+    test is over, all cached changes are reverted.
+    """
+    def _set_write_override(instance, val):
+        try:
+            instance._write_override = val
+        except AttributeError:
+            pass
+
+    def _set_and_save(instance, attr, value):
+        _set_write_override(instance, True)
+        setattr(instance, attr, value)
+        instance.save()
+        instance.refresh_from_db()
+        _set_write_override(instance, False)
+
+    cache = OrderedDict()
+    def _setattr_model_instance(instance, attr, value):
+        meta = instance._meta
+        cache_key = '{}.{}.{}'.format(meta.app_label, meta.model_name, attr)
+        if cache_key not in cache:
+            cache[cache_key] = (instance, attr, getattr(instance, attr))
+        _set_and_save(instance, attr, value)
+
+    yield _setattr_model_instance
+        
+    while cache:
+        key = cache.keys()[0]
+        instance, attr, old_value = cache.pop(key)
+        _set_and_save(instance, attr, old_value)
 
 
 @pytest.fixture(scope='function')
@@ -249,43 +292,6 @@ def sierra_full_object_set():
 
 # Export app-related fixtures
 
-@pytest.fixture(scope='module')
-def configure_export_types(django_db_blocker):
-    """
-    Module-level pytest fixture for handling ExportType setup and
-    teardown. Modify the `path` field (classpath string tying the
-    ExportType to the Exporter class that should handle jobs of that
-    ET) for a group of ET instances. Provide the list of ET codes or
-    names (`et_codes`) and a new `base_path` to use. Original paths are
-    restored after all module tests have run.
-
-    Returns a dict mapping ET codes to ET instances (with new
-    classpaths).
-    """
-
-    path_cache, et_cache = {}, {}
-
-    def _configure_export_types(et_codes, base_path=None):
-        etypes = {}
-        for et_code in et_codes:
-            export_type = em.ExportType.objects.get(code=et_code)
-            if base_path and et_code not in path_cache:
-                new_path = '{}.{}'.format(base_path, et_code)
-                path_cache[et_code] = export_type.path
-                export_type.path = new_path
-                export_type.save()
-            etypes[et_code] = export_type
-        et_cache.update(etypes)
-        return etypes
-
-    with django_db_blocker.unblock():
-        yield _configure_export_types
-
-        for et_code, original_path in path_cache.items():
-            et_cache[et_code].path = original_path
-            et_cache[et_code].save()
-
-
 @pytest.fixture
 def export_type():
     def _export_type(code):
@@ -330,11 +336,79 @@ def new_export_instance(export_type, export_filter, status,
 
 
 @pytest.fixture
+def derive_exporter_class(installed_test_class, model_instance, export_type):
+    """
+    Pytest fixture.
+    """
+    def _install_exporter_class(newclass, modpath):
+        installed_test_class(newclass, modpath)
+        new_exptype_name = newclass.__name__
+        classpath = '{}.{}'.format(modpath, new_exptype_name)
+        try:
+            model_name = newclass.model._meta.object_name
+        except AttributeError:
+            model_name = None
+        new_exptype_info = { 'code': new_exptype_name, 'path': classpath,
+                             'label': 'Do {} load'.format(new_exptype_name),
+                             'description': new_exptype_name, 'order': 999,
+                             'model': model_name }
+        models = importlib.import_module('export.models')
+        new_exptype = model_instance(models.ExportType, **new_exptype_info)
+        return newclass
+
+    def _get_export_type(name):
+        try:
+            return export_type(name)
+        except ObjectDoesNotExist:
+            return None
+
+    def _determine_mod_and_path(classname, modpath, exptype):
+        mod = None if not modpath else importlib.import_module(modpath)
+        if hasattr(mod, classname):
+            return mod, modpath
+
+        try:
+            modpath = '.'.join(exptype.path.split('.')[0:-1])
+        except TypeError, ObjectDoesNotExist:
+            msg = ('In fixture `derive_exporter_class`, the supplied '
+                   'base class name "{}" could not be resolved. It matches '
+                   'neither any attribute of the supplied modpath "{}" nor '
+                   'any ExportType.'.format(classname, modpath))
+            raise pytest.UsageError(msg)
+        return importlib.import_module(modpath), modpath
+
+    def _derive_exporter_class(basename, local_modpath=None, newname=None):
+        exptype = _get_export_type(basename)
+        mod, mpath = _determine_mod_and_path(basename, local_modpath, exptype)
+        expclass_base = getattr(mod, basename)
+
+        attrs = {}
+        for entry in getattr(expclass_base, 'index_config', []):
+            conf = attrs.get('index_config', [])
+            indclassname = '_{}'.format(entry.indexclass.__name__)
+            indclass = type(indclassname, (entry.indexclass,), {})
+            conf.append(type(entry)(entry.name, indclass, entry.conn))
+            attrs['index_config'] = conf
+
+        for entry in getattr(expclass_base, 'children_config', []):
+            childclass = _derive_exporter_class(entry.name, local_modpath)
+            conf = attrs.get('children_config', [])
+            conf.append(type(entry)(entry.name, childclass.__name__))
+            attrs['children_config'] = conf
+
+        name = str(newname or '_{}'.format(basename))
+        newclass = type(name, (expclass_base,), attrs)
+        return _install_exporter_class(newclass, mpath)
+    return _derive_exporter_class
+
+
+@pytest.fixture
 def new_exporter(new_export_instance):
-    def _new_exporter(et_code, ef_code, st_code, options={}):
+    def _new_exporter(expclass, ef_code, st_code, options={}):
+        et_code = expclass.__name__
         instance = new_export_instance(et_code, ef_code, st_code)
-        exp_class = instance.export_type.get_exporter_class()
-        return exp_class(instance.pk, ef_code, et_code, options)
+        assert expclass == instance.export_type.get_exporter_class()
+        return expclass(instance.pk, ef_code, et_code, options)
     return _new_exporter
 
 
@@ -395,6 +469,7 @@ def assert_records_are_indexed(get_records_from_index):
     def _assert_records_are_indexed(index, record_set):
         results = get_records_from_index(index, record_set)
         for record in record_set:
+            assert record.pk in results
             result = results[record.pk]
             for field in result.keys():
                 schema_field = index.get_schema_field(field)
