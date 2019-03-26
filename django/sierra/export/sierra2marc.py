@@ -1,7 +1,7 @@
-'''
+"""
 sierra2marc.py defines a class (S2MarcBatch) for parsing the Sierra
 models out into MARC21 using Pymarc.
-'''
+"""
 import re
 import codecs
 import sys
@@ -23,10 +23,10 @@ class S2MarcError(Exception):
 
 
 class S2MarcBatch(object):
-    '''
+    """
     Sierra to MARC21 Batch converter: instantiate this class to
     generate MARC21 records from a queryset of BibRecords.
-    '''
+    """
 
     cn_type_subfield_mapping = {
         'lc': 'c',
@@ -45,13 +45,13 @@ class S2MarcBatch(object):
         self.success_count = 0
 
     def _one_to_marc(self, r):
-        '''
+        """
         Converts one record to a pymarc.record.Record object. Returns
         the object. Note that the III record number is stored in 907$a
         and the database ID is stored in 907$b. Other metadata fields
         are stored in 9XXs as needed, to ease conversion from MARC to
         Solr.
-        '''
+        """
         marc_record = pymarc.record.Record(force_utf8=True)
         try:
             control_fields = r.record_metadata.controlfield_set.all()
@@ -149,10 +149,10 @@ class S2MarcBatch(object):
         return marc_record
 
     def to_marc(self):
-        '''
+        """
         Converts all self.records to pymarc record objects and
         returns an array of them. Stores errors in self.errors.
-        '''
+        """
         marc_records = []
         for r in self.records:
             try:
@@ -180,9 +180,9 @@ class S2MarcBatch(object):
 
     def to_file(self, marc_records, filename='{}.mrc'.format(timestamp()),
                 filepath='{}'.format(settings.MEDIA_ROOT), append=True):
-        '''
+        """
         Writes MARC21 file to disk.
-        '''
+        """
         self.success_count = 0
         # If the file exists and append is True, we want to open the
         # file up, read in the MARC records, then append our
