@@ -114,7 +114,7 @@ services:
     networks:
       - testing
     user: ${USERID}:${GROUPID}
-    command: redis-server ${REDIS_APPDATA_CONF_FILE:---dir /project/data --logfile /project/logs/log.txt --appendonly yes}
+    command: redis-server ${REDIS_APPDATA_CONF_FILE:---dir /project/data --logfile /project/logs/log.txt --appendonly no}
 
   app:
     build:
