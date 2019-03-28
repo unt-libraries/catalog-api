@@ -152,6 +152,19 @@ class CustomQuerySetIndex(indexes.SearchIndex):
         if backend is not None:
             backend.update(self, queryset, commit=commit)
 
+    def delete(self, using=None, commit=True, queryset=None):
+        """
+        This is a custom method to do batch deletions, like a mix of
+        `update` and `clear`. E.g., don't clear the whole index, just
+        the records in the queryset (or self.default_queryset), as a
+        batch.
+        """
+        backend = self.get_backend(using)
+        queryset = self.index_queryset() if queryset is None else queryset
+        if backend is not None:
+            ids_to_delete = [self.get_qualified_id(r.pk) for r in queryset]
+            backend.conn.delete(id=ids_to_delete, commit=commit)
+
     def clear(self, using=None, commit=True):
         backend = self.get_backend(using)
         if backend is not None:

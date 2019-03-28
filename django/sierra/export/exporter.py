@@ -519,16 +519,15 @@ class ToSolrExporter(Exporter):
         def do_update(self, instance, records):
             instance.update(commit=False, queryset=records)
 
-        def do_delete(self, instance, record):
-            instance.remove_object(instance.get_qualified_id(record.id),
-                                   commit=False)
+        def do_delete(self, instance, records):
+            instance.delete(commit=False, queryset=records)
 
         def spawn_instance(self, parent_name):
             nclassname = str('{}->{}'.format(parent_name, self.name))
             nclass_attrs = {
-                'config': self,
-                'do_update': lambda s, recs: s.config.do_update(s, recs),
-                'do_delete': lambda s, rec: s.config.do_delete(s, rec)
+                '_config': self,
+                'do_update': lambda s, recs: s._config.do_update(s, recs),
+                'do_delete': lambda s, recs: s._config.do_delete(s, recs)
             }
             new_class = type(nclassname, (self.indexclass,), nclass_attrs)
             return new_class(using=self.conn)
@@ -565,12 +564,11 @@ class ToSolrExporter(Exporter):
 
     def delete_records(self, records, vals=None):
         vals_manager = self.spawn_vals_manager(vals)
-        for record in records:
-            try:
-                for index in self.indexes.values():
-                    index.do_delete(record)
-            except Exception as e:
-                self.log_error('Record {}: {}'.format(record, e))
+        try:
+            for index in self.indexes.values():
+                index.do_delete(records)
+        except Exception as e:
+            self.log_error(e)
         return vals_manager.vals
 
     def commit_indexes(self):
