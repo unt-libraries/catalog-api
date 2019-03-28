@@ -37,7 +37,7 @@ class ItemsToSolr(exporters.ItemsToSolr):
     max_rec_chunk = 500
     app_name = 'shelflist'
 
-    def final_callback(self, vals={}, status='success'):
+    def final_callback(self, vals=None, status='success'):
         super(ItemsToSolr, self).final_callback(vals, status)
         self.index_shelflist_rows()
 

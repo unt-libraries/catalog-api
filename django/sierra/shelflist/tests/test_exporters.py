@@ -27,8 +27,8 @@ def exporter_class(derive_exporter_class):
 @pytest.fixture
 def record_sets(sierra_records_by_recnum_range):
     return {
-        'bib_set': sierra_records_by_recnum_range('b4371446'),
-        'item_set': sierra_records_by_recnum_range('i4264281'),
+        'bib_set': sierra_records_by_recnum_range('b4371446', 'b4517240'),
+        'item_set': sierra_records_by_recnum_range('i4264281', 'i4278316'),
     }
 
 
@@ -82,44 +82,42 @@ def test_export_get_records(et_code, rset_code, exporter_class, record_sets,
     assert all([rec in db_records for rec in record_sets[rset_code]])
 
 
-@pytest.mark.parametrize('et_code, rset_code', [
-    ('ItemsToSolr', 'item_set'),
-    ('ItemsBibsToSolr', 'item_set'),
-    ('BibsAndAttachedToSolr', 'bib_set')
+@pytest.mark.parametrize('et_code, rset_code, groups', [
+    ('ItemsToSolr', 'item_set', 2),
+    ('ItemsBibsToSolr', 'item_set', 2),
+    ('BibsAndAttachedToSolr', 'bib_set', 2)
 ])
-def test_export_records_to_solr(et_code, rset_code, exporter_class,
-                                record_sets, new_exporter, export_records,
+def test_export_records_to_solr(et_code, rset_code, groups, exporter_class,
+                                record_sets, new_exporter, process_records,
                                 assert_all_exported_records_are_indexed):
     """
     For Exporter classes that load data into Solr, the `export_records`
     method should load the expected records into the expected Solr
     index.
     """
-    input_record_set = record_sets[rset_code]
+    records = record_sets[rset_code]
     expclass = exporter_class(et_code)
-    test_exporter = new_exporter(expclass, 'full_export', 'waiting')
-    export_records(test_exporter, input_record_set)
+    exporter = new_exporter(expclass, 'full_export', 'waiting')
+    process_records(exporter, 'export_records', records, groups=groups)
+    assert_all_exported_records_are_indexed(exporter, records)
 
-    assert_all_exported_records_are_indexed(test_exporter, input_record_set)
 
-
-@pytest.mark.parametrize('et_code, rset_code', [
-    ('ItemsToSolr', 'item_set'),
-    ('ItemsBibsToSolr', 'item_set'),
-    ('BibsAndAttachedToSolr', 'bib_set')
+@pytest.mark.parametrize('et_code, rset_code, groups', [
+    ('ItemsToSolr', 'item_set', 2),
+    ('ItemsBibsToSolr', 'item_set', 2),
+    ('BibsAndAttachedToSolr', 'bib_set', 2)
 ])
-def test_export_delete_records(et_code, rset_code, exporter_class, record_sets,
-                               new_exporter, export_records, delete_records,
+def test_export_delete_records(et_code, rset_code, groups, exporter_class,
+                               record_sets, new_exporter, process_records,
                                assert_deleted_records_are_not_indexed):
     """
     For Exporter classes that have loaded data into Solr, the
     `delete_records` method should delete records from the appropriate
     index or indexes.
     """
-    input_record_set = record_sets[rset_code]
+    records = record_sets[rset_code]
     expclass = exporter_class(et_code)
-    test_exporter = new_exporter(expclass, 'full_export', 'waiting')
-    export_records(test_exporter, input_record_set)
-    delete_records(test_exporter, input_record_set)
-
-    assert_deleted_records_are_not_indexed(test_exporter, input_record_set)
+    exporter = new_exporter(expclass, 'full_export', 'waiting')
+    process_records(exporter, 'export_records', records, groups=groups)
+    process_records(exporter, 'delete_records', records, groups=groups)
+    assert_deleted_records_are_not_indexed(exporter, records)
