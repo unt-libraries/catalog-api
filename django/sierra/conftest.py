@@ -416,19 +416,54 @@ def get_records():
 
 
 @pytest.fixture
-def export_records():
-    def _export_records(exporter, records, vals={}):
-        vals = exporter.export_records(records, vals=vals)
-        exporter.final_callback(vals=vals, status='success')
-    return _export_records
+def process_records():
+    """
+    Pytest fixture for running an exporter process (export or delete)
+    like it would be run via our Celery tasks: dividing `records` into
+    a certain number of `groups`, and running a job multiple times
+    either in parallel or serial order, then passing the resulting
+    `vals` structure to the `exporter.final_callback` method.
 
+    The `groups` kwarg tells it how many groups to divide the process
+    into. Note that `groups` must be smaller or equal to the number of
+    `records` passed to the fixture. Default is 1.
 
-@pytest.fixture
-def delete_records():
-    def _delete_records(exporter, records, vals={}):
-        vals = exporter.delete_records(records, vals=vals)
-        exporter.final_callback(vals=vals, status='success')
-    return _delete_records
+    If `exporter.parallel` is True, then a parallel run is simulated,
+    where `vals` are NOT passed from run to run but are compiled into
+    a list and passed to `final_callback`.
+
+    If `exporter.parallel` is False, then a serial run is simulated,
+    where `vals` ARE passed from run to run, and the final version of
+    `vals` retrieved from the last run is passed to `final_callback`.
+    """
+    def _divide(records, groups):
+        group_size = len(records) / groups
+        for i in range(0, groups):
+            start = i * group_size
+            end = None if (i == groups - 1) else (start + group_size)
+            yield records[start:end]
+
+    def _run_parallel(method, records, vals, groups):
+        return [method(gr, vals=vals) for gr in _divide(records, groups)]
+
+    def _run_serial(method, records, vals, groups):
+        for rec_group in _divide(records, groups):
+            vals = method(rec_group, vals=vals)
+        return vals
+
+    def _process_records(exporter, methodname, records, vals=None, groups=1):
+        method = getattr(exporter, methodname)
+        if groups > len(records):
+            msg = ('The `groups` integer passed to the `process_records` '
+                   'fixture must be less than or equal to the number of '
+                   '`records`.')
+            raise pytest.UsageError(msg)
+        if exporter.parallel:
+            compiled_vals = _run_parallel(method, records, vals, groups)
+        else:
+            compiled_vals = _run_serial(method, records, vals, groups)
+        return exporter.final_callback(vals=compiled_vals, status='success')
+    return _process_records
 
 
 @pytest.fixture
