@@ -18,7 +18,7 @@ from django.db.models import F
 from django.utils import timezone as tz
 from django.conf import settings
 
-from utils import helpers, dict_merge
+from utils import helpers
 from base import models as sierra_models
 from .models import ExportInstance, ExportType, Status
 
@@ -87,8 +87,184 @@ class Exporter(object):
     5000 could use up all your memory. Keep an eye on it when you're
     testing your export jobs, and adjust those numbers accordingly for
     your subclass.
-    
     """
+
+    class ValsManager(object):
+        """
+        Internal Exporter class used to manage `vals` data dicts, which
+        are used to pass information from / between exporter tasks--
+        assuming a scenario where a given batch of records is broken
+        into multiple pieces, is handled as a serial or parallel series
+        of `export_records` (or `delete_records`) calls, and ends with
+        a call to `final_callback.`
+
+        This functions as a temporary wrapper for a vals dict during an
+        individual method call, which handles getting, setting, and
+        merging values on the dict in a standard way, designed to work
+        with compound exporters (with children) seamlessly. The dict
+        itself (in `self.vals`) is what should be passed to the next
+        process method call.
+
+        One major function of this class is to merge `vals` dicts
+        together from processes that have run serially or in parallel.
+        Because different types of variables can be merged in different
+        ways (appending to lists or overwriting them, keeping values
+        unique or not, etc.), you may need to subclass this in your
+        exporter subclass to deal with special cases. The default
+        behavior is to merge lists together and keep values unique.
+        Override the `merge_var` and/or private `_merge_*` methods to
+        define different behavior. `_merge_*` methods specify how
+        various data types are supposed to be merged, and are called
+        via `merge_var`.
+
+        To use:
+
+        Use the `spawn_vals_manager` method on the parent Exporter
+        class, passing in the current `vals` dict, to generate a new
+        ValsManager instance. The `vals` dict for a given exporter is
+        then treated as a namespaced key/value store. By default, the
+        namespace is the name of the parent Exporter class. Use the
+        `get`, `set`, `update`, `extend`, and `append` VarManager
+        methods to get and modify vars within a particular namespace
+        (default is the VarManager instance's default namespace).
+
+        It's up to the parent Exporter class to make sure that the
+        appropriate methods are used for the appropriate data types and
+        that merges are handled appropriately. Remember that parallel
+        tasks collect all `vals` dicts from the tasks and then provide
+        them to the `final_callback` method as a list, while serial
+        tasks pass `vals` dicts from task to task, accumulating values,
+        and pass the final vals dict (from the last task) to the
+        `final_callback` method. Also bear in mind that merges BY
+        DEFAULT are idempotent, because sequences are merged and
+        uniqueness is enforced. But if you override that behavior, then
+        you may lose idempotency. (And you could end up with a bunch of
+        duplicate values if you merge carelessly.)
+        """
+        def __init__(self, namespace, vals):
+            """
+            Initialize a new ValsManager using the given `namespace` as
+            the default and the given `vals` data structure.
+
+            If `vals` is None or empty, then a new `vals` dict is
+            initialized. If `vals` is a list, then it's treated as a
+            list of `vals` dicts, and they're all merged together.
+            """
+            self.default_namespace = namespace
+            self.vals = {}
+            if isinstance(vals, (list, tuple)):
+                for v in vals:
+                    self.merge(v)
+            elif vals:
+                self.vals = vals
+
+        @staticmethod
+        def _merge_sets(a, b):
+            return set(a) | b
+
+        @staticmethod
+        def _merge_sequences(a, b, unique):
+            if unique:
+                return type(b)([i for i in a] + [i for i in b if i not in a])
+            return type(b)([i for i in a] + [i for i in b])
+
+        @staticmethod
+        def _merge_dicts(a, b):
+            new_dict = dict(a).copy()
+            new_dict.update(b)
+            return new_dict
+
+        @staticmethod
+        def _merge_others(a, b):
+            return b
+
+        def merge_var(self, varname, to_var, from_var, seq_merge=True,
+                      unique=True):
+            """
+            Merge one vals var member with another of the same type,
+            returning the merged value. `seq_merge` should be True if
+            sequences should be merged together; if False, the new
+            sequence (`from_var`) completely overwrites the old.
+            `unique` should be True if merged sequences should retain
+            only unique values (no duplicates).
+
+            Override this if you need custom merging behavior. Add new
+            `_merge` methods if you need to merge new types of values.
+            `varname` is provided as a convenience in case you need to
+            add custom merging behavior based on specific varnames.
+            """
+            from_type = type(from_var)
+            to_var = to_var or from_type()
+            if isinstance(from_var, (list, tuple)):
+                if seq_merge:
+                    return self._merge_sequences(to_var, from_var, unique)
+                return from_type(i for i in from_var)
+            try:
+                do = getattr(self, '_merge_{}s'.format(from_type.__name__))
+            except AttributeError:
+                do = self._merge_others
+            return do(to_var, from_var)
+
+        def merge(self, from_):
+            """
+            Merge another vals dict (`from_`) with this one. Note that
+            any namespaces in the foreign dict are copied into 
+            """
+            for namespace, variables in from_.items():
+                self.init_namespace(namespace)
+                for varname, from_item in variables.items():
+                    to_item = self.vals[namespace].get(varname, None)
+                    merged = self.merge_var(varname, to_item, from_item)
+                    self.vals[namespace][varname] = merged
+
+        def init_namespace(self, namespace):
+            namespace = namespace or self.default_namespace
+            self.vals[namespace] = self.vals.get(namespace, {})
+            return namespace
+
+        def set(self, varname, new_value, namespace=None):
+            """
+            Set a vals var member to a specific value.
+            """
+            namespace = self.init_namespace(namespace)
+            self.vals[namespace][varname] = new_value
+
+        def update(self, varname, new_dict, namespace=None):
+            """
+            Update a dict-like vals var member using a dict.
+            """
+            nspace = self.init_namespace(namespace)
+            self.vals[nspace][varname] = self.vals[nspace].get(varname, {})
+            self.vals[nspace][varname].update(new_dict)
+
+        def extend(self, varname, extend_with, namespace=None, unique=False):
+            """
+            Extend a sequence-like vals var member with a list of new
+            values. Pass `unique=True` if values in the resulting
+            sequence must be unique.
+            """
+            namespace = self.init_namespace(namespace)
+            merge_to = self.vals[namespace].get(varname, None)
+            extend_with = type(merge_to)(extend_with)
+            merged = self.merge_var(varname, merge_to, extend_with, True,
+                                    unique)
+            self.vals[namespace][varname] = merged
+
+        def append(self, varname, value, namespace=None, unique=False):
+            """
+            Append a value to a sequence-like vals var member. Pass
+            `unique=True` if values in the resulting sequence must be
+            unique.
+            """
+            self.extend(varname, [value], namespace, unique)
+
+        def get(self, varname, namespace=None):
+            """
+            Get the value of the given val member (`varname`).
+            """
+            namespace = self.init_namespace(namespace)
+            return self.vals[namespace].get(varname, None)
+
     record_filter = []
     deletion_filter = []
     prefetch_related = []
@@ -248,14 +424,12 @@ class Exporter(object):
         else:
             return None
 
-    @staticmethod
-    def collapse_vals(vals):
-        new_vals = {}
-        for v in vals:
-            new_vals = dict_merge(new_vals, v)
-        return new_vals
+    @classmethod
+    def spawn_vals_manager(cls, vals, namespace=None):
+        namespace = namespace or cls.__name__
+        return cls.ValsManager(namespace, vals)
 
-    def export_records(self, records, vals={}):
+    def export_records(self, records, vals=None):
         """
         Override this method in your subclasses.
         
@@ -283,9 +457,10 @@ class Exporter(object):
         or delete job chunk that ran (e.g. as a dict rather than a list
         of dicts).
         """
-        return vals
+        vals_manager = self.spawn_vals_manager(vals)
+        return vals_manager.vals
 
-    def delete_records(self, records, vals={}):
+    def delete_records(self, records, vals=None):
         """
         Override this method in your subclasses only if you need to do
         deletions.
@@ -295,15 +470,17 @@ class Exporter(object):
         you may take/return a dictionary of values to pass info from
         task to task.
         """
-        return vals
+        vals_manager = self.spawn_vals_manager(vals)
+        return vals_manager.vals
 
-    def final_callback(self, vals={}, status='success'):
+    def final_callback(self, vals=None, status='success'):
         """
         Override this method in your subclasses if you need to provide
         something that runs once at the end of an export job that's
         been broken up into tasks.
         """
-        pass
+        vals_manager = self.spawn_vals_manager(vals)
+        return vals_manager.vals
 
 
 class ToSolrExporter(Exporter):
@@ -372,7 +549,8 @@ class ToSolrExporter(Exporter):
             self._indexes = type(self).spawn_indexes(self.export_type)
         return self._indexes
 
-    def export_records(self, records, vals={}):
+    def export_records(self, records, vals=None):
+        vals_manager = self.spawn_vals_manager(vals)
         try:
             for index in self.indexes.values():
                 index.do_update(records)
@@ -383,24 +561,27 @@ class ToSolrExporter(Exporter):
             for obj_str, e in index.last_batch_errors:
                 msg = '{} update skipped due to error: {}'.format(obj_str, e)
                 self.log('Warning', msg)
-        return vals
+        return vals_manager.vals
 
-    def delete_records(self, records, vals={}):
+    def delete_records(self, records, vals=None):
+        vals_manager = self.spawn_vals_manager(vals)
         for record in records:
             try:
                 for index in self.indexes.values():
                     index.do_delete(record)
             except Exception as e:
                 self.log_error('Record {}: {}'.format(record, e))
-        return vals
+        return vals_manager.vals
 
     def commit_indexes(self):
         for name, index in self.indexes.items():
             self.log('Info', 'Committing {} updates to Solr...'.format(name))
             index.commit()
 
-    def final_callback(self, vals={}, status='success'):
+    def final_callback(self, vals=None, status='success'):
+        vals_manager = self.spawn_vals_manager(vals)
         self.commit_indexes()
+        return vals_manager.vals
 
 
 class MetadataToSolrExporter(ToSolrExporter):
@@ -473,15 +654,16 @@ class CompoundMixin(object):
         def derive_records(self, parent_record):
             return [parent_record]
 
-        def spawn_instance(self, parent_pk, parent_export_filter,
-                           parent_export_type, parent_options):
-            nclassname = str('{}->{}'.format(parent_export_type, self.name))
+        def spawn_instance(self, parent_cls, parent_instance_pk,
+                           parent_export_filter, parent_export_type,
+                           parent_options):
+            nclassname = str('{}->{}'.format(parent_cls.__name__, self.name))
             nclass_attrs = {
                 '_config': self,
                 'derive_records': lambda s, rec: s._config.derive_records(rec)
             }
             new_class = type(nclassname, (self.expclass,), nclass_attrs)
-            return new_class(parent_pk, parent_export_filter,
+            return new_class(parent_instance_pk, parent_export_filter,
                              parent_export_type, options=parent_options)
 
     children_config = tuple()
@@ -489,7 +671,7 @@ class CompoundMixin(object):
     @classmethod
     def spawn_children(cls, parent_args):
         return OrderedDict(
-            (c.name, c.spawn_instance(*parent_args))
+            (c.name, c.spawn_instance(cls, *parent_args))
                 for c in cls.children_config
         )
 
@@ -539,19 +721,22 @@ class AttachedRecordExporter(CompoundMixin, Exporter):
     def deletion_filter(self):
         return self.main_child.deletion_filter
 
-    def export_records(self, records, vals={}):
+    def export_records(self, records, vals=None):
+        vals_manager = self.spawn_vals_manager(vals)
         record_sets = self.generate_record_sets(records)
         for name, child in self.children.items():
             rset = record_sets[name]
-            vals[name] = vals.get(name, {})
-            vals[name].update(child.export_records(rset, vals[name]))
-        return vals
+            child_vals = child.export_records(rset, vals_manager.vals)
+            vals_manager = self.spawn_vals_manager(child_vals)
+        return vals_manager.vals
 
-    def delete_records(self, records, vals={}):
-        return self.main_child.delete_records(records, vals)
+    def delete_records(self, records, vals=None):
+        vals_manager = self.spawn_vals_manager(vals)
+        return self.main_child.delete_records(records, vals_manager.vals)
 
-    def final_callback(self, vals={}, status='success'):
-        if type(vals) is list:
-            vals = self.collapse_vals(vals)
+    def final_callback(self, vals=None, status='success'):
+        vals_manager = self.spawn_vals_manager(vals)
         for name, child in self.children.items():
-            child.final_callback(vals.get(name, {}), status)
+            child_vals = child.final_callback(vals_manager.vals, status)
+            vals_manager = self.spawn_vals_manager(child_vals)
+        return vals_manager.vals
