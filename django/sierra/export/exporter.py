@@ -721,6 +721,7 @@ class AttachedRecordExporter(CompoundMixin, Exporter):
 
     def export_records(self, records, vals=None):
         vals_manager = self.spawn_vals_manager(vals)
+        vals_manager.set('job_type', 'export')
         record_sets = self.generate_record_sets(records)
         for name, child in self.children.items():
             rset = record_sets[name]
@@ -730,11 +731,15 @@ class AttachedRecordExporter(CompoundMixin, Exporter):
 
     def delete_records(self, records, vals=None):
         vals_manager = self.spawn_vals_manager(vals)
+        vals_manager.set('job_type', 'delete')
         return self.main_child.delete_records(records, vals_manager.vals)
 
     def final_callback(self, vals=None, status='success'):
         vals_manager = self.spawn_vals_manager(vals)
-        for name, child in self.children.items():
-            child_vals = child.final_callback(vals_manager.vals, status)
-            vals_manager = self.spawn_vals_manager(child_vals)
-        return vals_manager.vals
+        if vals_manager.get('job_type') == 'export':
+            for name, child in self.children.items():
+                child_vals = child.final_callback(vals_manager.vals, status)
+                vals_manager = self.spawn_vals_manager(child_vals)
+            return vals_manager.vals
+        else:
+            return self.main_child.final_callback(vals_manager.vals, status)
