@@ -178,11 +178,12 @@ class S2MarcBatch(object):
                 success_count += 1
         return success_count
 
-    def to_file(self, marc_records, filename='{}.mrc'.format(timestamp()),
-                filepath='{}'.format(settings.MEDIA_ROOT), append=True):
+    def to_file(self, marc_records, filename=None, filepath=None, append=True):
         """
         Writes MARC21 file to disk.
         """
+        filename = filename or '{}.mrc'.format(timestamp())
+        filepath = filepath or '{}'.format(settings.MEDIA_ROOT)
         self.success_count = 0
         # If the file exists and append is True, we want to open the
         # file up, read in the MARC records, then append our
