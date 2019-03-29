@@ -6,6 +6,7 @@ import itertools
 import random
 import datetime
 import re
+import ujson
 
 import pytest
 
@@ -511,8 +512,8 @@ def choose_and_link_to_parent_bib(bib_rec_pool):
 
 ITEM_GENS = (
     ('django_ct', GENS.static('base.itemrecord')),
-    ('django_id', GENS(auto_increment())),
-    ('id', GENS(copy_field('django_id'))),
+    ('id', GENS(auto_increment())),
+    ('django_id', GENS(copy_field('id'))),
     ('haystack_id', GENS(join_fields(('django_ct', 'django_id'), '.'))),
     ('type', GENS.static('Item')),
     ('suppressed', GENS.static(False)),
@@ -572,8 +573,8 @@ ERES_FIELDS = ('django_ct', 'django_id', 'id', 'haystack_id', 'type',
 
 ERES_GENS = (
     ('django_ct', GENS.static('base.resourcerecord')),
-    ('django_id', GENS(auto_increment())),
-    ('id', GENS(copy_field('django_id'))),
+    ('id', GENS(auto_increment())),
+    ('django_id', GENS(copy_field('id'))),
     ('haystack_id', GENS(join_fields(('django_ct', 'django_id'), '.'))),
     ('type', GENS.static('eResource')),
     ('suppressed', GENS.static(False)),
@@ -718,8 +719,8 @@ def subjects(record):
 
 BIB_GENS = (
     ('django_ct', GENS.static('base.bibrecord')),
-    ('django_id', GENS(auto_increment())),
-    ('id', GENS(copy_field('django_id'))),
+    ('id', GENS(auto_increment())),
+    ('django_id', GENS(copy_field('id'))),
     ('haystack_id', GENS(join_fields(('django_ct', 'django_id'), '.'))),
     ('suppressed', GENS.static(False)),
     ('record_number', GENS(auto_increment('b', 10000001))),
@@ -794,4 +795,66 @@ BIB_GENS = (
                               'context_notes', 'summary_notes', 'toc_notes',
                               'full_subjects', 'series', 'series_creators',
                               'url_labels'])))
+)
+
+
+# MARC -- Note that this does not currently generate realistic data for
+# the MARC index, only basic stub records. Generating realistic data is
+# going to be difficult and time-consuming, and at this point the MARC
+# index is still not really used for any public services, so it's not
+# super important.
+#
+# The major things that are missing for this data to be considered
+# complete are: 1) searchable dynamic fields for MARC fields and
+# subfields, and 2) basing the data on an existing BIB record in the
+# bib index.
+
+MARC_FIELDS = ('django_ct', 'django_id', 'id', 'haystack_id', 'record_number',
+               'json', 'timestamp')
+
+
+def marc_json(record):
+    first, middle, last = _make_person_name_parts()
+    years = year_range_like(record)
+    data = {
+        'fields': {
+            '001': random.randint(10000, 99999999),
+            '003': 'OCoLC',
+            '050': {
+                'subfields': [
+                    { 'a': lc_cn(record) }
+                ],
+                'ind1': ' ',
+                'ind2': ' '
+            },
+            '100': {
+                'subfields': [
+                    { 'a': '{}, {} {},'.format(last, first, middle) },
+                    { 'd': '{}.'.format(years) }
+                ],
+                'ind1': str(random.randint(1, 9)),
+                'ind2': str(random.randint(1, 9))
+            },
+            '245': {
+                'subfields': [
+                    { 'a': '{} :'.format(title_like(record)) },
+                    { 'b': '{} /'.format(title_like(record)) },
+                    { 'c': 'by {} {} {}.'.format(first, middle, last)}
+                ],
+                'ind1': str(random.randint(1, 9)),
+                'ind2': str(random.randint(1, 9))
+            }
+        }
+    }
+    return ujson.dumps(data)
+
+
+MARC_GENS = (
+    ('django_ct', GENS.static('base.bibrecord')),
+    ('id', GENS(auto_increment())),
+    ('django_id', GENS(copy_field('id'))),
+    ('haystack_id', GENS(join_fields(('django_ct', 'django_id'), '.'))),
+    ('record_number', GENS(auto_increment('b', 10000001))),
+    ('json', GENS(marc_json)),
+    ('timestamp', 'auto'),
 )

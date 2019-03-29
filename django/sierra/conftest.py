@@ -187,6 +187,7 @@ def solr_profile_definitions(global_solr_conn):
     """
     hs_conn = global_solr_conn('haystack')
     bib_conn = global_solr_conn('bibdata')
+    marc_conn = global_solr_conn('marc')
     return {
         'location': {
             'conn': hs_conn,
@@ -217,6 +218,11 @@ def solr_profile_definitions(global_solr_conn):
             'conn': bib_conn,
             'user_fields': tp.BIB_FIELDS,
             'field_gens': tp.BIB_GENS
+        },
+        'marc': {
+            'conn': marc_conn,
+            'user_fields': tp.MARC_FIELDS,
+            'field_gens': tp.MARC_GENS
         }
     }
 
@@ -289,12 +295,15 @@ def sierra_records_by_recnum_range():
     Metadata about the filter used is added to an `info` attribute on
     the object queryset that is returned.
     """
-    def _sierra_records_by_recnum_range(start, end=None):
+    def _sierra_records_by_recnum_range(start, end=None, rm_only=False):
         rectype = start[0]
         filter_options = {'record_range_from': start, 
                           'record_range_to': end or start}
-        modelname = bm.RecordMetadata.record_type_models[rectype]
-        model = getattr(bm, modelname)
+        if rm_only:
+            model = bm.RecordMetadata
+        else:
+            modelname = bm.RecordMetadata.record_type_models[rectype]
+            model = getattr(bm, modelname)
         recset = model.objects.filter_by('record_range', filter_options)
         recset.info = {
             'filter_method': 'filter_by',
@@ -332,6 +341,24 @@ def sierra_full_object_set():
 
 
 # Export app-related fixtures
+
+@pytest.fixture
+def record_sets(sierra_records_by_recnum_range, sierra_full_object_set):
+    return {
+        'bib_set': sierra_records_by_recnum_range('b4371446', 'b4517240'),
+        'er_bib_set': sierra_records_by_recnum_range('b5784429', 'b5784819'),
+        'eres_set': sierra_records_by_recnum_range('e1001249'),
+        'item_set': sierra_records_by_recnum_range('i4264281', 'i4278316'),
+        'itype_set': sierra_full_object_set('ItypeProperty'),
+        'istatus_set': sierra_full_object_set('ItemStatusProperty'),
+        'location_set': sierra_full_object_set('Location'),
+        'bib_del_set': sierra_records_by_recnum_range('b1000001', 'b1000010',
+                                                      rm_only=True),
+        'item_del_set': sierra_records_by_recnum_range('i100631', 'i101010',
+                                                       rm_only=True),
+        'eres_del_set': sierra_records_by_recnum_range('e1000013', 'e1000179',
+                                                       rm_only=True),
+    }
 
 @pytest.fixture
 def export_type():
@@ -461,6 +488,13 @@ def get_records():
 
 
 @pytest.fixture
+def get_deletions():
+    def _get_deletions(exporter):
+        return exporter.get_deletions()
+    return _get_deletions
+
+
+@pytest.fixture
 def process_records():
     """
     Pytest fixture for running an exporter process (export or delete)
@@ -514,7 +548,7 @@ def process_records():
 @pytest.fixture
 def get_records_from_index(solr_conns, solr_search):
     """
-    Pytest fixture that resturns a test helper function for getting
+    Pytest fixture that returns a test helper function for getting
     records from the provided `record_set` from the provided `index`
     object.
     """
@@ -662,6 +696,26 @@ def api_solr_env(global_api_data_assembler):
     eres_recs = assembler.make('eresource', 25)
     assembler.save_all()
     return assembler
+
+
+@pytest.fixture
+def solr_assemble_specific_record_data(api_data_assembler):
+    """
+    Pytest fixture. Uses the api_data_assembler fixture to generate and
+    load records into Solr to simulate particular records having
+    specific data.
+    """
+    def _solr_assemble_specific_record_data(rdicts, rtypes, assembler=None):
+        assembler = assembler or api_data_assembler
+        gens = assembler.gen_factory
+        for rdict in rdicts:
+            for rtype in rtypes:
+                assembler.make(rtype, 1,
+                    **{k: gens.static(v) for k, v in rdict.items()}
+                )
+        assembler.save_all()
+        return assembler
+    return _solr_assemble_specific_record_data
 
 
 @pytest.fixture
