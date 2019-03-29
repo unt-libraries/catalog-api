@@ -9,22 +9,13 @@ Solr updated automatically whenever items are loaded.
 
 from __future__ import unicode_literals
 import logging
-import json
-
-import pysolr
-
-from django.conf import settings
 
 from export import exporter, basic_exporters as exporters
-from utils.redisobjs import RedisObject
 from shelflist.search_indexes import ShelflistItemIndex
 
 
 # set up logger, for debugging
 logger = logging.getLogger('sierra.custom')
-
-
-REDIS_SHELFLIST_PREFIX = 'shelflistitem_manifest'
 
 
 class ItemsToSolr(exporters.ItemsToSolr):
@@ -37,30 +28,27 @@ class ItemsToSolr(exporters.ItemsToSolr):
     max_rec_chunk = 500
     app_name = 'shelflist'
 
-    def final_callback(self, vals=None, status='success'):
-        super(ItemsToSolr, self).final_callback(vals, status)
-        self.index_shelflist_rows()
+    def export_records(self, records, vals=None):
+        vals = super(ItemsToSolr, self).export_records(records, vals)
+        vals_manager = self.spawn_vals_manager(vals)
+        vals_manager.extend('seen_lcodes', self.indexes['Items'].location_set,
+                            unique=True)
+        return vals_manager.vals
 
-    def index_shelflist_rows(self):
-        """
-        Update shelflistitem manifest in Redis based on what locations
-        have been updated by this export job.
-        """
-        self.log('Info', 'Creating shelflist item manifests.')
-        solr = self.indexes['Items'].get_backend().conn
-        records = self.get_records()
-        locs = records.order_by('location__code').distinct('location__code')
-        for location in locs.values_list('location__code', flat=True):
-            if location:
-                params = {
-                    'q': '*:*',
-                    'fq': ['type:Item', 'location_code:{}'.format(location)],
-                    'fl': 'id',
-                    'sort': 'call_number_type asc, call_number_sort asc, '
-                            'volume_sort asc, copy_number asc',
-                }
-                hits = solr.search(rows=0, **params).hits
-                results = solr.search(rows=hits, **params)
-                data = [i['id'] for i in results]
-                r = RedisObject(REDIS_SHELFLIST_PREFIX, location)
-                r.set(data)
+    def delete_records(self, records, vals=None):
+        # THIS NEEDS WORK. When records are deleted, we have to get the
+        # location codes where shelflist item manifests need to be
+        # updated from the records in Solr before we delete this batch.
+        vals = super(ItemsToSolr, self).delete_records(records, vals)
+        vals_manager = self.spawn_vals_manager(vals)
+        return vals_manager.vals
+
+    def final_callback(self, vals=None, status='success'):
+        vals = super(ItemsToSolr, self).final_callback(vals, status)
+        vals_manager = self.spawn_vals_manager(vals)
+        seen_lcodes = vals_manager.get('seen_lcodes')
+        if seen_lcodes:
+            self.log('Info', 'Creating shelflist item manifests for location{}'
+                             ' {}'.format('s' if len(seen_lcodes) > 1 else '', 
+                                          ', '.join(seen_lcodes)))
+            self.indexes['Items'].update_shelflist_item_manifests(seen_lcodes)
