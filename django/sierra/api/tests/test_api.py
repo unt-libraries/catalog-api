@@ -17,8 +17,6 @@ from utils.test_helpers import solr_test_profiles as tp
 # ---------------------------------------------------------------------
 # External fixtures used below can be found in
 # django/sierra/conftest.py:
-#
-# django/sierra/api/tests/conftest.py:
 #     api_solr_env
 #     api_data_assembler
 #     api_client
