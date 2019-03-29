@@ -244,7 +244,7 @@ class Exporter(object):
             sequence must be unique.
             """
             namespace = self.init_namespace(namespace)
-            merge_to = self.vals[namespace].get(varname, None)
+            merge_to = self.vals[namespace].get(varname, type(extend_with)())
             extend_with = type(merge_to)(extend_with)
             merged = self.merge_var(varname, merge_to, extend_with, True,
                                     unique)
