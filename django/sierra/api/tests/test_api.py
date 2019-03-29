@@ -18,7 +18,7 @@ from utils.test_helpers import solr_test_profiles as tp
 # External fixtures used below can be found in
 # django/sierra/conftest.py:
 #     api_solr_env
-#     api_data_assembler
+#     basic_solr_assembler
 #     api_client
 
 
@@ -2263,7 +2263,7 @@ def test_list_view_pagination(resource, default_limit, max_limit, limit,
                          ids=compile_ids(PARAMETERS__FILTER_TESTS__INTENDED) +
                              compile_ids(PARAMETERS__FILTER_TESTS__STRANGE))
 def test_list_view_filters(resource, test_data, search, expected, api_settings,
-                           api_solr_env, api_data_assembler, api_client):
+                           api_solr_env, basic_solr_assembler, api_client):
     """
     Given the provided `test_data` records: requesting the given
     `resource` using the provided search filter parameters (`search`)
@@ -2277,7 +2277,7 @@ def test_list_view_filters(resource, test_data, search, expected, api_settings,
     profile = RESOURCE_METADATA[resource]['profile']
     id_field = RESOURCE_METADATA[resource]['id_field']
     erecs, trecs = assemble_test_records(profile, id_field, test_data,
-                                         api_solr_env, api_data_assembler)
+                                         api_solr_env, basic_solr_assembler)
 
     # First let's do a quick sanity check to make sure the resource
     # returns the correct num of records before the filter is applied.
@@ -2296,7 +2296,7 @@ def test_list_view_filters(resource, test_data, search, expected, api_settings,
                          ids=compile_ids(PARAMETERS__ORDERBY_TESTS__INTENDED) +
                              compile_ids(PARAMETERS__ORDERBY_TESTS__STRANGE))
 def test_list_view_orderby(resource, test_data, search, expected, api_settings,
-                           api_solr_env, api_data_assembler, api_client):
+                           api_solr_env, basic_solr_assembler, api_client):
     """
     Given the provided `test_data` records: requesting the given
     `resource` using the provided search filter parameters (`search`)
@@ -2306,7 +2306,7 @@ def test_list_view_orderby(resource, test_data, search, expected, api_settings,
     profile = RESOURCE_METADATA[resource]['profile']
     id_field = RESOURCE_METADATA[resource]['id_field']
     erecs, trecs = assemble_test_records(profile, id_field, test_data,
-                                         api_solr_env, api_data_assembler)
+                                         api_solr_env, basic_solr_assembler)
     print [r.get('call_number_sort', None) for r in trecs]
     response = do_filter_search(resource, search, api_client)
     found_ids = get_found_ids(id_field, response)
@@ -2317,7 +2317,7 @@ def test_list_view_orderby(resource, test_data, search, expected, api_settings,
                          compile_params(PARAMETERS__FIRSTITEMPERLOCATION),
                          ids=compile_ids(PARAMETERS__FIRSTITEMPERLOCATION))
 def test_firstitemperlocation_list(test_data, search, expected, api_settings,
-                                   api_solr_env, api_data_assembler,
+                                   api_solr_env, basic_solr_assembler,
                                    api_client):
     """
     The `firstitemperlocation` resource is basically a custom filter
@@ -2340,7 +2340,7 @@ def test_firstitemperlocation_list(test_data, search, expected, api_settings,
         profile = RESOURCE_METADATA[resource]['profile']
         id_field = RESOURCE_METADATA[resource]['id_field']
         assemble_test_records(profile, id_field, data[resource], api_solr_env,
-                              api_data_assembler)
+                              basic_solr_assembler)
 
     rsp = do_filter_search('firstitemperlocation', search, api_client)
     found_ids = set(get_found_ids(RESOURCE_METADATA['items']['id_field'], rsp))
@@ -2352,7 +2352,7 @@ def test_firstitemperlocation_list(test_data, search, expected, api_settings,
                          compile_params(PARAMETERS__CALLNUMBERMATCHES),
                          ids=compile_ids(PARAMETERS__CALLNUMBERMATCHES))
 def test_callnumbermatches_list(test_data, search, expected, api_settings,
-                                api_solr_env, api_data_assembler,
+                                api_solr_env, basic_solr_assembler,
                                 api_client):
     """
     The `callnumbermatches` resource simply returns an array of
@@ -2370,7 +2370,7 @@ def test_callnumbermatches_list(test_data, search, expected, api_settings,
         profile = RESOURCE_METADATA[resource]['profile']
         id_field = RESOURCE_METADATA[resource]['id_field']
         assemble_test_records(profile, id_field, data[resource], api_solr_env,
-                              api_data_assembler)
+                              basic_solr_assembler)
 
     response = do_filter_search('callnumbermatches', search, api_client)
     assert response.data == expected
