@@ -12,7 +12,7 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-         migrations.RunPython(
-            load_data('export/migrations/data/blacklight_staging.json',
+        migrations.RunPython(
+            load_data('export/migrations/data/bl_alpha_solrmarc.json',
                       'default')),
     ]

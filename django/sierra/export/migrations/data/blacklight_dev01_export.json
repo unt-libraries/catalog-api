@@ -1,1 +1,0 @@
-[{"fields": {"path": "blacklight.exporters_dev01.BibsToBlacklightDev01", "model": "BibRecord", "order": 14, "description": "This is the export process that loads bib records into the blacklight-dev-01 Solr core.", "label": "Load bib records into dev-01 Solr core for Blacklight"}, "model": "export.exporttype", "pk": "BibsToBlacklightDev01"}]

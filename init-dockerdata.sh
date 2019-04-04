@@ -314,16 +314,14 @@ for service in ${user_services[@]}; do
              "$DDPATH/solr_dev/bibdata_data"
              "$DDPATH/solr_dev/haystack_data"
              "$DDPATH/solr_dev/marc_data"
-             "$DDPATH/solr_dev/blacklight-dev-01_data"
-             "$DDPATH/solr_dev/bl-demo_data")
+             "$DDPATH/solr_dev/alpha-solrmarc_data")
       ;;
     solr-test)
       paths=("$DDPATH/solr_test/logs"
              "$DDPATH/solr_test/bibdata_data"
              "$DDPATH/solr_test/haystack_data"
              "$DDPATH/solr_test/marc_data"
-             "$DDPATH/solr_test/blacklight-dev-01_data"
-             "$DDPATH/solr_dev/bl-demo_data")
+             "$DDPATH/solr_test/alpha-solrmarc_data")
       ;;
     redis-celery)
       paths=("$DDPATH/redis_celery/data"
