@@ -23,9 +23,10 @@ def test_bibs_to_alpha_solrmarc(sierra_records_by_recnum_range,
     BibsToAlphaSolrmarc exporter loads and deletes from the correct
     Solr core.
     """
+    cores = ['alpha-solrmarc']
     record_set = sierra_records_by_recnum_range('b4371446')
-    results = export_to_solr('alpha-solrmarc', record_set,
-                             'BibsToAlphaSolrmarc')
-    assert len(results['pre']) == 0
-    assert len(results['load']) > 0
-    assert len(results['del']) == 0
+    results = export_to_solr(cores, record_set, 'BibsToAlphaSolrmarc')
+    for core in cores:
+        assert len(results['pre'][core]) == 0
+        assert len(results['load'][core]) > 0
+        assert len(results['del'][core]) == 0

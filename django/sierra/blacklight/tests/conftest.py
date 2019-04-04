@@ -11,7 +11,7 @@ import pytest
 
 @pytest.fixture
 def export_to_solr(new_exporter, export_records, delete_records, solr_conn,
-                       solr_search):
+                   solr_search):
     """
     Export test records to Solr and return results.
 
@@ -25,18 +25,18 @@ def export_to_solr(new_exporter, export_records, delete_records, solr_conn,
     after the export; `del` contains results after the deletion, or
     `None` if `delete` is False.
     """
-    def _export_to_solr(core, recset, etype_code, delete=True):
+    def _export_to_solr(cores, recset, etype_code, delete=True):
         exp = new_exporter(etype_code, 'full_export', 'waiting')
-        conn = solr_conn(core)
-        pre_results = solr_search(conn, {'q': '*'})
+        conns = {c: solr_conn(c) for c in cores}
+        pre_results = {c: solr_search(conns[c], {'q': '*'}) for c in cores}
         export_records(exp, recset)
-        load_results = solr_search(conn, {'q': '*'})
+        load_results = {c: solr_search(conns[c], {'q': '*'}) for c in cores}
         del_results = None
         if delete:
             del_exp = new_exporter(etype_code, 'full_export', 'waiting')
             del_recset = [r.record_metadata for r in recset]
             delete_records(del_exp, del_recset)
-            del_results = solr_search(conn, {'q': '*'})
+            del_results = {c: solr_search(conns[c], {'q': '*'}) for c in cores}
 
         return {'pre': pre_results, 'load': load_results, 'del': del_results}
     return _export_to_solr
