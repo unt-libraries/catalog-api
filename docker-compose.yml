@@ -55,8 +55,7 @@ services:
       - ./docker_data/solr_dev/bibdata_data:/project/solr/instances/solr/bibdata/data
       - ./docker_data/solr_dev/haystack_data:/project/solr/instances/solr/haystack/data
       - ./docker_data/solr_dev/marc_data:/project/solr/instances/solr/marc/data
-      - ./docker_data/solr_dev/blacklight-dev-01_data:/project/solr/instances/solr/blacklight-dev-01/data
-      - ./docker_data/solr_dev/bl-demo_data:/project/solr/instances/solr/bl-demo/data
+      - ./docker_data/solr_dev/alpha-solrmarc_data:/project/solr/instances/solr/alpha-solrmarc/data
     working_dir: /project/solr/instances
     ports:
       - "${SOLR_HOST:-127.0.0.1}:${SOLR_PORT:-8983}:8983"
@@ -73,8 +72,7 @@ services:
       - ./docker_data/solr_test/bibdata_data:/project/solr/instances/solr/bibdata/data
       - ./docker_data/solr_test/haystack_data:/project/solr/instances/solr/haystack/data
       - ./docker_data/solr_test/marc_data:/project/solr/instances/solr/marc/data
-      - ./docker_data/solr_test/blacklight-dev-01_data:/project/solr/instances/solr/blacklight-dev-01/data
-      - ./docker_data/solr_dev/bl-demo_data:/project/solr/instances/solr/bl-demo/data
+      - ./docker_data/solr_test/alpha-solrmarc_data:/project/solr/instances/solr/alpha-solrmarc/data
     working_dir: /project/solr/instances
     ports:
       - "${TEST_SOLR_HOST:-127.0.0.1}:${TEST_SOLR_PORT:-8883}:8983"
