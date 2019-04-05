@@ -17,26 +17,34 @@ def export_to_solr(new_exporter, export_records, delete_records, solr_conn,
 
     This is a pytest fixture that allows you to run a set of test
     records (`recset`) through an export process (`etype_code`) and
-    then pull results from a particular Solr `core`. If `delete` is
-    True, then it will attempt to delete the test records as well.
+    then pull results from one or more Solr `cores`.
+
+    If `do_delete` is True, then it attempts to run a `delete_records`
+    process after the load process.
 
     Returns a dictionary containing results at three different states.
     `pre` contains results before the export; `load` contains results
-    after the export; `del` contains results after the deletion, or
-    `None` if `delete` is False.
+    after the export; `del` contains results after the deletion.
     """
-    def _export_to_solr(cores, recset, etype_code, delete=True):
+    def _export_to_solr(cores, recset, etype_code, do_delete=True):
+        conns, results = {}, {}
+        for core in cores:
+            conns[core] = solr_conn(core)
+            results[core] = {'pre': solr_search(conns[core], {'q': '*'})}
+
         exp = new_exporter(etype_code, 'full_export', 'waiting')
-        conns = {c: solr_conn(c) for c in cores}
-        pre_results = {c: solr_search(conns[c], {'q': '*'}) for c in cores}
         export_records(exp, recset)
-        load_results = {c: solr_search(conns[c], {'q': '*'}) for c in cores}
-        del_results = None
-        if delete:
+
+        for core in cores:
+            results[core]['load'] = solr_search(conns[core], {'q': '*'})
+
+        if do_delete:
             del_exp = new_exporter(etype_code, 'full_export', 'waiting')
             del_recset = [r.record_metadata for r in recset]
             delete_records(del_exp, del_recset)
-            del_results = {c: solr_search(conns[c], {'q': '*'}) for c in cores}
 
-        return {'pre': pre_results, 'load': load_results, 'del': del_results}
+        for core in cores:
+            results[core]['del'] = solr_search(conns[core], {'q': '*'})
+
+        return results
     return _export_to_solr
