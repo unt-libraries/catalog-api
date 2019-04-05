@@ -27,6 +27,12 @@ def record_sets(sierra_records_by_recnum_range):
     ('BibsToAlphaSolrmarc', 'bib_set', {
         'alpha-solrmarc': { 'is_deleted': True }
     }, True),
+    ('BibsToAlphaSmAndAttachedToSolr', 'bib_set', {
+        'alpha-solrmarc': { 'is_deleted': True },
+        'bibdata': { 'is_deleted': True },
+        'marc': { 'is_deleted': True },
+        'haystack': { 'is_deleted': False }
+    }, True)
 ])
 def test_export_process(export_id, recset_id, core_config, record_sets,
                         do_delete, export_to_solr):
