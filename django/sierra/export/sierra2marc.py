@@ -44,22 +44,6 @@ class S2MarcBatch(object):
         self.errors = []
         self.success_count = 0
 
-    def _record_get_media_game_facet_tokens(self, r, marc_record):
-        """
-        If this is a Media Library item and has a 590 field with a
-        Media Game Facet token string ("p1;p2t4;d30t59"), it returns
-        the list of tokens. Returns None if no game facet string is
-        found or tokens can't be extracted.
-        """
-        tokens = []
-        if any([loc.code.startswith('czm') for loc in r.locations.all()]):
-            for f in marc_record.get_fields('590'):
-                for sub_a in f.get_subfields('a'):
-                    if re.match(r'^(([adp]\d+(t|to)\d+)|p1)(;|\s|$)', sub_a,
-                                re.IGNORECASE):
-                        tokens += re.split(r'\W+', sub_a.rstrip('. '))
-        return tokens or None
-
     def _one_to_marc(self, r):
         '''
         Converts one record to a pymarc.record.Record object. Returns
@@ -158,21 +142,6 @@ class S2MarcBatch(object):
             )
             marc_record.add_ordered_field(cn_field)
             i += 1
-
-        # If this record has a media game facet field: clean it up,
-        # split by semicolon, and put into 910$a (one 910, and one $a
-        # per token)
-        media_tokens = self._record_get_media_game_facet_tokens(r, marc_record)
-        if media_tokens is not None:
-            mf_subfield_data = []
-            for token in media_tokens:
-                mf_subfield_data += ['a', token]
-            mf_field = pymarc.field.Field(
-                tag='910',
-                indicators=[' ', ' '],
-                subfields = mf_subfield_data
-            )
-            marc_record.add_ordered_field(mf_field)
 
         if re.match(r'[0-9]', marc_record.as_marc()[5]):
             raise S2MarcError('Skipped. MARC record exceeds 99,999 bytes.', 

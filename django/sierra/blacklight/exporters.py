@@ -16,7 +16,7 @@ from django.conf import settings
 
 from export import exporter
 from export.basic_exporters import BibsToSolr, BibsDownloadMarc
-from export.sierra2marc import S2MarcBatch
+from blacklight.sierra2marc import S2MarcBatchBlacklightSolrMarc
 
 # set up logger, for debugging
 logger = logging.getLogger('sierra.custom')
@@ -31,7 +31,7 @@ class BaseBibsDownloadMarc(BibsDownloadMarc):
     Sierra records are converted to MARC.
     """
 
-    s2marc_batch_class = S2MarcBatch
+    s2marc_batch_class = S2MarcBatchBlacklightSolrMarc
 
     def export_records(self, records, vals={}):
         log_label = self.__class__.__name__
