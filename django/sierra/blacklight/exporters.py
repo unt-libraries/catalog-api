@@ -33,6 +33,11 @@ class BaseBibsDownloadMarc(BibsDownloadMarc):
 
     s2marc_batch_class = S2MarcBatchBlacklightSolrMarc
 
+    _new_pfetch = ['locations',
+                   'bibrecorditemrecordlink_set__item_record__location']
+    prefetch_related = sorted(BibsDownloadMarc.prefetch_related + _new_pfetch)
+    select_related = BibsDownloadMarc.select_related
+
     def export_records(self, records, vals={}):
         log_label = self.__class__.__name__
         batch = type(self).s2marc_batch_class(records)
@@ -68,6 +73,9 @@ class BaseSolrMarcBibsToSolr(BibsToSolr):
     
     bib2marc_class = BaseBibsDownloadMarc
     cores = {'bibs': 'SPECIFY_SOLR_CORE_HERE'}
+
+    prefetch_related = bib2marc_class.prefetch_related
+    select_related = bib2marc_class.select_related
 
     @classmethod
     def solr_url(cls, ctype):
