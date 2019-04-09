@@ -12,6 +12,7 @@ import sys, traceback
 import re
 import subprocess
 import os
+from collections import OrderedDict
 
 from django.conf import settings
 
@@ -31,6 +32,16 @@ def collapse_vals(vals):
     for v in vals:
         new_vals = dict_merge(new_vals, v)
     return new_vals
+
+
+def combine_table_lists(table_lists):
+    '''
+    Utility that combines lists of prefetch_ or select_related tables
+    from multiple exporters. Final list is sorted and deduplicated
+    before it is returned.
+    '''
+    combined_dupes = sorted([t for tlist in table_lists for t in tlist])
+    return OrderedDict.fromkeys(combined_dupes).keys()
 
 
 class MetadataToSolrExporter(exporter.Exporter):
@@ -118,12 +129,16 @@ class ItemsToSolr(exporter.Exporter):
         'record_metadata__varfield_set',
         'checkout_set',
         'bibrecorditemrecordlink_set',
+        'bibrecorditemrecordlink_set__bib_record',
         'bibrecorditemrecordlink_set__bib_record__record_metadata',
+        'bibrecorditemrecordlink_set__bib_record__record_metadata'
+            '__record_type',
         'bibrecorditemrecordlink_set__bib_record__record_metadata'
             '__varfield_set',
         'bibrecorditemrecordlink_set__bib_record__bibrecordproperty_set'
     ]
-    select_related = ['record_metadata', 'location', 'itype']
+    select_related = ['record_metadata', 'record_metadata__record_type',
+                      'location', 'itype', 'item_status']
 
     def export_records(self, records, vals={}):
         log_label = self.__class__.__name__
@@ -170,12 +185,20 @@ class EResourcesToSolr(exporter.Exporter):
         }
     ]
     prefetch_related = [
+        'access_provider__record_metadata__varfield_set',
+        'holding_records',
+        'holding_records__bibrecord_set',
+        'holding_records__bibrecord_set__record_metadata',
+        'holding_records__bibrecord_set__record_metadata__varfield_set',
+        'holding_records__record_metadata',
+        'holding_records__record_metadata__record_type',
         'record_metadata__varfield_set',
         'resourcerecordholdingrecordrelatedlink_set',
         'resourcerecordholdingrecordrelatedlink_set__holding_record__'\
             'bibrecord_set'
     ]
-    select_related = ['record_metadata']
+    select_related = ['record_metadata', 'record_metadata__record_type',
+                      'access_provider', 'access_provider__record_metadata']
 
     max_rec_chunk = 20
 
@@ -435,10 +458,12 @@ class BibsDownloadMarc(exporter.Exporter):
         'bibrecorditemrecordlink_set',
         'bibrecorditemrecordlink_set__item_record',
         'bibrecorditemrecordlink_set__item_record__record_metadata',
+        'bibrecorditemrecordlink_set__item_record__record_metadata'
+            '__record_type',
         'bibrecordproperty_set',
         'bibrecordproperty_set__material__materialpropertyname_set'
     ]
-    select_related = ['record_metadata']
+    select_related = ['record_metadata', 'record_metadata__record_type']
     
     def get_deletions(self):
         return None
@@ -495,15 +520,8 @@ class BibsToSolr(exporter.Exporter):
             'record_type__code': 'b'
         }
     ]
-    prefetch_related = [
-        'record_metadata__varfield_set',
-        'bibrecorditemrecordlink_set',
-        'bibrecorditemrecordlink_set__item_record',
-        'bibrecorditemrecordlink_set__item_record__record_metadata',
-        'bibrecordproperty_set',
-        'bibrecordproperty_set__material__materialpropertyname_set'
-    ]
-    select_related = ['record_metadata']
+    prefetch_related = bib2marc_class.prefetch_related
+    select_related = bib2marc_class.select_related
     
     def export_records(self, records, vals={}):
         log_label = self.__class__.__name__
@@ -606,17 +624,19 @@ class ItemsBibsToSolr(exporter.Exporter):
         super(ItemsBibsToSolr, self).__init__(*args, **kwargs)
         item_et = export_models.ExportType.objects.get(pk='ItemsToSolr')
         bib_et = export_models.ExportType.objects.get(pk='BibsToSolr')
-        items_to_solr = item_et.get_exporter_class()
-        bibs_to_solr = bib_et.get_exporter_class()
-        self.prefetch_related = items_to_solr.prefetch_related
-        self.prefetch_related.extend([
-            'bibrecorditemrecordlink_set__bib_record'
-                '__bibrecorditemrecordlink_set',
-            'bibrecorditemrecordlink_set__bib_record'
-                '__bibrecorditemrecordlink_set__item_record',
-            'bibrecorditemrecordlink_set__bib_record'
-                '__bibrecorditemrecordlink_set__item_record__record_metadata',
-        ])
+        item_class = item_et.get_exporter_class()
+        bib_class = bib_et.get_exporter_class()
+        items_to_solr = item_class(self.instance.pk, self.export_filter,
+                                   self.export_type, self.options)
+        bibs_to_solr = bib_class(self.instance.pk, self.export_filter,
+                                 self.export_type, self.options)
+
+        prefix = 'bibrecorditemrecordlink_set__bib_record'
+        bibs_prefetch = [
+            '{}__{}'.format(prefix, t) for t in bibs_to_solr.prefetch_related
+        ]
+        self.prefetch_related = combine_table_lists(
+            (items_to_solr.prefetch_related, bibs_prefetch))
         self.select_related = items_to_solr.select_related
         self.items_to_solr = items_to_solr
         self.bibs_to_solr = bibs_to_solr
@@ -625,29 +645,24 @@ class ItemsBibsToSolr(exporter.Exporter):
         bibs = []
         for r in records:
             bibs.append(r.bibrecorditemrecordlink_set.all()[0].bib_record)
-        self.items_to_solr(self.instance.pk, self.export_filter,
-            self.export_type, self.options).export_records(records)
-        self.bibs_to_solr(self.instance.pk, self.export_filter,
-            self.export_type, self.options).export_records(bibs)
+        self.items_to_solr.export_records(records)
+        self.bibs_to_solr.export_records(bibs)
         return vals
 
     def delete_records(self, records, vals={}):
-        self.items_to_solr(self.instance.pk, self.export_filter,
-            self.export_type, self.options).delete_records(records)
+        self.items_to_solr.delete_records(records)
         return vals
 
     def final_callback(self, vals={}, status='success'):
-        self.items_to_solr(self.instance.pk, self.export_filter,
-            self.export_type, self.options).final_callback(vals, status)
-        self.bibs_to_solr(self.instance.pk, self.export_filter,
-            self.export_type, self.options).final_callback(vals, status)
+        self.items_to_solr.final_callback(vals, status)
+        self.bibs_to_solr.final_callback(vals, status)
 
 
 class BibsAndAttachedToSolr(exporter.Exporter):
     '''
     Exports bib records based on the provided export_filter using the
     existing BibsToSolr job and then grabs any attached items and
-    holdings and exports them using the specified export processes.
+    exports them using the specified export processes.
     '''
     model_name = 'BibRecord'
     deletion_filter = [
@@ -664,19 +679,27 @@ class BibsAndAttachedToSolr(exporter.Exporter):
         item_et = export_models.ExportType.objects.get(pk='ItemsToSolr')
         bib_et = export_models.ExportType.objects.get(pk='BibsToSolr')
         holding_et = export_models.ExportType.objects.get(pk='HoldingUpdate')
-        items_to_solr = item_et.get_exporter_class()
-        bibs_to_solr = bib_et.get_exporter_class()
-        holdings_to_solr = holding_et.get_exporter_class()
-        self.prefetch_related = bibs_to_solr.prefetch_related
-        self.prefetch_related.extend([
-            'holding_records',
-            'holding_records__bibrecord_set',
-            'holding_records__bibrecord_set__record_metadata__varfield_set',
-            'holding_records__resourcerecord_set',
-            'holding_records__resourcerecord_set__record_metadata'\
-                '__varfield_set',
-            'holding_records__resourcerecord_set__holding_records'
-        ])
+        item_class = item_et.get_exporter_class()
+        bib_class = bib_et.get_exporter_class()
+        holding_class = holding_et.get_exporter_class()
+        items_to_solr = item_class(self.instance.pk, self.export_filter,
+                                   self.export_type, self.options)
+        bibs_to_solr = bib_class(self.instance.pk, self.export_filter,
+                                 self.export_type, self.options)
+        holdings_to_solr = holding_class(self.instance.pk, self.export_filter,
+                                         self.export_type, self.options)
+
+        i_pfix = 'bibrecorditemrecordlink_set__item_record'
+        items_prefetch = [
+            '{}__{}'.format(i_pfix, t) for t in items_to_solr.prefetch_related
+        ]
+        # h_pfix = 'holding_records'
+        # holdings_prefetch = [
+        #     '{}__{}'.format(h_pfix, t)
+        #         for t in holdings_to_solr.prefetch_related
+        # ]
+        self.prefetch_related = combine_table_lists(
+            (bibs_to_solr.prefetch_related, items_prefetch))
         self.select_related = bibs_to_solr.select_related
         self.items_to_solr = items_to_solr
         self.bibs_to_solr = bibs_to_solr
@@ -684,34 +707,30 @@ class BibsAndAttachedToSolr(exporter.Exporter):
 
     def export_records(self, records, vals={}):
         log_label = self.__class__.__name__
-        items, holdings = [], []
+        items = []
+        # holdings = []
 
         for r in records:
             items.extend([bl.item_record 
                          for bl in r.bibrecorditemrecordlink_set.all()])
-            holdings.extend([h for h in r.holding_records.all()])
+            # holdings.extend([h for h in r.holding_records.all()])
 
         i_vals = vals.get('items', {})
-        h_vals = vals.get('holdings', {})
+        # h_vals = vals.get('holdings', {})
         b_vals = vals.get('bibs', {})
 
-        i_vals.update(self.items_to_solr(self.instance.pk, self.export_filter,
-            self.export_type, self.options).export_records(items, i_vals))
-        h_vals.update(self.holdings_to_solr(self.instance.pk,
-            self.export_filter, self.export_type, self.options)
-            .export_records(holdings, h_vals))
-        b_vals.update(self.bibs_to_solr(self.instance.pk, self.export_filter,
-            self.export_type, self.options).export_records(records, b_vals))
+        i_vals.update(self.items_to_solr.export_records(items, i_vals))
+        # h_vals.update(self.holdings_to_solr.export_records(holdings, h_vals))
+        b_vals.update(self.bibs_to_solr.export_records(records, b_vals))
 
         vals['items'] = i_vals
-        vals['holdings'] = h_vals
+        # vals['holdings'] = h_vals
         vals['bibs'] = b_vals
 
         return vals
 
     def delete_records(self, records, vals={}):
-        self.bibs_to_solr(self.instance.pk, self.export_filter,
-            self.export_type, self.options).delete_records(records)
+        self.bibs_to_solr.delete_records(records)
         return vals
 
     def final_callback(self, vals={}, status='success'):
@@ -719,12 +738,9 @@ class BibsAndAttachedToSolr(exporter.Exporter):
             vals = collapse_vals(vals)
 
         i_vals = vals.get('items', {})
-        h_vals = vals.get('holdings', {})
+        # h_vals = vals.get('holdings', {})
         b_vals = vals.get('bibs', {})
 
-        self.items_to_solr(self.instance.pk, self.export_filter,
-            self.export_type, self.options).final_callback(i_vals, status)
-        self.holdings_to_solr(self.instance.pk, self.export_filter,
-            self.export_type, self.options).final_callback(h_vals, status)
-        self.bibs_to_solr(self.instance.pk, self.export_filter,
-            self.export_type, self.options).final_callback(b_vals, status)
+        self.items_to_solr.final_callback(i_vals, status)
+        # self.holdings_to_solr.final_callback(h_vals, status)
+        self.bibs_to_solr.final_callback(b_vals, status)
