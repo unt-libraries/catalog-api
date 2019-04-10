@@ -30,7 +30,8 @@ logger = logging.getLogger('sierra.custom')
 def collapse_vals(vals):
     new_vals = {}
     for v in vals:
-        new_vals = dict_merge(new_vals, v)
+        if isinstance(v, dict):
+            new_vals = dict_merge(new_vals, v)
     return new_vals
 
 
