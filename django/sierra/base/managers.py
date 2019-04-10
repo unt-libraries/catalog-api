@@ -39,12 +39,12 @@ class CustomFilterManager(models.Manager):
             set = set.order_by(*order_by)
         return set
 
-    def filter_by(self, filter_method, options={}):
+    def filter_by(self, filter_method, options=None):
         '''
         Fetches a set of records based on a filter string and any
         options you specify. Options should be a dictionary.
         '''
-        self.options = options
+        self.options = options or {}
         filter_method = getattr(self, filter_method)
         return self._apply_filter(filter_method)
 
@@ -59,8 +59,10 @@ class RecordManager(CustomFilterManager):
     def updated_date_range(self):
         '''
         Filter by a date range for last_updated. Options should contain
-        date_range_from and date_range_to, each of which are simply date
-        objects.
+        date_range_from and date_range_to, each of which are simply
+        date objects. Options *may* contain `is_deletion`, which is a
+        boolean that indicates whether or not this requires "last
+        deleted" rather than "last updated".
         '''
         options = self.options
         date_from = datetime.combine(options['date_range_from'], time(0, 0))
@@ -74,18 +76,18 @@ class RecordManager(CustomFilterManager):
             prefix = 'record_metadata__'
         else:
             prefix = ''
-        filter = [
-            {
-                '{}record_last_updated_gmt__gte'.format(prefix): date_from,
-                '{}record_last_updated_gmt__lte'.format(prefix): date_to
-            },
-            {
+        if options.get('is_deletion', False):
+            filter = [{
                 '{}deletion_date_gmt__gte'.format(prefix): date_from,
                 '{}deletion_date_gmt__lte'.format(prefix): date_to,
-            }
-        ]
-
-        order_by = ['{}record_last_updated_gmt'.format(prefix)]
+            }]
+            order_by = ['{}deletion_date_gmt'.format(prefix)]
+        else:
+            filter = [{
+                '{}record_last_updated_gmt__gte'.format(prefix): date_from,
+                '{}record_last_updated_gmt__lte'.format(prefix): date_to
+            }]
+            order_by = ['{}record_last_updated_gmt'.format(prefix)]
         return {'filter': filter, 'order_by': order_by}
 
     def record_range(self):
@@ -118,15 +120,16 @@ class RecordManager(CustomFilterManager):
             prefix = 'record_metadata__'
         else:
             prefix = ''
-        filter = [
-            {
-                '{}record_last_updated_gmt__gte'.format(prefix): latest_time
-            },
-            {
+        if options.get('is_deletion', False):
+            filter = [{
                 '{}deletion_date_gmt__gte'.format(prefix): latest_time
-            }
-        ]
-        order_by = ['{}record_last_updated_gmt'.format(prefix)]
+            }]
+            order_by = ['{}record_last_updated_gmt'.format(prefix)]
+        else:
+            filter = [{
+                '{}record_last_updated_gmt__gte'.format(prefix): latest_time
+            }]
+            order_by = ['{}deletion_date_gmt'.format(prefix)]
         return {'filter': filter, 'order_by': order_by}
 
     def full_export(self):

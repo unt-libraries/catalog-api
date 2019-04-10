@@ -131,8 +131,9 @@ class Exporter(object):
         self.logger = logger
 
 
-    def _base_get_records(self, model_name, filters, select_related=None,
-                          prefetch_related=[], fail_on_zero=False):
+    def _base_get_records(self, model_name, filters, is_deletion=False,
+                          select_related=None, prefetch_related=[],
+                          fail_on_zero=False):
         '''
         Default method for getting records using self.export_filter.
         Returns the queryset. Generally you won't want to override this
@@ -145,10 +146,12 @@ class Exporter(object):
         get_records and get_deletions methods that don't use this.
         '''
         model = getattr(sierra_models, model_name)
+        options = self.options.copy()
+        options['is_deletion'] = is_deletion
         try:
             # do base record filter.
-            records = model.objects.filter_by(self.export_filter, 
-                        options=self.options)
+            records = model.objects.filter_by(self.export_filter,
+                                              options=options)
             
             # do additional filters, if provided.
             if filters:
@@ -216,7 +219,7 @@ class Exporter(object):
         '''
         try:
             in_records = self._base_get_records(self.model_name, 
-                            self.record_filter,
+                            self.record_filter, is_deletion=False,
                             select_related=self.select_related,
                             prefetch_related=self.prefetch_related)
         except ExportError:
@@ -232,7 +235,8 @@ class Exporter(object):
         if self.deletion_filter:
             try:
                 deletions = self._base_get_records('RecordMetadata',
-                                                   self.deletion_filter)
+                                                   self.deletion_filter,
+                                                   is_deletion=True)
             except ExportError:
                 raise
             return deletions
@@ -288,4 +292,3 @@ class Exporter(object):
         been broken up into tasks.
         '''
         pass
-
