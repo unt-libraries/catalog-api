@@ -450,7 +450,7 @@ class BibsDownloadMarc(exporter.Exporter):
     '''
     Defines processes that convert Sierra bib records to MARC.
     '''
-    max_rec_chunk = 1000
+    max_rec_chunk = 2000
     parallel = False
     model_name = 'BibRecord'
     prefetch_related = [
@@ -507,7 +507,7 @@ class BibsToSolr(exporter.Exporter):
     that we instantiate a BibsDownloadMarc exporter first because we
     need to output a MARC file that will be indexed using Solrmarc.
     '''
-    max_rec_chunk = 1000
+    max_rec_chunk = 2000
     bibs_hs_conn = settings.EXPORTER_HAYSTACK_CONNECTIONS['BibsToSolr:BIBS']
     marc_hs_conn = settings.EXPORTER_HAYSTACK_CONNECTIONS['BibsToSolr:MARC']
     model_name = 'BibRecord'
@@ -672,7 +672,7 @@ class BibsAndAttachedToSolr(exporter.Exporter):
         }
     ]
     select_related = BibsToSolr.select_related
-    max_rec_chunk = 100
+    max_rec_chunk = 500
 
     def __init__(self, *args, **kwargs):
         super(BibsAndAttachedToSolr, self).__init__(*args, **kwargs)
