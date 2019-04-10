@@ -363,6 +363,25 @@ EXPORTER_HAYSTACK_CONNECTIONS = {
     'AllMetadataToSolr': 'haystack',
 }
 
+# MAX_RC is max_rec_chunk, and MAX_DC is max_del_chunk. The below
+# settings let you set the `max_rec_chunk` and/or `max_del_chunk`
+# attributes for particular Exporter Types, either in a settings file
+# or in your .env file. This is useful for when you have a production
+# environment that's much beefier than your dev environment;
+# particularly when using Docker for development. Set numbers higher in
+# production and lower in development. Anything not set here uses the
+# class default values set in the Exporter definition. If set in your
+# .env file, use the following convention:
+# EXPORTER_MAX_RC_CONFIG="ItemsToSolr:100,BibsToSolr:500"
+EXPORTER_MAX_RC_CONFIG = {}
+EXPORTER_MAX_DC_CONFIG = {}
+for setting, as_str in ((EXPORTER_MAX_RC_CONFIG, 'EXPORTER_MAX_RC_CONFIG'),
+                        (EXPORTER_MAX_DC_CONFIG, 'EXPORTER_MAX_DC_CONFIG')):
+    for item in get_env_variable(as_str, '').split(','):
+        if item:
+            exp_name, max_val = item.split(':')
+            setting.update({exp_name: int(max_val)})
+
 # Determines whether the Exporter jobs email site admins when a job
 # generates errors and/or warnings.
 EXPORTER_EMAIL_ON_ERROR = get_env_variable('EXPORTER_EMAIL_ON_ERROR', True)
