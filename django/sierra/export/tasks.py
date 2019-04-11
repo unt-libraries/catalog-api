@@ -16,7 +16,6 @@ from celery import Task, shared_task, group, chain
 
 from . import exporter
 from . import models as export_models
-from .operror import OperationalError
 
 # set up logger, for debugging
 logger = logging.getLogger('sierra.custom')
@@ -90,10 +89,7 @@ def trigger_export(instance, export_filter, export_type, options):
     separate from the view logic.
     """
     args = (instance.pk, export_filter, export_type, options)
-    try:
-        et = export_models.ExportType.objects.get(pk=export_type)
-    except OperationalError:
-        et = export_models.ExportType.objects.get(pk=export_type)
+    et = export_models.ExportType.objects.get(pk=export_type)
 
     exporter_class = et.get_exporter_class()
     exp = exporter_class(*args)
@@ -126,22 +122,13 @@ def export_dispatch(instance_pk, export_filter, export_type, options):
             user=user,
             status_id='in_progress'
         )
-        try:
-            instance.save()
-        except OperationalError:
-            instance.save()
+        instance.save()
         instance_pk = instance.pk
         
     args = [instance_pk, export_filter, export_type, options]
-    try:
-        et = export_models.ExportType.objects.get(pk=export_type)
-    except OperationalError:
-        et = export_models.ExportType.objects.get(pk=export_type)
+    et = export_models.ExportType.objects.get(pk=export_type)
     exporter_class = et.get_exporter_class()
-    try:
-        exp = exporter_class(*args, log_label=settings.TASK_LOG_LABEL)
-    except OperationalError:
-        exp = exporter_class(*args, log_label=settings.TASK_LOG_LABEL)
+    exp = exporter_class(*args, log_label=settings.TASK_LOG_LABEL)
     exp.log('Info', 'Job received.')
     exp.status = 'in_progress'
     exp.save_status()
@@ -223,17 +210,10 @@ def do_export_chunk(vals, instance_pk, export_filter, export_type, options,
     Variable vals should be a dictionary of arbitrary values used to
     pass information from task to task.
     """
-    try:
-        et = export_models.ExportType.objects.get(pk=export_type)
-    except OperationalError:
-        et = export_models.ExportType.objects.get(pk=export_type)
+    et = export_models.ExportType.objects.get(pk=export_type)
     exporter_class = et.get_exporter_class()
-    try:
-        exp = exporter_class(instance_pk, export_filter, export_type, options,
-                             log_label=settings.TASK_LOG_LABEL)
-    except OperationalError:
-        exp = exporter_class(instance_pk, export_filter, export_type, options,
-                             log_label=settings.TASK_LOG_LABEL)
+    exp = exporter_class(instance_pk, export_filter, export_type, options,
+                         log_label=settings.TASK_LOG_LABEL)
     records = exp.get_records() if type == 'record' else exp.get_deletions()
     
     # This is sort of a hack. My strategy initially was to use queryset
@@ -282,17 +262,10 @@ def do_final_cleanup(vals, instance_pk, export_filter, export_type, options,
     status, triggering the final callback function on the export job,
     emailing site admins if there were errors, etc.
     """
-    try:
-        et = export_models.ExportType.objects.get(pk=export_type)
-    except OperationalError:
-        et = export_models.ExportType.objects.get(pk=export_type)
+    et = export_models.ExportType.objects.get(pk=export_type)
     exporter_class = et.get_exporter_class()
-    try:
-        exp = exporter_class(instance_pk, export_filter, export_type, options,
-                             log_label=settings.TASK_LOG_LABEL)
-    except OperationalError:
-        exp = exporter_class(instance_pk, export_filter, export_type, options,
-                             log_label=settings.TASK_LOG_LABEL)
+    exp = exporter_class(instance_pk, export_filter, export_type, options,
+                         log_label=settings.TASK_LOG_LABEL)
 
     exp.final_callback(vals, status)
     errors = exp.instance.errors
@@ -331,16 +304,8 @@ def do_final_cleanup(vals, instance_pk, export_filter, export_type, options,
 
 @manage_connections
 def log_task_error(instance_pk, export_filter, export_type, options, message):
-    try:
-        et = export_models.ExportType.objects.get(pk=export_type)
-    except OperationalError:
-        et = export_models.ExportType.objects.get(pk=export_type)
+    et = export_models.ExportType.objects.get(pk=export_type)
     exporter_class = et.get_exporter_class()
-    try:
-        exp = exporter_class(instance_pk, export_filter, export_type, options,
-                             log_label=settings.TASK_LOG_LABEL)
-    except OperationalError:
-        exp = exporter_class(instance_pk, export_filter, export_type, options,
-                             log_label=settings.TASK_LOG_LABEL)
-    
+    exp = exporter_class(instance_pk, export_filter, export_type, options,
+                         log_label=settings.TASK_LOG_LABEL)
     exp.log('Error', message)
