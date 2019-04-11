@@ -1,6 +1,6 @@
-'''
+"""
 Custom Managers for sierra base app models.
-'''
+"""
 from datetime import date, time, datetime
 
 from django.db import models
@@ -10,7 +10,7 @@ from utils import helpers
 
 
 class CustomFilterManager(models.Manager):
-    '''
+    """
     A generic models.Manager class that provides the ability to set
     custom filters easily. Just create a child class, and then create a
     method with the same name as the filter that you pass to filter_by.
@@ -20,13 +20,13 @@ class CustomFilterManager(models.Manager):
     set. For instance: [{a AND b AND c} OR {d} OR {e AND f}]. Order_by
     should be an array that can be passed as arguments to
     queryset.order_by().
-    '''
+    """
     options = {}
 
     def _apply_filter(self, filter_method):
-        '''
+        """
         Applies the filter_method and returns the filtered queryset.
-        '''
+        """
         filter_params = filter_method()
         filter = filter_params['filter']
         order_by = filter_params['order_by']
@@ -40,30 +40,30 @@ class CustomFilterManager(models.Manager):
         return set
 
     def filter_by(self, filter_method, options=None):
-        '''
+        """
         Fetches a set of records based on a filter string and any
         options you specify. Options should be a dictionary.
-        '''
+        """
         self.options = options or {}
         filter_method = getattr(self, filter_method)
         return self._apply_filter(filter_method)
 
 
 class RecordManager(CustomFilterManager):
-    '''
+    """
     Defines some common filters that apply across multiple types of
     records from the Sierra database, such as the base record types
     (item, bib, patron, etc.)
-    '''
+    """
 
     def updated_date_range(self):
-        '''
+        """
         Filter by a date range for last_updated. Options should contain
         date_range_from and date_range_to, each of which are simply
         date objects. Options *may* contain `is_deletion`, which is a
         boolean that indicates whether or not this requires "last
         deleted" rather than "last updated".
-        '''
+        """
         options = self.options
         date_from = datetime.combine(options['date_range_from'], time(0, 0))
         date_from = tz.make_aware(date_from, tz.get_default_timezone())
@@ -91,10 +91,10 @@ class RecordManager(CustomFilterManager):
         return {'filter': filter, 'order_by': order_by}
 
     def record_range(self):
-        '''
+        """
         Filter by a III record number range. Options should contain
         record_range_from and record_range_to.
-        '''
+        """
         options = self.options
         record_from = options['record_range_from']
         record_to = options['record_range_to']
@@ -111,9 +111,9 @@ class RecordManager(CustomFilterManager):
         return {'filter': filter, 'order_by': order_by}
 
     def last_export(self):
-        '''
+        """
         Filter by a latest updated datetime in options['latest_time'].
-        '''
+        """
         options = self.options
         latest_time = options['latest_time']
         if self.model._meta.object_name != 'RecordMetadata':
@@ -133,9 +133,9 @@ class RecordManager(CustomFilterManager):
         return {'filter': filter, 'order_by': order_by}
 
     def full_export(self):
-        '''
+        """
         No filter.
-        '''
+        """
         if self.model._meta.object_name != 'RecordMetadata':
             prefix = 'record_metadata__'
         else:
@@ -145,9 +145,9 @@ class RecordManager(CustomFilterManager):
         return {'filter': filter, 'order_by': order_by}
 
     def location(self):
-        '''
+        """
         Filters item records by location (code).
-        '''
+        """
         options = self.options
         location_code = self.options['location_code']
         if self.model._meta.object_name == 'RecordMetadata':

@@ -23,21 +23,21 @@ logger = logging.getLogger('sierra.custom')
 
 
 class DispatchErrorTask(Task):
-    '''
+    """
     Subclasses celery.Task to provide custom on_failure error handling.
     This is for the export_dispatch task. It's needed because other
     tasks have a different number of arguments. (For future: change
     args to kwargs so we can have one Error Task class.)
-    '''
+    """
     def on_failure(self, exc, task_id, args, kwargs, einfo):
         message = 'Task {} failed: {}.'.format(task_id, exc)
         log_task_error(*[i for i in args[:4]], message=message)
 
 
 class ErrorTask(Task):
-    '''
+    """
     Subclasses celery.Task to provide custom on_failure error handling.
-    '''
+    """
     def on_failure(self, exc, task_id, args, kwargs, einfo):
         message = 'Task {} failed: {}.'.format(task_id, exc)
         log_task_error(*[i for i in args[1:5]], message=message)
@@ -45,9 +45,9 @@ class ErrorTask(Task):
 
 @shared_task
 def optimize():
-    '''
+    """
     Celery task that simply runs "optimize" on all Solr indexes
-    '''
+    """
     logger = logging.getLogger('exporter.file')
     logger.info('Running optimization on all Solr indexes.')
     url_stack = []
@@ -62,11 +62,11 @@ def optimize():
 
 
 def trigger_export(instance, export_filter, export_type, options):
-    '''
+    """
     Non-task wrapper function for our task chain. Call this from the
     view so that we can keep the implementation details of tasks
     separate from the view logic.
-    '''
+    """
     connections['default'].close()
     args = (instance.pk, export_filter, export_type, options)
     try:
@@ -87,9 +87,9 @@ def trigger_export(instance, export_filter, export_type, options):
 
 @shared_task(base=DispatchErrorTask)
 def export_dispatch(instance_pk, export_filter, export_type, options):
-    '''
+    """
     Control function for doing an export job.
-    '''
+    """
     # The below checks to see if this was a job triggered by Celery's
     # automatic scheduler, in which case the instance_pk is (should be)
     # -1. If this is the case, it generates a new export instance
@@ -195,12 +195,12 @@ def export_dispatch(instance_pk, export_filter, export_type, options):
 @shared_task(base=ErrorTask)
 def do_export_chunk(vals, instance_pk, export_filter, export_type, options,
                     start, end, type):
-    '''
+    """
     Processes a "chunk" of Exporter records, depending on type
     ("record" if it's a record load or "deletion" if it's a deletion).
     Variable vals should be a dictionary of arbitrary values used to
     pass information from task to task.
-    '''
+    """
     connections['default'].close()
     try:
         et = export_models.ExportType.objects.get(pk=export_type)
@@ -254,12 +254,12 @@ def do_export_chunk(vals, instance_pk, export_filter, export_type, options,
 @shared_task(base=ErrorTask)
 def do_final_cleanup(vals, instance_pk, export_filter, export_type, options,
                      status='success'):
-    '''
+    """
     Task that runs after all sub-tasks for an export job are done.
     Does final clean-up steps, such as updating the ExportInstance
     status, triggering the final callback function on the export job,
     emailing site admins if there were errors, etc.
-    '''
+    """
     connections['default'].close()
     try:
         et = export_models.ExportType.objects.get(pk=export_type)
