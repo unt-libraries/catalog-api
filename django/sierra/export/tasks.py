@@ -22,6 +22,25 @@ from .operror import OperationalError
 logger = logging.getLogger('sierra.custom')
 
 
+def manage_connections(job_func):
+    """
+    Decorator that ensures all defunct connections are closed before
+    and after the decorated function runs.
+    """
+    def _do_close():
+            for conn in connections.all():
+                conn.close_if_unusable_or_obsolete()
+
+    def _wrapper(*args, **kwargs):
+        _do_close()        
+        ret_val = job_func(*args, **kwargs)
+        _do_close()
+        return ret_val
+
+    _wrapper.__name__ = 'managed__{}'.format(job_func.__name__)
+    return _wrapper
+
+
 class DispatchErrorTask(Task):
     """
     Subclasses celery.Task to provide custom on_failure error handling.
@@ -31,7 +50,8 @@ class DispatchErrorTask(Task):
     """
     def on_failure(self, exc, task_id, args, kwargs, einfo):
         message = 'Task {} failed: {}.'.format(task_id, exc)
-        log_task_error(*[i for i in args[:4]], message=message)
+        log_args = [i for i in args[:4]] + [message]
+        log_task_error(*log_args)
 
 
 class ErrorTask(Task):
@@ -40,7 +60,8 @@ class ErrorTask(Task):
     """
     def on_failure(self, exc, task_id, args, kwargs, einfo):
         message = 'Task {} failed: {}.'.format(task_id, exc)
-        log_task_error(*[i for i in args[1:5]], message=message)
+        log_args = [i for i in args[1:5]] + [message]
+        log_task_error(*log_args)
 
 
 @shared_task
@@ -61,13 +82,13 @@ def optimize():
     logger.info('Done.')
 
 
+@manage_connections
 def trigger_export(instance, export_filter, export_type, options):
     """
     Non-task wrapper function for our task chain. Call this from the
     view so that we can keep the implementation details of tasks
     separate from the view logic.
     """
-    connections['default'].close()
     args = (instance.pk, export_filter, export_type, options)
     try:
         et = export_models.ExportType.objects.get(pk=export_type)
@@ -86,6 +107,7 @@ def trigger_export(instance, export_filter, export_type, options):
     
 
 @shared_task(base=DispatchErrorTask)
+@manage_connections
 def export_dispatch(instance_pk, export_filter, export_type, options):
     """
     Control function for doing an export job.
@@ -95,7 +117,6 @@ def export_dispatch(instance_pk, export_filter, export_type, options):
     # -1. If this is the case, it generates a new export instance
     # object using the username in the EXPORT_AUTOMATED_USERNAME
     # setting as the user. Default is django_admin.
-    connections['default'].close()
     if instance_pk == -1:
         user = User.objects.get(username=settings.EXPORTER_AUTOMATED_USERNAME)
         instance = export_models.ExportInstance(
@@ -193,6 +214,7 @@ def export_dispatch(instance_pk, export_filter, export_type, options):
 
 
 @shared_task(base=ErrorTask)
+@manage_connections
 def do_export_chunk(vals, instance_pk, export_filter, export_type, options,
                     start, end, type):
     """
@@ -201,7 +223,6 @@ def do_export_chunk(vals, instance_pk, export_filter, export_type, options,
     Variable vals should be a dictionary of arbitrary values used to
     pass information from task to task.
     """
-    connections['default'].close()
     try:
         et = export_models.ExportType.objects.get(pk=export_type)
     except OperationalError:
@@ -252,6 +273,7 @@ def do_export_chunk(vals, instance_pk, export_filter, export_type, options,
 
 
 @shared_task(base=ErrorTask)
+@manage_connections
 def do_final_cleanup(vals, instance_pk, export_filter, export_type, options,
                      status='success'):
     """
@@ -260,7 +282,6 @@ def do_final_cleanup(vals, instance_pk, export_filter, export_type, options,
     status, triggering the final callback function on the export job,
     emailing site admins if there were errors, etc.
     """
-    connections['default'].close()
     try:
         et = export_models.ExportType.objects.get(pk=export_type)
     except OperationalError:
@@ -308,8 +329,8 @@ def do_final_cleanup(vals, instance_pk, export_filter, export_type, options,
         mail.mail_admins(subject, email.render(vars))
 
 
+@manage_connections
 def log_task_error(instance_pk, export_filter, export_type, options, message):
-    connections['default'].close()
     try:
         et = export_models.ExportType.objects.get(pk=export_type)
     except OperationalError:
