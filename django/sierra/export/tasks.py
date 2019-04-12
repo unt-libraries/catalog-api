@@ -17,11 +17,14 @@ from celery import Task, shared_task, group, chain
 from . import exporter
 from . import models as export_models
 
-# set up logger, for debugging
+# set up loggers
 logger = logging.getLogger('sierra.custom')
+exp_logger = logging.getLogger('exporter.file')
 
 
-def manage_connections(job_func):
+# TASK HELPERS
+
+def needs_database(job_func):
     """
     Decorator that ensures all defunct connections are closed before
     and after the decorated function runs.
@@ -40,28 +43,60 @@ def manage_connections(job_func):
     return _wrapper
 
 
-class DispatchErrorTask(Task):
+def spawn_exporter(inst_pk, exp_filter, exp_type, opts):
     """
-    Subclasses celery.Task to provide custom on_failure error handling.
-    This is for the export_dispatch task. It's needed because other
-    tasks have a different number of arguments. (For future: change
-    args to kwargs so we can have one Error Task class.)
+    Spawn an Exporter obj using the given parameters.
+
+    Note: `inst_pk` is the PK value of the ExportInstance ORM obj
+    for a particular task. If one does not already exist, pass -1
+    as the inst_pk, and one will be generated using the username in
+    settings.EXPORT_AUTOMATED_USERNAME. (This is legacy behavior for
+    Celery task scheduling.)
     """
-    def on_failure(self, exc, task_id, args, kwargs, einfo):
-        message = 'Task {} failed: {}.'.format(task_id, exc)
-        log_args = [i for i in args[:4]] + [message]
-        log_task_error(*log_args)
+    if inst_pk == -1:
+        u = User.objects.get(username=settings.EXPORTER_AUTOMATED_USERNAME)
+        instance = export_models.ExportInstance(
+            export_filter_id=exp_filter,
+            export_type_id=exp_type,
+            timestamp=tz.now(),
+            user=u,
+            status_id='in_progress')
+        instance.save()
+        inst_pk = instance.pk
+    et = export_models.ExportType.objects.get(pk=exp_type)
+    exporter_class = et.get_exporter_class()
+    return exporter_class(inst_pk, exp_filter, exp_type, opts,
+                          log_label=settings.TASK_LOG_LABEL)
 
 
-class ErrorTask(Task):
+@needs_database
+def trigger_export(instance, export_filter, export_type, options):
     """
-    Subclasses celery.Task to provide custom on_failure error handling.
+    Non-task function to trigger an export from the Django admin view.
     """
-    def on_failure(self, exc, task_id, args, kwargs, einfo):
-        message = 'Task {} failed: {}.'.format(task_id, exc)
-        log_args = [i for i in args[1:5]] + [message]
-        log_task_error(*log_args)
+    args = (instance.pk, export_filter, export_type, options)
+    exp = spawn_exporter(*args)
+    exp.status = 'waiting'
+    exp.save_status()
+    exp.log('Info', 'Export {} task triggered. Waiting on task to be '
+                    'scheduled.'.format(instance.pk))
+    export_dispatch.apply_async(args,
+        link_error=do_final_cleanup.s(*args, status='errors')
+    )
 
+
+@needs_database
+def handle_failure(inst_pk, exp_filter, exp_type, opts, message=None):
+    """
+    Handle logging and cleanup for an Exporter task failure.
+    """
+    exp = spawn_exporter(inst_pk, exp_filter, exp_type, opts)
+    exp.log('Error', message)
+
+
+# WORKFLOW COMPONENTS
+
+# Miscellaneous tasks
 
 @shared_task
 def optimize():
@@ -81,60 +116,30 @@ def optimize():
     logger.info('Done.')
 
 
-@manage_connections
-def trigger_export(instance, export_filter, export_type, options):
-    """
-    Non-task wrapper function for our task chain. Call this from the
-    view so that we can keep the implementation details of tasks
-    separate from the view logic.
-    """
-    args = (instance.pk, export_filter, export_type, options)
-    et = export_models.ExportType.objects.get(pk=export_type)
+# Export Workflow
 
-    exporter_class = et.get_exporter_class()
-    exp = exporter_class(*args)
-    exp.status = 'waiting'
-    exp.save_status()
-    exp.log('Info', 'Export {} task triggered. Waiting on task to be '
-                    'scheduled.'.format(instance.pk))
-    export_dispatch.apply_async(args,
-        link_error=do_final_cleanup.s(*args, status='errors')
-    )
-    
+class ExportTask(Task):
+    """
+    Subclasses celery.Task to provide custom failure behavior.
+    """
+    def on_failure(self, exc, task_id, args, kwargs, einfo):
+        message = 'Task {} failed: {}.'.format(task_id, exc)
+        handle_failure(*[i for i in args[:4]], message=message)
 
-@shared_task(base=DispatchErrorTask)
-@manage_connections
+
+@shared_task(base=ExportTask)
+@needs_database
 def export_dispatch(instance_pk, export_filter, export_type, options):
     """
     Control function for doing an export job.
     """
-    # The below checks to see if this was a job triggered by Celery's
-    # automatic scheduler, in which case the instance_pk is (should be)
-    # -1. If this is the case, it generates a new export instance
-    # object using the username in the EXPORT_AUTOMATED_USERNAME
-    # setting as the user. Default is django_admin.
-    if instance_pk == -1:
-        user = User.objects.get(username=settings.EXPORTER_AUTOMATED_USERNAME)
-        instance = export_models.ExportInstance(
-            export_filter_id=export_filter,
-            export_type_id=export_type,
-            timestamp=tz.now(),
-            user=user,
-            status_id='in_progress'
-        )
-        instance.save()
-        instance_pk = instance.pk
-        
-    args = [instance_pk, export_filter, export_type, options]
-    et = export_models.ExportType.objects.get(pk=export_type)
-    exporter_class = et.get_exporter_class()
-    exp = exporter_class(*args, log_label=settings.TASK_LOG_LABEL)
+    exp = spawn_exporter(instance_pk, export_filter, export_type, options)
     exp.log('Info', 'Job received.')
     exp.status = 'in_progress'
     exp.save_status()
 
     exp.log('Info', '-------------------------------------------------------')
-    exp.log('Info', 'EXPORTER {} -- {}'.format(exp.instance.pk, et.code))
+    exp.log('Info', 'EXPORTER {} -- {}'.format(exp.instance.pk, export_type))
     exp.log('Info', '-------------------------------------------------------')
     exp.log('Info', 'MAX RECORD CHUNK size is {}.'.format(exp.max_rec_chunk))
     exp.log('Info', 'MAX DELETION CHUNK size is {}.'.format(exp.max_del_chunk))
@@ -170,6 +175,8 @@ def export_dispatch(instance_pk, export_filter, export_type, options):
                     ''.format(count['deletion']))
 
         do_it_tasks = []
+        args = [exp.instance.pk, exp.export_filter, exp.export_type,
+                exp.options]
         for type in count:
             max = exp.max_rec_chunk if type == 'record' else exp.max_del_chunk
             task_args = []
@@ -200,8 +207,8 @@ def export_dispatch(instance_pk, export_filter, export_type, options):
             do_final_cleanup.s(*args).apply_async()
 
 
-@shared_task(base=ErrorTask)
-@manage_connections
+@shared_task(base=ExportTask)
+@needs_database
 def do_export_chunk(vals, instance_pk, export_filter, export_type, options,
                     start, end, type):
     """
@@ -210,10 +217,7 @@ def do_export_chunk(vals, instance_pk, export_filter, export_type, options,
     Variable vals should be a dictionary of arbitrary values used to
     pass information from task to task.
     """
-    et = export_models.ExportType.objects.get(pk=export_type)
-    exporter_class = et.get_exporter_class()
-    exp = exporter_class(instance_pk, export_filter, export_type, options,
-                         log_label=settings.TASK_LOG_LABEL)
+    exp = spawn_exporter(instance_pk, export_filter, export_type, options)
     records = exp.get_records() if type == 'record' else exp.get_deletions()
     
     # This is sort of a hack. My strategy initially was to use queryset
@@ -252,8 +256,8 @@ def do_export_chunk(vals, instance_pk, export_filter, export_type, options,
     return vals
 
 
-@shared_task(base=ErrorTask)
-@manage_connections
+@shared_task(base=ExportTask)
+@needs_database
 def do_final_cleanup(vals, instance_pk, export_filter, export_type, options,
                      status='success'):
     """
@@ -262,11 +266,7 @@ def do_final_cleanup(vals, instance_pk, export_filter, export_type, options,
     status, triggering the final callback function on the export job,
     emailing site admins if there were errors, etc.
     """
-    et = export_models.ExportType.objects.get(pk=export_type)
-    exporter_class = et.get_exporter_class()
-    exp = exporter_class(instance_pk, export_filter, export_type, options,
-                         log_label=settings.TASK_LOG_LABEL)
-
+    exp = spawn_exporter(instance_pk, export_filter, export_type, options)
     exp.final_callback(vals, status)
     errors = exp.instance.errors
     warnings = exp.instance.warnings
@@ -300,12 +300,3 @@ def do_final_cleanup(vals, instance_pk, export_filter, export_type, options,
                             exp.instance.export_type.code)
         email = template.loader.get_template('export/error_email.txt')
         mail.mail_admins(subject, email.render(vars))
-
-
-@manage_connections
-def log_task_error(instance_pk, export_filter, export_type, options, message):
-    et = export_models.ExportType.objects.get(pk=export_type)
-    exporter_class = et.get_exporter_class()
-    exp = exporter_class(instance_pk, export_filter, export_type, options,
-                         log_label=settings.TASK_LOG_LABEL)
-    exp.log('Error', message)
