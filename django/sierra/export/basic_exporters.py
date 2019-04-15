@@ -561,7 +561,7 @@ class BibsToSolr(exporter.Exporter):
                     if re.match(r'^WARN', line):
                         self.log('Warning', line, log_label)
                     elif re.match(r'^ERROR', line):
-                        self.log('Error', line, log_label)
+                        self.log('Warning', line, log_label)
 
             # if all went well, we now try to output JSON-MARC to the
             # MARC index

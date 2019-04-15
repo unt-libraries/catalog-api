@@ -12,7 +12,7 @@ from django.contrib.auth.models import User
 from django.utils import timezone as tz
 from django.db import connections
 
-from celery import Task, shared_task, group, chain
+from celery import Task, shared_task, chord, chain
 
 from . import exporter
 from . import models as export_models
@@ -34,7 +34,7 @@ def needs_database(job_func):
                 conn.close_if_unusable_or_obsolete()
 
     def _wrapper(*args, **kwargs):
-        _do_close()        
+        _do_close()
         ret_val = job_func(*args, **kwargs)
         _do_close()
         return ret_val
@@ -69,29 +69,15 @@ def spawn_exporter(inst_pk, exp_filter, exp_type, opts):
                           log_label=settings.TASK_LOG_LABEL)
 
 
-@needs_database
-def trigger_export(instance, export_filter, export_type, options):
+@shared_task
+def export_dispatch(instance_pk, export_filter, export_type, options):
     """
-    Non-task function to trigger an export from the Django admin view.
+    Trigger an export from an external source.
     """
-    args = (instance.pk, export_filter, export_type, options)
-    exp = spawn_exporter(*args)
-    exp.status = 'waiting'
-    exp.save_status()
-    exp.log('Info', 'Export {} task triggered. Waiting on task to be '
-                    'scheduled.'.format(instance.pk))
-    export_dispatch.apply_async(args,
-        link_error=do_final_cleanup.s(*args, status='errors')
-    )
-
-
-@needs_database
-def handle_failure(inst_pk, exp_filter, exp_type, opts, message=None):
-    """
-    Handle logging and cleanup for an Exporter task failure.
-    """
-    exp = spawn_exporter(inst_pk, exp_filter, exp_type, opts)
-    exp.log('Error', message)
+    args = (instance_pk, export_filter, export_type, options)
+    job = do_spawn_chunks.s(*args)
+    job.link_error(do_final_cleanup.s(*args, status='errors'))
+    job.apply_async()
 
 
 # WORKFLOW COMPONENTS
@@ -120,16 +106,28 @@ def optimize():
 
 class ExportTask(Task):
     """
-    Subclasses celery.Task to provide custom failure behavior.
+    Subclasses celery.Task to provide custom on_failure behavior.
     """
     def on_failure(self, exc, task_id, args, kwargs, einfo):
-        message = 'Task {} failed: {}.'.format(task_id, exc)
-        handle_failure(*[i for i in args[:4]], message=message)
+        """
+        Handle a task that raises an uncaught exception.
+        """
+        chunk_id = kwargs.get('chunk_id', '[UNKNOWN]')
+        msg = ('Chunk {} (Celery task_id {}) failed: {}.\nTraceback: {}'
+               ''.format(chunk_id, task_id, exc, einfo))
+        exp_args = args if len(args) == 4 else args[1:]
+        try:
+            exp = spawn_exporter(*exp_args)
+        except Exception:
+            exp_logger.error(msg)
+        else:
+            exp.log('Error', msg)
 
 
 @shared_task(base=ExportTask)
 @needs_database
-def export_dispatch(instance_pk, export_filter, export_type, options):
+def do_spawn_chunks(instance_pk, export_filter, export_type, options,
+                    chunk_id='initial-dispatch'):
     """
     Control function for doing an export job.
     """
@@ -139,78 +137,74 @@ def export_dispatch(instance_pk, export_filter, export_type, options):
     exp.save_status()
 
     exp.log('Info', '-------------------------------------------------------')
-    exp.log('Info', 'EXPORTER {} -- {}'.format(exp.instance.pk, export_type))
+    exp.log('Info', 'EXPORTER {} -- {}'.format(exp.instance.pk,
+                                               exp.export_type))
     exp.log('Info', '-------------------------------------------------------')
     exp.log('Info', 'MAX RECORD CHUNK size is {}.'.format(exp.max_rec_chunk))
     exp.log('Info', 'MAX DELETION CHUNK size is {}.'.format(exp.max_del_chunk))
 
+    records = exp.get_records()
+    deletions = exp.get_deletions()
+
+    # Get records and deletions counts. If it's a queryset we want
+    # to use count(), otherwise we have to use len(). Lists have a
+    # count() method, but it's not the same as queryset.count().
+    # Lists throw a TypeError if you call count() without an arg.
     try:
-        records = exp.get_records()
-        deletions = exp.get_deletions()
-    except exporter.ExportError as err:
-        exp.log('Error', err)
-        exp.status = 'errors'
-        exp.save_status()
-    else:
-        # Get records and deletions counts. If it's a queryset we want
-        # to use count(), otherwise we have to use len(). Lists have a
-        # count() method, but it's not the same as queryset.count().
-        # Lists throw a TypeError if you call count() without an arg.
+        records_count = records.count()
+    except (TypeError, AttributeError):
+        records_count = len(records)
+    try:
+        deletions_count = deletions.count()
+    except (TypeError, AttributeError):
         try:
-            records_count = records.count()
-        except (TypeError, AttributeError):
-            records_count = len(records)
-        try:
-            deletions_count = deletions.count()
-        except (TypeError, AttributeError):
-            try:
-                deletions_count = len(deletions)
-            except Exception:
-                deletions_count = 0
+            deletions_count = len(deletions)
+        except Exception:
+            deletions_count = 0
 
-        count = {'record': records_count, 'deletion': deletions_count}
-        exp.log('Info', '{} records found.'.format(count['record']))
-        if deletions is not None:
-            exp.log('Info', '{} candidates found for deletion.'
-                    ''.format(count['deletion']))
+    count = {'record': records_count, 'deletion': deletions_count}
+    exp.log('Info', '{} records found.'.format(count['record']))
+    if deletions is not None:
+        exp.log('Info', '{} candidates found for deletion.'
+                ''.format(count['deletion']))
 
-        do_it_tasks = []
-        args = [exp.instance.pk, exp.export_filter, exp.export_type,
-                exp.options]
-        for type in count:
-            max = exp.max_rec_chunk if type == 'record' else exp.max_del_chunk
-            task_args = []
-            batches = 0
-            for start in range(0, count[type], max):
-                end = min(start + max, count[type])
-                i_args = [{}] + args if start == 0 or exp.parallel else args
-                do_it_tasks.append(
-                    do_export_chunk.s(*i_args, start=start, end=end, type=type)
-                )
-                batches += 1
-            if batches > 0:
-                exp.log('Info', 'Breaking {}s into {} chunk{}.'
-                        ''.format(type, batches, 's' if batches > 1 else ''))
-
-        if do_it_tasks:
-            if exp.parallel:
-                final_grouping = chain(group(do_it_tasks),
-                                       do_final_cleanup.s(*args))
+    do_it_tasks = []
+    args = (exp.instance.pk, exp.export_filter, exp.export_type,
+            exp.options)
+    for type in count:
+        max = exp.max_rec_chunk if type == 'record' else exp.max_del_chunk
+        task_args = []
+        batches = 0
+        for start in range(0, count[type], max):
+            end = min(start + max, count[type])
+            kwargs = {'start': start, 'end': end, 'type': type}
+            kwargs['chunk_id'] = '{}-{}-{}'.format(instance_pk, 1,
+                                                   batches + 1)
+            if start == 0 or exp.parallel:
+                do_it_tasks.append(do_export_chunk.s({}, *args, **kwargs))
             else:
-                final_grouping = chain(chain(do_it_tasks),
-                                       do_final_cleanup.s(*args))
-            final_grouping.apply_async(
-                link_error=do_final_cleanup.s(*args, status='errors')
-            )
+                do_it_tasks.append(do_export_chunk.s(*args, **kwargs))
+            batches += 1
+        if batches > 0:
+            exp.log('Info', 'Breaking {}s into {} chunk{}.'
+                    ''.format(type, batches, 's' if batches > 1 else ''))
+
+    if do_it_tasks:
+        callback = do_final_cleanup.s(*args)
+        callback.link_error(do_final_cleanup.s(*args, status='errors'))
+        if exp.parallel:
+            final_grouping = chord(do_it_tasks, callback)
         else:
-            args = [{}] + args
-            do_final_cleanup.s(*args).apply_async()
+            final_grouping = chain(do_it_tasks + callback)
+        final_grouping.apply_async()
+    else:
+        do_final_cleanup.s({}, *args).apply_async()
 
 
 @shared_task(base=ExportTask)
 @needs_database
 def do_export_chunk(vals, instance_pk, export_filter, export_type, options,
-                    start, end, type):
+                    start=0, end=None, type='record', chunk_id=None):
     """
     Processes a "chunk" of Exporter records, depending on type
     ("record" if it's a record load or "deletion" if it's a deletion).
@@ -240,8 +234,8 @@ def do_export_chunk(vals, instance_pk, export_filter, export_type, options,
         if records is not None:
             records = records[start:end+1]
     
-    job_id = '{}s {} - {}'.format(type, start+1, end)
-    exp.log('Info', 'Starting processing {}.'.format(job_id))
+    chunk_label = '{}s {} - {}'.format(type, start+1, end)
+    exp.log('Info', 'Starting {} ({}).'.format(chunk_id, chunk_label))
     try:
         if type == 'record' and records is not None:
             vals = exp.export_records(records, vals=vals)
@@ -250,16 +244,17 @@ def do_export_chunk(vals, instance_pk, export_filter, export_type, options,
     except Exception as err:
         ex_type, ex, tb = sys.exc_info()
         logger.info(traceback.extract_tb(tb))
-        exp.log('Error', 'Error processing {}: {}.'.format(job_id, err))
+        exp.log('Error', 'Error with {} ({}): {}.'.format(chunk_id,
+                                                          chunk_label, err))
     else:
-        exp.log('Info', 'Finished processing {}.'.format(job_id))
+        exp.log('Info', 'Finished {} ({}).'.format(chunk_id, chunk_label))
     return vals
 
 
 @shared_task(base=ExportTask)
 @needs_database
 def do_final_cleanup(vals, instance_pk, export_filter, export_type, options,
-                     status='success'):
+                     status='success', chunk_id='final-callback'):
     """
     Task that runs after all sub-tasks for an export job are done.
     Does final clean-up steps, such as updating the ExportInstance
@@ -267,15 +262,16 @@ def do_final_cleanup(vals, instance_pk, export_filter, export_type, options,
     emailing site admins if there were errors, etc.
     """
     exp = spawn_exporter(instance_pk, export_filter, export_type, options)
-    exp.final_callback(vals, status)
     errors = exp.instance.errors
     warnings = exp.instance.warnings
-    if status == 'success':
+    if status == 'errors':
+        exp.log('Info', 'Export job raised unexpected errors; one or more '
+                        'batches may have been skipped.')
+    elif status == 'success':
+        exp.final_callback(vals, status)
         if errors > 0:
             status = 'done_with_errors'
         exp.log('Info', 'Job finished.')
-    elif status == 'errors':
-        exp.log('Warning', 'Job terminated prematurely.')
     exp.status = status
     exp.save_status()
     (send_errors, send_warnings) = (None, None)
@@ -300,3 +296,4 @@ def do_final_cleanup(vals, instance_pk, export_filter, export_type, options,
                             exp.instance.export_type.code)
         email = template.loader.get_template('export/error_email.txt')
         mail.mail_admins(subject, email.render(vars))
+    exp.log('Info', '=======================================================')
