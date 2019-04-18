@@ -27,14 +27,6 @@ from utils import helpers, redisobjs, solr, dict_merge
 logger = logging.getLogger('sierra.custom')
 
 
-def collapse_vals(vals):
-    new_vals = {}
-    for v in vals:
-        if isinstance(v, dict):
-            new_vals = dict_merge(new_vals, v)
-    return new_vals
-
-
 def combine_table_lists(table_lists):
     '''
     Utility that combines lists of prefetch_ or select_related tables
@@ -233,9 +225,6 @@ class EResourcesToSolr(exporter.Exporter):
         return vals
 
     def final_callback(self, vals={}, status='success'):
-        if type(vals) is list:
-            vals = collapse_vals(vals)
-
         self.log('Info', 'Committing updates to Solr and Redis...')
 
         rev_handler = redisobjs.RedisObject('reverse_holdings_list', '0')
@@ -409,9 +398,6 @@ class HoldingUpdate(exporter.Exporter):
         return vals
 
     def final_callback(self, vals={}, status='success'):
-        if type(vals) is list:
-            vals = collapse_vals(vals)
-
         h_vals = vals.get('holdings', {})
         er_vals = vals.get('eresources', {})
 
@@ -735,9 +721,6 @@ class BibsAndAttachedToSolr(exporter.Exporter):
         return vals
 
     def final_callback(self, vals={}, status='success'):
-        if type(vals) is list:
-            vals = collapse_vals(vals)
-
         i_vals = vals.get('items', {})
         # h_vals = vals.get('holdings', {})
         b_vals = vals.get('bibs', {})
