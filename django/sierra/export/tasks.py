@@ -86,7 +86,9 @@ def export_dispatch(instance_pk, export_filter, export_type, options):
     """
     Trigger an export from an external source.
     """
-    args = (instance_pk, export_filter, export_type, options)
+    connections['default'].close_if_unusable_or_obsolete()
+    exp = spawn_exporter(instance_pk, export_filter, export_type, options)
+    args = (exp.instance.pk, exp.export_filter, exp.export_type, options)
     job = delegate_batch.s({}, *args, chunk_id='header')
     job.link_error(do_final_cleanup.s(*args, status='errors',
                                       chunk_id='error-callback'))
