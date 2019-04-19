@@ -910,7 +910,7 @@ circumstances. If the variable is not set, the default value is used.
     an env-specific basis. Do note that the convention used for the settings
     as in your .env file looks like this:
 
-        EXPORTER_MAX_RC_CONFIG="ItemsToSolr:1000,BibsToSolr:500"
+          EXPORTER_MAX_RC_CONFIG="ItemsToSolr:1000,BibsToSolr:500"
 
 * Production Settings &mdash; These are settings you'll probably only need to
 set in production. If your development environment is very different than
