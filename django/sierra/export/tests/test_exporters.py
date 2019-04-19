@@ -93,3 +93,47 @@ def test_exports_to_solr(etype_code, solr_exporter_test_params, new_exporter,
         assert len(load_results[core]) > 0
         if try_delete:
             assert len(del_results[core]) == 0
+
+
+@pytest.mark.parametrize('etype_code', [
+    'BibsToSolr',
+    'EResourcesToSolr',
+    'ItemsToSolr',
+    'ItemStatusesToSolr',
+    'ItypesToSolr',
+    'LocationsToSolr'])
+def test_max_chunk_settings_overrides(etype_code, settings, new_exporter):
+    """
+    Using EXPORTER_MAX_RC_CONFIG and EXPORTER_MAX_DC_CONFIG settings
+    should override values set on the class when an exporter is
+    instantiated.
+    """
+    new_rc_val, new_dc_val = 77777, 88888
+    settings.EXPORTER_MAX_RC_CONFIG[etype_code] = new_rc_val
+    settings.EXPORTER_MAX_DC_CONFIG[etype_code] = new_dc_val
+    load_exporter = new_exporter(etype_code, 'full_export', 'waiting')
+    assert load_exporter.max_rec_chunk == new_rc_val
+    assert load_exporter.max_del_chunk == new_dc_val
+    assert new_rc_val != type(load_exporter).max_rec_chunk
+    assert new_dc_val != type(load_exporter).max_del_chunk
+
+
+@pytest.mark.parametrize('etype_code', [
+    'BibsToSolr',
+    'EResourcesToSolr',
+    'ItemsToSolr',
+    'ItemStatusesToSolr',
+    'ItypesToSolr',
+    'LocationsToSolr'])
+def test_max_chunk_settings_defaults(etype_code, settings, new_exporter):
+    """
+    If NOT using EXPORTER_MAX_RC_CONFIG and EXPORTER_MAX_DC_CONFIG
+    settings, the `max_rec_chunk` and `max_del_chunk` values for a
+    given job should come from the exporter class.
+    """
+    settings.EXPORTER_MAX_RC_CONFIG = {}
+    settings.EXPORTER_MAX_DC_CONFIG = {}
+    load_exporter = new_exporter(etype_code, 'full_export', 'waiting')
+    assert load_exporter.max_rec_chunk == type(load_exporter).max_rec_chunk
+    assert load_exporter.max_del_chunk == type(load_exporter).max_del_chunk
+

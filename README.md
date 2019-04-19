@@ -899,6 +899,19 @@ circumstances. If the variable is not set, the default value is used.
     will match up with a `config.properties` file in
     `<project_root>/solr/solrmarc`. (See "SolrMarc Configuration," below,
     for more information.) Default is `dev_config.properties`.
+    * `EXPORTER_MAX_RC_CONFIG` and `EXPORTER_MAX_DC_CONFIG` &mdash; These two
+    settings allow you to set overrides for the `max_rec_chunk` and
+    `max_del_chunk` attributes of `Exporter` objects. They are totally
+    optional; by default whatever value is set on the class is what will be
+    used, if a specific override is not set. However, depending on how your
+    development, production, staging, and testing environments are set up,
+    you may need (e.g.) your development settings scaled back compared to
+    your staging and production settings. This lets you configure that on
+    an env-specific basis. Do note that the convention used for the settings
+    as in your .env file looks like this:
+
+          EXPORTER_MAX_RC_CONFIG="ItemsToSolr:1000,BibsToSolr:500"
+
 * Production Settings &mdash; These are settings you'll probably only need to
 set in production. If your development environment is very different than
 the default setup, then you may need to set these there as well.
