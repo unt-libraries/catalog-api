@@ -8,7 +8,7 @@ import logging
 import re
 
 from base import models
-from export.sierra2marc import S2MarcBatch
+from export.sierra2marc import S2MarcBatch, S2MarcError
 from utils import helpers
 
 
