@@ -1,11 +1,11 @@
-'''
+"""
 Default batch Exporters are defined here.
 
 ExportType entities translate 1:1 to Exporter subclasses. For each
 ExportType you define, you're going to have a class defined here that
 inherits from the base Exporter class. Your ExportType.code should
 match the class name that handles that ExportType.
-'''
+"""
 from __future__ import unicode_literals
 import logging
 import re
@@ -20,51 +20,48 @@ logger = logging.getLogger('sierra.custom')
 
 
 class AllMetadataToSolr(exporter.Exporter):
-    '''
+    """
     Loads ALL metadata-type data into Solr, as defined by the
     EXPORTER_METADATA_TYPE_REGISTRY setting in your Django settings.
-    '''
-    hs_conn = None
-    index_class = None
+    """
+    child_etype_names = settings.EXPORTER_METADATA_TYPE_REGISTRY
     
     def __init__(self, *args, **kwargs):
-        c_name = self.__class__.__name__
-        self.hs_conn = settings.EXPORTER_HAYSTACK_CONNECTIONS[c_name]
-        self.index_class = models.ExportType.objects.get(
-            pk=settings.EXPORTER_METADATA_TYPE_REGISTRY[0])\
-                .get_exporter_class().index_class
         super(AllMetadataToSolr, self).__init__(*args, **kwargs)
+        self.child_instances = {}
+        for etype_name in self.child_etype_names:
+            etype = models.ExportType.objects.get(pk=etype_name)
+            etype_class = etype.get_exporter_class()
+            exp_inst = etype_class(self.instance.pk, self.export_filter,
+                                   self.export_type, self.options)
+            self.child_instances[etype_name] = exp_inst
 
     def get_records(self):
-        records = []
-        for exporter_name in settings.EXPORTER_METADATA_TYPE_REGISTRY:
-            export_type = models.ExportType.objects.get(pk=exporter_name)
-            exporter = export_type.get_exporter_class()(self.instance.pk,
-                self.export_filter, self.export_type, self.options)
-            records.extend(exporter.get_records())
-        return records
+        return { k: v.get_records() for k, v in self.child_instances.items() }
     
     def export_records(self, records, vals={}):
-        for exporter_name in settings.EXPORTER_METADATA_TYPE_REGISTRY:
-            export_type = models.ExportType.objects.get(pk=exporter_name)
-            exporter = export_type.get_exporter_class()(self.instance.pk,
-                self.export_filter, self.export_type, self.options)
-            exporter.export_records(records)
+        for etype_name in self.child_etype_names:
+            vals[etype_name] = vals.get(etype_name, {})
+            exp_inst = self.child_instances[etype_name]
+            et_vals = exp_inst.export_records(records[etype_name],
+                                              vals=vals[etype_name])
+            vals[etype_name].update(et_vals)
         return vals
 
     def final_callback(self, vals={}, status='success'):
-        self.log('Info', 'Committing updates to Solr...')
-        index = self.index_class()
-        index.commit(using=self.hs_conn)
+        for etype_name in self.child_etype_names:
+            et_vals = vals.get(etype_name, {})
+            exp_inst = self.child_instances[etype_name]
+            exp_inst.final_callback(vals=et_vals, status=status)
 
 
 class AllToSolr(exporter.Exporter):
-    '''
+    """
     Uses RecordMetadata to load ALL major III record types into Solr.
     Set up the EXPORTER_ALL_TYPE_REGISTRY setting in your Django
     settings to register what export jobs correspond with which record
     types. Only registered record types will be loaded.
-    '''
+    """
     record_filter = []
     select_related = [
         'record_type'
@@ -72,7 +69,7 @@ class AllToSolr(exporter.Exporter):
     model_name = 'RecordMetadata'
 
     def __init__(self, *args, **kwargs):
-        '''
+        """
         We want prefetch_related, record_filter, and deletion_filter 
         for this to be conglomerates of each of those attributes
         in whatever processes are registered, so here is where we set
@@ -82,7 +79,7 @@ class AllToSolr(exporter.Exporter):
         RecordMetadata, we need to ensure that we add the needed
         xrecord_set__ prefixes and remove any references to this model,
         e.g. record_metadata.
-        '''
+        """
         super(AllToSolr, self).__init__(*args, **kwargs)
         def model_set(p_class, fieldname='', add_set=True):
             if fieldname == 'record_metadata':

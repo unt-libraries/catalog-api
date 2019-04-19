@@ -82,9 +82,14 @@ class Exporter(object):
     you're loading into memory at once (e.g. with prefetch_related),
     and how many parallel chunks you're allowing, chunks greater than
     5000 could use up all your memory. Keep an eye on it when you're
-    testing your export jobs, and adjust those numbers accordingly for
-    your subclass.
-    
+    testing your export jobs, and adjust those numbers accordingly.
+    Needs will also likely vary by environment; if developing via the
+    Docker env, your dev containers may lack power and memory that you
+    have in production. You can override these settings for ANY
+    Exporter class via the settings file or the .env file. The values
+    set in the class end up serving as the defaults, which you can
+    override if you want to on an env-specific basis. See the base
+    settings module's EXPORTER_MAX_*_CONFIG settings for more info.
     '''
     record_filter = []
     deletion_filter = []
@@ -106,12 +111,17 @@ class Exporter(object):
         etc.) Log_label is the label used in log messages to show the
         source of the message.
         '''
+        my_name = self.__class__.__name__
+        max_rc_override = settings.EXPORTER_MAX_RC_CONFIG.get(my_name, False)
+        max_dc_override = settings.EXPORTER_MAX_DC_CONFIG.get(my_name, False)
+        self.max_rec_chunk = max_rc_override or type(self).max_rec_chunk
+        self.max_del_chunk = max_dc_override or type(self).max_del_chunk
         self.instance = ExportInstance.objects.get(pk=instance_pk)
         self.status = 'unknown'
         self.export_filter = export_filter
         self.export_type = export_type
         self.options = options
-        self.log_label = log_label if log_label else self.__class__.__name__
+        self.log_label = log_label if log_label else my_name
         if export_filter == 'last_export':
             try:
                 latest = ExportInstance.objects.filter(
@@ -131,8 +141,9 @@ class Exporter(object):
         self.logger = logger
 
 
-    def _base_get_records(self, model_name, filters, select_related=None,
-                          prefetch_related=[], fail_on_zero=False):
+    def _base_get_records(self, model_name, filters, is_deletion=False,
+                          select_related=None, prefetch_related=[],
+                          fail_on_zero=False):
         '''
         Default method for getting records using self.export_filter.
         Returns the queryset. Generally you won't want to override this
@@ -145,10 +156,12 @@ class Exporter(object):
         get_records and get_deletions methods that don't use this.
         '''
         model = getattr(sierra_models, model_name)
+        options = self.options.copy()
+        options['is_deletion'] = is_deletion
         try:
             # do base record filter.
-            records = model.objects.filter_by(self.export_filter, 
-                        options=self.options)
+            records = model.objects.filter_by(self.export_filter,
+                                              options=options)
             
             # do additional filters, if provided.
             if filters:
@@ -216,7 +229,7 @@ class Exporter(object):
         '''
         try:
             in_records = self._base_get_records(self.model_name, 
-                            self.record_filter,
+                            self.record_filter, is_deletion=False,
                             select_related=self.select_related,
                             prefetch_related=self.prefetch_related)
         except ExportError:
@@ -232,7 +245,8 @@ class Exporter(object):
         if self.deletion_filter:
             try:
                 deletions = self._base_get_records('RecordMetadata',
-                                                   self.deletion_filter)
+                                                   self.deletion_filter,
+                                                   is_deletion=True)
             except ExportError:
                 raise
             return deletions
@@ -288,4 +302,3 @@ class Exporter(object):
         been broken up into tasks.
         '''
         pass
-
