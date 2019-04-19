@@ -4,11 +4,10 @@ Exporters module for catalog-api `blacklight` app, alpha-solrmarc.
 
 from __future__ import unicode_literals
 import logging
-from collections import OrderedDict
 
 from export import models as em
 from export.exporter import Exporter
-from export.basic_exporters import collapse_vals
+from export.basic_exporters import combine_table_lists
 from .exporters import BaseSolrMarcBibsToSolr, BaseBibsDownloadMarc
 
 
@@ -29,8 +28,12 @@ class BibsToAlphaSmAndAttachedToSolr(Exporter):
         super(BibsToAlphaSmAndAttachedToSolr, self).__init__(*args, **kwargs)
         attached_et = em.ExportType.objects.get(pk='BibsAndAttachedToSolr')
         to_alpha_sm_et = em.ExportType.objects.get(pk='BibsToAlphaSolrmarc')
-        bibs_and_attached_to_solr = attached_et.get_exporter_class()
-        bibs_to_alpha_solrmarc = to_alpha_sm_et.get_exporter_class()
+        attached_class = attached_et.get_exporter_class()
+        to_alpha_sm_class = to_alpha_sm_et.get_exporter_class()
+        args = (self.instance.pk, self.export_filter, self.export_type,
+                self.options)
+        bibs_and_attached_to_solr = attached_class(*args)
+        bibs_to_alpha_solrmarc = to_alpha_sm_class(*args)
         children = (bibs_and_attached_to_solr, bibs_to_alpha_solrmarc)
         prefetch = self.combine_table_lists('prefetch_related', children)
         select = self.combine_table_lists('select_related', children)
@@ -43,13 +46,11 @@ class BibsToAlphaSmAndAttachedToSolr(Exporter):
 
     def combine_table_lists(self, tlist_attr, exporters):
         table_lists = [getattr(exp, tlist_attr) for exp in exporters]
-        combined_dupes = sorted([t for tlist in table_lists for t in tlist])
-        return OrderedDict.fromkeys(combined_dupes).keys()
+        return combine_table_lists(table_lists)
 
     def _do_task(self, task, vals, *args, **kwargs):
         for et in ('bibs_and_attached_to_solr', 'bibs_to_alpha_solrmarc'):
-            instance = getattr(self, et)(self.instance.pk, self.export_filter,
-                                         self.export_type, self.options)
+            instance = getattr(self, et)
             kwargs['vals'] = vals.get(et, {})
             new_vals = getattr(instance, task)(*args, **kwargs) or {}
             kwargs['vals'].update(new_vals)
@@ -63,7 +64,4 @@ class BibsToAlphaSmAndAttachedToSolr(Exporter):
         return self._do_task('delete_records', vals, records)
 
     def final_callback(self, vals={}, status='success'):
-        if type(vals) is list:
-            vals = collapse_vals(vals)
-
         self._do_task('final_callback', vals, status=status)

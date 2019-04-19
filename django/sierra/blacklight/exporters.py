@@ -130,7 +130,7 @@ class BaseSolrMarcBibsToSolr(BibsToSolr):
                     if re.match(r'^WARN', line):
                         self.log('Warning', line, log_label)
                     elif re.match(r'^ERROR', line):
-                        self.log('Error', line, log_label)
+                        self.log('Warning', line, log_label)
 
         os.remove(filepath)
         return vals
