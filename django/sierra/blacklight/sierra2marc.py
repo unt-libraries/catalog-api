@@ -108,14 +108,14 @@ class S2MarcBatchBlacklightSolrMarc(S2MarcBatch):
         for item_link in r.bibrecorditemrecordlink_set.all():
             item = item_link.item_record
             try:
-                item_loc = item.location.code
-            except models.Location.DoesNotExist:
-                item_loc = 'none'
+                item_lcode = item.location.code
+            except (models.Location.DoesNotExist, AttributeError):
+                item_lcode = 'none'
             item_field = pymarc.field.Field(
                 tag='908',
                 indicators=[' ', ' '],
                 subfields=['a', item.record_metadata.get_iii_recnum(True),
-                           'b', str(item.pk), 'c', item_loc]
+                           'b', str(item.pk), 'c', item_lcode]
             )
             marc_record.add_ordered_field(item_field)
         # For each call number in the record, add a 909 field.
