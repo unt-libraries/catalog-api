@@ -5,7 +5,7 @@ for the shelflist app.
 from haystack import indexes
 
 from base import search_indexes
-from utils import solr, redisobjs
+from utils import solr
 
 
 class ShelflistItemIndex(search_indexes.ItemIndex):
@@ -32,7 +32,6 @@ class ShelflistItemIndex(search_indexes.ItemIndex):
     inventory_date = indexes.DateTimeField(null=True)
     user_data_fields = ('shelf_status', 'inventory_notes', 'flags',
                         'inventory_date')
-    redis_shelflist_prefix = 'shelflistitem_manifest'
     solr_shelflist_sort_criteria = ['call_number_type asc',
                                     'call_number_sort asc',
                                     'volume_sort asc',
@@ -90,21 +89,3 @@ class ShelflistItemIndex(search_indexes.ItemIndex):
                    'sort': self.solr_shelflist_sort_criteria }
         hits = conn.search(rows=0, **params).hits
         return [i['id'] for i in conn.search(rows=hits, **params)]
-
-    def save_location_manifest_to_redis(self, location_code, manifest):
-        """
-        Save the given `manifest` (sorted list of item IDs) for the
-        given `location_code` to Redis.
-        """
-        r = redisobjs.RedisObject(self.redis_shelflist_prefix, location_code)
-        r.set(manifest)
-
-    def update_shelflist_item_manifests(self, location_codes, using=None):
-        """
-        Update the manifest of shelflist items (in Redis) for each of
-        the provided `location_codes`, based on the current content of
-        the Solr index (optionally specified here via `using`).
-        """
-        for location_code in location_codes:
-            manifest = self.get_location_manifest(location_code)
-            self.save_location_manifest_to_redis(location_code, manifest)

@@ -12,6 +12,7 @@ import logging
 
 from export import exporter, basic_exporters as exporters
 from shelflist.search_indexes import ShelflistItemIndex
+from utils import solr, redisobjs
 
 
 # set up logger, for debugging
@@ -27,6 +28,7 @@ class ItemsToSolr(exporters.ItemsToSolr):
     )
     max_rec_chunk = 500
     app_name = 'shelflist'
+    redis_shelflist_prefix = 'shelflistitem_manifest'
 
     def export_records(self, records, vals=None):
         vals = super(ItemsToSolr, self).export_records(records, vals)
@@ -48,7 +50,9 @@ class ItemsToSolr(exporters.ItemsToSolr):
         vals_manager = self.spawn_vals_manager(vals)
         seen_lcodes = vals_manager.get('seen_lcodes')
         if seen_lcodes:
-            self.log('Info', 'Creating shelflist item manifests for location{}'
-                             ' {}'.format('s' if len(seen_lcodes) > 1 else '', 
-                                          ', '.join(seen_lcodes)))
-            self.indexes['Items'].update_shelflist_item_manifests(seen_lcodes)
+            self.log('Info', 'Creating shelflist item manifests for: {}'
+                             ''.format(', '.join(seen_lcodes)))
+            for lcode in seen_lcodes:
+                manifest = self.indexes['Items'].get_location_manifest(lcode)
+                r = redisobjs.RedisObject(self.redis_shelflist_prefix, lcode)
+                r.set(manifest)

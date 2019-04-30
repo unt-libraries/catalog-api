@@ -145,3 +145,9 @@ def test_export_delete_records(et_code, rset_code, rectypes, groups,
         assert_records_are_indexed(index, records)
     process_records(exporter, 'delete_records', records, groups=groups)
     assert_deleted_records_are_not_indexed(exporter, records)
+
+
+@pytest.mark.shelflist
+def test_export_shelflist_manifest():
+    pass
+
