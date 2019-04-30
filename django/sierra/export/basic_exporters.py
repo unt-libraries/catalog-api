@@ -258,7 +258,7 @@ class HoldingUpdate(CompoundMixin, Exporter):
             # updating Redis until the callback runs.
             s = solr.Queryset().filter(record_number=er_rec_num)
             if s.count() > 0:
-                rec_queue = holdings.get(er_rec_num, {})
+                rec_queue = h_vals.get(er_rec_num, {})
                 rec_append_list = rec_queue.get('append', [])
                 rec_delete_list = rec_queue.get('delete', [])
 
