@@ -11,6 +11,7 @@ import logging
 import re
 import subprocess
 import os
+from collections import OrderedDict
 
 from django.conf import settings
 
@@ -83,12 +84,16 @@ class ItemsToSolr(ToSolrExporter):
         'record_metadata__varfield_set',
         'checkout',
         'bibrecorditemrecordlink_set',
+        'bibrecorditemrecordlink_set__bib_record',
         'bibrecorditemrecordlink_set__bib_record__record_metadata',
+        'bibrecorditemrecordlink_set__bib_record__record_metadata'
+            '__record_type',
         'bibrecorditemrecordlink_set__bib_record__record_metadata'
             '__varfield_set',
         'bibrecorditemrecordlink_set__bib_record__bibrecordproperty_set'
     ]
-    select_related = ['record_metadata', 'location', 'itype']
+    select_related = ['record_metadata', 'record_metadata__record_type',
+                      'location', 'itype', 'item_status']
 
 
 class EResourcesToSolr(ToSolrExporter):
@@ -108,12 +113,20 @@ class EResourcesToSolr(ToSolrExporter):
         }
     ]
     prefetch_related = [
+        'access_provider__record_metadata__varfield_set',
+        'holding_records',
+        'holding_records__bibrecord_set',
+        'holding_records__bibrecord_set__record_metadata',
+        'holding_records__bibrecord_set__record_metadata__varfield_set',
+        'holding_records__record_metadata',
+        'holding_records__record_metadata__record_type',
         'record_metadata__varfield_set',
         'resourcerecordholdingrecordrelatedlink_set',
         'resourcerecordholdingrecordrelatedlink_set__holding_record__'\
             'bibrecord_set'
     ]
-    select_related = ['record_metadata']
+    select_related = ['record_metadata', 'record_metadata__record_type',
+                      'access_provider', 'access_provider__record_metadata']
 
     max_rec_chunk = 20
 
@@ -340,7 +353,7 @@ class BibsDownloadMarc(Exporter):
     """
     Defines processes that convert Sierra bib records to MARC.
     """
-    max_rec_chunk = 1000
+    max_rec_chunk = 2000
     parallel = False
     model = sierra_models.BibRecord
     prefetch_related = [
@@ -348,10 +361,12 @@ class BibsDownloadMarc(Exporter):
         'bibrecorditemrecordlink_set',
         'bibrecorditemrecordlink_set__item_record',
         'bibrecorditemrecordlink_set__item_record__record_metadata',
+        'bibrecorditemrecordlink_set__item_record__record_metadata'
+            '__record_type',
         'bibrecordproperty_set',
         'bibrecordproperty_set__material__materialpropertyname_set'
     ]
-    select_related = ['record_metadata']
+    select_related = ['record_metadata', 'record_metadata__record_type']
         
     def export_records(self, records, vals=None):
         vals_manager = self.spawn_vals_manager(vals)
@@ -404,16 +419,15 @@ class BibsToSolr(CompoundMixin, ToSolrExporter):
             'record_type__code': 'b'
         }
     ]
-    prefetch_related = [
-        'record_metadata__varfield_set',
-        'bibrecorditemrecordlink_set',
-        'bibrecorditemrecordlink_set__item_record',
-        'bibrecorditemrecordlink_set__item_record__record_metadata',
-        'bibrecordproperty_set',
-        'bibrecordproperty_set__material__materialpropertyname_set'
-    ]
-    select_related = ['record_metadata']
-    max_rec_chunk = 1000
+    max_rec_chunk = 2000
+
+    @property
+    def prefetch_related(self):
+        return self.children['BibsDownloadMarc'].prefetch_related
+
+    @property
+    def select_related(self):
+        return self.children['BibsDownloadMarc'].select_related
     
     def export_records(self, records, vals=None):
         vals_manager = self.spawn_vals_manager(vals)
@@ -448,7 +462,7 @@ class BibsToSolr(CompoundMixin, ToSolrExporter):
                     if re.match(r'^WARN', line):
                         self.log('Warning', line)
                     elif re.match(r'^ERROR', line):
-                        self.log('Error', line)
+                        self.log('Warning', line)
 
             # if all went well, we now try to index the MARC record
             try:
@@ -474,6 +488,9 @@ class ItemsBibsToSolr(AttachedRecordExporter):
     Child = AttachedRecordExporter.Child
 
     class BibChild(Child):
+
+        rel_prefix = 'bibrecorditemrecordlink_set__bib_record'
+
         def derive_records(self, parent_record):
             bib_links = parent_record.bibrecorditemrecordlink_set.all()
             return [link.bib_record for link in bib_links]
@@ -481,48 +498,23 @@ class ItemsBibsToSolr(AttachedRecordExporter):
     children_config = (Child('ItemsToSolr'), BibChild('BibsToSolr'))
     model = sierra_models.ItemRecord
 
-    @property
-    def prefetch_related(self):
-        return self.main_child.prefetch_related + [
-            'bibrecorditemrecordlink_set__bib_record'
-                '__bibrecorditemrecordlink_set',
-            'bibrecorditemrecordlink_set__bib_record'
-                '__bibrecorditemrecordlink_set__item_record',
-            'bibrecorditemrecordlink_set__bib_record'
-                '__bibrecorditemrecordlink_set__item_record__record_metadata'
-        ]
-
 
 class BibsAndAttachedToSolr(AttachedRecordExporter):
     """
     Exports bib records based on the provided export_filter using the
     existing BibsToSolr job and then grabs any attached items and
-    holdings and exports them using the specified export processes.
+    exports them using the specified export processes.
     """
     Child = AttachedRecordExporter.Child
 
     class ItemChild(Child):
+
+        rel_prefix = 'bibrecorditemrecordlink_set__item_record'
+
         def derive_records(self, parent_record):
             item_links = parent_record.bibrecorditemrecordlink_set.all()
             return [link.item_record for link in item_links]
 
-    class HoldingChild(Child):
-        def derive_records(self, parent_record):
-            return [h for h in parent_record.holding_records.all()]
-
-    children_config = (Child('BibsToSolr'), ItemChild('ItemsToSolr'),
-                       HoldingChild('HoldingUpdate'))
+    children_config = (Child('BibsToSolr'), ItemChild('ItemsToSolr'))
     model = sierra_models.BibRecord
-    max_rec_chunk = 100
-
-    @property
-    def prefetch_related(self):
-        return self.main_child.prefetch_related + [
-            'holding_records',
-            'holding_records__bibrecord_set',
-            'holding_records__bibrecord_set__record_metadata__varfield_set',
-            'holding_records__resourcerecord_set',
-            'holding_records__resourcerecord_set__record_metadata'
-                '__varfield_set',
-            'holding_records__resourcerecord_set__holding_records'
-        ]
+    max_rec_chunk = 500

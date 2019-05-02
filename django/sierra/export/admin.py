@@ -6,13 +6,13 @@ from django.utils import timezone as tz
 
 from .models import ExportType, ExportFilter, ExportInstance, Status
 from .forms.modelforms import ExportForm
-from .tasks import trigger_export
+from .tasks import export_dispatch
 
 def process_export_form(request):
-    '''
+    """
     Takes a request object and validates/parses/processes POSTed form
     data from an ExportForm. Returns the validated form object.
-    '''
+    """
     form = ExportForm(request.POST)
     post = request.POST
     if form.is_valid():
@@ -21,7 +21,7 @@ def process_export_form(request):
         export_instance.user = request.user
         export_instance.filter_params = params
         export_instance.timestamp = tz.now()
-        export_instance.status = Status.objects.get(pk='in_progress')
+        export_instance.status = Status.objects.get(pk='waiting')
         export_instance.save()
     return form
 
@@ -68,8 +68,8 @@ class ExportInstanceAdmin(admin.ModelAdmin):
                 export_type = data['export_type'].pk
                 del data['export_filter']
                 del data['export_type']
-                trigger_export(form.instance, export_filter,
-                               export_type, data)
+                export_dispatch(form.instance.pk, export_filter, export_type,
+                                data)
                 reverse_url = 'admin:{}_{}_change'.format(
                     self.model._meta.app_label,
                     self.model._meta.model_name

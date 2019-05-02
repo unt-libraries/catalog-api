@@ -71,6 +71,7 @@ def test_export_get_records(et_code, rset_code, basic_exporter_class,
     expclass = basic_exporter_class(et_code)
     exporter = new_exporter(expclass, 'full_export', 'waiting')
     db_records = get_records(exporter)
+    print exporter.prefetch_related
     assert len(db_records) > 0
     assert all([rec in db_records for rec in record_sets[rset_code]])
 
@@ -191,3 +192,51 @@ def test_tosolrexporter_index_update_errors(basic_exporter_class, record_sets,
     assert_records_are_indexed(exporter.indexes['Items'], records[1:])
     assert len(exporter.indexes['Items'].last_batch_errors) == 1
 
+
+@pytest.mark.parametrize('et_code', [
+    'BibsToSolr',
+    'EResourcesToSolr',
+    'ItemsToSolr',
+    'ItemStatusesToSolr',
+    'ItypesToSolr',
+    'LocationsToSolr'])
+def test_max_chunk_settings_overrides(et_code, settings, basic_exporter_class,
+                                      new_exporter):
+    """
+    Using EXPORTER_MAX_RC_CONFIG and EXPORTER_MAX_DC_CONFIG settings
+    should override values set on the class when an exporter is
+    instantiated.
+    """
+    expclass = basic_exporter_class(et_code)
+    test_et_code = expclass.__name__
+    new_rc_val, new_dc_val = 77777, 88888
+    settings.EXPORTER_MAX_RC_CONFIG[test_et_code] = new_rc_val
+    settings.EXPORTER_MAX_DC_CONFIG[test_et_code] = new_dc_val
+    
+    exporter = new_exporter(expclass, 'full_export', 'waiting')
+    assert exporter.max_rec_chunk == new_rc_val
+    assert exporter.max_del_chunk == new_dc_val
+    assert new_rc_val != expclass.max_rec_chunk
+    assert new_dc_val != expclass.max_del_chunk
+
+
+@pytest.mark.parametrize('et_code', [
+    'BibsToSolr',
+    'EResourcesToSolr',
+    'ItemsToSolr',
+    'ItemStatusesToSolr',
+    'ItypesToSolr',
+    'LocationsToSolr'])
+def test_max_chunk_settings_defaults(et_code, settings, basic_exporter_class,
+                                     new_exporter):
+    """
+    If NOT using EXPORTER_MAX_RC_CONFIG and EXPORTER_MAX_DC_CONFIG
+    settings, the `max_rec_chunk` and `max_del_chunk` values for a
+    given job should come from the exporter class.
+    """
+    settings.EXPORTER_MAX_RC_CONFIG = {}
+    settings.EXPORTER_MAX_DC_CONFIG = {}
+    expclass = basic_exporter_class(et_code)
+    exporter = new_exporter(expclass, 'full_export', 'waiting')
+    assert exporter.max_rec_chunk == expclass.max_rec_chunk
+    assert exporter.max_del_chunk == expclass.max_del_chunk

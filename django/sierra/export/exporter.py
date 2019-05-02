@@ -26,6 +26,7 @@ from .models import ExportInstance, ExportType, Status
 class ExportError(Exception):
     pass
 
+
 class Exporter(object):
     """
     Exporter class. Subclass this to define your export jobs. Your
@@ -85,8 +86,14 @@ class Exporter(object):
     you're loading into memory at once (e.g. with prefetch_related),
     and how many parallel chunks you're allowing, chunks greater than
     5000 could use up all your memory. Keep an eye on it when you're
-    testing your export jobs, and adjust those numbers accordingly for
-    your subclass.
+    testing your export jobs, and adjust those numbers accordingly.
+    Needs will also likely vary by environment; if developing via the
+    Docker env, your dev containers may lack power and memory that you
+    have in production. You can override these settings for ANY
+    Exporter class via the settings file or the .env file. The values
+    set in the class end up serving as the defaults, which you can
+    override if you want to on an env-specific basis. See the base
+    settings module's EXPORTER_MAX_*_CONFIG settings for more info.
     """
 
     class ValsManager(object):
@@ -130,13 +137,8 @@ class Exporter(object):
 
         It's up to the parent Exporter class to make sure that the
         appropriate methods are used for the appropriate data types and
-        that merges are handled appropriately. Remember that parallel
-        tasks collect all `vals` dicts from the tasks and then provide
-        them to the `final_callback` method as a list, while serial
-        tasks pass `vals` dicts from task to task, accumulating values,
-        and pass the final vals dict (from the last task) to the
-        `final_callback` method. Also bear in mind that merges BY
-        DEFAULT are idempotent, because sequences are merged and
+        that merges are handled appropriately. Bear in mind that merges
+        BY DEFAULT are idempotent, because sequences are merged and
         uniqueness is enforced. But if you override that behavior, then
         you may lose idempotency. (And you could end up with a bunch of
         duplicate values if you merge carelessly.)
@@ -286,6 +288,10 @@ class Exporter(object):
         etc.) Log_label is the label used in log messages to show the
         source of the message.
         """
+        max_rc_override = settings.EXPORTER_MAX_RC_CONFIG.get(export_type, 0)
+        max_dc_override = settings.EXPORTER_MAX_DC_CONFIG.get(export_type, 0)
+        self.max_rec_chunk = max_rc_override or type(self).max_rec_chunk
+        self.max_del_chunk = max_dc_override or type(self).max_del_chunk
         self.instance = ExportInstance.objects.get(pk=instance_pk)
         self.status = 'unknown'
         self.export_filter = export_filter
@@ -311,8 +317,9 @@ class Exporter(object):
         self.console_logger = logging.getLogger('sierra.custom')
 
 
-    def _base_get_records(self, model, filters, select_related=None,
-                          prefetch_related=[], fail_on_zero=False):
+    def _base_get_records(self, model, filters, is_deletion=False,
+                          select_related=None, prefetch_related=[],
+                          fail_on_zero=False):
         """
         Default method for getting records using self.export_filter.
         Returns the queryset. Generally you won't want to override this
@@ -324,10 +331,13 @@ class Exporter(object):
         If this is not the case, you'll need to write your own
         get_records and get_deletions methods that don't use this.
         """
+        options = self.options.copy()
+        options['is_deletion'] = is_deletion
+
         try:
             # do base record filter.
-            records = model.objects.filter_by(self.export_filter, 
-                        options=self.options)
+            records = model.objects.filter_by(self.export_filter,
+                                              options=options)
             
             # do additional filters, if provided.
             if filters:
@@ -403,14 +413,10 @@ class Exporter(object):
         _base_get_records() method to make this simple. Otherwise 
         you'll have to override this (get_records) in your subclass.
         """
-        try:
-            in_records = self._base_get_records(self.model,
-                            self.record_filter,
-                            select_related=self.select_related,
-                            prefetch_related=self.prefetch_related)
-        except ExportError:
-            raise
-        return in_records
+        return self._base_get_records(self.model, self.record_filter,
+                                      is_deletion=False,
+                                      select_related=self.select_related,
+                                      prefetch_related=self.prefetch_related)
 
     def get_deletions(self):
         """
@@ -420,7 +426,8 @@ class Exporter(object):
         """
         if self.deletion_filter:
             return self._base_get_records(sierra_models.RecordMetadata,
-                                          self.deletion_filter)
+                                          self.deletion_filter,
+                                          is_deletion=True)
         else:
             return None
 
@@ -637,6 +644,8 @@ class CompoundMixin(object):
 
     class Child(object):
 
+        rel_prefix = ''
+
         def __init__(self, name, export_type_code=None, expclass=None):
             self.name = name
             self.export_type_code = export_type_code or name
@@ -690,6 +699,25 @@ class CompoundMixin(object):
                 child_rsets[name].extend(child.derive_records(record))
         return {k: list(set(v)) for k, v in child_rsets.items()}
 
+    def combine_lists(self, *lists):
+        combined_dupes = sorted([item for l in lists for item in l])
+        return OrderedDict.fromkeys(combined_dupes).keys()
+
+    def combine_related(self, which_list, which_children=None):
+        """
+        This is a helper method for combining lists of relations (like
+        select_related or prefetch_related) from one or more children.
+        """
+        rel_lists = []
+        for child in which_children or self.children.values():
+            rel_prefix = child._config.rel_prefix
+            base_list = getattr(child, which_list)
+            if rel_prefix:
+                base_list = ['{}__{}'.format(rel_prefix, r) for r in base_list]
+            rel_lists.append(base_list)
+        return self.combine_lists(*rel_lists)
+        
+
 
 class AttachedRecordExporter(CompoundMixin, Exporter):
     """
@@ -708,12 +736,30 @@ class AttachedRecordExporter(CompoundMixin, Exporter):
         return [c[1] for c in self.children.items()[1:]]
 
     @property
-    def prefetch_related(self):
-        return self.main_child.prefetch_related
+    def select_related(self):
+        """
+        With main and attached records, using select_related generally
+        only applies to the main (parent) child record type; attached
+        records are related via a base M2M relationship, so those
+        automatically become part of prefetch_related.
+        """
+        return self.main_child.select_related
 
     @property
-    def select_related(self):
-        return self.main_child.select_related
+    def prefetch_related(self):
+        """
+        With main and attached records, prefetch_related lists can be
+        generated by combining the select_related lists for attached
+        children and prefetch_related lists for all children.
+        """
+        try:
+            self._prefetch_related = self._prefetch_related
+        except AttributeError:
+            attached_sr = self.combine_related('select_related',
+                                               self.attached_children)
+            all_pr = self.combine_related('prefetch_related')
+            self._prefetch_related = self.combine_lists(all_pr, attached_sr)
+        return self._prefetch_related
 
     @property
     def deletion_filter(self):
@@ -721,7 +767,6 @@ class AttachedRecordExporter(CompoundMixin, Exporter):
 
     def export_records(self, records, vals=None):
         vals_manager = self.spawn_vals_manager(vals)
-        vals_manager.set('job_type', 'export')
         record_sets = self.generate_record_sets(records)
         for name, child in self.children.items():
             rset = record_sets[name]
@@ -731,15 +776,11 @@ class AttachedRecordExporter(CompoundMixin, Exporter):
 
     def delete_records(self, records, vals=None):
         vals_manager = self.spawn_vals_manager(vals)
-        vals_manager.set('job_type', 'delete')
         return self.main_child.delete_records(records, vals_manager.vals)
 
     def final_callback(self, vals=None, status='success'):
         vals_manager = self.spawn_vals_manager(vals)
-        if vals_manager.get('job_type') == 'export':
-            for name, child in self.children.items():
-                child_vals = child.final_callback(vals_manager.vals, status)
-                vals_manager = self.spawn_vals_manager(child_vals)
-            return vals_manager.vals
-        else:
-            return self.main_child.final_callback(vals_manager.vals, status)
+        for name, child in self.children.items():
+            child_vals = child.final_callback(vals_manager.vals, status)
+            vals_manager = self.spawn_vals_manager(child_vals)
+        return vals_manager.vals
