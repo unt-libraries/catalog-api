@@ -1,11 +1,11 @@
-'''
+"""
 Exporter module. Contains the class definition for the Exporter class,
 which you can subclass to create your own Exporters to export data out
 of Sierra.
 
 Define your subclasses in a separate module and then hook it into your
 project using the EXPORTER_MODULE_REGISTRY Django setting.
-'''
+"""
 
 from __future__ import unicode_literals
 
@@ -16,6 +16,7 @@ from django.utils import timezone as tz
 from django.conf import settings
 
 from utils import helpers
+from utils import dict_merge
 from base import models as sierra_models
 from .models import ExportInstance, ExportType, Status
 
@@ -23,8 +24,9 @@ from .models import ExportInstance, ExportType, Status
 class ExportError(Exception):
     pass
 
+
 class Exporter(object):
-    '''
+    """
     Exporter class. Subclass this to define your export jobs. Your
     class names should match exactly 1:1 with the ExportType.codes
     you've defined.
@@ -90,19 +92,18 @@ class Exporter(object):
     set in the class end up serving as the defaults, which you can
     override if you want to on an env-specific basis. See the base
     settings module's EXPORTER_MAX_*_CONFIG settings for more info.
-    '''
+    """
     record_filter = []
     deletion_filter = []
     prefetch_related = []
     select_related = None
     max_rec_chunk = 3000
     max_del_chunk = 1000
-    parallel = True
     model_name = ''
 
     def __init__(self, instance_pk, export_filter, export_type, options={},
                  log_label=''):
-        '''
+        """
         Arguments: instance_pk is the pk for the export_instance
         attached to the export job; export_filter is the export_filter
         id string for this job; export_type is the export_type id
@@ -110,7 +111,7 @@ class Exporter(object):
         containing specs for export_filter (date range, record range,
         etc.) Log_label is the label used in log messages to show the
         source of the message.
-        '''
+        """
         my_name = self.__class__.__name__
         max_rc_override = settings.EXPORTER_MAX_RC_CONFIG.get(my_name, False)
         max_dc_override = settings.EXPORTER_MAX_DC_CONFIG.get(my_name, False)
@@ -144,7 +145,7 @@ class Exporter(object):
     def _base_get_records(self, model_name, filters, is_deletion=False,
                           select_related=None, prefetch_related=[],
                           fail_on_zero=False):
-        '''
+        """
         Default method for getting records using self.export_filter.
         Returns the queryset. Generally you won't want to override this
         in your subclass--override get_records and get_deletions
@@ -154,7 +155,7 @@ class Exporter(object):
         record types and have the benefit of the RecordMetadata table.
         If this is not the case, you'll need to write your own
         get_records and get_deletions methods that don't use this.
-        '''
+        """
         model = getattr(sierra_models, model_name)
         options = self.options.copy()
         options['is_deletion'] = is_deletion
@@ -189,11 +190,11 @@ class Exporter(object):
         return records
 
     def log(self, type, message, label=''):
-        '''
+        """
         Generates a log item for this export.
         Takes parameters: type and message. Type should be 'Error',
         'Warning', or 'Info'; message is the log message.
-        '''
+        """
         label = label if label else self.log_label
         message = '[{}] {}'.format(label, message)
         getattr(self.logger, type.lower())(message)
@@ -205,9 +206,9 @@ class Exporter(object):
             self.instance.save()
 
     def save_status(self):
-        '''
+        """
         Saves self.status to the database.
-        '''
+        """
         try:
             status = Status.objects.get(pk=self.status)
         except Status.DoesNotExist:
@@ -219,14 +220,14 @@ class Exporter(object):
         self.instance.save()
 
     def get_records(self):
-        '''
+        """
         Should return a full queryset or list of record objects based
         on the export filter passed into the class at initialization.
         If your export job is using one of the main III record types as
         its primary focus, then you can/should use the
         _base_get_records() method to make this simple. Otherwise 
         you'll have to override this (get_records) in your subclass.
-        '''
+        """
         try:
             in_records = self._base_get_records(self.model_name, 
                             self.record_filter, is_deletion=False,
@@ -237,11 +238,11 @@ class Exporter(object):
         return in_records
 
     def get_deletions(self):
-        '''
+        """
         Like get_records, but returns a queryset of objects that
         represent things that should be deleted. If you haven't set
         self.deletion_filter, then this will just return None.
-        '''
+        """
         if self.deletion_filter:
             try:
                 deletions = self._base_get_records('RecordMetadata',
@@ -253,52 +254,67 @@ class Exporter(object):
         else:
             return None
 
-    def export_records(self, records, vals={}):
-        '''
-        Override this method in your subclasses.
-        
+    def export_records(self, records):
+        """
         When passed a queryset (e.g., from self.get_records()), this
-        should export the records as necessary. Totally up to you
-        how to do this. Since export jobs are broken up into tasks via
-        celery, and we may need to pass information from a task to a
-        task or from multiple tasks to the final_callback method. Do
-        this using vals. Here's how it works.
-        
-        If self.parallel is True, this is a job where task chunks can
-        be run in parallel. In this case your export_record and
-        delete_record jobs should return a dictionary of values. These
-        will get passed in a list to final_callback, where you can then
-        compile the info from all tasks and do something with it.
-        Individual export_ and delete_ jobs won't have access to vals
-        from other jobs running in parallel.
-        
-        If self.parallel is False, then export_record and delete_record
-        job chunks will run one after the other. The vals dict will get
-        passed from one chunk to the next, so each time it runs it can
-        modify what's in vals. Finally, vals will be passed to
-        final_callback. In this case the final_callback method will
-        only have access to the vals passed to it from the last export
-        or delete job chunk that ran (e.g. as a dict rather than a list
-        of dicts).
-        '''
-        return vals
+        should export the records as necessary.
 
-    def delete_records(self, records, vals={}):
-        '''
+        A return value is optional; returns None by default. Regarding
+        the return value:
+
+        When running an export job over a record-set piecemeal using
+        Celery tasks, whatever the `export_records` or `delete_records`
+        methods return is compiled together and passed to the
+        `final_callback` method (`vals` kwarg). The return values from
+        multiple parts of a single batch are compiled into one data
+        structure using the `compile_vals` method, the result of which
+        is passed to `final_callback`.
+
+        E.g., you could pass meta-information needed for reporting or
+        finalizing a batch by returning a dictionary of values, which
+        is what the given `compile_vals` implementation assumes, and
+        then use `final_callback` to finalize the batch and generate
+        the report.
+        """
+        pass
+
+    def delete_records(self, records):
+        """
         Override this method in your subclasses only if you need to do
         deletions.
         
         When passed a queryset (e.g., from self.get_deletions()), this
-        should delete the records as necessary. Like export_records,
-        you may take/return a dictionary of values to pass info from
-        task to task.
-        '''
-        return vals
+        should delete the records as necessary.
 
-    def final_callback(self, vals={}, status='success'):
-        '''
+        See the docstring for the `export_records` method for info
+        about the optional return value.
+        """
+        pass
+
+    def compile_vals(self, results):
+        """
+        Compile a single `vals` data value or structure given the list
+        of `results` from running `export_records` and/or
+        `delete_records` multiple times.
+
+        The method as implemented here assumes `results` is a list of
+        dictionaries and attempts to merge them in a way that makes
+        sense. Arrays are combined, and nested dicts are recursively
+        merged.
+
+        Override this to provide custom behavior for merging specific
+        return values or data structures.
+        """
+        vals = {}
+        for item in results:
+            if isinstance(item, dict):
+                vals = dict_merge(vals, item)
+        return vals or None
+
+    def final_callback(self, vals=None, status='success'):
+        """
         Override this method in your subclasses if you need to provide
         something that runs once at the end of an export job that's
         been broken up into tasks.
-        '''
+        """
         pass

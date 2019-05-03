@@ -39,20 +39,20 @@ class AllMetadataToSolr(exporter.Exporter):
     def get_records(self):
         return { k: v.get_records() for k, v in self.child_instances.items() }
     
-    def export_records(self, records, vals={}):
+    def export_records(self, records):
+        ret_vals = {}
         for etype_name in self.child_etype_names:
-            vals[etype_name] = vals.get(etype_name, {})
             exp_inst = self.child_instances[etype_name]
-            et_vals = exp_inst.export_records(records[etype_name],
-                                              vals=vals[etype_name])
-            vals[etype_name].update(et_vals)
-        return vals
+            et_vals = exp_inst.export_records(records[etype_name])
+            ret_vals[etype_name] = et_vals
+        return ret_vals
 
-    def final_callback(self, vals={}, status='success'):
+    def final_callback(self, vals=None, status='success'):
+        vals = vals or {}
         for etype_name in self.child_etype_names:
-            et_vals = vals.get(etype_name, {})
             exp_inst = self.child_instances[etype_name]
-            exp_inst.final_callback(vals=et_vals, status=status)
+            exp_inst.final_callback(vals=vals.get(etype_name, {}),
+                                    status=status)
 
 
 class AllToSolr(exporter.Exporter):
@@ -162,10 +162,8 @@ class AllToSolr(exporter.Exporter):
                         self.export_filter, self.export_type, self.options)
                     getattr(process, process_type)(div_records[rt])
     
-    def export_records(self, records, vals={}):
+    def export_records(self, records):
         self.dispatch_it(records, process_type='export_records')
-        return vals
 
-    def delete_records(self, records, vals={}):
+    def delete_records(self, records):
         self.dispatch_it(records, process_type='delete_records')
-        return vals
