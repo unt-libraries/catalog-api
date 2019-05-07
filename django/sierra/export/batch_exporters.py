@@ -57,16 +57,25 @@ class AllMetadataToSolr(exporter.Exporter):
 
 class AllToSolr(exporter.Exporter):
     """
-    Uses RecordMetadata to load ALL major III record types into Solr.
-    Set up the EXPORTER_ALL_TYPE_REGISTRY setting in your Django
-    settings to register what export jobs correspond with which record
-    types. Only registered record types will be loaded.
+    This exporter is now deprecated, please do not use.
+
+    If you need an exporter that runs multiple children exporters for
+    a single batch of records, create a class that does so explicitly.
+    From now on, `AllToSolr` will not be kept up-to-date with changes
+    to exporters and related code.
+
+    `AllToSolr` will be removed in a future update.
     """
     record_filter = []
     select_related = [
         'record_type'
     ]
     model_name = 'RecordMetadata'
+
+    def _warn(self):
+        msg = ('The `AllToSolr` exporter is deprecated and will be removed '
+               'in a future update.')
+        self.log('Warning', msg)
 
     def __init__(self, *args, **kwargs):
         """
@@ -81,6 +90,7 @@ class AllToSolr(exporter.Exporter):
         e.g. record_metadata.
         """
         super(AllToSolr, self).__init__(*args, **kwargs)
+        self._warn()
         def model_set(p_class, fieldname='', add_set=True):
             if fieldname == 'record_metadata':
                 ret_val = None
