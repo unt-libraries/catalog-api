@@ -207,6 +207,7 @@ class EResourcesToSolr(exporter.Exporter):
     def delete_records(self, records):
         log_label = self.__class__.__name__
         index = self.index_class()
+        deletions = []
         for i in records:
             try:
                 index.remove_object('base.resourcerecord.{}'.format(str(i.id)),
@@ -216,25 +217,36 @@ class EResourcesToSolr(exporter.Exporter):
                 logger.info(traceback.extract_tb(tb))
                 self.log('Error', 'Record {}: {}'
                          ''.format(str(i), e), log_label)
+            else:
+                deletions.append(i.get_iii_recnum(True))
+
+        return { 'deletions': deletions }
 
     def final_callback(self, vals=None, status='success'):
         self.log('Info', 'Committing updates to Solr and Redis...')
 
         vals = vals or {}
-        rev_handler = redisobjs.RedisObject('reverse_holdings_list', '0')
-        reverse_holdings_list = rev_handler.get() or {}
-        for er_rec_num, h_list in vals.get('h_lists', {}).iteritems():
-            er_handler = redisobjs.RedisObject('eresource_holdings_list',
-                                               er_rec_num)
-            er_handler.set(h_list)
+        rhl_obj = redisobjs.RedisObject('reverse_holdings_list', '0')
+        reverse_holdings = rhl_obj.get() or {}
 
-            for h_rec_num in h_list:
-                reverse_holdings_list[h_rec_num] = er_rec_num
-            
-            #self.log('Info', 'Number of holdings in reverse_holdings_list: {}'
-            #                  .format(len(reverse_holdings_list.keys())))
+        # Update holdings for updated eresources
+        for ernum, h_list in vals.get('h_lists', {}).items():
+            redisobjs.RedisObject('eresource_holdings_list', ernum).set(h_list)
+            for hrnum in h_list:
+                reverse_holdings[hrnum] = ernum
 
-        rev_handler.set(reverse_holdings_list)
+        # Delete holdings for deleted eresources
+        deletions = vals.get('deletions', [])
+        for ernum in deletions:
+            ehl_obj = redisobjs.RedisObject('eresource_holdings_list', ernum)
+            ehl_obj.conn.delete(ehl_obj.key)
+
+        if deletions:
+            for hrnum, ernum in reverse_holdings.items():
+                if ernum in deletions:
+                    del(reverse_holdings[hrnum])
+
+        rhl_obj.set(reverse_holdings)
 
         index = self.index_class()
         index.commit(using=self.hs_conn)
