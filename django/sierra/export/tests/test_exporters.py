@@ -85,7 +85,7 @@ def test_exports_to_solr(etype_code, solr_exporter_test_params, new_exporter,
     del_results = {}
     if try_delete:
         del_exporter = new_exporter(etype_code, 'full_export', 'waiting')
-        delete_records(del_exporter, record_set)
+        delete_records(del_exporter, [r.record_metadata for r in record_set])
         del_results = {c: solr_search(conns[c], {'q': '*'}) for c in cores}
 
     for core in cores:

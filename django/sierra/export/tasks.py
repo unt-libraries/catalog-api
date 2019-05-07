@@ -12,11 +12,10 @@ from django.contrib.auth.models import User
 from django.utils import timezone as tz
 from django.db import connections
 
-from celery import Task, shared_task, chord, chain
+from celery import Task, shared_task, chord, chain, result
 
 from . import exporter
 from . import models as export_models
-from utils import dict_merge
 from utils.redisobjs import RedisObject
 
 # set up loggers
@@ -27,14 +26,6 @@ OPERATIONS = ('export', 'deletion')
 
 
 # TASK HELPERS
-
-def collapse_vals(vals):
-    new_vals = {}
-    for v in vals:
-        if isinstance(v, dict):
-            new_vals = dict_merge(new_vals, v)
-    return new_vals
-
 
 def needs_database(job_func):
     """
@@ -89,8 +80,9 @@ def export_dispatch(instance_pk, export_filter, export_type, options):
     connections['default'].close_if_unusable_or_obsolete()
     exp = spawn_exporter(instance_pk, export_filter, export_type, options)
     args = (exp.instance.pk, exp.export_filter, exp.export_type, options)
-    job = delegate_batch.s({}, *args, chunk_id='header')
+    job = delegate_batch.s([], *args, chunk_id='header')
     job.link_error(do_final_cleanup.s(*args, status='errors',
+                                      delegate_error=True,
                                       chunk_id='error-callback'))
     job.apply_async()
 
@@ -401,12 +393,25 @@ def _apply_pk_sort_order(qset):
     return qset.order_by('pk')
 
 
+def _compile_vals_list_for_batch(prev_batch_task_id):
+    """
+    This is used when a task runs as an error callback. When that
+    happens, Celery passes the ID of the task that failed as the first
+    argument instead of a list of return values for the successful
+    children tasks in the chord; so, to proceed, the error callback has
+    to fetch the return values manually.
+    """
+    res = result.AsyncResult(prev_batch_task_id)
+    return [c.result for c in res.children[0].children if c.successful()]
+
+
 # EXPORT TASKS
 
 @shared_task(base=ExportTask)
 @needs_database
-def delegate_batch(vals, instance_pk, export_filter, export_type, options,
-                   chunk_id=None, batch_num=0):
+def delegate_batch(vals_list, instance_pk, export_filter, export_type, options,
+                   chunk_id=None, batch_num=0, prev_batch_had_errors=False,
+                   prev_batch_task_id=None, cumulative_vals=None):
     """
     Central Celery task that spawns chords/callbacks/etc. for a given
     export job. The task is recursive, in that, if multiple batches are
@@ -414,10 +419,10 @@ def delegate_batch(vals, instance_pk, export_filter, export_type, options,
     as the callback for the chord. Once all batches are completed,
     `do_final_cleanup` is called.
     """
-    if type(vals) is list:
-        vals = collapse_vals(vals)
     exp = spawn_exporter(instance_pk, export_filter, export_type, options)
     plan = JobPlan(exp)
+    vals_list = vals_list or []
+
     if batch_num == 0:
         exp.log('Info', 'Job received.')
         exp.status = 'in_progress'
@@ -434,6 +439,17 @@ def delegate_batch(vals, instance_pk, export_filter, export_type, options,
         plan.log_plan_summary(exp)
         exp.log('Info', _hr_line())
 
+    elif prev_batch_had_errors:
+        vals_list = _compile_vals_list_for_batch(prev_batch_task_id)
+        exp.log('Info', vals_list)
+
+    cumulative_vals = exp.compile_vals([cumulative_vals] + vals_list)
+
+    # UNCOMMENT the below to help troubleshoot issues with `vals`
+    # exp.log('Info', 'BATCH {}'.format(batch_num))
+    # exp.log('Info', 'vals_list: {}'.format(vals_list))
+    # exp.log('Info', 'cumulative_vals: {}'.format(cumulative_vals))
+
     batch_id = plan.get_batch_id(batch_num)
     args = (exp.instance.pk, exp.export_filter, exp.export_type,
             exp.options)
@@ -441,44 +457,74 @@ def delegate_batch(vals, instance_pk, export_filter, export_type, options,
     batch_tasks = []
     for task_chunk_id in plan.registry[batch_id]:
         kwargs = {'chunk_id': task_chunk_id}
-        batch_tasks.append(do_export_chunk.s(vals, *args, **kwargs))
+        batch_tasks.append(do_export_chunk.s(cumulative_vals, *args, **kwargs))
 
-    # Below, the `link_error` method assigns a callback function to run
-    # if there's an error in the callback or any of the tasks in the
-    # chord. With the below setup, if there are multiple batches and
-    # any chunk raises an uncaught error, the next delegate_batch task
-    # *will* run (because it's the `link_error` callback for the
-    # chord). BUT, if next delegate_batch call raises an unexpected
-    # error before dispatching the next chord, then it will skip to the
-    # `do_final_cleanup` task, leaving dangling chunks undone.
+    prev_batch_task_id = delegate_batch.request.id
     if batch_tasks:
         next_batch_num = batch_num + 1
         next_batch_id = plan.get_batch_id(next_batch_num)
         if next_batch_id in plan.registry:
-            callback = delegate_batch.s(*args, chunk_id=next_batch_id,
-                                        batch_num=next_batch_num)
-            error_callback = delegate_batch.s(*args, chunk_id=next_batch_id,
-                                              batch_num=next_batch_num)
-            error_callback.link_error(do_final_cleanup.s(*args))
-            callback.link_error(error_callback)
+            # If this isn't the last batch, then the callback for this
+            # batch / chord is a new delegate_batch task, to start the
+            # next batch.
+            cb = delegate_batch.s(*args, chunk_id=next_batch_id,
+                                  batch_num=next_batch_num,
+                                  prev_batch_task_id=prev_batch_task_id,
+                                  cumulative_vals=cumulative_vals)
+
+            # The error callback for that task is another of the same
+            # type. Celery will run that error callback if any chunk in
+            # the (current) chord raises an error. In that case, we
+            # want processing to continue, and we need to pass the
+            # error-related args to work around the error. Or, if there
+            # is an error in the first callback (delegate) task itself,
+            # then this will run, too, which will effectively retry
+            # that task. A second error callback is in place in case it
+            # errors again.
+            err_cb1 = delegate_batch.s(*args, chunk_id=next_batch_id,
+                                       batch_num=next_batch_num,
+                                       prev_batch_had_errors=True,
+                                       prev_batch_task_id=prev_batch_task_id,
+                                       cumulative_vals=cumulative_vals)
+
+            # The second error callback is attached to the previous
+            # error callback, and it's only needed in case there is a
+            # fatal error in the delegate_batch task itself. Then
+            # processing can't continue, and it just needs to run
+            # do_final_cleanup to log the current state and exit as
+            # gracefully as possible.
+            err_cb2 = do_final_cleanup.s(*args, status='errors',
+                                         delegate_error=True)
+            err_cb1.link_error(err_cb2)
+            cb.link_error(err_cb1)
+
         else:
-            callback = do_final_cleanup.s(*args)
-            callback.link_error(do_final_cleanup.s(*args))
-        chord(batch_tasks, callback).apply_async()
+            # If this IS the last batch in the job, then the callback
+            # is do_final_cleanup.
+            cb = do_final_cleanup.s(*args, cumulative_vals=cumulative_vals)
+
+            # And, we add another call to do_final_cleanup as the
+            # link_error for that callback. If any chunk in the current
+            # chord raises an error, this will be called; that way the
+            # job still completes.
+            cb.link_error(
+                do_final_cleanup.s(*args, status='errors',
+                                   prev_batch_task_id=prev_batch_task_id,
+                                   cumulative_vals=cumulative_vals)
+            )
+        chord(batch_tasks, cb).apply_async()
     else:
-        do_final_cleanup.s(vals, *args).apply_async()
+        do_final_cleanup.s(vals_list, *args).apply_async()
 
 
 @shared_task(base=ExportTask)
 @needs_database
-def do_export_chunk(vals, instance_pk, export_filter, export_type, options,
-                    chunk_id=None):
+def do_export_chunk(cumulative_vals, instance_pk, export_filter, export_type,
+                    options, chunk_id=None):
     """
     Task that is triggered via `delegate_batch` to load one chunk of a
     larger job.
     """
-    if type(vals) is list:
-        vals = collapse_vals(vals)
     exp = spawn_exporter(instance_pk, export_filter, export_type, options)
     plan = JobPlan(exp)
     chunk_pks = plan.get_chunk_pks(chunk_id)
@@ -497,39 +543,70 @@ def do_export_chunk(vals, instance_pk, export_filter, export_type, options,
             group_pks = [pk for group, pk in chunk_pks if group == group_name]
             qset = _apply_pk_sort_order(qset).filter(pk__in=group_pks)
             records_to_export[group_name] = qset
-        vals = exp_method(records_to_export, vals=vals)
+        vals = exp_method(records_to_export)
     elif records is not None:
         records = _apply_pk_sort_order(records).filter(pk__in=chunk_pks)
-        vals = exp_method(records, vals=vals)
+        vals = exp_method(records)
     exp.log('Info', 'Finished {} ({}).'.format(chunk_id, chunk_label))
     return vals
 
 
 @shared_task(base=ExportTask)
 @needs_database
-def do_final_cleanup(vals, instance_pk, export_filter, export_type, options,
-                     status='success', chunk_id=None):
+def do_final_cleanup(vals_list, instance_pk, export_filter, export_type,
+                     options, status='success', chunk_id=None,
+                     delegate_error=False, prev_batch_task_id=None,
+                     cumulative_vals=None):
     """
     Task that runs after all sub-tasks for an export job are done.
     Does final clean-up steps, such as updating the ExportInstance
     status, triggering the final callback function on the export job,
     emailing site admins if there were errors, etc.
     """
-    if type(vals) is list:
-        vals = collapse_vals(vals)
     exp = spawn_exporter(instance_pk, export_filter, export_type, options)
     errors = exp.instance.errors
     warnings = exp.instance.warnings
-    if status == 'errors':
-        exp.log('Info', 'Export job raised unexpected errors; one or more '
-                        'batches may have been skipped.')
-    elif status == 'success':
-        exp.final_callback(vals, status)
-        if errors > 0:
+
+    vals_list = vals_list or []
+
+    if delegate_error:
+        exp.log('Info', 'PROBLEM: A fatal error occurred during batch '
+                        'delegation!')
+        exp.log('Info', 'This job has ended prematurely. The final callback '
+                        'for the exporter DID NOT run.')
+        exp.log('Info', 'Please roll back any uncommitted changes this job '
+                        'may have made before trying again.')
+    else:
+        if status == 'errors':
+            vals_list = _compile_vals_list_for_batch(prev_batch_task_id)
+        
+        cumulative_vals = exp.compile_vals([cumulative_vals] + vals_list)
+
+        # UNCOMMENT the below to help troubleshoot issues with `vals`
+        # exp.log('Info', 'Final vals_list: {}'.format(vals_list))
+        # exp.log('Info', 'Final cumulative_vals: {}'.format(cumulative_vals))
+
+        exp.final_callback(cumulative_vals, status)
+
+        if errors:
             status = 'done_with_errors'
-        exp.log('Info', 'Job finished.')
+            exp.log('Info', 'Job finished, with errors.')
+        else:
+            exp.log('Info', 'Job finished successfully.')
+
     exp.status = status
     exp.save_status()
+
+    plan = JobPlan(exp)
+    unprocessed = plan.unprocessed_chunks
+    if unprocessed:
+        exp.log('Info', 'The following chunks were not fully processed and '
+                        'are still registered in Redis: {}'
+                        ''.format(', '.join(unprocessed)))
+    else:
+        plan.clear()
+    exp.log('Info', _hr_line('='))
+
     (send_errors, send_warnings) = (None, None)
     if errors > 0 and settings.EXPORTER_EMAIL_ON_ERROR:
         subject = '{} Exporter Errors'.format(
@@ -552,13 +629,3 @@ def do_final_cleanup(vals, instance_pk, export_filter, export_type, options,
                             exp.instance.export_type.code)
         email = template.loader.get_template('export/error_email.txt')
         mail.mail_admins(subject, email.render(vars))
-
-    plan = JobPlan(exp)
-    unprocessed = plan.unprocessed_chunks
-    if unprocessed:
-        exp.log('Info', 'The following chunks were not fully processed and '
-                        'are still registered in Redis: {}'
-                        ''.format(', '.join(unprocessed)))
-    else:
-        plan.clear()
-    exp.log('Info', _hr_line('='))
