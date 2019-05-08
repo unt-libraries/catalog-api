@@ -23,6 +23,7 @@ class BibsToAlphaSolrmarc(BaseSolrMarcBibsToSolr):
 class BibsToAlphaSmAndAttachedToSolr(Exporter):
 
     model_name = 'BibRecord'
+    etype_names = ('bibs_and_attached_to_solr', 'bibs_to_alpha_solrmarc')
 
     def __init__(self, *args, **kwargs):
         super(BibsToAlphaSmAndAttachedToSolr, self).__init__(*args, **kwargs)
@@ -48,20 +49,31 @@ class BibsToAlphaSmAndAttachedToSolr(Exporter):
         table_lists = [getattr(exp, tlist_attr) for exp in exporters]
         return combine_table_lists(table_lists)
 
-    def _do_task(self, task, vals, *args, **kwargs):
-        for et in ('bibs_and_attached_to_solr', 'bibs_to_alpha_solrmarc'):
-            instance = getattr(self, et)
-            kwargs['vals'] = vals.get(et, {})
-            new_vals = getattr(instance, task)(*args, **kwargs) or {}
-            kwargs['vals'].update(new_vals)
-            vals[et] = kwargs['vals']
+    def compile_vals(self, results):
+        pre_vals = {et: [] for et in self.etype_names}
+        vals = {}
+        for v in results:
+            if v is not None:
+                for et in self.etype_names:
+                    pre_vals[et].append(v.get(et, []))
+        return {
+            et: getattr(self, et).compile_vals(pre_vals[et])
+                for et in self.etype_names
+        }
+
+    def export_records(self, records):
+        vals = {}
+        for et in self.etype_names:
+            vals[et] = getattr(self, et).export_records(records)
         return vals
 
-    def export_records(self, records, vals={}):
-        return self._do_task('export_records', vals, records)
+    def delete_records(self, records):
+        vals = {}
+        for et in self.etype_names:
+            vals[et] = getattr(self, et).delete_records(records)
+        return vals
 
-    def delete_records(self, records, vals={}):
-        return self._do_task('delete_records', vals, records)
-
-    def final_callback(self, vals={}, status='success'):
-        self._do_task('final_callback', vals, status=status)
+    def final_callback(self, vals=None, status='success'):
+        vals = vals or {}
+        for et in self.etype_names:
+            getattr(self, et).final_callback(vals.get(et, None), status)

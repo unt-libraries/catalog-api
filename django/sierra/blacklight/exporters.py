@@ -38,15 +38,12 @@ class BaseBibsDownloadMarc(BibsDownloadMarc):
     prefetch_related = sorted(BibsDownloadMarc.prefetch_related + _new_pfetch)
     select_related = BibsDownloadMarc.select_related
 
-    def export_records(self, records, vals={}):
+    def export_records(self, records):
         log_label = self.__class__.__name__
         batch = type(self).s2marc_batch_class(records)
         out_recs = batch.to_marc()
         try:
-            if 'marcfile' in vals:
-                marcfile = batch.to_file(out_recs, vals['marcfile'])
-            else:
-                vals['marcfile'] = batch.to_file(out_recs, append=False)
+            filename = batch.to_file(out_recs, append=False)
         except IOError as e:
             self.log('Error', 'Error writing to output file: {}'.format(e), 
                      log_label)
@@ -54,11 +51,7 @@ class BaseBibsDownloadMarc(BibsDownloadMarc):
             for e in batch.errors:
                 self.log('Warning', 'Record {}: {}'.format(e.id, e.msg),
                          log_label)
-            if 'success_count' in vals:
-                vals['success_count'] += batch.success_count
-            else:
-                vals['success_count'] = batch.success_count
-        return vals
+        return { 'marcfile': filename }
 
 
 class BaseSolrMarcBibsToSolr(BibsToSolr):
@@ -86,7 +79,7 @@ class BaseSolrMarcBibsToSolr(BibsToSolr):
     def solr_conn(cls, ctype):
         return pysolr.Solr(cls.solr_url(ctype))
 
-    def export_records(self, records, vals={}):
+    def export_records(self, records):
         log_label = type(self).__name__
         bibs_solr_url = type(self).solr_url('bibs')
         bibs_indprop = '{}_index.properties'.format(type(self).cores['bibs'])
@@ -100,8 +93,8 @@ class BaseSolrMarcBibsToSolr(BibsToSolr):
             self.instance.pk, self.export_filter, self.export_type,
             self.options
         )
-        ret_vals = bib_converter.export_records(records, vals={})
-        filename = ret_vals['marcfile']
+        converter_vals = bib_converter.export_records(records)
+        filename = converter_vals['marcfile']
         filepath = '{}{}'.format(filedir, filename)
 
         cmd = ('java -Xmx1g -Dsolr.hosturl="{}" '
@@ -133,12 +126,11 @@ class BaseSolrMarcBibsToSolr(BibsToSolr):
                         self.log('Warning', line, log_label)
 
         os.remove(filepath)
-        return vals
 
     def get_record_id(self, record):
         return 'base.bibrecord.{}'.format(record.id)
 
-    def delete_records(self, records, vals={}):
+    def delete_records(self, records):
         bibs_solr = type(self).solr_conn('bibs')
         log_label = type(self).__name__
         for r in records:
@@ -149,9 +141,8 @@ class BaseSolrMarcBibsToSolr(BibsToSolr):
                 logger.info(traceback.extract_tb(tb))
                 self.log('Error', 'Record {}: {}'
                          ''.format(str(r), e), log_label)
-        return vals
 
-    def final_callback(self, vals={}, status='success'):
+    def final_callback(self, vals=None, status='success'):
         bibs_solr = type(self).solr_conn('bibs')
         log_label = type(self).__name__
         self.log('Info', 'Committing updates to Solr...', log_label)
