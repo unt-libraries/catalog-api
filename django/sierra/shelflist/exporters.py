@@ -39,7 +39,7 @@ class ItemsToSolr(exporters.ItemsToSolr):
         # location codes where shelflist item manifests need to be
         # updated from the records in Solr before we delete this batch.
         seen_lcodes = []
-        super(ItemsToSolr, self).delete_records(records, vals)
+        super(ItemsToSolr, self).delete_records(records)
         return { 'seen_lcodes': seen_lcodes }
 
     def final_callback(self, vals=None, status='success'):
