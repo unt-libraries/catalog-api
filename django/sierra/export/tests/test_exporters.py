@@ -8,7 +8,7 @@ import pytest
 # Fixtures used in the below tests can be found in
 # django/sierra/base/tests/conftest.py:
 #    sierra_records_by_recnum_range, sierra_full_object_set,
-#    record_sets, new_exporter, process_records,
+#    record_sets, new_exporter,
 #    solr_assemble_specific_record_data,
 #    setattr_model_instance, derive_exporter_class,
 #    assert_all_exported_records_are_indexed,
@@ -158,8 +158,7 @@ def test_tosolr_delete_records(et_code, rset_code, rectypes,
 
 
 def test_tosolr_index_update_errors(basic_exporter_class, record_sets,
-                                    new_exporter, process_records,
-                                    setattr_model_instance,
+                                    new_exporter,setattr_model_instance,
                                     assert_records_are_indexed,
                                     assert_records_are_not_indexed):
     """
