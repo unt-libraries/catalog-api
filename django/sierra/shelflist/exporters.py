@@ -30,29 +30,24 @@ class ItemsToSolr(exporters.ItemsToSolr):
     app_name = 'shelflist'
     redis_shelflist_prefix = 'shelflistitem_manifest'
 
-    def export_records(self, records, vals=None):
-        vals = super(ItemsToSolr, self).export_records(records, vals)
-        vals_manager = self.spawn_vals_manager(vals)
-        vals_manager.extend('seen_lcodes', self.indexes['Items'].location_set,
-                            unique=True)
-        return vals_manager.vals
+    def export_records(self, records):
+        super(ItemsToSolr, self).export_records(records)
+        return { 'seen_lcodes': self.indexes['Items'].location_set }
 
-    def delete_records(self, records, vals=None):
+    def delete_records(self, records):
         # THIS NEEDS WORK. When records are deleted, we have to get the
         # location codes where shelflist item manifests need to be
         # updated from the records in Solr before we delete this batch.
-        vals = super(ItemsToSolr, self).delete_records(records, vals)
-        vals_manager = self.spawn_vals_manager(vals)
-        return vals_manager.vals
+        seen_lcodes = []
+        super(ItemsToSolr, self).delete_records(records, vals)
+        return { 'seen_lcodes': seen_lcodes }
 
     def final_callback(self, vals=None, status='success'):
-        vals = super(ItemsToSolr, self).final_callback(vals, status)
-        vals_manager = self.spawn_vals_manager(vals)
-        seen_lcodes = vals_manager.get('seen_lcodes')
-        if seen_lcodes:
+        super(ItemsToSolr, self).final_callback(vals, status)
+        if vals['seen_lcodes']:
             self.log('Info', 'Creating shelflist item manifests for: {}'
                              ''.format(', '.join(seen_lcodes)))
-            for lcode in seen_lcodes:
+            for lcode in vals['seen_lcodes']:
                 manifest = self.indexes['Items'].get_location_manifest(lcode)
                 r = redisobjs.RedisObject(self.redis_shelflist_prefix, lcode)
                 r.set(manifest)

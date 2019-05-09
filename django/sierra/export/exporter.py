@@ -19,6 +19,7 @@ from django.utils import timezone as tz
 from django.conf import settings
 
 from utils import helpers
+from utils import dict_merge
 from base import models as sierra_models
 from .models import ExportInstance, ExportType, Status
 
@@ -273,7 +274,6 @@ class Exporter(object):
     select_related = None
     max_rec_chunk = 3000
     max_del_chunk = 1000
-    parallel = True
     model = ''
     app_name = 'export'
 
@@ -436,49 +436,62 @@ class Exporter(object):
         namespace = namespace or cls.__name__
         return cls.ValsManager(namespace, vals)
 
-    def export_records(self, records, vals=None):
+    def export_records(self, records):
         """
-        Override this method in your subclasses.
-        
         When passed a queryset (e.g., from self.get_records()), this
-        should export the records as necessary. Totally up to you
-        how to do this. Since export jobs are broken up into tasks via
-        celery, and we may need to pass information from a task to a
-        task or from multiple tasks to the final_callback method. Do
-        this using vals. Here's how it works.
-        
-        If self.parallel is True, this is a job where task chunks can
-        be run in parallel. In this case your export_record and
-        delete_record jobs should return a dictionary of values. These
-        will get passed in a list to final_callback, where you can then
-        compile the info from all tasks and do something with it.
-        Individual export_ and delete_ jobs won't have access to vals
-        from other jobs running in parallel.
-        
-        If self.parallel is False, then export_record and delete_record
-        job chunks will run one after the other. The vals dict will get
-        passed from one chunk to the next, so each time it runs it can
-        modify what's in vals. Finally, vals will be passed to
-        final_callback. In this case the final_callback method will
-        only have access to the vals passed to it from the last export
-        or delete job chunk that ran (e.g. as a dict rather than a list
-        of dicts).
-        """
-        vals_manager = self.spawn_vals_manager(vals)
-        return vals_manager.vals
+        should export the records as necessary.
 
-    def delete_records(self, records, vals=None):
+        A return value is optional; returns None by default. Regarding
+        the return value:
+
+        When running an export job over a record-set piecemeal using
+        Celery tasks, whatever the `export_records` or `delete_records`
+        methods return is compiled together and passed to the
+        `final_callback` method (`vals` kwarg). The return values from
+        multiple parts of a single batch are compiled into one data
+        structure using the `compile_vals` method, the result of which
+        is passed to `final_callback`.
+
+        E.g., you could pass meta-information needed for reporting or
+        finalizing a batch by returning a dictionary of values, which
+        is what the given `compile_vals` implementation assumes, and
+        then use `final_callback` to finalize the batch and generate
+        the report.
+        """
+        pass
+
+    def delete_records(self, records):
         """
         Override this method in your subclasses only if you need to do
         deletions.
         
         When passed a queryset (e.g., from self.get_deletions()), this
-        should delete the records as necessary. Like export_records,
-        you may take/return a dictionary of values to pass info from
-        task to task.
+        should delete the records as necessary.
+
+        See the docstring for the `export_records` method for info
+        about the optional return value.
         """
-        vals_manager = self.spawn_vals_manager(vals)
-        return vals_manager.vals
+        pass
+
+    def compile_vals(self, results):
+        """
+        Compile a single `vals` data value or structure given the list
+        of `results` from running `export_records` and/or
+        `delete_records` multiple times.
+
+        The method as implemented here assumes `results` is a list of
+        dictionaries and attempts to merge them in a way that makes
+        sense. Arrays are combined, and nested dicts are recursively
+        merged.
+
+        Override this to provide custom behavior for merging specific
+        return values or data structures.
+        """
+        vals = {}
+        for item in results:
+            if isinstance(item, dict):
+                vals = dict_merge(vals, item)
+        return vals or None
 
     def final_callback(self, vals=None, status='success'):
         """
@@ -486,8 +499,7 @@ class Exporter(object):
         something that runs once at the end of an export job that's
         been broken up into tasks.
         """
-        vals_manager = self.spawn_vals_manager(vals)
-        return vals_manager.vals
+        pass
 
 
 class ToSolrExporter(Exporter):
@@ -555,28 +567,18 @@ class ToSolrExporter(Exporter):
             self._indexes = type(self).spawn_indexes(self.export_type)
         return self._indexes
 
-    def export_records(self, records, vals=None):
-        vals_manager = self.spawn_vals_manager(vals)
-        try:
-            for index in self.indexes.values():
-                index.do_update(records)
-        except Exception as e:
-            self.log_error(e)
+    def export_records(self, records):
+        for index in self.indexes.values():
+            index.do_update(records)
 
         for index in self.indexes.values():
             for obj_str, e in index.last_batch_errors:
                 msg = '{} update skipped due to error: {}'.format(obj_str, e)
                 self.log('Warning', msg)
-        return vals_manager.vals
 
-    def delete_records(self, records, vals=None):
-        vals_manager = self.spawn_vals_manager(vals)
-        try:
-            for index in self.indexes.values():
-                index.do_delete(records)
-        except Exception as e:
-            self.log_error(e)
-        return vals_manager.vals
+    def delete_records(self, records):
+        for index in self.indexes.values():
+            index.do_delete(records)
 
     def commit_indexes(self):
         for name, index in self.indexes.items():
@@ -584,9 +586,7 @@ class ToSolrExporter(Exporter):
             index.commit()
 
     def final_callback(self, vals=None, status='success'):
-        vals_manager = self.spawn_vals_manager(vals)
         self.commit_indexes()
-        return vals_manager.vals
 
 
 class MetadataToSolrExporter(ToSolrExporter):
@@ -699,24 +699,61 @@ class CompoundMixin(object):
                 child_rsets[name].extend(child.derive_records(record))
         return {k: list(set(v)) for k, v in child_rsets.items()}
 
-    def combine_lists(self, *lists):
+    @staticmethod
+    def combine_lists(*lists):
+        """
+        This is a helper method for combining and deduplicating entries
+        from multiple lists, returning one sorted, flattened list.
+        """
         combined_dupes = sorted([item for l in lists for item in l])
         return OrderedDict.fromkeys(combined_dupes).keys()
 
-    def combine_related(self, which_list, which_children=None):
+    def combine_rels_from_children(self, which_rel, which_children=None):
         """
         This is a helper method for combining lists of relations (like
-        select_related or prefetch_related) from one or more children.
+        select_related or prefetch_related) from 1+ children.
         """
         rel_lists = []
         for child in which_children or self.children.values():
             rel_prefix = child._config.rel_prefix
-            base_list = getattr(child, which_list)
+            base_list = getattr(child, which_rel)
             if rel_prefix:
                 base_list = ['{}__{}'.format(rel_prefix, r) for r in base_list]
             rel_lists.append(base_list)
         return self.combine_lists(*rel_lists)
-        
+
+    def compile_vals_from_children(self, results, which_children=None):
+        """
+        This is a helper method for compiling a list of export or
+        deletion return values (`results`), aka vals, from 1+ children,
+        via each child's `compile_vals` method.
+        """
+        children = which_children or self.children.values()
+        sep_vals = {c._config.name: [] for c in children}
+        for r in results:
+            if r is not None:
+                for c in children:
+                    sep_vals[c._config.name].append(r[c._config.name])
+        return { c._config.name: c.compile_vals(sep_vals[c._config.name])
+                    for c in children }
+
+    def do_op_on_children(self, operation, records, which_children=None):
+        """
+        This is a helper method that triggers an operation method
+        (`export_records`, or `delete_records`) on 1+ children.
+        """
+        children = which_children or self.children.values()
+        rsets = self.generate_record_sets(records)
+        return { c._config.name: getattr(c, operation)(rsets[c._config.name])
+                    for c in children }
+
+    def do_final_callback_on_children(self, vals, status, which_children=None):
+        """
+        This is a helper method that triggers the final_callback method
+        on 1+ children, passing the appropriate vals to each call.
+        """
+        for child in which_children or self.children.values():
+            child.final_callback(vals=vals[child._config.name], status=status)
 
 
 class AttachedRecordExporter(CompoundMixin, Exporter):
@@ -755,32 +792,27 @@ class AttachedRecordExporter(CompoundMixin, Exporter):
         try:
             self._prefetch_related = self._prefetch_related
         except AttributeError:
-            attached_sr = self.combine_related('select_related',
-                                               self.attached_children)
-            all_pr = self.combine_related('prefetch_related')
-            self._prefetch_related = self.combine_lists(all_pr, attached_sr)
+            att_sr = self.combine_rels_from_children('select_related',
+                                                     self.attached_children)
+            all_pr = self.combine_rels_from_children('prefetch_related')
+            self._prefetch_related = self.combine_lists(all_pr, att_sr)
         return self._prefetch_related
 
     @property
     def deletion_filter(self):
         return self.main_child.deletion_filter
 
-    def export_records(self, records, vals=None):
-        vals_manager = self.spawn_vals_manager(vals)
-        record_sets = self.generate_record_sets(records)
-        for name, child in self.children.items():
-            rset = record_sets[name]
-            child_vals = child.export_records(rset, vals_manager.vals)
-            vals_manager = self.spawn_vals_manager(child_vals)
-        return vals_manager.vals
+    def compile_vals(self, results):
+        return self.combine_vals_from_children(results)
 
-    def delete_records(self, records, vals=None):
-        vals_manager = self.spawn_vals_manager(vals)
-        return self.main_child.delete_records(records, vals_manager.vals)
+    def export_records(self, records):
+        return self.do_op_on_children('export_records', records)
+
+    def delete_records(self, records):
+        vals = {name: None for name in self.children.keys()}
+        main_child_name = self.main_child._config.name
+        vals[main_child_name] = self.main_child.delete_records(records)
+        return vals
 
     def final_callback(self, vals=None, status='success'):
-        vals_manager = self.spawn_vals_manager(vals)
-        for name, child in self.children.items():
-            child_vals = child.final_callback(vals_manager.vals, status)
-            vals_manager = self.spawn_vals_manager(child_vals)
-        return vals_manager.vals
+        self.do_final_callback_on_children(vals, status)

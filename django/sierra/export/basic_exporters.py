@@ -130,38 +130,42 @@ class EResourcesToSolr(ToSolrExporter):
 
     max_rec_chunk = 20
 
-    def export_records(self, records, vals=None):
-        vals_manager = self.spawn_vals_manager(vals)
-        try:
-            self.indexes['EResources'].do_update(records)
-        except Exception as e:
-            self.log_error(e)
-        else:
-            vals_manager.update('h_lists', self.indexes['EResources'].h_lists)
-        return vals_manager.vals
+    def export_records(self, records):
+        self.indexes['EResources'].do_update(records)
+        return { 'h_lists': self.indexes['EResources'].h_lists }
 
-    def commit_to_redis(self, vm):
+    def delete_records(self, records):
+        self.indexes['EResources'].do_delete(records)
+        return { 'deletions': [r.get_iii_recnum(True) for r in records] }
+
+    def commit_to_redis(self, vals):
         self.log('Info', 'Committing EResource updates to Redis...')
-        rev_handler = redisobjs.RedisObject('reverse_holdings_list', '0')
-        reverse_holdings_list = rev_handler.get() or {}
-        for er_rec_num, h_list in (vm.get('h_lists') or {}).iteritems():
-            er_handler = redisobjs.RedisObject('eresource_holdings_list',
-                                               er_rec_num)
-            er_handler.set(h_list)
+        rhl_obj = redisobjs.RedisObject('reverse_holdings_list', '0')
+        reverse_holdings = rhl_obj.get() or {}
+        
+        # Update holdings for updated eresources
+        for ernum, h_list in vals.get('h_lists', {}).items():
+            redisobjs.RedisObject('eresource_holdings_list', ernum).set(h_list)
+            for hrnum in h_list:
+                reverse_holdings[hrnum] = ernum
 
-            for h_rec_num in h_list:
-                reverse_holdings_list[h_rec_num] = er_rec_num
-            
-            #self.log('Info', 'Number of holdings in reverse_holdings_list: {}'
-            #                  .format(len(reverse_holdings_list.keys())))
+        # Delete holdings for deleted eresources
+        deletions = vals.get('deletions', [])
+        for ernum in deletions:
+            ehl_obj = redisobjs.RedisObject('eresource_holdings_list', ernum)
+            ehl_obj.conn.delete(ehl_obj.key)
 
-        rev_handler.set(reverse_holdings_list)
+        if deletions:
+            for hrnum, ernum in reverse_holdings.items():
+                if ernum in deletions:
+                    del(reverse_holdings[hrnum])
+
+        rhl_obj.set(reverse_holdings)
 
     def final_callback(self, vals=None, status='success'):
-        vals_manager = self.spawn_vals_manager(vals)
-        self.commit_to_redis(vals_manager)
+        vals = vals or {}
+        self.commit_to_redis(vals)
         self.commit_indexes()
-        return vals_manager.vals
 
 
 class HoldingUpdate(CompoundMixin, Exporter):
@@ -203,8 +207,7 @@ class HoldingUpdate(CompoundMixin, Exporter):
         super(HoldingUpdate, self).__init__(*args, **kwargs)
         self.max_rec_chunk = self.children['EResourcesToSolr'].max_rec_chunk
 
-    def export_records(self, records, vals=None):
-        vals_manager = self.spawn_vals_manager(vals)
+    def export_records(self, records):
         eresources, er_mapping = set(), {}
         # First we loop through the holding records and determine which
         # eresources need to be updated. er_mapping maps eresource rec
@@ -258,7 +261,7 @@ class HoldingUpdate(CompoundMixin, Exporter):
                     'holdings': holdings
                 }
 
-        h_vals = vals_manager.get('h_vals') or {}
+        h_vals = {}
         #self.log('Info', er_mapping)
         for er_rec_num, entry in er_mapping.iteritems():
             er_record, holdings = entry['er_record'], entry['holdings']
@@ -305,21 +308,19 @@ class HoldingUpdate(CompoundMixin, Exporter):
                 # it using the Haystack indexer.
                 eresources.add(er_record)
 
-        vals_manager.set('h_vals', h_vals)
-
         if eresources:
             eresources = list(eresources)
-            er_to_solr = self.children['EResourcesToSolr']
-            er_vals = er_to_solr.export_records(eresources, vals_manager.vals)
-            vals_manager.merge(er_vals)
+            ret_er_vals = self.eresources_to_solr.export_records(eresources)
 
-        return vals_manager.vals
+        return { 'holdings': h_vals, 'eresources': ret_er_vals }
 
-    def commit_to_redis(self, vm):
+    def commit_to_redis(self, vals):
         self.log('Info', 'Committing Holdings updates to Redis...')
+        h_vals = vals.get('holdings', {})
+        er_vals = vals.get('eresources', {})
         rev_handler = redisobjs.RedisObject('reverse_holdings_list', '0')
         reverse_h_list = rev_handler.get()
-        for er_rec_num, lists in (vm.get('h_vals') or {}).iteritems():
+        for er_rec_num, lists in (h_vals or {}).items():
             s = solr.Queryset().filter(record_number=er_rec_num)
             try:
                 record = s[0]
@@ -342,11 +343,9 @@ class HoldingUpdate(CompoundMixin, Exporter):
         rev_handler.set(reverse_h_list)
 
     def final_callback(self, vals=None, status='success'):
-        vals_manager = self.spawn_vals_manager(vals)
-        self.children['EResourcesToSolr'].final_callback(vals_manager.vals,
-                                                         status)
-        self.commit_to_redis(vals_manager)
-        return vals_manager.vals
+        vals = vals or {}
+        self.children['EResourcesToSolr'].final_callback(vals, status)
+        self.commit_to_redis(vals)
 
 
 class BibsDownloadMarc(Exporter):
@@ -367,38 +366,18 @@ class BibsDownloadMarc(Exporter):
         'bibrecordproperty_set__material__materialpropertyname_set'
     ]
     select_related = ['record_metadata', 'record_metadata__record_type']
-        
-    def export_records(self, records, vals=None):
-        vals_manager = self.spawn_vals_manager(vals)
+
+    def export_records(self, records):
         batch = S2MarcBatch(records)
         out_recs = batch.to_marc()
-        marcfile = vals_manager.get('marcfile')
-        append = False if marcfile is None else True
         try:
-            marcfile = batch.to_file(out_recs, marcfile, append=append)
+            filename = batch.to_file(out_recs, append=False)
         except IOError as e:
-            self.log('Error', 'Error writing to output file: {}'.format(e))
+            raise IOError('Error writing to output file: {}'.format(e))
         else:
             for e in batch.errors:
                 self.log('Warning', 'Record {}: {}'.format(e.id, e.msg))
-            success_count = vals_manager.get('success_count') or 0
-            success_count += batch.success_count
-            vals_manager.set('success_count', success_count)
-        vals_manager.set('marcfile', marcfile)
-        return vals_manager.vals
-
-    def final_callback(self, vals=None, status='success'):
-        vals_manager = self.spawn_vals_manager(vals)
-        success_count = vals_manager.get('success_count')
-        marcfile = vals_manager.get('marcfile')
-        if success_count is not None:
-            self.log('Info', '{} records successfully processed.'
-                     ''.format(success_count))
-        if marcfile is not None:
-            self.log('Info', '<a href="{}{}">Download File</a> '
-                    '(Link expires after 24 hrs.)'
-                    ''.format(settings.MEDIA_URL, marcfile))
-        return vals_manager.vals
+        return { 'marcfile': filename }
 
 
 class BibsToSolr(CompoundMixin, ToSolrExporter):
@@ -428,9 +407,8 @@ class BibsToSolr(CompoundMixin, ToSolrExporter):
     @property
     def select_related(self):
         return self.children['BibsDownloadMarc'].select_related
-    
-    def export_records(self, records, vals=None):
-        vals_manager = self.spawn_vals_manager(vals)
+
+    def export_records(self, records):
         cmd = 'bash'
         index_script = settings.SOLRMARC_COMMAND
         config_file = settings.SOLRMARC_CONFIG_FILE
@@ -438,9 +416,9 @@ class BibsToSolr(CompoundMixin, ToSolrExporter):
         if filedir[-1] != '/':
             filedir = '{}/'.format(filedir)
         bib_converter = self.children['BibsDownloadMarc']
-        child_vals = bib_converter.export_records(records)
-        child_vm = bib_converter.spawn_vals_manager(child_vals)
-        filepath = '{}{}'.format(filedir, child_vm.get('marcfile'))
+        converter_vals = bib_converter.export_records(records)
+        filename = converter_vals['marcfile']
+        filepath = '{}{}'.format(filedir, filename)
         try:
             output = subprocess.check_output([cmd, index_script, config_file,
                                              filepath], 
@@ -472,7 +450,6 @@ class BibsToSolr(CompoundMixin, ToSolrExporter):
 
         # delete the file when we're done so we don't take up space
         os.remove(filepath)
-        return vals_manager.vals
 
 
 class ItemsBibsToSolr(AttachedRecordExporter):
