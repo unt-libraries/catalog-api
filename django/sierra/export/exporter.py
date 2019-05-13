@@ -627,7 +627,7 @@ class AttachedRecordExporter(CompoundMixin, Exporter):
         return self.main_child.deletion_filter
 
     def compile_vals(self, results):
-        return self.combine_vals_from_children(results)
+        return self.compile_vals_from_children(results)
 
     def export_records(self, records):
         return self.do_op_on_children('export_records', records)

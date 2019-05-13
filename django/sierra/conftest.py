@@ -16,6 +16,7 @@ from django.contrib.auth.models import User
 from django.db.models import ObjectDoesNotExist
 from rest_framework import test as drftest
 
+from utils.redisobjs import RedisObject
 from utils.test_helpers import (fixture_factories as ff,
                                 solr_test_profiles as tp)
 from export import models as em
@@ -327,6 +328,23 @@ def solr_search():
     return _solr_search
 
 
+# Redis-related fixtures
+
+@pytest.fixture
+def redis_obj():
+    """
+    Pytest fixture. Wraps utils.RedisObject.
+    """
+    class RedisObjectWrapper(object):
+        def __init__(self):
+            self.conn = RedisObject.conn
+
+        def __call__(self, key):
+            return RedisObject(*key.split(':'))
+
+    return RedisObjectWrapper()
+
+
 # Base app-related fixtures
 
 @pytest.fixture
@@ -492,24 +510,27 @@ def derive_exporter_class(installed_test_class, model_instance, export_type):
             raise pytest.UsageError(msg)
         return importlib.import_module(modpath), modpath
 
-    def _derive_exporter_class(basename, local_modpath=None, newname=None):
+    def _derive_exporter_class(basename, local_modpath=None, newname=None,
+                               attrs=None):
         exptype = _get_export_type(basename)
         mod, mpath = _determine_mod_and_path(basename, local_modpath, exptype)
         expclass_base = getattr(mod, basename)
 
-        attrs = {}
-        for entry in getattr(expclass_base, 'index_config', []):
-            conf = attrs.get('index_config', [])
-            indclassname = '_{}'.format(entry.indexclass.__name__)
-            indclass = type(indclassname, (entry.indexclass,), {})
-            conf.append(type(entry)(entry.name, indclass, entry.conn))
-            attrs['index_config'] = conf
+        attrs = attrs or {}
+        if 'index_config' not in attrs:
+            for entry in getattr(expclass_base, 'index_config', []):
+                conf = attrs.get('index_config', [])
+                indclassname = '_{}'.format(entry.indexclass.__name__)
+                indclass = type(indclassname, (entry.indexclass,), {})
+                conf.append(type(entry)(entry.name, indclass, entry.conn))
+                attrs['index_config'] = conf
 
-        for entry in getattr(expclass_base, 'children_config', []):
-            childclass = _derive_exporter_class(entry.name, local_modpath)
-            conf = attrs.get('children_config', [])
-            conf.append(type(entry)(entry.name, childclass.__name__))
-            attrs['children_config'] = conf
+        if 'children_config' not in attrs:
+            for entry in getattr(expclass_base, 'children_config', []):
+                childclass = _derive_exporter_class(entry.name, local_modpath)
+                conf = attrs.get('children_config', [])
+                conf.append(type(entry)(entry.name, childclass.__name__))
+                attrs['children_config'] = conf
 
         name = str(newname or '_{}'.format(basename))
         newclass = type(name, (expclass_base,), attrs)
