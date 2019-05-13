@@ -374,17 +374,6 @@ def _fetch_job_pk_lists(exp, plan):
     return pk_lists
 
 
-def _initialize_job_plan(exp, plan, pk_lists):
-    registry = plan.generate(pk_lists)
-    totals = plan.totals
-    total_op_chunks = totals['chunks_by_op']
-    exp.log('Info', 'Job plan initialized. {} total chunk(s) grouped into {} '
-                    'batch(es):'.format(totals['chunks'], totals['batches']))
-    for op in plan.operations:
-        exp.log('Info', '   {}, {} chunk(s)'.format(op, total_op_chunks[op]))
-    return plan
-
-
 def _apply_pk_sort_order(qset):
     if hasattr(qset.model, 'record_metadata'):
         return qset.order_by('record_metadata__record_last_updated_gmt', 'pk')
@@ -435,9 +424,15 @@ def delegate_batch(vals_list, instance_pk, export_filter, export_type, options,
         pk_lists = _fetch_job_pk_lists(exp, plan)
         exp.log('Info', 'Initializing job plan.')
         plan.generate(pk_lists)
-        exp.log('Info', _hr_line())
-        plan.log_plan_summary(exp)
-        exp.log('Info', _hr_line())
+        if plan.registry:
+            exp.log('Info', _hr_line())
+            plan.log_plan_summary(exp)
+            exp.log('Info', _hr_line())
+        else:
+            msg = ('No records found for {}. Nothing to do!'
+                   ''.format(', '.join(pk_lists.keys())))
+            exp.log('Info', msg)
+        
 
     elif prev_batch_had_errors:
         vals_list = _compile_vals_list_for_batch(prev_batch_task_id)
@@ -455,7 +450,7 @@ def delegate_batch(vals_list, instance_pk, export_filter, export_type, options,
             exp.options)
 
     batch_tasks = []
-    for task_chunk_id in plan.registry[batch_id]:
+    for task_chunk_id in plan.registry.get(batch_id, []):
         kwargs = {'chunk_id': task_chunk_id}
         batch_tasks.append(do_export_chunk.s(cumulative_vals, *args, **kwargs))
 
