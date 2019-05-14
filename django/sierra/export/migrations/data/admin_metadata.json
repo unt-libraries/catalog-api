@@ -12,17 +12,6 @@
 },
 {
     "fields": {
-        "path": "export.batch_exporters.AllToSolr",
-        "model": "RecordMetadata",
-        "order": 1,
-        "description": "Exports all main III record types, such as bibs, items, patrons, authorities, invoices, orders, etc., that are registered (see exporter.py code) and match the export filter to Solr. ",
-        "label": "Load all registered III record types into Solr"
-    },
-    "model": "export.exporttype",
-    "pk": "AllToSolr"
-},
-{
-    "fields": {
         "path": "export.basic_exporters.BibsAndAttachedToSolr",
         "model": "BibRecord",
         "order": 7,

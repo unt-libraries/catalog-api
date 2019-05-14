@@ -399,16 +399,6 @@ for setting, as_str in ((EXPORTER_MAX_RC_CONFIG, 'EXPORTER_MAX_RC_CONFIG'),
 EXPORTER_EMAIL_ON_ERROR = get_env_variable('EXPORTER_EMAIL_ON_ERROR', True)
 EXPORTER_EMAIL_ON_WARNING = get_env_variable('EXPORTER_EMAIL_ON_WARNING', True)
 
-# Maps III record types to Exporter jobs that should run for those
-# record types when an "All" type export is run. Note that you can map
-# multiple jobs to the same record type. In this case all specified
-# jobs will run when the All export is triggered.
-EXPORTER_ALL_TYPE_REGISTRY = {
-    'b': ['BibsToSolr'],
-    'i': ['ItemsToSolr'],
-    'e': ['EResourcesToSolr']
-}
-
 # List of Exporter jobs that should be triggered when an AllMetadata
 # exporter job is run.
 EXPORTER_METADATA_TYPE_REGISTRY = [
