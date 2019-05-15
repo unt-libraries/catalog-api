@@ -148,8 +148,10 @@ class JobPlan(object):
     def what_batch(self, chunk_id):
         return self.get_batch_id(int(chunk_id.split('-')[1]))
 
-    def get_records_for_operation(self, exp, op):
-        return exp.get_records() if op == 'export' else exp.get_deletions()
+    def get_records_for_operation(self, exp, op, prefetch=True):
+        if op == 'export':
+            return exp.get_records(prefetch=prefetch)
+        return exp.get_deletions()
 
     def get_method_for_operation(self, exp, op):
         return exp.export_records if op == 'export' else exp.delete_records
@@ -352,26 +354,66 @@ def _hr_line(char='-', len=80):
 def _fetch_job_pk_lists(exp, plan):
     pk_lists = {}
     for op in OPERATIONS:
-        records = plan.get_records_for_operation(exp, op)
-        if records is None:
-            pk_list = []
-        else:
-            if hasattr(records, 'items'):
-                # This logic branch is specifically for the
-                # AllMetadataToSolr exporter, which does exports for
-                # multiple querysets at one time.
-                pk_list = []
-                for name, qset in records.items():
-                    pk_qset = qset.prefetch_related(None).select_related(None)
-                    pk_qset = _apply_pk_sort_order(pk_qset)
-                    new_pks = [(name, r['pk']) for r in pk_qset.values('pk')]
-                    pk_list.extend(new_pks)
-            else:
-                pk_qset = records.prefetch_related(None).select_related(None)
-                pk_qset = _apply_pk_sort_order(pk_qset)
-                pk_list = [r['pk'] for r in pk_qset.values('pk')]
-        pk_lists[op] = pk_list
+        records = plan.get_records_for_operation(exp, op, prefetch=False)
+        pk_lists[op] = _pack_pks_from_records(records)
     return pk_lists
+
+
+def _pack_pks_from_records(records):
+    """
+    Prepare a list of PKs given a `records` data structure.
+
+    `records` is whatever a given Exporter's `get_records` or
+    `get_deletions` method outputs. Normally it will be a single
+    queryset, but it could be a dict of querysets. In the former case,
+    the list of PKs is returned as-is: each PK is a PK from a record in
+    the queryset. In the latter, PKs from different querysets may
+    overlap, so each PK is qualified using the key from the QS dict,
+    and the PK becomes a tuple: (key, PK).
+    """
+    pks = []
+    for name, qset in _get_recordsets_iterable(records):
+        if qset is not None:
+            pk_qset = _apply_pk_sort_order(qset)
+            if name is None:
+                pks.extend([r['pk'] for r in pk_qset.values('pk')])
+            else:
+                pks.extend([(name, r['pk']) for r in pk_qset.values('pk')])
+    return pks
+
+
+def _filter_records_by_packed_pks(records, pks):
+    """
+    Filter a `records` data structure based on the given list of `pks`.
+
+    `records` is whatever a given Exporter's `get_records` or
+    `get_deletions` method outputs. Normally it will be a single
+    queryset, but it could be a dict of querysets. In the latter case,
+    PKs would have been packed using keys from the QS dict, which has
+    to be taken into account when we filter records to send to the
+    Exporter to operate on, for a given chunk.
+
+    Whatever the structure of `records`, this function does the
+    appropriate filtering and returns either a single QS or a dict of
+    QSes, where each QS is filtered to records matching PKS in the
+    given `pks` list.
+    """
+    qsets = {}
+    for name, qset in _get_recordsets_iterable(records):
+        if qset is not None:
+            sorted_qset = _apply_pk_sort_order(qset)
+            if name is None:
+                qset_pks = pks
+            else:
+                qset_pks = [pk for n, pk in pks if n == name]
+            qsets[name] = sorted_qset.filter(pk__in=qset_pks)
+        else:
+            qsets[name] = qset
+    return qsets.get(None, qsets)
+
+
+def _get_recordsets_iterable(records):
+    return records.items() if hasattr(records, 'items') else [(None, records)]
 
 
 def _apply_pk_sort_order(qset):
@@ -432,7 +474,6 @@ def delegate_batch(vals_list, instance_pk, export_filter, export_type, options,
             msg = ('No records found for {}. Nothing to do!'
                    ''.format(', '.join(pk_lists.keys())))
             exp.log('Info', msg)
-        
 
     elif prev_batch_had_errors:
         vals_list = _compile_vals_list_for_batch(prev_batch_task_id)
@@ -522,26 +563,15 @@ def do_export_chunk(cumulative_vals, instance_pk, export_filter, export_type,
     """
     exp = spawn_exporter(instance_pk, export_filter, export_type, options)
     plan = JobPlan(exp)
-    chunk_pks = plan.get_chunk_pks(chunk_id)
     start, end, op = plan.get_chunk_record_range(chunk_id)
-
-    records = plan.get_records_for_operation(exp, op)
-    exp_method = plan.get_method_for_operation(exp, op)
-
     chunk_label = 'records {} - {} for {}'.format(start, end, op)
     exp.log('Info', 'Starting {} ({}).'.format(chunk_id, chunk_label))
-    if hasattr(records, 'items'):
-        # This logic branch is specifically for the AllMetadataToSolr
-        # exporter, which does exports for multiple querysets at once.
-        records_to_export = {}
-        for group_name, qset in records.items():
-            group_pks = [pk for group, pk in chunk_pks if group == group_name]
-            qset = _apply_pk_sort_order(qset).filter(pk__in=group_pks)
-            records_to_export[group_name] = qset
-        vals = exp_method(records_to_export)
-    elif records is not None:
-        records = _apply_pk_sort_order(records).filter(pk__in=chunk_pks)
-        vals = exp_method(records)
+
+    records = plan.get_records_for_operation(exp, op)
+    packed_chunk_pks = plan.get_chunk_pks(chunk_id)
+    chunk_records = _filter_records_by_packed_pks(records, packed_chunk_pks)
+    vals = plan.get_method_for_operation(exp, op)(chunk_records)
+
     exp.log('Info', 'Finished {} ({}).'.format(chunk_id, chunk_label))
     return vals
 

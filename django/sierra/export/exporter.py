@@ -145,54 +145,44 @@ class Exporter(object):
         self.logger = logging.getLogger('exporter.file')
         self.console_logger = logging.getLogger('sierra.custom')
 
-
     def _base_get_records(self, model, filters, is_deletion=False,
-                          select_related=None, prefetch_related=[],
+                          select_related=None, prefetch_related=None,
                           fail_on_zero=False):
         """
-        Default method for getting records using self.export_filter.
-        Returns the queryset. Generally you won't want to override this
-        in your subclass--override get_records and get_deletions
-        instead.
-        
-        Note that this assumes you're working with one of the main III
-        record types and have the benefit of the RecordMetadata table.
-        If this is not the case, you'll need to write your own
-        get_records and get_deletions methods that don't use this.
+        This method is now deprecated; use `get_filtered_queryset`
+        instead. A warning will be logged in the export log if you use
+        this method.
         """
+        msg = ('The `export.Exporter._base_get_records` method is deprecated '
+               'and will be removed in a future update. Use '
+               '`get_filtered_queryset` instead.')
+        self.log('Warning', msg)
         options = self.options.copy()
         options['is_deletion'] = is_deletion
+        return self.get_filtered_queryset(
+            model, self.export_filter, options, added_filters=filters,
+            select_related=select_related, prefetch_related=prefetch_related,
+        )
 
-        try:
-            # do base record filter.
-            records = model.objects.filter_by(self.export_filter,
-                                              options=options)
-            
-            # do additional filters, if provided.
-            if filters:
-                q_filter = helpers.reduce_filter_kwargs(filters)
-                records = records.filter(q_filter)
+    @staticmethod
+    def get_filtered_queryset(model, export_filter, filter_options,
+                              added_filters=None, select_related=None,
+                              prefetch_related=None):
+        """
+        Utility method for fetching a filtered queryset based on the
+        provided args and kwargs.
+        """
+        prefetch_related = prefetch_related or []
+        qs = model.objects.filter_by(export_filter, options=filter_options)
+        
+        if added_filters:
+            q_filter = helpers.reduce_filter_kwargs(added_filters)
+            qs = qs.filter(q_filter)
 
-            # apply select_ and prefetch_related
-            if select_related and select_related is not None:
-                records = records.select_related(*select_related)
-            if prefetch_related or prefetch_related is None:
-                records = records.prefetch_related(*prefetch_related)
-                
-        except Exception as e:
-            model_name = model._meta.object_name
-            raise ExportError('Could not retrieve records from {} via '
-                    'export filter {} using options '
-                    '{}, default filter {}: {}.'
-                    ''.format(model_name, self.export_filter, self.options,
-                              self.record_filter, e))
-        if (fail_on_zero and len(records) == 0):
-            raise ExportError('0 records retrieved from {} via export '
-                    'filter {} using options '
-                    '{}, default filter {}.'
-                    ''.format(model_name, self.export_filter, self.options, 
-                                 self.filter))
-        return records
+        if select_related and select_related is not None:
+            qs = qs.select_related(*select_related)
+        qs = qs.prefetch_related(*prefetch_related)
+        return qs
 
     def log(self, type, message, label=''):
         """
@@ -233,37 +223,55 @@ class Exporter(object):
         self.instance.status = status
         self.instance.save()
 
-    def get_records(self):
+    def get_records(self, prefetch=True):
         """
-        Should return a full queryset or list of record objects based
-        on the export filter passed into the class at initialization.
-        If your export job is using one of the main III record types as
-        its primary focus, then you can/should use the
-        _base_get_records() method to make this simple. Otherwise 
-        you'll have to override this (get_records) in your subclass.
+        Return a data structure containing the queryset that will be
+        processed via `export_records` for a particular job. If
+        `prefetch` is True, `select_related` and `prefetch_related`
+        are set on the queryset before it is returned; if False, then
+        they are explicitly NOT set.
+
+        The default behavior should work for most needs, but you may
+        override this method on your Exporter subclass if you need
+        custom behavior. Whatever is returned is what is passed to
+        `export_records`, so if you have compound Exporters that work
+        on multiple querysets, you can return a dict of querysets. Just
+        make sure to handle prefetching appropriately.
+
+        (Note: Celery tasks set up in `export.tasks` assume that
+        `get_records` and `get_deletions` return a single queryset or a
+        dict of querysets. Anything different will require custom
+        tasks.)
         """
-        return self._base_get_records(self.model, self.record_filter,
-                                      is_deletion=False,
-                                      select_related=self.select_related,
-                                      prefetch_related=self.prefetch_related)
+        options = self.options.copy()
+        options['is_deletion'] = False
+        sr = self.select_related if prefetch else None
+        pf = self.prefetch_related if prefetch else None
+        return self.get_filtered_queryset(
+            self.model, self.export_filter, options,
+            added_filters=self.record_filter, select_related=sr,
+            prefetch_related=pf)
 
     def get_deletions(self):
         """
-        Like get_records, but returns a queryset of objects that
+        Like `get_records`, but returns a queryset of objects that
         represent things that should be deleted. If you haven't set
         self.deletion_filter, then this will just return None.
+        Prefetching is not used because it doesn't apply.
         """
         if self.deletion_filter:
-            return self._base_get_records(sierra_models.RecordMetadata,
-                                          self.deletion_filter,
-                                          is_deletion=True)
+            options = self.options.copy()
+            options['is_deletion'] = True
+            return self.get_filtered_queryset(
+                sierra_models.RecordMetadata, self.export_filter, options,
+                added_filters=self.deletion_filter)
         else:
             return None
 
     def export_records(self, records):
         """
-        When passed a queryset (e.g., from self.get_records()), this
-        should export the records as necessary.
+        When passed a `records` structure (from the `get_records`
+        method), this should export the records as necessary.
 
         A return value is optional; returns None by default. Regarding
         the return value:
@@ -425,7 +433,7 @@ class MetadataToSolrExporter(ToSolrExporter):
 
     index_config = tuple()
 
-    def get_records(self):
+    def get_records(self, prefetch=False):
         return self.model.objects.all()
 
     def get_deletions(self):

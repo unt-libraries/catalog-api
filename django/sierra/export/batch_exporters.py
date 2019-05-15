@@ -36,7 +36,7 @@ class AllMetadataToSolr(exporter.Exporter):
                                    self.export_type, self.options)
             self.child_instances[etype_name] = exp_inst
 
-    def get_records(self):
+    def get_records(self, prefetch=False):
         return { k: v.get_records() for k, v in self.child_instances.items() }
     
     def export_records(self, records):
