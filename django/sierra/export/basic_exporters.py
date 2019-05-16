@@ -363,7 +363,9 @@ class BibsDownloadMarc(Exporter):
         'bibrecorditemrecordlink_set__item_record__record_metadata'
             '__record_type',
         'bibrecordproperty_set',
+        'bibrecordproperty_set__material__materialpropertyname_set',
         'bibrecordproperty_set__material__materialpropertyname_set'
+            '__iii_language',
     ]
     select_related = ['record_metadata', 'record_metadata__record_type']
 
