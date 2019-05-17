@@ -106,7 +106,7 @@ class Exporter(object):
     model = ''
     app_name = 'export'
 
-    def __init__(self, instance_pk, export_filter, export_type, options={},
+    def __init__(self, instance_pk, export_filter, export_type, options=None,
                  log_label=''):
         """
         Arguments: instance_pk is the pk for the export_instance
@@ -125,7 +125,7 @@ class Exporter(object):
         self.status = 'unknown'
         self.export_filter = export_filter
         self.export_type = export_type
-        self.options = options
+        self.options = options or {}
         self.log_label = log_label if log_label else self.__class__.__name__
         if export_filter == 'last_export':
             try:
@@ -492,7 +492,8 @@ class CompoundMixin(object):
             new_cls_attrs = self.get_patched_class_attrs()
             new_expclass = type(new_cls_name, (self.expclass,), new_cls_attrs)
             return new_expclass(parent_instance_pk, parent_export_filter,
-                                parent_export_type, options=parent_options)
+                                parent_export_type,
+                                options=parent_options.copy())
 
     children_config = tuple()
 
