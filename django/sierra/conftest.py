@@ -617,8 +617,8 @@ def assert_all_exported_records_are_indexed(assert_records_are_indexed):
         for index in test_indexes:
             assert_records_are_indexed(index, record_set)
         # Check results in all child indexes (if any).
-        if hasattr(exporter, 'children'):
-            child_rsets = exporter.generate_record_sets(record_set)
+        if hasattr(exporter, 'main_child'):
+            child_rsets = exporter.derive_recordsets_from_parent(record_set)
             for child_name, child in exporter.children.items():
                 child_indexes = getattr(child, 'indexes', {}).values()
                 for index in child_indexes:

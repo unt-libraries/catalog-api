@@ -451,32 +451,20 @@ class CompoundMixin(object):
     To use: first, include the mixin in your class definition (before
     the main Exporter class). Then override the `children_config` class
     attribute in your subclass. It should be a tuple of Child objects,
-    where each defines a child exporter. Initialize each by passing the
-    exporter name--i.e., the export_type identifier string for that
-    exporter type.
+    where each defines a child exporter. Initialize each as appropriate
+    depending on the subclass.
 
     When you instantiate an object using your subclass, you'll gain
     access to a `children` property. This is an OrderedDict allowing
     you to reference instantiated children exporter objects by name.
 
-    Note that the Child class monkey-patches a new method onto each
-    spawned exporter instance, `derive_records`. This method defines
-    how a child exporter derives its input records when given a record
-    from the main, parent exporter's record_set. Your subclass should
-    also subclass Child if it needs to override the default behavior
-    (which just returns a list containing the parent_record).
-    Example: BibsAndAttached is a Compound exporter that exports a set
-    of bib records to Solr along with the items and holdings attached
-    to each bib record in that set. The `derive_records` method for the
-    ItemsChild type takes a bib record (model instance) and returns the
-    list of attached items. The parent exporter exposes a
-    `generate_record_sets` method, which uses the `derive_records`
-    method on each child exporter to compile those record_sets.
+    Note that the Child class patches new attributes onto the exporter.
+    By default, the Child config object can be accessed via a `_config`
+    attribute. Subclasses may patch their own attributes (via the
+    `Child.get_patched_class_attrs` method).
     """
 
     class Child(object):
-
-        rel_prefix = ''
 
         def __init__(self, name, export_type_code=None, expclass=None):
             self.name = name
@@ -490,20 +478,21 @@ class CompoundMixin(object):
                 self._expclass = export_type.get_exporter_class()
             return self._expclass
 
-        def derive_records(self, parent_record):
-            return [parent_record]
+        def get_patched_class_attrs(self):
+            """
+            Implement this method in subclasses if additional attrs
+            need to be attached to the patched exporter class.
+            """
+            return {'_config': self}
 
         def spawn_instance(self, parent_cls, parent_instance_pk,
                            parent_export_filter, parent_export_type,
                            parent_options):
-            nclassname = str('{}->{}'.format(parent_cls.__name__, self.name))
-            nclass_attrs = {
-                '_config': self,
-                'derive_records': lambda s, rec: s._config.derive_records(rec)
-            }
-            new_class = type(nclassname, (self.expclass,), nclass_attrs)
-            return new_class(parent_instance_pk, parent_export_filter,
-                             parent_export_type, options=parent_options)
+            new_cls_name = str('{}->{}'.format(parent_cls.__name__, self.name))
+            new_cls_attrs = self.get_patched_class_attrs()
+            new_expclass = type(new_cls_name, (self.expclass,), new_cls_attrs)
+            return new_expclass(parent_instance_pk, parent_export_filter,
+                                parent_export_type, options=parent_options)
 
     children_config = tuple()
 
@@ -524,12 +513,120 @@ class CompoundMixin(object):
             self._children = type(self).spawn_children(args)
         return self._children
 
-    def generate_record_sets(self, record_set):
-        child_rsets = {name: [] for name in self.children.keys()}
-        for record in record_set:
-            for name, child in self.children.items():
-                child_rsets[name].extend(child.derive_records(record))
-        return {k: list(set(v)) for k, v in child_rsets.items()}
+    def get_records_from_children(self, prefetch, which_children=None):
+        """
+        This is a helper method that triggers the `get_records` method
+        on 1+ children.
+        """
+        records = {}
+        for child in which_children or self.children.values():
+            records[child._config.name] = child.get_records(prefetch)
+        return records
+
+    def do_op_on_children(self, operation, records, which_children=None):
+        """
+        This is a helper method that triggers an operation method
+        (`export_records`, or `delete_records`) on 1+ children.
+        """
+        vals = {}
+        for child in which_children or self.children.values():
+            op = getattr(child, operation)
+            vals[child._config.name] = op(records[child._config.name])
+        return vals
+
+    def compile_vals_from_children(self, results, which_children=None):
+        """
+        This is a helper method for compiling a list of export or
+        deletion return values (`results`), aka vals, from 1+ children,
+        via each child's `compile_vals` method.
+        """
+        children = which_children or self.children.values()
+        sep_vals = {c._config.name: [] for c in children}
+        for r in results:
+            if r is not None:
+                for c in children:
+                    sep_vals[c._config.name].append(r[c._config.name])
+        return { c._config.name: c.compile_vals(sep_vals[c._config.name])
+                    for c in children }
+
+    def do_final_callback_on_children(self, vals, status, which_children=None):
+        """
+        This is a helper method that triggers the final_callback method
+        on 1+ children, passing the appropriate vals to each call.
+        """
+        for child in which_children or self.children.values():
+            child.final_callback(vals=vals[child._config.name], status=status)
+
+
+class BatchExporter(CompoundMixin, Exporter):
+    """
+    Base class for writing exporters that need multiple recordsets
+    and/or need to run multiple other exporters.
+    """
+    Child = CompoundMixin.Child
+    children_config = tuple()
+
+    def get_records(self, prefetch=True):
+        return self.get_records_from_children(prefetch)
+
+    def export_records(self, records):
+        return self.do_op_on_children('export', records)
+
+    def delete_records(self, records):
+        return self.do_op_on_children('delete', records)
+
+    def compile_vals(self, results):
+        return self.compile_vals_from_children(results)
+
+    def final_callback(self, vals=None, status='success'):
+        self.do_final_callback_on_children(vals, status)
+
+
+class AttachedRecordExporter(CompoundMixin, Exporter):
+    """
+    Base class for creating exporters that export a main set of records
+    plus one or more sets of attached records.
+
+    The base Child config class for exporters of this type defines a
+    base `derive_records_from_parent` method. In subclasses, this
+    method should derive child records given a record from the main,
+    parent exporter's record set. The default behavior just returns the
+    parent_record.
+
+    Example: BibsAndAttached is a Compound exporter that exports a set
+    of bib records to Solr along with the items and holdings attached
+    to each bib record in that set. The `derive_records...` method for
+    the ItemChild type takes a bib record (model instance) and returns
+    the list of attached items. The `derive_recordsets_from_parent`
+    method on the AttachedRecordExporter object then compiles all the
+    recordsets together.
+
+    Because this implementation fetches attached records *during* the
+    `export_records` run, and NOT during `get_records`, exporters of
+    this type are extremely memory-intensive. The `prefetch_related`
+    attribute is implemented as a property that calculates appropriate
+    values from ALL children. Hence, the `rel_prefix` Child config
+    attribute: this should be defined on attached children config
+    classes, telling the exporter what prefix should be placed before
+    each field in select_related and prefetch_related for that child,
+    relative to the parent.
+    """
+    class Child(CompoundMixin.Child):
+
+        rel_prefix = ''
+
+        def derive_records_from_parent(self, parent_record):
+            return [parent_record]
+
+    children_config = tuple()
+
+    @property
+    def main_child(self):
+        return self.children.items()[0][1]
+
+    @property
+    def attached_children(self):
+        return [c[1] for c in self.children.items()[1:]]
 
     @staticmethod
     def combine_lists(*lists):
@@ -553,56 +650,6 @@ class CompoundMixin(object):
                 base_list = ['{}__{}'.format(rel_prefix, r) for r in base_list]
             rel_lists.append(base_list)
         return self.combine_lists(*rel_lists)
-
-    def compile_vals_from_children(self, results, which_children=None):
-        """
-        This is a helper method for compiling a list of export or
-        deletion return values (`results`), aka vals, from 1+ children,
-        via each child's `compile_vals` method.
-        """
-        children = which_children or self.children.values()
-        sep_vals = {c._config.name: [] for c in children}
-        for r in results:
-            if r is not None:
-                for c in children:
-                    sep_vals[c._config.name].append(r[c._config.name])
-        return { c._config.name: c.compile_vals(sep_vals[c._config.name])
-                    for c in children }
-
-    def do_op_on_children(self, operation, records, which_children=None):
-        """
-        This is a helper method that triggers an operation method
-        (`export_records`, or `delete_records`) on 1+ children.
-        """
-        children = which_children or self.children.values()
-        rsets = self.generate_record_sets(records)
-        return { c._config.name: getattr(c, operation)(rsets[c._config.name])
-                    for c in children }
-
-    def do_final_callback_on_children(self, vals, status, which_children=None):
-        """
-        This is a helper method that triggers the final_callback method
-        on 1+ children, passing the appropriate vals to each call.
-        """
-        for child in which_children or self.children.values():
-            child.final_callback(vals=vals[child._config.name], status=status)
-
-
-class AttachedRecordExporter(CompoundMixin, Exporter):
-    """
-    Base class for creating exporters that export a main set of records
-    plus one or more sets of attached records.
-    """
-    Child = CompoundMixin.Child
-    children_config = tuple()
-
-    @property
-    def main_child(self):
-        return self.children.items()[0][1]
-
-    @property
-    def attached_children(self):
-        return [c[1] for c in self.children.items()[1:]]
 
     @property
     def select_related(self):
@@ -630,6 +677,14 @@ class AttachedRecordExporter(CompoundMixin, Exporter):
             self._prefetch_related = self.combine_lists(all_pr, att_sr)
         return self._prefetch_related
 
+    def derive_recordsets_from_parent(self, parent_recordset):
+        child_rsets = {name: [] for name in self.children.keys()}
+        for record in parent_recordset:
+            for name, child in self.children.items():
+                child_rset = child._config.derive_records_from_parent(record)
+                child_rsets[name].extend(child_rset)
+        return {k: list(set(v)) for k, v in child_rsets.items()}
+
     @property
     def deletion_filter(self):
         return self.main_child.deletion_filter
@@ -638,7 +693,8 @@ class AttachedRecordExporter(CompoundMixin, Exporter):
         return self.compile_vals_from_children(results)
 
     def export_records(self, records):
-        return self.do_op_on_children('export_records', records)
+        rsets = self.derive_recordsets_from_parent(records)
+        return self.do_op_on_children('export_records', rsets)
 
     def delete_records(self, records):
         vals = {name: None for name in self.children.keys()}

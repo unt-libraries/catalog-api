@@ -470,7 +470,7 @@ class ItemsBibsToSolr(AttachedRecordExporter):
 
         rel_prefix = 'bibrecorditemrecordlink_set__bib_record'
 
-        def derive_records(self, parent_record):
+        def derive_records_from_parent(self, parent_record):
             bib_links = parent_record.bibrecorditemrecordlink_set.all()
             return [link.bib_record for link in bib_links]
 
@@ -490,7 +490,7 @@ class BibsAndAttachedToSolr(AttachedRecordExporter):
 
         rel_prefix = 'bibrecorditemrecordlink_set__item_record'
 
-        def derive_records(self, parent_record):
+        def derive_records_from_parent(self, parent_record):
             item_links = parent_record.bibrecorditemrecordlink_set.all()
             return [link.item_record for link in item_links]
 
