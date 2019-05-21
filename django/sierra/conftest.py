@@ -483,8 +483,7 @@ def derive_exporter_class(installed_test_class, model_instance, export_type):
             model_name = None
         new_exptype_info = { 'code': new_exptype_name, 'path': classpath,
                              'label': 'Do {} load'.format(new_exptype_name),
-                             'description': new_exptype_name, 'order': 999,
-                             'model': model_name }
+                             'description': new_exptype_name, 'order': 999 }
         models = importlib.import_module('export.models')
         new_exptype = model_instance(models.ExportType, **new_exptype_info)
         return newclass
