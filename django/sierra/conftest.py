@@ -538,6 +538,31 @@ def derive_exporter_class(installed_test_class, model_instance, export_type):
 
 
 @pytest.fixture
+def derive_compound_exporter_class(derive_exporter_class):
+    def _derive_compound_exporter_class(p_basecls_name, p_path, p_attrs=None,
+                                        children=None):
+        parent = derive_exporter_class(p_basecls_name, p_path,
+                                       newname='Parent',
+                                       attrs=p_attrs or {})
+        parent.children_config = tuple(
+            parent.Child(c.__name__) for c in (children or [])
+        )
+        return parent
+    return _derive_compound_exporter_class
+
+
+@pytest.fixture
+def derive_child_exporter_class(derive_exporter_class):
+    def _derive_child_exporter_class(c_cls_name='Exporter',
+                                     c_path='export.exporter', c_attrs=None,
+                                     newname=None):
+        return derive_exporter_class(c_cls_name, c_path,
+                                     newname=newname or 'C',
+                                     attrs=c_attrs or {})
+    return _derive_child_exporter_class
+
+
+@pytest.fixture
 def new_exporter(new_export_instance):
     def _new_exporter(expclass, ef_code, st_code, options={}):
         et_code = expclass.__name__
@@ -554,11 +579,12 @@ def get_records_from_index(solr_conns, solr_search):
     records from the provided `record_set` from the provided `index`
     object.
     """
-    def _get_records_from_index(index, record_set):
+    def _get_records_from_index(index, record_set, results=None):
         id_fname = index.reserved_fields['haystack_id']
         meta = index.get_model()._meta
-        conn = solr_conns[getattr(index, 'using', 'default')]
-        results = solr_search(conn, '*')
+        if results is None:
+            conn = solr_conns[getattr(index, 'using', 'default')]
+            results = solr_search(conn, '*')
 
         found_records = {}
         for record in record_set:
@@ -578,8 +604,8 @@ def assert_records_are_indexed(get_records_from_index):
     that the provided `record_set` has been indexed by the provided
     `index` object appropriately.
     """
-    def _assert_records_are_indexed(index, record_set):
-        results = get_records_from_index(index, record_set)
+    def _assert_records_are_indexed(index, record_set, results=None):
+        results = get_records_from_index(index, record_set, results)
         for record in record_set:
             assert record.pk in results
             result = results[record.pk]
@@ -597,8 +623,8 @@ def assert_records_are_not_indexed(get_records_from_index):
     that records in the provided `record_set` are NOT indexed in the
     Solr index represented by the provided `index` object.
     """
-    def _assert_records_are_not_indexed(index, record_set):
-        assert not get_records_from_index(index, record_set)
+    def _assert_records_are_not_indexed(index, record_set, results=None):
+        assert not get_records_from_index(index, record_set, results)
     return _assert_records_are_not_indexed
 
 

@@ -12,44 +12,19 @@ import re
 
 from django.conf import settings
 
-from . import exporter
+from export.exporter import BatchExporter
 from . import models
 
 # set up logger, for debugging
 logger = logging.getLogger('sierra.custom')
 
 
-class AllMetadataToSolr(exporter.Exporter):
+class AllMetadataToSolr(BatchExporter):
     """
     Loads ALL metadata-type data into Solr, as defined by the
     EXPORTER_METADATA_TYPE_REGISTRY setting in your Django settings.
     """
-    child_etype_names = settings.EXPORTER_METADATA_TYPE_REGISTRY
-    
-    def __init__(self, *args, **kwargs):
-        super(AllMetadataToSolr, self).__init__(*args, **kwargs)
-        self.child_instances = {}
-        for etype_name in self.child_etype_names:
-            etype = models.ExportType.objects.get(pk=etype_name)
-            etype_class = etype.get_exporter_class()
-            exp_inst = etype_class(self.instance.pk, self.export_filter,
-                                   self.export_type, self.options)
-            self.child_instances[etype_name] = exp_inst
-
-    def get_records(self, prefetch=False):
-        return { k: v.get_records() for k, v in self.child_instances.items() }
-    
-    def export_records(self, records):
-        ret_vals = {}
-        for etype_name in self.child_etype_names:
-            exp_inst = self.child_instances[etype_name]
-            et_vals = exp_inst.export_records(records[etype_name])
-            ret_vals[etype_name] = et_vals
-        return ret_vals
-
-    def final_callback(self, vals=None, status='success'):
-        vals = vals or {}
-        for etype_name in self.child_etype_names:
-            exp_inst = self.child_instances[etype_name]
-            exp_inst.final_callback(vals=vals.get(etype_name, {}),
-                                    status=status)
+    Child = BatchExporter.Child
+    children_config = tuple([
+        Child(n) for n in settings.EXPORTER_METADATA_TYPE_REGISTRY
+    ])

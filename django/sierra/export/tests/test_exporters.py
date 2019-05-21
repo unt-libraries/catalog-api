@@ -3,7 +3,6 @@ Tests classes derived from `export.exporter.Exporter`.
 """
 
 import pytest
-from base.models import BibRecord
 
 # FIXTURES AND TEST DATA
 # Fixtures used in the below tests can be found in
@@ -26,25 +25,38 @@ def basic_exporter_class(derive_exporter_class):
     return _basic_exporter_class
 
 
+@pytest.fixture
+def batch_exporter_class(derive_exporter_class):
+    def _batch_exporter_class(name):
+        return derive_exporter_class(name, 'export.batch_exporters')
+    return _batch_exporter_class
+
+
 # TESTS
 
-@pytest.mark.parametrize('et_code', [
-    ('BibsToSolr'),
-    ('EResourcesToSolr'),
-    ('ItemsToSolr'),
-    ('ItemStatusesToSolr'),
-    ('ItypesToSolr'),
-    ('LocationsToSolr'),
-    ('ItemsBibsToSolr'),
-    ('BibsAndAttachedToSolr')
+@pytest.mark.parametrize('et_code, category', [
+    ('BibsToSolr', 'basic'),
+    ('EResourcesToSolr', 'basic'),
+    ('ItemsToSolr', 'basic'),
+    ('ItemStatusesToSolr', 'basic'),
+    ('ItypesToSolr', 'basic'),
+    ('LocationsToSolr', 'basic'),
+    ('ItemsBibsToSolr', 'basic'),
+    ('BibsAndAttachedToSolr', 'basic'),
+    ('AllMetadataToSolr', 'batch'),
 ])
-def test_exporter_class_versions(et_code, new_exporter, basic_exporter_class):
+def test_exporter_class_versions(et_code, category, new_exporter,
+                                 basic_exporter_class, batch_exporter_class):
     """
     For all exporter types / classes that are under test in this test
-    module, what we get from the `basic_exporter_class` fixture should
-    be derived from the `export` app.
+    module, what we get from the `basic_exporter_class` and
+    `batch_exporter_class` fixtures should be derived from the `export`
+    app.
     """
-    expclass = basic_exporter_class(et_code)
+    if category == 'basic':
+        expclass = basic_exporter_class(et_code)
+    else:
+        expclass = batch_exporter_class(et_code)
     exporter = new_exporter(expclass, 'full_export', 'waiting')
     assert exporter.app_name == 'export'
     for child_etcode, child in getattr(exporter, 'children', {}).items():
@@ -52,6 +64,8 @@ def test_exporter_class_versions(et_code, new_exporter, basic_exporter_class):
 
 
 @pytest.mark.exports
+@pytest.mark.get_records
+@pytest.mark.basic
 @pytest.mark.parametrize('et_code, rset_code', [
     ('BibsToSolr', 'bib_set'),
     ('EResourcesToSolr', 'eres_set'),
@@ -63,21 +77,48 @@ def test_exporter_class_versions(et_code, new_exporter, basic_exporter_class):
     ('BibsAndAttachedToSolr', 'bib_set'),
     ('BibsAndAttachedToSolr', 'er_bib_set')
 ])
-def test_export_get_records(et_code, rset_code, basic_exporter_class,
-                            record_sets, new_exporter):
+def test_basic_export_get_records(et_code, rset_code, basic_exporter_class,
+                                  record_sets, new_exporter):
     """
-    For Exporter classes that get data from Sierra, the `get_records`
-    method should return a record set containing the expected records.
+    For Basic Exporter classes that get data from Sierra, the
+    `get_records` method should return a record set containing the
+    expected records.
     """
     expclass = basic_exporter_class(et_code)
     exporter = new_exporter(expclass, 'full_export', 'waiting')
     db_records = exporter.get_records()
-    print exporter.prefetch_related
     assert len(db_records) > 0
     assert all([rec in db_records for rec in record_sets[rset_code]])
 
 
+@pytest.mark.exports
+@pytest.mark.get_records
+@pytest.mark.batch
+def test_batch_export_get_records(batch_exporter_class, record_sets,
+                                  new_exporter):
+    """
+    For Batch Exporter classes that get data from Sierra, the
+    `get_records` method should return a dict of all applicable record
+    sets.
+    """
+    expclass = batch_exporter_class('AllMetadataToSolr')
+    exporter = new_exporter(expclass, 'full_export', 'waiting')
+    rsets = exporter.get_records()
+
+    expected_rsets = {
+        'LocationsToSolr': record_sets['location_set'],
+        'ItypesToSolr': record_sets['itype_set'],
+        'ItemStatusesToSolr': record_sets['istatus_set'],
+    }
+    assert len(expected_rsets.keys()) == len(rsets.keys())
+    for key, rset in rsets.items():
+        assert len(rset) > 0
+        assert all([r in rset for r in expected_rsets[key]])
+
+
 @pytest.mark.deletions
+@pytest.mark.get_records
+@pytest.mark.basic
 @pytest.mark.parametrize('et_code, rset_code', [
     ('BibsToSolr', 'bib_del_set'),
     ('EResourcesToSolr', 'eres_del_set'),
@@ -88,60 +129,158 @@ def test_export_get_records(et_code, rset_code, basic_exporter_class,
     ('ItemsBibsToSolr', 'item_del_set'),
     ('BibsAndAttachedToSolr', 'bib_del_set'),
 ])
-def test_export_get_deletions(et_code, rset_code, basic_exporter_class,
-                              record_sets, new_exporter):
+def test_basic_export_get_deletions(et_code, rset_code, basic_exporter_class,
+                                    record_sets, new_exporter):
     """
-    For Exporter classes that get data from Sierra, the `get_deletions`
-    method should return a record set containing the expected records.
+    For basic Exporter classes that get data from Sierra, the
+    `get_deletions` method should return a record set containing the
+    expected records.
     """
     expclass = basic_exporter_class(et_code)
     exporter = new_exporter(expclass, 'full_export', 'waiting')
     db_records = exporter.get_deletions()
     if rset_code is None:
-        assert db_records == None
+        assert db_records is None
     else:
         assert all([rec in db_records for rec in record_sets[rset_code]])
 
 
+@pytest.mark.deletions
+@pytest.mark.get_records
+@pytest.mark.batch
+def test_batch_export_get_deletions(batch_exporter_class, record_sets,
+                                    new_exporter):
+    """
+    For batch Exporter classes that get data from Sierra, the
+    `get_deletions` method should return the expected record set.
+
+    Note: I'm anticipating having more batch exporters to test soon,
+    so this is set up to be ready for parametrization to work when
+    something actually returns data.
+    """
+    expclass = batch_exporter_class('AllMetadataToSolr')
+    exporter = new_exporter(expclass, 'full_export', 'waiting')
+    rsets = exporter.get_deletions()
+    expected_rsets = None
+    if expected_rsets is None:
+        assert rsets is None
+    else:
+        assert len(expected_rsets.keys()) == len(rsets.keys())
+        for key, rset in rsets.items():
+            if expected_rsets[key] is None:
+                assert rset is None
+            else:
+                assert len(rset) > 0
+                assert all([r in rset for r in expected_rsets[key]])
+
+
 @pytest.mark.exports
-@pytest.mark.parametrize('et_code, rset_code', [
-    ('BibsToSolr', 'bib_set'),
-    ('EResourcesToSolr', 'eres_set'),
-    ('ItemsToSolr', 'item_set'),
-    ('ItemStatusesToSolr', 'istatus_set'),
-    ('ItypesToSolr', 'itype_set'),
-    ('LocationsToSolr', 'location_set'),
+@pytest.mark.do_export
+@pytest.mark.basic
+@pytest.mark.parametrize('et_code, rset_code, rectypes, do_reindex', [
+    ('BibsToSolr', 'bib_set', ('bib', 'marc'), False),
+    ('EResourcesToSolr', 'eres_set', ('eresource',), False),
+    ('ItemsToSolr', 'item_set', ('item',), False),
+    ('ItemStatusesToSolr', 'istatus_set', ('itemstatus',), True),
+    ('ItypesToSolr', 'itype_set', ('itype',), True),
+    ('LocationsToSolr', 'location_set', ('location',), True),
 ])
-def test_tosolr_export_records(et_code, rset_code, basic_exporter_class,
-                               record_sets, new_exporter,
-                               assert_all_exported_records_are_indexed):
+def test_basic_tosolr_export_records(et_code, rset_code, rectypes, do_reindex,
+                                     basic_exporter_class, record_sets,
+                                     new_exporter, solr_conns, solr_search,
+                                     solr_assemble_specific_record_data,
+                                     assert_records_are_indexed,
+                                     assert_records_are_not_indexed):
     """
-    For ToSolrExporter classes, the `export_records` method should load
-    the expected records into the expected Solr index.
+    For basic ToSolrExporter classes, the `export_records` method
+    should load the expected records into the expected Solr index. This
+    uses the `solr_assemble_specific_record_data` fixture to help
+    preload some data into Solr. We want to make sure that exporters
+    where indexes are supposed to be fully refreshed with each run
+    delete the old data and only load the data in the recordset, while
+    other exporters add records to the existing recordset.
     """
-    records = record_sets[rset_code]
     expclass = basic_exporter_class(et_code)
     exporter = new_exporter(expclass, 'full_export', 'waiting')
+    records = record_sets[rset_code]
+    
+    # Do some setup to put some meaningful data into the index first.
+    # We want some records that overlap with the incoming record set
+    # and some that don't.
+    num_existing = records.count() / 2
+    overlap_recs = records[0:num_existing]
+    only_new_recs = records[num_existing:]
+    old_rec_pks = [unicode(pk) for pk in range(99991,99995)]
+    only_old_rec_data = [{'django_id': pk} for pk in old_rec_pks]
+    data = only_old_rec_data + [{'django_id': r.pk} for r in overlap_recs]
+    assembler = solr_assemble_specific_record_data(data, rectypes)
+
+    # Check the setup to make sure existing records are indexed and new
+    # records are not.
+    for index in exporter.indexes.values():
+        conn = solr_conns[getattr(index, 'using', 'default')]
+        results = solr_search(conn, '*')
+        only_old_recs = [r for r in results if r['django_id'] in old_rec_pks]
+        assert len(only_old_recs) == len(old_rec_pks)
+        assert_records_are_indexed(index, overlap_recs, results=results)
+        assert_records_are_not_indexed(index, only_new_recs, results=results)
+
     exporter.export_records(records)
     exporter.commit_indexes()
-    assert_all_exported_records_are_indexed(exporter, records)
+
+    for i, index in enumerate(exporter.indexes.values()):
+        conn = solr_conns[getattr(index, 'using', 'default')]
+        results = solr_search(conn, '*')
+        only_old_recs = [r for r in results if r['django_id'] in old_rec_pks]
+        assert len(only_old_recs) == 0 if do_reindex else len(old_rec_pks)
+        assert_records_are_indexed(index, overlap_recs, results=results)
+        assert_records_are_indexed(index, only_new_recs, results=results)
+
+
+@pytest.mark.exports
+@pytest.mark.do_export
+@pytest.mark.batch
+def test_batch_tosolr_export_records(batch_exporter_class, record_sets,
+                                     new_exporter,
+                                     assert_all_exported_records_are_indexed):
+    """
+    For batch ToSolrExporter classes, the `export_records` method
+    should load the expected records into the expected Solr index.
+    This is just a simple check to make sure all child exporters
+    processed the appropriate recordset; the children are tested more
+    extensively elsewhere.
+    """
+    records = {
+        'LocationsToSolr': record_sets['location_set'],
+        'ItypesToSolr': record_sets['itype_set'],
+        'ItemStatusesToSolr': record_sets['istatus_set'],
+    }
+    expclass = batch_exporter_class('AllMetadataToSolr')
+    exporter = new_exporter(expclass, 'full_export', 'waiting')
+    exporter.export_records(records)
+    for key, child in exporter.children.items():
+        child.commit_indexes()
+        assert_all_exported_records_are_indexed(child, records[key])
 
 
 @pytest.mark.deletions
+@pytest.mark.do_export
+@pytest.mark.basic
 @pytest.mark.parametrize('et_code, rset_code, rectypes', [
     ('BibsToSolr', 'bib_del_set', ('bib', 'marc')),
     ('EResourcesToSolr', 'eres_del_set', ('eresource',)),
     ('ItemsToSolr', 'item_del_set', ('item',)),
 ])
-def test_tosolr_delete_records(et_code, rset_code, rectypes,
-                               basic_exporter_class, record_sets, new_exporter,
-                               solr_assemble_specific_record_data,
-                               assert_records_are_indexed,
-                               assert_deleted_records_are_not_indexed):
+def test_basic_tosolr_delete_records(et_code, rset_code, rectypes,
+                                     basic_exporter_class, record_sets,
+                                     new_exporter,
+                                     solr_assemble_specific_record_data,
+                                     assert_records_are_indexed,
+                                     assert_deleted_records_are_not_indexed):
     """
-    For ToSolrExporter classes that have loaded data into Solr, the
-    `delete_records` method should delete records from the appropriate
-    index or indexes.
+    For basic ToSolrExporter classes that have loaded data into Solr,
+    the `delete_records` method should delete records from the
+    appropriate index or indexes.
     """
     records = record_sets[rset_code]
     data = ({'id': r.id, 'record_number': r.get_iii_recnum()} for r in records)
@@ -158,6 +297,26 @@ def test_tosolr_delete_records(et_code, rset_code, rectypes,
     assert_deleted_records_are_not_indexed(exporter, records)
 
 
+@pytest.mark.deletions
+@pytest.mark.do_export
+@pytest.mark.batch
+def test_batch_tosolr_delete_records(batch_exporter_class, record_sets,
+                                     new_exporter,
+                                     solr_assemble_specific_record_data,
+                                     assert_records_are_indexed,
+                                     assert_deleted_records_are_not_indexed):
+    """
+    For batch ToSolrExporter classes that have loaded data into Solr,
+    the `delete_records` method should delete records from the
+    appropriate index or indexes.
+
+    This is a placeholder, for now. The only existing batch exporter
+    (AllMetadataToSolr) doesn't do deletions.
+    """
+    pass
+
+
+@pytest.mark.exceptions
 def test_tosolr_index_update_errors(basic_exporter_class, record_sets,
                                     new_exporter,setattr_model_instance,
                                     assert_records_are_indexed,
@@ -191,6 +350,7 @@ def test_tosolr_index_update_errors(basic_exporter_class, record_sets,
 
 
 @pytest.mark.exports
+@pytest.mark.do_export
 @pytest.mark.parametrize('et_code, rset_code', [
     ('ItemsBibsToSolr', 'item_set'),
     ('BibsAndAttachedToSolr', 'bib_set'),
@@ -202,7 +362,9 @@ def test_attached_solr_export_records(et_code, rset_code, basic_exporter_class,
     """
     For AttachedRecordExporter classes that load data into Solr, the
     `export_records` method should load the expected records into the
-    expected Solr indexes.
+    expected Solr indexes. This is just a simple check to make sure all
+    child exporters processed the appropriate recordsets; the children
+    are tested more extensively elsewhere.
     """
     records = record_sets[rset_code]
     expclass = basic_exporter_class(et_code)
@@ -214,6 +376,7 @@ def test_attached_solr_export_records(et_code, rset_code, basic_exporter_class,
 
 
 @pytest.mark.deletions
+@pytest.mark.do_export
 @pytest.mark.parametrize('et_code, rset_code, rectypes', [
     ('ItemsBibsToSolr', 'item_del_set', ('item',)),
     ('BibsAndAttachedToSolr', 'bib_del_set', ('bib', 'marc')),
@@ -363,191 +526,274 @@ def test_exporter_default_compile_vals(vals_list, expected, new_exporter,
     dicts and return a single dict that represents a merger of all
     dicts in the list.
     """
-    expclass = derive_exporter_class('Exporter', 'export.exporter',
-                                     attrs={'model': BibRecord})
+    expclass = derive_exporter_class('Exporter', 'export.exporter')
     exp = new_exporter(expclass, 'full_export', 'waiting')
     assert exp.compile_vals(vals_list) == expected
 
 
+@pytest.mark.compound
 @pytest.mark.return_vals
-def test_attachedrecordexporter_export_return_vals(derive_exporter_class,
-                                                   new_exporter):
-    """
-    The `AttachedRecordExporter.export_records` method should return a
-    dictionary where each key/value pair is the name and return value
-    for each child exporter.
-    """
-    expclass_child1 = derive_exporter_class(
-        'Exporter',
-        'export.exporter',
-        newname='Child1',
-        attrs={
-            'model': BibRecord,
-            'export_records': lambda s, r: {'colors': ['red', 'green']}
-        }
+@pytest.mark.do_export
+@pytest.mark.parametrize('classname, method, children_and_retvals, expected', [
+    ('AttachedRecordExporter', 'export_records',
+        [ ('C1', {'colors': ['red', 'green']}), ('C2', {'sounds': ['woosh']}),
+          ('C3', None) ],
+        { 'C1': {'colors': ['red', 'green']},
+          'C2': {'sounds': ['woosh']},
+          'C3': None }
     ),
-
-    expclass_child2 = derive_exporter_class(
-        'Exporter',
-        'export.exporter',
-        newname='Child2',
-        attrs={
-            'model': BibRecord,
-            'export_records': lambda s, r: {'sounds': ['woosh']}
-        }
+    ('AttachedRecordExporter', 'delete_records',
+        [ ('C1', {'colors': ['red', 'green']}), ('C2', {'sounds': ['woosh']}),
+          ('C3', None) ],
+        { 'C1': {'colors': ['red', 'green']} }
     ),
-
-    expclass_child3 = derive_exporter_class(
-        'Exporter',
-        'export.exporter',
-        newname='Child3',
-        attrs={
-            'model': BibRecord,
-            'export_records': lambda s, r: None
-        }
+    ('BatchExporter', 'export_records',
+        [ ('C1', {'colors': ['red', 'green']}), ('C2', {'sounds': ['woosh']}),
+          ('C3', None) ],
+        { 'C1': {'colors': ['red', 'green']},
+          'C2': {'sounds': ['woosh']},
+          'C3': None }
     ),
-    expclass = derive_exporter_class(
-        'AttachedRecordExporter',
-        'export.exporter',
-        newname='Parent',
-        attrs={'model': BibRecord}
-    )
-    expclass.children_config = (expclass.Child('Child1'),
-                                expclass.Child('Child2'),
-                                expclass.Child('Child3'))
-
-    exp = new_exporter(expclass, 'full_export', 'waiting')
-    return_vals = exp.export_records([])
-    assert return_vals == {
-        'Child1': {'colors': ['red', 'green']},
-        'Child2': {'sounds': ['woosh']},
-        'Child3': None
-    }
-
-
-@pytest.mark.return_vals
-def test_attachedrecordexporter_delete_return_vals(derive_exporter_class,
-                                                   new_exporter):
-    """
-    The `AttachedRecordExporter.delete_records` method should return a
-    dictionary where each child is represented, but only the main
-    child (first child) has values. The other children should be None.
-    (For the `AttachedRecordExporter` class, deletions are only ever
-    run for the main child.)
-    """
-    expclass_child1 = derive_exporter_class(
-        'Exporter',
-        'export.exporter',
-        newname='Child1',
-        attrs={
-            'model': BibRecord,
-            'delete_records': lambda s, r: {'colors': ['red', 'green']}
-        }
+    ('BatchExporter', 'delete_records',
+        [ ('C1', {'colors': ['red', 'green']}), ('C2', {'sounds': ['woosh']}),
+          ('C3', None) ],
+        { 'C1': {'colors': ['red', 'green']},
+          'C2': {'sounds': ['woosh']},
+          'C3': None }
     ),
-
-    expclass_child2 = derive_exporter_class(
-        'Exporter',
-        'export.exporter',
-        newname='Child2',
-        attrs={
-            'model': BibRecord,
-            'delete_records': lambda s, r: {'sounds': ['woosh']}
-        }
-    ),
-
-    expclass_child3 = derive_exporter_class(
-        'Exporter',
-        'export.exporter',
-        newname='Child3',
-        attrs={
-            'model': BibRecord,
-            'delete_records': lambda s, r: None
-        }
-    ),
-    expclass = derive_exporter_class(
-        'AttachedRecordExporter',
-        'export.exporter',
-        newname='Parent',
-        attrs={'model': BibRecord}
-    )
-    expclass.children_config = (expclass.Child('Child1'),
-                                expclass.Child('Child2'),
-                                expclass.Child('Child3'))
-
-    exp = new_exporter(expclass, 'full_export', 'waiting')
-    return_vals = exp.delete_records([])
-    assert return_vals == {
-        'Child1': {'colors': ['red', 'green']},
-        'Child2': None,
-        'Child3': None
-    }
-
-
-@pytest.mark.return_vals
-@pytest.mark.parametrize('c1_vlist, c2_vlist, expected', [
-    ([ {'colors': ['red', 'blue']},
-       {'colors': ['orange']} ],
-     [ {'sounds': ['pop', 'boom']},
-       {'sounds': ['squee', 'pop']} ],
-     { 'Child1': {'colors': ['red', 'blue', 'orange']},
-       'Child2': {'sounds': ['pop', 'boom', 'squee', 'pop']} }),
-
-    ([ {'colors': ['red', 'blue']},
-       {'colors': ['orange']} ],
-     [ {'colors': ['yellow']},
-       {'colors': ['pink', 'brown']} ],
-     { 'Child1': {'colors': ['red', 'blue', 'orange']},
-       'Child2': {'colors': ['yellow', 'pink', 'brown']} }),
-
-    ([ None, None ],
-     [ {'colors': ['yellow']},
-       {'colors': ['pink', 'brown']} ],
-     { 'Child1': None,
-       'Child2': {'colors': ['yellow', 'pink', 'brown']} }),
-
-    ([ None, None ],
-     [ None, None ],
-     { 'Child1': None,
-       'Child2': None }),
 ], ids=[
-    'children have different keys',
-    'children have the same keys',
-    'one child has no return values',
-    'neither child has return values'
+    'AttachedRE export_records: all children run and return their vals',
+    'AttachedRE delete_records: only main child runs and returns vals',
+    'BatchE export_records: all children run and return their vals',
+    'BatchE delete_records: all children run and return their vals',
 ])
-def test_attachedrecordexporter_compile_vals(c1_vlist, c2_vlist, expected,
-                                             derive_exporter_class,
-                                             new_exporter):
+def test_compound_ops_and_return_vals(classname, method, children_and_retvals,
+                                      expected, derive_compound_exporter_class,
+                                      derive_child_exporter_class, new_exporter,
+                                      mocker):
     """
-    The `AttachedRecordExporter.compile_vals` method should take a list
-    of dicts and return a merged dict, assuming that each key/value
-    pair represents the return values for each child exporter. Keys are
-    the names of each child.
+    The `export_records` and `delete_records` methods for
+    AttachedRecordExporter and BatchExporter should return a dict where
+    each key contains the return vals for each child that ran.
     """
-    expclass_child1 = derive_exporter_class(
-        'Exporter',
-        'export.exporter',
-        newname='Child1',
-        attrs={'model': BibRecord}
-    ),
-    expclass_child2 = derive_exporter_class(
-        'Exporter',
-        'export.exporter',
-        newname='Child2',
-        attrs={'model': BibRecord}
-    ),
-    expclass = derive_exporter_class(
-        'AttachedRecordExporter',
-        'export.exporter',
-        newname='Parent',
-        attrs={'model': BibRecord}
-    )
-    expclass.children_config = (expclass.Child('Child1'),
-                                expclass.Child('Child2'))
+    child_classes = []
+    for name, retvals in children_and_retvals:
+        child = derive_child_exporter_class(newname=name)
+        mocker.patch.object(child, method)
+        getattr(child, method).return_value = retvals
+        child_classes.append(child)
+
+    expclass = derive_compound_exporter_class(classname, 'export.exporter',
+                                              children=child_classes)
     exp = new_exporter(expclass, 'full_export', 'waiting')
-    vals_list = [{'Child1': c1_vlist[i], 'Child2': c2_vlist[i]} 
-                    for i, _ in enumerate(c1_vlist)]
+    return_vals = getattr(exp, method)([])
+    assert return_vals == expected
+    for name, child in exp.children.items():
+        if name in expected.keys():
+            getattr(child, method).assert_called_with([])
+        else:
+            getattr(child, method).assert_not_called()
+
+
+@pytest.mark.compound
+@pytest.mark.return_vals
+@pytest.mark.parametrize('classname, children, vals_list, expected', [
+    ('AttachedRecordExporter', ('C1', 'C2'),
+        [ {'C1': {'colors': ['red', 'blue']}, 'C2': {'sounds': ['pop']}},
+          {'C1': {'colors': ['tan']}, 'C2': {'sounds': ['squee', 'pop']}} ],
+        { 'C1': {'colors': ['red', 'blue', 'tan']},
+          'C2': {'sounds': ['pop', 'squee', 'pop']} }),
+
+    ('AttachedRecordExporter', ('C1', 'C2'),
+        [ {'C1': {'colors': ['red', 'blue']}, 'C2': {'colors': ['yellow']}},
+          {'C1': {'colors': ['tan']}, 'C2': {'colors': ['pink', 'brown']}} ],
+        { 'C1': {'colors': ['red', 'blue', 'tan']},
+          'C2': {'colors': ['yellow', 'pink', 'brown']} }),
+
+    ('AttachedRecordExporter', ('C1', 'C2'),
+        [ {'C1': {'colors': ['red', 'blue']}, 'C2': {'colors': ['yellow']}},
+          {'C1': {'sounds': ['pop', 'bang']}, 'C2': {'colors': ['red']}} ],
+        { 'C1': {'colors': ['red', 'blue'], 'sounds': ['pop', 'bang']},
+          'C2': {'colors': ['yellow', 'red']} }),
+
+    ('AttachedRecordExporter', ('C1', 'C2'),
+        [ {'C1': None, 'C2': {'colors': ['yellow']}},
+          {'C1': None, 'C2': {'colors': ['pink', 'brown']}} ],
+        { 'C1': None, 'C2': {'colors': ['yellow', 'pink', 'brown']} }),
+
+    ('AttachedRecordExporter', ('C1', 'C2'),
+        [ {'C1': {'colors': ['red']}, 'C2': {'colors': ['yellow']}},
+          {'C1': None, 'C2': {'colors': ['pink', 'brown']}} ],
+        { 'C1': {'colors': ['red']},
+          'C2': {'colors': ['yellow', 'pink', 'brown']} }),
+
+    ('AttachedRecordExporter', ('C1', 'C2'),
+        [ {'C1': None, 'C2': None}, {'C1': None, 'C2': None} ],
+        { 'C1': None, 'C2': None }),
+
+    ('AttachedRecordExporter', ('C1', 'C2'),
+        [ {'C1': {'colors': ['red']}},
+          {'C1': {'colors': ['tan']}, 'C2': {'colors': ['pink', 'brown']}} ],
+        { 'C1': {'colors': ['red', 'tan']},
+          'C2': {'colors': ['pink', 'brown']} }),
+
+    ('AttachedRecordExporter', ('C1', 'C2'),
+        [ {'C1': {'colors': ['red']}}, {'C1': {'colors': ['tan']}} ],
+        { 'C1': {'colors': ['red', 'tan']} }),
+
+    ('BatchExporter', ('C1', 'C2'),
+        [ {'C1': {'colors': ['red', 'blue']}},
+          {'C1': {'colors': ['tan', 'red']}} ],
+        { 'C1': {'colors': ['red', 'blue', 'tan', 'red']} }),
+
+    ('BatchExporter', ('C1', 'C2'),
+        [ {'C1': {'colors': ['red', 'blue']}},
+          {'C1': {'sounds': ['pop']}} ],
+        { 'C1': {'colors': ['red', 'blue'], 'sounds': ['pop']} }),
+
+    ('BatchExporter', ('C1', 'C2'),
+        [ {'C1': None}, {'C1': {'colors': ['red']}} ],
+        { 'C1': {'colors': ['red']} }),
+
+    ('BatchExporter', ('C1', 'C2'),
+        [ {'C1': None}, {'C1': None} ],
+        { 'C1': None }),
+
+    ('BatchExporter', ('C1', 'C2'),
+        [ {'C1': {'colors': ['red', 'blue']}}, {'C2': {'sounds': ['pop']}} ],
+        { 'C1': {'colors': ['red', 'blue']}, 'C2': {'sounds': ['pop']} }),
+
+    ('BatchExporter', ('C1', 'C2'),
+        [ {'C1': None}, {'C2': {'sounds': ['pop']}} ],
+        { 'C1': None, 'C2': {'sounds': ['pop']} }),
+
+    ('BatchExporter', ('C1', 'C2'),
+        [ {'C1': None}, {'C2': None} ],
+        { 'C1': None, 'C2': None }),
+
+    ('BatchExporter', ('C1', 'C2'),
+        [ {'C1': {'colors': ['red', 'blue']}, 'C2': {'sounds': ['pop']}},
+          {'C1': {'colors': ['tan']}, 'C2': {'sounds': ['squee', 'pop']}} ],
+        { 'C1': {'colors': ['red', 'blue', 'tan']},
+          'C2': {'sounds': ['pop', 'squee', 'pop']} }),
+
+    ('BatchExporter', ('C1', 'C2'),
+        [ {'C1': {'colors': ['red', 'blue']}, 'C2': {'colors': ['yellow']}},
+          {'C1': {'colors': ['tan']}, 'C2': {'colors': ['pink', 'brown']}} ],
+        { 'C1': {'colors': ['red', 'blue', 'tan']},
+          'C2': {'colors': ['yellow', 'pink', 'brown']} }),
+
+    ('BatchExporter', ('C1', 'C2'),
+        [ {'C1': {'colors': ['red', 'blue']}, 'C2': {'colors': ['yellow']}},
+          {'C1': {'sounds': ['pop', 'bang']}, 'C2': {'colors': ['red']}} ],
+        { 'C1': {'colors': ['red', 'blue'], 'sounds': ['pop', 'bang']},
+          'C2': {'colors': ['yellow', 'red']} }),
+
+    ('BatchExporter', ('C1', 'C2'),
+        [ {'C1': None, 'C2': {'colors': ['yellow']}},
+          {'C1': None, 'C2': {'colors': ['pink', 'brown']}} ],
+        { 'C1': None, 'C2': {'colors': ['yellow', 'pink', 'brown']} }),
+
+    ('BatchExporter', ('C1', 'C2'),
+        [ {'C1': {'colors': ['red']}, 'C2': {'colors': ['yellow']}},
+          {'C1': None, 'C2': {'colors': ['pink', 'brown']}} ],
+        { 'C1': {'colors': ['red']},
+          'C2': {'colors': ['yellow', 'pink', 'brown']} }),
+
+    ('BatchExporter', ('C1', 'C2'),
+        [ {'C1': None, 'C2': None}, {'C1': None, 'C2': None} ],
+        { 'C1': None, 'C2': None }),
+
+], ids=[
+    'AttachedRE: children have different keys',
+    'AttachedRE: children have the same keys',
+    'AttachedRE: same child has different keys',
+    'AttachedRE: one child has return value None',
+    'AttachedRE: one child returns None once',
+    'AttachedRE: both children return None',
+    'AttachedRE: one child missing an entry (did not run, once)',
+    'AttachedRE: one child has no entries (did not run, at all)',
+    'BatchE: only one child ran; same keys',
+    'BatchE: only one child ran; different keys',
+    'BatchE: only one child ran; one chunk has no ret vals',
+    'BatchE: only one child ran; no ret vals',
+    'BatchE: different children ran',
+    'BatchE: different children ran, one has no ret vals',
+    'BatchE: different children ran, neither has ret vals',
+    'BatchE: both children ran; children have different keys',
+    'BatchE: both children ran; children have the same keys',
+    'BatchE: both children ran; same child has different keys',
+    'BatchE: both children ran; one child has return value None',
+    'BatchE: both children ran; one child returns None once',
+    'BatchE: both children ran; both children return None',
+])
+def test_compound_compile_vals(classname, children, vals_list, expected,
+                               derive_compound_exporter_class,
+                               derive_child_exporter_class, new_exporter):
+    """
+    The `compile_vals` method for AttachedRecordExporter and
+    BatchExporter should take a list of vals dicts and return a merged
+    vals dict, assuming that each key/value pair represents the return
+    values for each child exporter that ran during an export or delete
+    operation. Keys are the names of each child.
+    """
+    child_classes = [derive_child_exporter_class(newname=n) for n in children]
+    expclass = derive_compound_exporter_class(classname, 'export.exporter',
+                                              children=child_classes)
+    exp = new_exporter(expclass, 'full_export', 'waiting')
     assert exp.compile_vals(vals_list) == expected
+
+
+@pytest.mark.compound
+@pytest.mark.callback
+@pytest.mark.parametrize('classname, children, vals', [
+    ('AttachedRecordExporter', ('C1', 'C2'),
+        { 'C1': {'colors': ['red']}, 'C2': {'sounds': 'pop'} }),
+    ('AttachedRecordExporter', ('C1', 'C2'),
+        { 'C1': {'colors': ['red']}, 'C2': None }),
+    ('AttachedRecordExporter', ('C1', 'C2'),
+        { 'C1': {'colors': ['red']} }),
+    ('AttachedRecordExporter', ('C1', 'C2'), None),
+    ('BatchExporter', ('C1', 'C2'),
+        { 'C1': {'colors': ['red']}, 'C2': {'sounds': 'pop'} }),
+    ('BatchExporter', ('C1', 'C2'),
+        { 'C1': {'colors': ['red']}, 'C2': None }),
+    ('BatchExporter', ('C1', 'C2'),
+        { 'C1': {'colors': ['red']} }),
+    ('BatchExporter', ('C1', 'C2'), None),
+], ids=[
+    'AttachedRE: both children have vals',
+    'AttachedRE: one child has vals, the other has None',
+    'AttachedRE: one child has vals, the other is missing',
+    'AttachedRE: vals is None',
+    'BatchE: both children have vals',
+    'BatchE: one child has vals, the other has None',
+    'BatchE: one child has vals, the other is missing',
+    'BatchE: vals is None',
+])
+def test_compound_final_callback(classname, children, vals,
+                                 derive_compound_exporter_class,
+                                 derive_child_exporter_class, new_exporter,
+                                 mocker):
+    """
+    The `final_callback` method for the given Compound exporter type
+    (AttachedRecordExporter or BatchExporter) should run the
+    `final_callback` method on each child, passing the appropriate
+    portion of `vals` to each.
+    """
+    child_classes = []
+    for name in children:
+        child = derive_child_exporter_class(newname=name)
+        mocker.patch.object(child, 'final_callback')
+        child_classes.append(child)
+    expclass = derive_compound_exporter_class(classname, 'export.exporter',
+                                              children=child_classes)
+    exp = new_exporter(expclass, 'full_export', 'waiting')
+    exp.final_callback(vals=vals)
+    for name, child in exp.children.items():
+        expected_vals = None if vals is None else vals.get(name, None) 
+        child.final_callback.assert_called_with(vals=expected_vals,
+                                                status='success')
 
 
 @pytest.mark.return_vals
