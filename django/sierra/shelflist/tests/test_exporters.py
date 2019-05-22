@@ -4,6 +4,7 @@ Tests shelflist-app classes derived from `export.exporter.Exporter`.
 
 import pytest
 import importlib
+import random
 
 
 # FIXTURES AND TEST DATA
@@ -119,6 +120,26 @@ def test_itemstosolr_delete_records(exporter_class, record_sets, new_exporter,
 
 
 @pytest.mark.shelflist
-def test_export_shelflist_manifest():
-    pass
+@pytest.mark.exports
+@pytest.mark.return_vals
+def test_itemstosolr_export_returns_lcodes(exporter_class,
+                                           sierra_full_object_set,
+                                           new_exporter,
+                                           setattr_model_instance):
+    """
+    The shelflist app ItemsToSolr `export_records` method should return
+    a vals structure containing a `seen_lcodes` list, or list of unique
+    locations that appear in the record set.
+    """
+    lcode_opts = ['czm', 'r', 'sd', 'lwww']
+    expected_lcodes = set()
+    records = sierra_full_object_set('ItemRecord').order_by('pk')[0:20]
+    for rec in records:
+        lcode = random.choice(lcode_opts)
+        expected_lcodes.add(lcode)
+        setattr_model_instance(rec, 'location_id', lcode)
 
+    expclass = exporter_class('ItemsToSolr')
+    exporter = new_exporter(expclass, 'full_export', 'waiting')
+    vals = exporter.export_records(records)
+    assert set(vals['seen_lcodes']) == expected_lcodes 
