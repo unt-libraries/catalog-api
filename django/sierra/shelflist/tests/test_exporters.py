@@ -143,3 +143,34 @@ def test_itemstosolr_export_returns_lcodes(exporter_class,
     exporter = new_exporter(expclass, 'full_export', 'waiting')
     vals = exporter.export_records(records)
     assert set(vals['seen_lcodes']) == expected_lcodes 
+
+
+@pytest.mark.shelflist
+@pytest.mark.deletions
+@pytest.mark.return_vals
+def test_itemstosolr_delete_returns_lcodes(exporter_class,
+                                           sierra_full_object_set,
+                                           new_exporter,
+                                           solr_assemble_specific_record_data):
+    """
+    The shelflist app ItemsToSolr `delete_records` method should return
+    a vals structure containing a `seen_lcodes` list, or list of unique
+    locations that appear(ed) in the record set.
+    """
+    # Set up existing data to be deleted.
+    records = sierra_full_object_set('RecordMetadata')
+    records = records.filter(record_type_id='i').order_by('pk')[0:20]
+
+    data, lcode_opts, expected_lcodes = [], ['czm', 'r', 'sd', 'lwww'], set()
+    for rec in records:
+        lcode = random.choice(lcode_opts)
+        expected_lcodes.add(lcode)
+        data.append({'id': rec.id, 'record_number': rec.get_iii_recnum(),
+                     'location_code': lcode})
+    assembler = solr_assemble_specific_record_data(data, ('item',))
+
+    expclass = exporter_class('ItemsToSolr')
+    exporter = new_exporter(expclass, 'full_export', 'waiting')
+    vals = exporter.delete_records(records)
+    assert set(vals['seen_lcodes']) == expected_lcodes
+

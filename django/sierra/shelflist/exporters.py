@@ -35,10 +35,7 @@ class ItemsToSolr(exporters.ItemsToSolr):
         return { 'seen_lcodes': self.indexes['Items'].location_set }
 
     def delete_records(self, records):
-        # THIS NEEDS WORK. When records are deleted, we have to get the
-        # location codes where shelflist item manifests need to be
-        # updated from the records in Solr before we delete this batch.
-        seen_lcodes = []
+        seen_lcodes = self.indexes['Items'].get_location_set_from_recs(records)
         super(ItemsToSolr, self).delete_records(records)
         return { 'seen_lcodes': seen_lcodes }
 

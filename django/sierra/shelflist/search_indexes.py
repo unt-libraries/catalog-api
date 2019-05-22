@@ -47,7 +47,8 @@ class ShelflistItemIndex(search_indexes.ItemIndex):
 
     def prepare_location_code(self, obj):
         code = super(ShelflistItemIndex, self).prepare_location_code(obj)
-        self.location_set = self.location_set | set([code])
+        if code:
+            self.location_set.add(code)
         return code
 
     def has_any_user_data(self, obj):
@@ -74,6 +75,23 @@ class ShelflistItemIndex(search_indexes.ItemIndex):
                 for field in self.user_data_fields:
                     self.prepared_data[field] = getattr(item, field, None)
         return self.prepared_data
+
+    def get_location_set_from_recs(self, records, using=None):
+        """
+        Query the underlying Solr index to pull the set of location
+        codes represented by the given `records` (ItemRecord queryset,
+        or RecordMetadata queryset of items).
+        """
+        record_pks = [r['pk'] for r in records.values('pk')]
+        conn = self.get_backend(using=using).conn
+        lcode_qs = solr.Queryset(conn=conn).filter(id__in=record_pks)
+        facet_params = {'rows': 0, 'facet': 'true',
+                        'facet.field': 'location_code', 'facet.mincount': 1}
+        facets = lcode_qs.set_raw_params(facet_params).full_response.facets
+        try:
+            return set(facets['facet_fields']['location_code'][0::2])
+        except KeyError:
+            return set()
 
     def get_location_manifest(self, location_code, using=None):
         """
