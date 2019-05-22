@@ -253,20 +253,22 @@ class Queryset(object):
                 raise MultipleObjectsReturned(msg)
         return ret_value
 
-    def search(self, raw_query, params=None):
+    def set_raw_params(self, params):
         clone = self._clone()
-        q = clone._search_params.get('q', '')
-        q = '' if q == '*:*' else q
+        clone._search_params.update(params)
+        return clone
 
-        if q:
+    def search(self, raw_query, params=None):
+        q = self._search_params.get('q', '*')
+
+        if q not in ('*', '*:*') :
             q = '({}) AND ({})'.format(q, raw_query)
         else:
             q = raw_query
 
-        clone._search_params['q'] = q
-        if params is not None:
-            clone._search_params.update(params)
-        return clone
+        params = params or {}
+        params['q'] = q
+        return self.set_raw_params(params)
 
     def order_by(self, *fields):
         clone = self._clone()
