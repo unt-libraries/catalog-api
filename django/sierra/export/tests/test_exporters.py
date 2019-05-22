@@ -318,7 +318,7 @@ def test_batch_tosolr_delete_records(batch_exporter_class, record_sets,
 
 @pytest.mark.exceptions
 def test_tosolr_index_update_errors(basic_exporter_class, record_sets,
-                                    new_exporter,setattr_model_instance,
+                                    new_exporter, setattr_model_instance,
                                     assert_records_are_indexed,
                                     assert_records_are_not_indexed):
     """
@@ -911,4 +911,3 @@ def test_ertosolr_delete_callback_commits_to_redis(basic_exporter_class,
     for key in redis_obj.conn.keys():
         assert key in expected
         assert redis_obj(key).get() == expected[key]
-
