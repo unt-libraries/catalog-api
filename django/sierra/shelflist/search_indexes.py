@@ -32,10 +32,8 @@ class ShelflistItemIndex(search_indexes.ItemIndex):
     inventory_date = indexes.DateTimeField(null=True)
     user_data_fields = ('shelf_status', 'inventory_notes', 'flags',
                         'inventory_date')
-    solr_shelflist_sort_criteria = ['call_number_type asc',
-                                    'call_number_sort asc',
-                                    'volume_sort asc',
-                                    'copy_number asc']
+    solr_shelflist_sort_criteria = ['call_number_type', 'call_number_sort',
+                                    'volume_sort', 'copy_number']
 
     def __init__(self, *args, **kwargs):
         super(ShelflistItemIndex, self).__init__(*args, **kwargs)
@@ -101,9 +99,8 @@ class ShelflistItemIndex(search_indexes.ItemIndex):
         list of ids, in order.
         """
         conn = self.get_backend(using=using).conn
-        fq = ['type:{}'.format(self.type_name),
-              'location_code:{}'.format(location_code)]
-        params = { 'q': '*:*', 'fq': fq, 'fl': 'id',
-                   'sort': self.solr_shelflist_sort_criteria }
-        hits = conn.search(rows=0, **params).hits
-        return [i['id'] for i in conn.search(rows=hits, **params)]
+        man_qs = solr.Queryset(conn=conn).filter(type=self.type_name,
+                                                 location_code=location_code)
+        man_qs = man_qs.order_by(*self.solr_shelflist_sort_criteria).only('id')
+        results = man_qs.set_raw_params({'rows': len(man_qs)}).full_response
+        return [i['id'] for i in results]
