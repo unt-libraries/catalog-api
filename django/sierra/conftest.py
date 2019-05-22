@@ -126,7 +126,8 @@ def setattr_model_instance():
     cache = OrderedDict()
     def _setattr_model_instance(instance, attr, value):
         meta = instance._meta
-        cache_key = '{}.{}.{}'.format(meta.app_label, meta.model_name, attr)
+        cache_key = '{}.{}.{}.{}'.format(meta.app_label, meta.model_name,
+                                         instance.pk, attr)
         if cache_key not in cache:
             cache[cache_key] = (instance, attr, getattr(instance, attr))
         _set_and_save(instance, attr, value)
@@ -134,7 +135,7 @@ def setattr_model_instance():
     yield _setattr_model_instance
         
     while cache:
-        key = cache.keys()[0]
+        key = cache.keys()[-1]
         instance, attr, old_value = cache.pop(key)
         _set_and_save(instance, attr, old_value)
 
