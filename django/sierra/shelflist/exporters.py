@@ -39,6 +39,12 @@ class ItemsToSolr(exporters.ItemsToSolr):
         super(ItemsToSolr, self).delete_records(records)
         return { 'seen_lcodes': seen_lcodes }
 
+    def compile_vals(self, results):
+        vals = { 'seen_lcodes': set() }
+        for r in results:
+            vals['seen_lcodes'] |= r['seen_lcodes']
+        return vals
+
     def final_callback(self, vals=None, status='success'):
         super(ItemsToSolr, self).final_callback(vals, status)
         if vals['seen_lcodes']:
