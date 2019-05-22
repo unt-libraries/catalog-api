@@ -40,10 +40,12 @@ class ItemsToSolr(exporters.ItemsToSolr):
         return { 'seen_lcodes': seen_lcodes }
 
     def compile_vals(self, results):
-        vals = { 'seen_lcodes': set() }
-        for r in results:
-            vals['seen_lcodes'] |= r['seen_lcodes']
-        return vals
+        if results is not None:
+            vals = { 'seen_lcodes': set() }
+            for result in results:
+                result = result or {}
+                vals['seen_lcodes'] |= result.get('seen_lcodes', set())
+            return vals
 
     def final_callback(self, vals=None, status='success'):
         vals = vals or {}

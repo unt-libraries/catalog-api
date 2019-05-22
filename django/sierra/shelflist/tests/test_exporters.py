@@ -177,7 +177,18 @@ def test_itemstosolr_delete_returns_lcodes(exporter_class,
 
 @pytest.mark.shelflist
 @pytest.mark.return_vals
-def test_itemstosolr_compile_vals(exporter_class, new_exporter):
+@pytest.mark.parametrize('results, expected', [
+    ([{'seen_lcodes': set(['czm', 'r', 'w4m'])},
+      {'seen_lcodes': set(['czm', 'w4m', 'sd', 'xdoc', 'lwww'])}],
+     {'seen_lcodes': set(['czm', 'r', 'w4m', 'sd', 'xdoc', 'lwww'])}),
+
+    ([{'seen_lcodes': set(['czm', 'r', 'w4m'])}, None],
+     {'seen_lcodes': set(['czm', 'r', 'w4m'])}),
+
+    (None, None)
+])
+def test_itemstosolr_compile_vals(results, expected, exporter_class,
+                                  new_exporter):
     """
     The shelflist app ItemsToSolr `compile_vals` method should return a
     vals structure that joins `seen_lcodes` sets from each result in
@@ -185,9 +196,6 @@ def test_itemstosolr_compile_vals(exporter_class, new_exporter):
     """
     expclass = exporter_class('ItemsToSolr')
     exporter = new_exporter(expclass, 'full_export', 'waiting')
-    results = [{'seen_lcodes': set(['czm', 'r', 'w4m'])},
-               {'seen_lcodes': set(['czm', 'w4m', 'sd', 'xdoc', 'lwww'])}]
-    expected = {'seen_lcodes': set(['czm', 'r', 'w4m', 'sd', 'xdoc', 'lwww'])}
     assert exporter.compile_vals(results) == expected
 
 
