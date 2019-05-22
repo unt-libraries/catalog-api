@@ -1,4 +1,4 @@
-'''
+"""
 This is a custom solr_backend for haystack. It fixes a few minor issues
 with the out-of-the-box version.
 
@@ -13,7 +13,7 @@ values.
 
 2. Overrides the SolrSearchBackend.clear() method so that the Solr
 index optimization isn't triggered if commit is false.
-'''
+"""
 
 from django.apps import apps
 
@@ -22,6 +22,7 @@ from haystack.models import SearchResult
 from haystack.constants import ID, DJANGO_CT, DJANGO_ID
 from haystack.utils import get_model_ct
 from haystack import connections
+from pysolr import SolrError
 
 
 def is_sequence(arg):
@@ -31,11 +32,11 @@ def is_sequence(arg):
 
 
 def custom_to_python(val, _to_python):
-    '''
+    """
     Simplest way I could think of to add what we want to
     pysolr._to_python. Recursively unpacks all values in any sequence
     and returns the final data structure.
-    '''
+    """
     if is_sequence(val):
         ret_val = []
         for i in val:
