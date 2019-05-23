@@ -276,3 +276,45 @@ def test_itemstosolr_shelflist_manifests(exporter_class, new_exporter,
         else:
             expected_shelflist = [i[0] for i in existing_shelflists[lcode]]
         assert redis_obj(key).get() == expected_shelflist
+
+
+@pytest.mark.shelflist
+@pytest.mark.callback
+def test_bibsandattached_updates_shelflist_mf(exporter_class, new_exporter,
+                                              sierra_full_object_set,
+                                              setattr_model_instance, mocker):
+    """
+    When BibsAndAttachedToSolr runs and uses the shelflist ItemsToSolr
+    as a child, the `final_callback` on ItemsToSolr should be triggered
+    such that it updates shelflist manifests for all locations in the
+    *item* records that were updated. Note: this test is to show that a
+    long-standing issue is resolved, where only the locations on the
+    *bib* records in the record set had their shelflist manifests
+    updated whenever BibsAndAttachedToSolr ran.
+    """
+    items = sierra_full_object_set('ItemRecord').order_by('pk')[0:8]
+    bibs = sierra_full_object_set('BibRecord').filter(
+        item_records__pk__in=[i['pk'] for i in items.values('pk')]
+    )
+
+    expected_lcodes = set()
+    item_lcodes, bib_lcodes = ['xdoc', 'xmus', 'w4mau'], ['x', 'w4m']
+    for item in items:
+        lcode = random.choice(item_lcodes)
+        expected_lcodes.add(lcode)
+        setattr_model_instance(item, 'location_id', lcode)
+
+    for bib in bibs:
+        lcode = random.choice(bib_lcodes)
+        for bibloc in bib.bibrecordlocation_set.all():
+            setattr_model_instance(bibloc, 'location_id', lcode)
+
+    expclass = exporter_class('BibsAndAttachedToSolr')
+    exporter = new_exporter(expclass, 'full_export', 'waiting')
+    items_to_solr = exporter.children['ItemsToSolr']
+    mocker.patch.object(items_to_solr, 'final_callback')
+    vals = exporter.export_records(bibs)
+    exporter.final_callback(vals=vals, status='success')
+    expected_vals = {'seen_lcodes': expected_lcodes}
+    items_to_solr.final_callback.assert_called_with(vals=expected_vals,
+                                                    status='success')
