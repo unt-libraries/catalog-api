@@ -52,10 +52,10 @@ class ItemsToSolr(exporters.ItemsToSolr):
         super(ItemsToSolr, self).final_callback(vals, status)
         lcodes = list(vals.get('seen_lcodes', []))
         total = len(lcodes)
+        msg = ('Building shelflist item manifest for {} location(s): {}'
+               ''.format(total, ', '.join(lcodes)))
+        self.log('Info', msg)
         for i, lcode in enumerate(lcodes):
-            msg = ('Rebuilding shelflist item manifest for location {} '
-                   '({} of {}) ...'.format(lcode, i + 1, total))
-            self.log('Info', msg)
             manifest = self.indexes['Items'].get_location_manifest(lcode)
             r = redisobjs.RedisObject(self.redis_shelflist_prefix, lcode)
             r.set(manifest)
