@@ -123,6 +123,47 @@ def test_itemstosolr_delete_records(exporter_class, record_sets, new_exporter,
     assert_deleted_records_are_not_indexed(exporter, records)
 
 
+@pytest.mark.exports
+def test_itemstosolr_exps_keep_user_fields(exporter_class, new_exporter,
+                                           solr_assemble_shelflist_record_data,
+                                           sierra_full_object_set,
+                                           get_records_from_index):
+    """
+    When the shelflist app ItemsToSolr `export_records` method runs, if
+    any records already exist in Solr and have data in user-specified
+    (non-Sierra) fields (such as ones related to the Inventory app),
+    loading them should update the record but KEEP the data in the
+    user-specified fields.
+    """
+    ufields = ['inventory_date', 'shelf_status', 'flags', 'inventory_notes']
+    records = sierra_full_object_set('ItemRecord').order_by('pk')[0:6]
+    data = [{'id': r.pk, 'record_number': None} for r in records]
+    assembler = solr_assemble_shelflist_record_data(data)
+
+    expclass = exporter_class('ItemsToSolr')
+    exporter = new_exporter(expclass, 'full_export', 'waiting')
+
+    # pre_results: data pre-loaded into Solr, with user-fields
+    pre_results = get_records_from_index(exporter.indexes['Items'], records)
+    exporter.export_records(records)
+    exporter.commit_indexes()
+    # post_results: data in Solr after running `export_records`
+    post_results = get_records_from_index(exporter.indexes['Items'], records)
+
+    # Reality check to make sure that there's at least one user-field
+    # populated in the results. If not, something went wrong.
+    assert any([r.get(ufields[0], False) for r in post_results.values()])
+
+    for record in records:
+        pre_result = pre_results[record.pk]
+        post_result = post_results[record.pk]
+        recnum = record.record_metadata.get_iii_recnum(True)
+        assert 'record_number' not in pre_result
+        assert post_result['record_number'] == recnum
+        for uf in ufields:
+            assert pre_result.get(uf, None) == post_result.get(uf, None)
+
+
 @pytest.mark.shelflist
 @pytest.mark.exports
 @pytest.mark.return_vals
