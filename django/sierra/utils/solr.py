@@ -254,6 +254,17 @@ class Queryset(object):
         return ret_value
 
     def set_raw_params(self, params):
+        """
+        Set any raw `params` to send to Solr, overriding existing ones.
+
+        `params` should be a dict of [additional] keyword parameters to
+        send to Solr next time a search is triggered. Query params set
+        via previous methods (such as filter or order by) are kept and
+        are only overridden if you explicitly override the applicable
+        params (like `q`, `fq`, `sort`, etc.). This lets you set things
+        like facet parameters in conjunction with a filtered queryset
+        that are otherwise not supported directly by other methods.
+        """
         clone = self._clone()
         clone._search_params.update(params)
         return clone

@@ -11,20 +11,24 @@ from utils import solr
 class ShelflistItemIndex(search_indexes.ItemIndex):
     """
     Custom haystack SearchIndex object that is based on the base
-    search_indexes.ItemIndex, but does three additional things.
+    search_indexes.ItemIndex, but does a few additional things.
 
-    One, it adds storage for user-entered fields that don't exist in
-    Sierra. Whenever Sierra item records are reindexed, we need to make
-    sure the values for the user-entered fields that are in the index
+    It accommodates user-entered fields that don't exist in Sierra.
+    Whenever Sierra item records are reindexed, we need to make sure
+    any values for user-entered fields that are in the index already
     don't get overwritten with blank values. (Class attr
-    `user_data_fields` list which fields those are.)
+    `user_data_fields` lists which fields those are.)
 
-    Two, it adds a `location_set` property to an object, which lets us
-    track the set of location codes seen when modifying records via an
-    index update.
+    New features communicate which locations need their shelflist item
+    manifests updated due to index changes. A `location_set` property
+    tracks all location codes seen during an update. The
+    `get_location_set_from_recs` method queries Solr to return the
+    unique set of location codes (in Solr) matching records in a Django
+    queryset (RecordMetadata or ItemRecord instances), for deletions.
 
-    Three, it adds methods for updating shelflist item manifests in
-    Redis for particular locations.
+    The `get_location_manifest` method pulls a list of item IDs from
+    Solr, sorted in shelflist order, for a particular location, to help
+    build shelflist item manifests.    
     """
     shelf_status = indexes.FacetCharField(null=True)
     inventory_notes = indexes.MultiValueField(null=True)

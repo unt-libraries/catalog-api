@@ -10,9 +10,10 @@ import random
 # FIXTURES AND TEST DATA
 # Fixtures used in the below tests can be found in
 # django/sierra/base/tests/conftest.py:
-#    sierra_records_by_recnum_range, new_exporter,
-#    record_sets, export_records, delete_records,
-#    derive_exporter_class, assert_all_exported_records_are_indexed,
+#    derive_exporter_class, new_exporter, record_sets,
+#    sierra_full_object_set, solr_assemble_specific_record_data,
+#    setattr_model_instance, redis_obj, assert_records_are_indexed,
+#    assert_all_exported_records_are_indexed,
 #    assert_deleted_records_are_not_indexed
 
 pytestmark = pytest.mark.django_db

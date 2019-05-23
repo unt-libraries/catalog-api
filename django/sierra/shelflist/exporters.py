@@ -1,10 +1,10 @@
 """
 Exporters for the Shelflist app are defined here. See export.exporter
 for the base Exporter classes and export.basic_exporters for some
-implementations. Here we pretty much just need to define the
-final_callback method for item exporters so that any locations
-represented in the items have their shelflist row manifest document in
-Solr updated automatically whenever items are loaded.
+implementations. This overrides the export.basic_exporters.ItemsToSolr
+exporter to support features needed for the shelflistitems API
+resource: a new index object (ShelflistItemIndex) and creation/storage
+of shelflistitem manifests.
 """
 
 from __future__ import unicode_literals
