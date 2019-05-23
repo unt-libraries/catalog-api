@@ -8,13 +8,16 @@ import random
 
 
 # FIXTURES AND TEST DATA
-# Fixtures used in the below tests can be found in
+# Fixtures used in the below tests can be found in ...
 # django/sierra/base/tests/conftest.py:
 #    derive_exporter_class, new_exporter, record_sets,
-#    sierra_full_object_set, solr_assemble_specific_record_data,
-#    setattr_model_instance, redis_obj, assert_records_are_indexed,
+#    sierra_full_object_set, setattr_model_instance, redis_obj,
+#    assert_records_are_indexed,
 #    assert_all_exported_records_are_indexed,
 #    assert_deleted_records_are_not_indexed
+#
+# django/sierra/shelflist/tests/conftest.py:
+#    solr_assemble_shelflist_record_data
 
 pytestmark = pytest.mark.django_db
 
@@ -99,7 +102,7 @@ def test_itemstosolr_records_to_solr(exporter_class, record_sets, new_exporter,
 
 @pytest.mark.deletions
 def test_itemstosolr_delete_records(exporter_class, record_sets, new_exporter,
-                                    solr_assemble_specific_record_data,
+                                    solr_assemble_shelflist_record_data,
                                     assert_records_are_indexed,
                                     assert_deleted_records_are_not_indexed):
     """
@@ -108,7 +111,7 @@ def test_itemstosolr_delete_records(exporter_class, record_sets, new_exporter,
     """
     records = record_sets['item_del_set']
     data = ({'id': r.id, 'record_number': r.get_iii_recnum()} for r in records)
-    assembler = solr_assemble_specific_record_data(data, ('item',))
+    assembler = solr_assemble_shelflist_record_data(data)
     
     expclass = exporter_class('ItemsToSolr')
     exporter = new_exporter(expclass, 'full_export', 'waiting')
@@ -149,10 +152,10 @@ def test_itemstosolr_export_returns_lcodes(exporter_class,
 @pytest.mark.shelflist
 @pytest.mark.deletions
 @pytest.mark.return_vals
-def test_itemstosolr_delete_returns_lcodes(exporter_class,
-                                           sierra_full_object_set,
-                                           new_exporter,
-                                           solr_assemble_specific_record_data):
+def test_itemstosolr_del_returns_lcodes(exporter_class,
+                                        sierra_full_object_set,
+                                        new_exporter,
+                                        solr_assemble_shelflist_record_data):
     """
     The shelflist app ItemsToSolr `delete_records` method should return
     a vals structure containing a `seen_lcodes` list, or list of unique
@@ -168,7 +171,7 @@ def test_itemstosolr_delete_returns_lcodes(exporter_class,
         expected_lcodes.add(lcode)
         data.append({'id': rec.id, 'record_number': rec.get_iii_recnum(),
                      'location_code': lcode})
-    assembler = solr_assemble_specific_record_data(data, ('item',))
+    assembler = solr_assemble_shelflist_record_data(data)
 
     expclass = exporter_class('ItemsToSolr')
     exporter = new_exporter(expclass, 'full_export', 'waiting')
@@ -203,7 +206,7 @@ def test_itemstosolr_compile_vals(results, expected, exporter_class,
 @pytest.mark.shelflist
 @pytest.mark.callback
 def test_itemstosolr_shelflist_manifests(exporter_class, new_exporter,
-                                         solr_assemble_specific_record_data,
+                                         solr_assemble_shelflist_record_data,
                                          redis_obj):
     """
     The shelflist app ItemsToSolr `final_callback` method should build
@@ -260,7 +263,7 @@ def test_itemstosolr_shelflist_manifests(exporter_class, new_exporter,
             solr_data.append({'id': pk, 'location_code': lcode,
                              'call_number_sort': cn, 'volume_sort': vol,
                              'copy_number': copy, 'call_number_type': 'lc'})
-    assembler = solr_assemble_specific_record_data(solr_data, ('item',))
+    assembler = solr_assemble_shelflist_record_data(solr_data)
 
     # Run `final_callback`, passing the appropriate location codes to
     # update shelflistitem manifests for via vals['seen_lcodes'].
