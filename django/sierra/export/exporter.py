@@ -515,15 +515,19 @@ class CompoundMixin(object):
             self._children = type(self).spawn_children(args)
         return self._children
 
-    def get_records_from_children(self, prefetch, which_children=None):
+    def get_records_from_children(self, deletions=False, prefetch=True,
+                                  which_children=None):
         """
-        This is a helper method that triggers the `get_records` method
-        on 1+ children. Returns a dict mapping each child's name to the
-        set of records it returned.
+        This is a helper method that triggers either `get_records` or
+        `get_deletions` on 1+ children. Returns a dict mapping each
+        child's name to the set of records it returned.
         """
         records = {}
         for child in which_children or self.children.values():
-            records[child._config.name] = child.get_records(prefetch)
+            if deletions:
+                records[child._config.name] = child.get_deletions()
+            else:
+                records[child._config.name] = child.get_records(prefetch)
         return records
 
     def do_op_on_children(self, operation, records, which_children=None):
@@ -580,7 +584,11 @@ class BatchExporter(CompoundMixin, Exporter):
     children_config = tuple()
 
     def get_records(self, prefetch=True):
-        return self.get_records_from_children(prefetch)
+        return self.get_records_from_children(deletions=False,
+                                              prefetch=prefetch)
+
+    def get_deletions(self):
+        return self.get_records_from_children(deletions=True)
 
     def export_records(self, records):
         """

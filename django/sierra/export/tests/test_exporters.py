@@ -66,54 +66,61 @@ def test_exporter_class_versions(et_code, category, new_exporter,
 @pytest.mark.exports
 @pytest.mark.get_records
 @pytest.mark.basic
-@pytest.mark.parametrize('et_code, rset_code', [
-    ('BibsToSolr', 'bib_set'),
-    ('EResourcesToSolr', 'eres_set'),
-    ('ItemsToSolr', 'item_set'),
-    ('ItemStatusesToSolr', 'istatus_set'),
-    ('ItypesToSolr', 'itype_set'),
-    ('LocationsToSolr', 'location_set'),
-    ('ItemsBibsToSolr', 'item_set'),
-    ('BibsAndAttachedToSolr', 'bib_set'),
-    ('BibsAndAttachedToSolr', 'er_bib_set')
+@pytest.mark.parametrize('et_code, rset_code, filter_code', [
+    ('BibsToSolr', 'bib_set', 'record_range'),
+    ('EResourcesToSolr', 'eres_set', 'record_range'),
+    ('ItemsToSolr', 'item_set', 'record_range'),
+    ('ItemStatusesToSolr', 'istatus_set', 'full_export'),
+    ('ItypesToSolr', 'itype_set', 'full_export'),
+    ('LocationsToSolr', 'location_set', 'full_export'),
+    ('ItemsBibsToSolr', 'item_set', 'record_range'),
+    ('BibsAndAttachedToSolr', 'bib_set', 'record_range'),
+    ('BibsAndAttachedToSolr', 'er_bib_set', 'record_range')
 ])
-def test_basic_export_get_records(et_code, rset_code, basic_exporter_class,
+def test_basic_export_get_records(et_code, rset_code, filter_code,
+                                  basic_exporter_class,
                                   record_sets, new_exporter):
     """
     For Basic Exporter classes that get data from Sierra, the
-    `get_records` method should return a record set containing the
-    expected records.
+    `get_records` method should return the expected recordset.
     """
+    qset = record_sets[rset_code].order_by('pk')
+    expected_recs = [r for r in qset]
+
+    opts = {}
+    if filter_code == 'record_range':
+        start_rnum = expected_recs[0].record_metadata.get_iii_recnum(False)
+        end_rnum = expected_recs[-1].record_metadata.get_iii_recnum(False)
+        opts = {'record_range_from': start_rnum, 'record_range_to': end_rnum}
+
     expclass = basic_exporter_class(et_code)
-    exporter = new_exporter(expclass, 'full_export', 'waiting')
-    db_records = exporter.get_records()
-    assert len(db_records) > 0
-    assert all([rec in db_records for rec in record_sets[rset_code]])
+    exporter = new_exporter(expclass, filter_code, 'waiting', options=opts)
+    records = exporter.get_records()
+
+    assert set(records) == set(expected_recs)
 
 
 @pytest.mark.exports
 @pytest.mark.get_records
 @pytest.mark.batch
-def test_batch_export_get_records(batch_exporter_class, record_sets,
-                                  new_exporter):
+def test_allmdtosolr_export_get_records(batch_exporter_class, record_sets,
+                                        new_exporter):
     """
-    For Batch Exporter classes that get data from Sierra, the
-    `get_records` method should return a dict of all applicable record
-    sets.
+    The `AllMetadataToSolr` `get_records` method should return a dict
+    of all applicable record sets.
     """
-    expclass = batch_exporter_class('AllMetadataToSolr')
-    exporter = new_exporter(expclass, 'full_export', 'waiting')
-    rsets = exporter.get_records()
-
     expected_rsets = {
         'LocationsToSolr': record_sets['location_set'],
         'ItypesToSolr': record_sets['itype_set'],
         'ItemStatusesToSolr': record_sets['istatus_set'],
     }
+    expclass = batch_exporter_class('AllMetadataToSolr')
+    exporter = new_exporter(expclass, 'full_export', 'waiting')
+    rsets = exporter.get_records()
+
     assert len(expected_rsets.keys()) == len(rsets.keys())
-    for key, rset in rsets.items():
-        assert len(rset) > 0
-        assert all([r in rset for r in expected_rsets[key]])
+    for name, records in rsets.items():
+        assert set(records) == set(expected_rsets[name])
 
 
 @pytest.mark.deletions
@@ -138,40 +145,25 @@ def test_basic_export_get_deletions(et_code, rset_code, basic_exporter_class,
     """
     expclass = basic_exporter_class(et_code)
     exporter = new_exporter(expclass, 'full_export', 'waiting')
-    db_records = exporter.get_deletions()
+    records = exporter.get_deletions()
     if rset_code is None:
-        assert db_records is None
+        assert records is None
     else:
-        assert all([rec in db_records for rec in record_sets[rset_code]])
+        assert set(records) == set(record_sets[rset_code])
 
 
 @pytest.mark.deletions
 @pytest.mark.get_records
 @pytest.mark.batch
-def test_batch_export_get_deletions(batch_exporter_class, record_sets,
-                                    new_exporter):
+def test_allmdtosolr_export_get_deletions(batch_exporter_class, record_sets,
+                                          new_exporter):
     """
-    For batch Exporter classes that get data from Sierra, the
-    `get_deletions` method should return the expected record set.
-
-    Note: I'm anticipating having more batch exporters to test soon,
-    so this is set up to be ready for parametrization to work when
-    something actually returns data.
+    The `AllMetadataToSolr` `get_deletions` method should return None.
     """
     expclass = batch_exporter_class('AllMetadataToSolr')
     exporter = new_exporter(expclass, 'full_export', 'waiting')
     rsets = exporter.get_deletions()
-    expected_rsets = None
-    if expected_rsets is None:
-        assert rsets is None
-    else:
-        assert len(expected_rsets.keys()) == len(rsets.keys())
-        for key, rset in rsets.items():
-            if expected_rsets[key] is None:
-                assert rset is None
-            else:
-                assert len(rset) > 0
-                assert all([r in rset for r in expected_rsets[key]])
+    assert rsets is None
 
 
 @pytest.mark.exports
@@ -240,15 +232,15 @@ def test_basic_tosolr_export_records(et_code, rset_code, rectypes, do_reindex,
 @pytest.mark.exports
 @pytest.mark.do_export
 @pytest.mark.batch
-def test_batch_tosolr_export_records(batch_exporter_class, record_sets,
-                                     new_exporter,
-                                     assert_all_exported_records_are_indexed):
+def test_allmdtosolr_export_records(batch_exporter_class, record_sets,
+                                    new_exporter,
+                                    assert_all_exported_records_are_indexed):
     """
-    For batch ToSolrExporter classes, the `export_records` method
-    should load the expected records into the expected Solr index.
-    This is just a simple check to make sure all child exporters
-    processed the appropriate recordset; the children are tested more
-    extensively elsewhere.
+    The `AllMetadataToSolr` `export_records` method should load the
+    expected records into the expected Solr index. This is just a
+    simple check to make sure all child exporters processed the
+    appropriate recordset; the children are tested more extensively
+    elsewhere.
     """
     records = {
         'LocationsToSolr': record_sets['location_set'],
@@ -295,25 +287,6 @@ def test_basic_tosolr_delete_records(et_code, rset_code, rectypes,
     exporter.delete_records(records)
     exporter.commit_indexes()
     assert_deleted_records_are_not_indexed(exporter, records)
-
-
-@pytest.mark.deletions
-@pytest.mark.do_export
-@pytest.mark.batch
-def test_batch_tosolr_delete_records(batch_exporter_class, record_sets,
-                                     new_exporter,
-                                     solr_assemble_specific_record_data,
-                                     assert_records_are_indexed,
-                                     assert_deleted_records_are_not_indexed):
-    """
-    For batch ToSolrExporter classes that have loaded data into Solr,
-    the `delete_records` method should delete records from the
-    appropriate index or indexes.
-
-    This is a placeholder, for now. The only existing batch exporter
-    (AllMetadataToSolr) doesn't do deletions.
-    """
-    pass
 
 
 @pytest.mark.exceptions

@@ -28,3 +28,6 @@ class AllMetadataToSolr(BatchExporter):
     children_config = tuple([
         Child(n) for n in settings.EXPORTER_METADATA_TYPE_REGISTRY
     ])
+
+    def get_deletions(self):
+        return None
