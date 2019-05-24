@@ -61,19 +61,28 @@ def test_child_itemstosolr_versions(et_code, new_exporter, exporter_class):
 
 
 @pytest.mark.exports
+@pytest.mark.get_records
 def test_itemstosolr_get_records(exporter_class, record_sets, new_exporter):
     """
     For Exporter classes that get data from Sierra, the `get_records`
     method should return a record set containing the expected records.
     """
+    qset = record_sets['item_set'].order_by('pk')
+    expected_recs = [r for r in qset]
+
+    start_rnum = expected_recs[0].record_metadata.get_iii_recnum(False)
+    end_rnum = expected_recs[-1].record_metadata.get_iii_recnum(False)
+    opts = {'record_range_from': start_rnum, 'record_range_to': end_rnum}
+
     expclass = exporter_class('ItemsToSolr')
-    exporter = new_exporter(expclass, 'full_export', 'waiting')
-    db_records = exporter.get_records()
-    assert len(db_records) > 0
-    assert all([rec in db_records for rec in record_sets['item_set']])
+    exporter = new_exporter(expclass, 'record_range', 'waiting', options=opts)
+    records = exporter.get_records()
+
+    assert set(records) == set(expected_recs)
 
 
 @pytest.mark.deletions
+@pytest.mark.get_records
 def test_itemstosolr_get_deletions(exporter_class, record_sets, new_exporter):
     """
     For Exporter classes that get data from Sierra, the `get_deletions`
@@ -81,11 +90,12 @@ def test_itemstosolr_get_deletions(exporter_class, record_sets, new_exporter):
     """
     expclass = exporter_class('ItemsToSolr')
     exporter = new_exporter(expclass, 'full_export', 'waiting')
-    db_records = exporter.get_deletions()
-    assert all([rec in db_records for rec in record_sets['item_del_set']])
+    records = exporter.get_deletions()
+    assert set(records) == set(record_sets['item_del_set'])
 
 
 @pytest.mark.exports
+@pytest.mark.do_export
 def test_itemstosolr_records_to_solr(exporter_class, record_sets, new_exporter,
                                      assert_all_exported_records_are_indexed):
     """
@@ -101,6 +111,7 @@ def test_itemstosolr_records_to_solr(exporter_class, record_sets, new_exporter,
 
 
 @pytest.mark.deletions
+@pytest.mark.do_export
 def test_itemstosolr_delete_records(exporter_class, record_sets, new_exporter,
                                     solr_assemble_shelflist_record_data,
                                     assert_records_are_indexed,
@@ -124,6 +135,7 @@ def test_itemstosolr_delete_records(exporter_class, record_sets, new_exporter,
 
 
 @pytest.mark.exports
+@pytest.mark.do_export
 def test_itemstosolr_exps_keep_user_fields(exporter_class, new_exporter,
                                            solr_assemble_shelflist_record_data,
                                            sierra_full_object_set,
