@@ -8,8 +8,7 @@ import pytest
 # Fixtures used in the below tests can be found in
 # django/sierra/base/tests/conftest.py:
 #    sierra_records_by_recnum_range, sierra_full_object_set,
-#    record_sets, new_exporter, redis_obj
-#    solr_assemble_specific_record_data,
+#    record_sets, new_exporter, redis_obj, basic_solr_assembler,
 #    setattr_model_instance, derive_exporter_class,
 #    assert_all_exported_records_are_indexed,
 #    assert_deleted_records_are_not_indexed,
@@ -180,7 +179,7 @@ def test_allmdtosolr_export_get_deletions(batch_exporter_class, record_sets,
 def test_basic_tosolr_export_records(et_code, rset_code, rectypes, do_reindex,
                                      basic_exporter_class, record_sets,
                                      new_exporter, solr_conns, solr_search,
-                                     solr_assemble_specific_record_data,
+                                     basic_solr_assembler,
                                      assert_records_are_indexed,
                                      assert_records_are_not_indexed):
     """
@@ -203,9 +202,11 @@ def test_basic_tosolr_export_records(et_code, rset_code, rectypes, do_reindex,
     overlap_recs = records[0:num_existing]
     only_new_recs = records[num_existing:]
     old_rec_pks = [unicode(pk) for pk in range(99991,99995)]
-    only_old_rec_data = [{'django_id': pk} for pk in old_rec_pks]
-    data = only_old_rec_data + [{'django_id': r.pk} for r in overlap_recs]
-    assembler = solr_assemble_specific_record_data(data, rectypes)
+    only_old_rec_data = [(pk, {}) for pk in old_rec_pks]
+    data = only_old_rec_data + [(r.pk, {}) for r in overlap_recs]
+    for rtype in rectypes:
+        basic_solr_assembler.load_static_test_data(rtype, data,
+                                                   id_field='django_id')
 
     # Check the setup to make sure existing records are indexed and new
     # records are not.
@@ -265,8 +266,7 @@ def test_allmdtosolr_export_records(batch_exporter_class, record_sets,
 ])
 def test_basic_tosolr_delete_records(et_code, rset_code, rectypes,
                                      basic_exporter_class, record_sets,
-                                     new_exporter,
-                                     solr_assemble_specific_record_data,
+                                     new_exporter, basic_solr_assembler,
                                      assert_records_are_indexed,
                                      assert_deleted_records_are_not_indexed):
     """
@@ -275,8 +275,9 @@ def test_basic_tosolr_delete_records(et_code, rset_code, rectypes,
     appropriate index or indexes.
     """
     records = record_sets[rset_code]
-    data = ({'id': r.id, 'record_number': r.get_iii_recnum()} for r in records)
-    assembler = solr_assemble_specific_record_data(data, rectypes)
+    data = [(r.id, {'record_number': r.get_iii_recnum()}) for r in records]
+    for rtype in rectypes:
+        basic_solr_assembler.load_static_test_data(rtype, data)
     
     expclass = basic_exporter_class(et_code)
     exporter = new_exporter(expclass, 'full_export', 'waiting')
@@ -356,8 +357,7 @@ def test_attached_solr_export_records(et_code, rset_code, basic_exporter_class,
 ])
 def test_attached_solr_delete_records(et_code, rset_code, rectypes,
                                       basic_exporter_class, record_sets,
-                                      new_exporter,
-                                      solr_assemble_specific_record_data,
+                                      new_exporter, basic_solr_assembler,
                                       assert_records_are_indexed,
                                       assert_deleted_records_are_not_indexed):
     """
@@ -366,8 +366,9 @@ def test_attached_solr_delete_records(et_code, rset_code, rectypes,
     index or indexes.
     """
     records = record_sets[rset_code]
-    data = ({'id': r.id, 'record_number': r.get_iii_recnum()} for r in records)
-    assembler = solr_assemble_specific_record_data(data, rectypes)
+    data = [(r.id, {'record_number': r.get_iii_recnum()}) for r in records]
+    for rtype in rectypes:
+        basic_solr_assembler.load_static_test_data(rtype, data)
     
     expclass = basic_exporter_class(et_code)
     exporter = new_exporter(expclass, 'full_export', 'waiting')

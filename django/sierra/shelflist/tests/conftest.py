@@ -22,17 +22,3 @@ def shelflist_solr_assembler(solr_data_assembler, solr_profile_definitions):
     }
     return solr_data_assembler(tp.SOLR_TYPES, tp.GLOBAL_UNIQUE_FIELDS,
                                tp.GENS, profile_def)
-
-
-@pytest.fixture(scope='function')
-def solr_assemble_shelflist_record_data(solr_assemble_specific_record_data,
-                                        shelflist_solr_assembler):
-    """
-    Pytest fixture. Assembles specific record data to load into Solr
-    for the shelflistitem profile.
-    """
-    def _solr_assemble_shelflist_record_data(rdicts):
-        return solr_assemble_specific_record_data(rdicts, ('shelflistitem',),
-                                                  shelflist_solr_assembler)
-    return _solr_assemble_shelflist_record_data
-

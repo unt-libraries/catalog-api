@@ -293,26 +293,6 @@ def global_basic_solr_assembler(global_solr_data_assembler,
 
 
 @pytest.fixture
-def solr_assemble_specific_record_data(basic_solr_assembler):
-    """
-    Pytest fixture. Uses the basic_solr_assembler fixture to generate and
-    load records into Solr to simulate particular records having
-    specific data.
-    """
-    def _solr_assemble_specific_record_data(rdicts, rtypes, assembler=None):
-        assembler = assembler or basic_solr_assembler
-        gens = assembler.gen_factory
-        for rdict in rdicts:
-            for rtype in rtypes:
-                assembler.make(rtype, 1,
-                    **{k: gens.static(v) for k, v in rdict.items()}
-                )
-        assembler.save_all()
-        return assembler
-    return _solr_assemble_specific_record_data
-
-
-@pytest.fixture
 def solr_search():
     """
     Pytest fixture. Returns a search utility function that queries Solr
