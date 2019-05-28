@@ -4,7 +4,7 @@ Contains all shared pytest fixtures and hooks for shelflist app.
 
 import pytest
 
-from .helpers import solr_test_profiles as tp
+from . import solr_test_profiles as tp
 
 
 @pytest.fixture(scope='function')
