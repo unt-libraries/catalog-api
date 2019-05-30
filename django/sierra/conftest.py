@@ -821,10 +821,10 @@ def do_filter_search():
     `resource` via the given `api_client` fixture. Returns the
     response.
     """
-    def _do_filter_search(resource, search, client):
+    def _do_filter_search(resource_url, search, client):
         q = '&'.join(['='.join([urllib.quote_plus(v) for v in pair.split('=')])
                       for pair in search.split('&')])
-        return client.get('{}/?{}'.format(resource, q))
+        return client.get('{}?{}'.format(resource_url, q))
     return _do_filter_search
 
 

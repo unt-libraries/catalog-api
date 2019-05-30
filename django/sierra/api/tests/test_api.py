@@ -2197,11 +2197,11 @@ def test_list_view_filters(resource, test_data, search, expected, api_settings,
 
     # First let's do a quick sanity check to make sure the resource
     # returns the correct num of records before the filter is applied.
-    full_resource_path = '{}{}'.format(API_ROOT, resource)
-    check_response = api_client.get('{}/'.format(full_resource_path))
+    resource_url = '{}{}/'.format(API_ROOT, resource)
+    check_response = api_client.get(resource_url)
     assert check_response.data['totalCount'] == len(erecs) + len(trecs)
 
-    response = do_filter_search(full_resource_path, search, api_client)
+    response = do_filter_search(resource_url, search, api_client)
     found_ids = set(get_found_ids(id_field, response))
     assert all([i in found_ids for i in expected_ids])
     assert all([i not in found_ids for i in not_expected_ids])
@@ -2225,8 +2225,8 @@ def test_list_view_orderby(resource, test_data, search, expected, api_settings,
     id_field = RESOURCE_METADATA[resource]['id_field']
     erecs, trecs = assemble_test_records(profile, id_field, test_data)
     print [r.get('call_number_sort', None) for r in trecs]
-    full_resource_path = '{}{}'.format(API_ROOT, resource)
-    response = do_filter_search(full_resource_path, search, api_client)
+    resource_url = '{}{}/'.format(API_ROOT, resource)
+    response = do_filter_search(resource_url, search, api_client)
     found_ids = get_found_ids(id_field, response)
     assert found_ids == expected
 
@@ -2259,8 +2259,8 @@ def test_firstitemperlocation_list(test_data, search, expected, api_settings,
         id_field = RESOURCE_METADATA[resource]['id_field']
         assemble_test_records(profile, id_field, data[resource])
 
-    full_resource_path = '{}firstitemperlocation'.format(API_ROOT)
-    rsp = do_filter_search(full_resource_path, search, api_client)
+    resource_url = '{}firstitemperlocation/'.format(API_ROOT)
+    rsp = do_filter_search(resource_url, search, api_client)
     found_ids = set(get_found_ids(RESOURCE_METADATA['items']['id_field'], rsp))
     assert all([i in found_ids for i in expected_ids])
     assert all([i not in found_ids for i in not_expected_ids])
@@ -2289,7 +2289,7 @@ def test_callnumbermatches_list(test_data, search, expected, api_settings,
         id_field = RESOURCE_METADATA[resource]['id_field']
         assemble_test_records(profile, id_field, data[resource])
 
-    full_resource_path = '{}callnumbermatches'.format(API_ROOT)
-    response = do_filter_search(full_resource_path, search, api_client)
+    resource_url = '{}callnumbermatches/'.format(API_ROOT)
+    response = do_filter_search(resource_url, search, api_client)
     assert response.data == expected
 
