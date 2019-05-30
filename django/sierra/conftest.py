@@ -8,6 +8,8 @@ import redis
 import pysolr
 import pytz
 import hashlib
+import urllib
+import random
 from datetime import datetime
 from collections import OrderedDict
 
@@ -728,3 +730,120 @@ def apiuser_with_custom_defaults():
     old_defaults = APIUser.permission_defaults.copy()
     yield _apiuser_with_custom_defaults
     APIUser.permission_defaults = old_defaults
+
+
+@pytest.fixture(scope='function')
+def pick_reference_object_having_link():
+    """
+    Pytest fixture. Returns a helper function that picks an object (in
+    JSON terms) from the list of `objects` -- e.g., from an API list
+    view -- and randomly chooses one that has the given `link_field`
+    populated.
+    """
+    def _pick_reference_object_having_link(objects, link_field):
+        choices = [o for o in objects if o['_links'].get(link_field, None)]
+        return random.choice(choices)
+    return _pick_reference_object_having_link
+
+
+@pytest.fixture(scope='function')
+def assert_obj_fields_match_serializer():
+    """
+    Pytest fixture. Returns a helper function that asserts that the
+    given `obj` conforms to the given `serializer` -- all fields on the
+    serializer are represented on the object.
+    """
+    def _assert_obj_fields_match_serializer(obj, serializer):
+        for field_name in serializer.fields:
+            assert serializer.render_field_name(field_name) in obj
+    return _assert_obj_fields_match_serializer
+
+
+@pytest.fixture(scope='function')
+def get_linked_view_and_objects():
+    """
+    Pytest fixture. Returns a helper function, where, given a `client`
+    object fixture and `ref_obj` (i.e. reference object, from the API)
+    -- grab objects from the given `link_field` and return them.
+    Returns a tuple: (view_obj, linked_objs). The returned linked_objs
+    is ALWAYS a list, even if the link references a single object.
+    """
+    def _get_linked_view_and_objects(client, ref_obj, link_field):
+        linked_objs = []
+        try:
+            resp = client.get(ref_obj['_links'][link_field]['href'])
+        except TypeError:
+            for link in ref_obj['_links'][link_field]:
+                resp = client.get(link['href'])
+                linked_objs.append(resp.data)
+        else:
+            try:
+                linked_objs = resp.data['_embedded'].values()[0]
+            except KeyError:
+                linked_objs = [resp.data]
+        return resp.renderer_context['view'], linked_objs
+    return _get_linked_view_and_objects
+
+
+@pytest.fixture(scope='function')
+def assemble_test_records(api_solr_env, basic_solr_assembler):
+    """
+    Pytest fixture. Returns a helper function that assembles & loads a
+    set of test records (for one test) into an existing module-level
+    Solr test-data environment.
+
+    Defaults to using `api_solr_env` and `basic_solr_assembler`
+    fixtures, but you can override these via the `env` and `assembler`
+    kwargs.
+
+    Required args include a `profile` string, a set of static
+    `test_data` partial records, and the name of the unique `id_field`
+    for each record (for test_data record uniqueness). Returns a tuple
+    of default solr_env records and the new test records that were
+    loaded from the provided test data. len(env_recs) + len(test_recs)
+    should == the total number of Solr records for that profile.
+    """
+    def _assemble_test_records(profile, id_field, test_data, env=api_solr_env,
+                               assembler=basic_solr_assembler):
+        env_recs = env.records[profile]
+        test_recs = assembler.load_static_test_data(profile, test_data,
+                                                    id_field=id_field,
+                                                    context=env_recs)
+        return (env_recs, test_recs)
+    return _assemble_test_records
+
+
+@pytest.fixture(scope='function')
+def do_filter_search():
+    """
+    Pytest fixture. Returns a test helper function that performs the
+    given `search` (e.g. search query string) on the given API
+    `resource` via the given `api_client` fixture. Returns the
+    response.
+    """
+    def _do_filter_search(resource, search, client):
+        q = '&'.join(['='.join([urllib.quote_plus(v) for v in pair.split('=')])
+                      for pair in search.split('&')])
+        return client.get('{}/?{}'.format(resource, q))
+    return _do_filter_search
+
+
+@pytest.fixture(scope='function')
+def get_found_ids():
+    """
+    Returns a list of values for identifying test records, in order,
+    from the given `response` object. (Usually the response will come
+    from calling `do_filter_search`.) `solr_id_field` is the name of
+    that ID field as it exists in Solr.
+    """
+    def _get_found_ids(solr_id_field, response):
+        serializer = response.renderer_context['view'].get_serializer()
+        api_id_field = serializer.render_field_name(solr_id_field)
+        total_found = response.data['totalCount']
+        data = response.data.get('_embedded', {'data': []}).values()[0]
+        # reality check: FAIL if there's any data returned on a different
+        # page of results. If we don't return ALL available data, further
+        # assertions will be invalid.
+        assert len(data) == total_found
+        return [r[api_id_field] for r in data]
+    return _get_found_ids

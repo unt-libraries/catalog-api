@@ -2,8 +2,6 @@
 Contains integration tests for the `api` app.
 """
 
-import urllib
-import random
 from datetime import datetime
 from pytz import utc
 
@@ -20,6 +18,12 @@ from utils.test_helpers import solr_test_profiles as tp
 #     api_solr_env
 #     basic_solr_assembler
 #     api_client
+#     pick_reference_object_having_link
+#     assert_obj_fields_match_serializer
+#     get_linked_view_and_objects
+#     assemble_test_records
+#     do_filter_search
+#     get_found_ids
 
 
 # API_ROOT: Base URL for the API we're testing.
@@ -1898,100 +1902,6 @@ def compile_ids(parameters):
     return tuple(p.keys()[0] for p in parameters[1:])
 
 
-# HELPER FUNCTIONS used in tests
-
-def pick_reference_object_having_link(objects, link_field):
-    """
-    Test helper function that picks an object (in JSON terms) from the
-    list of `objects` -- e.g., from an API list view -- and randomly
-    chooses one that has the given `link_field` populated.
-    """
-    choices = [o for o in objects if o['_links'].get(link_field, None)]
-    return random.choice(choices)
-
-
-def assert_obj_fields_match_serializer(obj, serializer):
-    """
-    Test helper function that asserts that the given `obj` conforms to
-    the given `serializer` -- all fields on the serializer are
-    represented on the object.
-    """
-    for field_name in serializer.fields:
-        assert serializer.render_field_name(field_name) in obj
-
-
-def get_linked_view_and_objects(client, ref_obj, link_field):
-    """
-    Test helper function: given a `client` object fixture and
-    `ref_obj` (i.e. reference object, from the API) -- grab objects
-    from the given `link_field` and return them. Returns a tuple:
-    (view_obj, linked_objs). For the sake of normalization, the
-    returned linked_objs is ALWAYS a list, even if the link references
-    a single object.
-    """
-    linked_objs = []
-    try:
-        resp = client.get(ref_obj['_links'][link_field]['href'])
-    except TypeError:
-        for link in ref_obj['_links'][link_field]:
-            resp = client.get(link['href'])
-            linked_objs.append(resp.data)
-    else:
-        try:
-            linked_objs = resp.data['_embedded'].values()[0]
-        except KeyError:
-            linked_objs = [resp.data]
-    return resp.renderer_context['view'], linked_objs
-
-
-def assemble_test_records(profile, id_field, test_data, solr_env, assembler):
-    """
-    Test helper function that assembles & loads a set of test records
-    given a `profile` string, a set of static `test_data` records, the
-    name of the `id_field` for each record (for test_data purposes), a
-    module-level `solr_env` assembler fixture, and a function-level
-    `assembler` fixture. Returns a tuple of default solr_env records
-    (the ones loaded by the module-level fixture) and the new test
-    records that were loaded from the provided test data.
-    len(env_recs) + len(test_recs) should == the total number of Solr
-    records for that profile.
-    """
-    gens = assembler.gen_factory
-    env_recs = solr_env.records[profile]
-    test_recs = assembler.load_static_test_data(profile, test_data, id_field,
-                                                env_recs)
-    return (env_recs, test_recs)
-
-
-def do_filter_search(resource, search, client):
-    """
-    Test helper function that performs the given `search` (e.g. search
-    query string) on the given API `resource` via the given
-    `api_client` fixture. Returns the response.
-    """
-    qs = '&'.join(['='.join([urllib.quote_plus(v) for v in pair.split('=')])
-                  for pair in search.split('&')])
-    return client.get('{}{}/?{}'.format(API_ROOT, resource, qs))
-
-
-def get_found_ids(solr_id_field, response):
-    """
-    Returns a list of values for identifying test records, in order,
-    from the given `response` object. (Usually the response will come
-    from calling `do_filter_search`.) `solr_id_field` is the name of
-    that ID field as it exists in Solr.
-    """
-    serializer = response.renderer_context['view'].get_serializer()
-    api_id_field = serializer.render_field_name(solr_id_field)
-    total_found = response.data['totalCount']
-    data = response.data.get('_embedded', {'data': []}).values()[0]
-    # reality check: FAIL if there's any data returned on a different
-    # page of results. If we don't return ALL available data, further
-    # assertions will be invalid.
-    assert len(data) == total_found
-    return [r[api_id_field] for r in data]
-
-
 # PYTEST FIXTURES
 
 @pytest.fixture
@@ -2018,7 +1928,8 @@ def api_settings(settings):
 
 @pytest.mark.django_db
 def test_apiusers_authenticated_requests(api_client,
-                                         simple_sig_auth_credentials):
+                                         simple_sig_auth_credentials,
+                                         assert_obj_fields_match_serializer):
     """
     The apiusers resource requires authentication to access; users that
     can authenticate can view the apiusers list and details of a single
@@ -2109,7 +2020,9 @@ def test_apiusers_repeated_requests_fail(api_client,
 
 
 @pytest.mark.parametrize('resource', RESOURCE_METADATA.keys())
-def test_standard_resource(resource, api_settings, api_solr_env, api_client):
+def test_standard_resource(resource, api_settings, api_solr_env, api_client,
+                           pick_reference_object_having_link,
+                           assert_obj_fields_match_serializer):
     """
     Standard resources (each with a "list" and "detail" view) should
     have objects available in an "_embedded" object in the list view,
@@ -2131,7 +2044,10 @@ def test_standard_resource(resource, api_settings, api_solr_env, api_client):
 @pytest.mark.parametrize('resource, links',
                          compile_resource_links(RESOURCE_METADATA))
 def test_standard_resource_links(resource, links, api_settings, api_solr_env,
-                                 api_client):
+                                 api_client,
+                                 pick_reference_object_having_link,
+                                 assert_obj_fields_match_serializer,
+                                 get_linked_view_and_objects):
     """
     Accessing linked resources from standard resources (via _links)
     should return the expected resource(s).
@@ -2263,7 +2179,8 @@ def test_list_view_pagination(resource, default_limit, max_limit, limit,
                          ids=compile_ids(PARAMETERS__FILTER_TESTS__INTENDED) +
                              compile_ids(PARAMETERS__FILTER_TESTS__STRANGE))
 def test_list_view_filters(resource, test_data, search, expected, api_settings,
-                           api_solr_env, basic_solr_assembler, api_client):
+                           assemble_test_records, api_client, get_found_ids,
+                           do_filter_search):
     """
     Given the provided `test_data` records: requesting the given
     `resource` using the provided search filter parameters (`search`)
@@ -2276,15 +2193,15 @@ def test_list_view_filters(resource, test_data, search, expected, api_settings,
 
     profile = RESOURCE_METADATA[resource]['profile']
     id_field = RESOURCE_METADATA[resource]['id_field']
-    erecs, trecs = assemble_test_records(profile, id_field, test_data,
-                                         api_solr_env, basic_solr_assembler)
+    erecs, trecs = assemble_test_records(profile, id_field, test_data)
 
     # First let's do a quick sanity check to make sure the resource
     # returns the correct num of records before the filter is applied.
-    check_response = api_client.get('{}{}/'.format(API_ROOT, resource))
+    full_resource_path = '{}{}'.format(API_ROOT, resource)
+    check_response = api_client.get('{}/'.format(full_resource_path))
     assert check_response.data['totalCount'] == len(erecs) + len(trecs)
 
-    response = do_filter_search(resource, search, api_client)
+    response = do_filter_search(full_resource_path, search, api_client)
     found_ids = set(get_found_ids(id_field, response))
     assert all([i in found_ids for i in expected_ids])
     assert all([i not in found_ids for i in not_expected_ids])
@@ -2296,7 +2213,8 @@ def test_list_view_filters(resource, test_data, search, expected, api_settings,
                          ids=compile_ids(PARAMETERS__ORDERBY_TESTS__INTENDED) +
                              compile_ids(PARAMETERS__ORDERBY_TESTS__STRANGE))
 def test_list_view_orderby(resource, test_data, search, expected, api_settings,
-                           api_solr_env, basic_solr_assembler, api_client):
+                           assemble_test_records, api_client, get_found_ids,
+                           do_filter_search):
     """
     Given the provided `test_data` records: requesting the given
     `resource` using the provided search filter parameters (`search`)
@@ -2305,10 +2223,10 @@ def test_list_view_orderby(resource, test_data, search, expected, api_settings,
     """
     profile = RESOURCE_METADATA[resource]['profile']
     id_field = RESOURCE_METADATA[resource]['id_field']
-    erecs, trecs = assemble_test_records(profile, id_field, test_data,
-                                         api_solr_env, basic_solr_assembler)
+    erecs, trecs = assemble_test_records(profile, id_field, test_data)
     print [r.get('call_number_sort', None) for r in trecs]
-    response = do_filter_search(resource, search, api_client)
+    full_resource_path = '{}{}'.format(API_ROOT, resource)
+    response = do_filter_search(full_resource_path, search, api_client)
     found_ids = get_found_ids(id_field, response)
     assert found_ids == expected
 
@@ -2317,8 +2235,8 @@ def test_list_view_orderby(resource, test_data, search, expected, api_settings,
                          compile_params(PARAMETERS__FIRSTITEMPERLOCATION),
                          ids=compile_ids(PARAMETERS__FIRSTITEMPERLOCATION))
 def test_firstitemperlocation_list(test_data, search, expected, api_settings,
-                                   api_solr_env, basic_solr_assembler,
-                                   api_client):
+                                   assemble_test_records, api_client,
+                                   get_found_ids, do_filter_search):
     """
     The `firstitemperlocation` resource is basically a custom filter
     for `items` that submits a facet-query to Solr asking for the first
@@ -2339,10 +2257,10 @@ def test_firstitemperlocation_list(test_data, search, expected, api_settings,
     for resource in data.keys():
         profile = RESOURCE_METADATA[resource]['profile']
         id_field = RESOURCE_METADATA[resource]['id_field']
-        assemble_test_records(profile, id_field, data[resource], api_solr_env,
-                              basic_solr_assembler)
+        assemble_test_records(profile, id_field, data[resource])
 
-    rsp = do_filter_search('firstitemperlocation', search, api_client)
+    full_resource_path = '{}firstitemperlocation'.format(API_ROOT)
+    rsp = do_filter_search(full_resource_path, search, api_client)
     found_ids = set(get_found_ids(RESOURCE_METADATA['items']['id_field'], rsp))
     assert all([i in found_ids for i in expected_ids])
     assert all([i not in found_ids for i in not_expected_ids])
@@ -2352,8 +2270,8 @@ def test_firstitemperlocation_list(test_data, search, expected, api_settings,
                          compile_params(PARAMETERS__CALLNUMBERMATCHES),
                          ids=compile_ids(PARAMETERS__CALLNUMBERMATCHES))
 def test_callnumbermatches_list(test_data, search, expected, api_settings,
-                                api_solr_env, basic_solr_assembler,
-                                api_client):
+                                assemble_test_records, api_client,
+                                do_filter_search):
     """
     The `callnumbermatches` resource simply returns an array of
     callnumber strings, in order, matching the critera that's given.
@@ -2369,9 +2287,9 @@ def test_callnumbermatches_list(test_data, search, expected, api_settings,
     for resource in data.keys():
         profile = RESOURCE_METADATA[resource]['profile']
         id_field = RESOURCE_METADATA[resource]['id_field']
-        assemble_test_records(profile, id_field, data[resource], api_solr_env,
-                              basic_solr_assembler)
+        assemble_test_records(profile, id_field, data[resource])
 
-    response = do_filter_search('callnumbermatches', search, api_client)
+    full_resource_path = '{}callnumbermatches'.format(API_ROOT)
+    response = do_filter_search(full_resource_path, search, api_client)
     assert response.data == expected
 
