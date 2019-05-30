@@ -202,19 +202,33 @@ class SolrTestDataAssemblerFactory(object):
             arg become the id strings you use to create and access
             records using each profile in the other object methods.
             """
-            self.profiles = {}
-            self.records = {}
             self.gen_factory = gen_factory
-            for rectype, pdef in profile_definitions.items():
-                profile = sf.SolrProfile(
-                    rectype, pdef['conn'], user_fields=pdef['user_fields'],
-                    inclusive=pdef.get('inclusive', True),
-                    unique_fields=global_unique_fields, solr_types=solr_types,
-                    gen_factory=gen_factory,
-                    default_field_gens=pdef.get('field_gens', tuple())
-                )
-                self.profiles[rectype] = profile
-                self.records[rectype] = tuple()
+            self.default_solr_types = solr_types
+            self.default_unique_fields = global_unique_fields
+            self.records = {}
+            self.profiles = {
+                rectype: self.make_profile(rectype, **profile_def)
+                    for rectype, profile_def in profile_definitions.items()
+            }
+
+        def make_profile(self, rectype, conn=None, user_fields=None,
+                         inclusive=True, unique_fields=None, gen_factory=None,
+                         solr_types=None, field_gens=None):
+            """
+            Generate a solr_factories.SolrProfile object using the
+            provided kwargs.
+            """
+            unique_fields = unique_fields or self.default_unique_fields
+            gen_factory = gen_factory or self.gen_factory
+            solr_types = solr_types or self.default_solr_types
+            field_gens = field_gens or tuple()
+            profile = sf.SolrProfile(
+                rectype, conn, user_fields=user_fields, inclusive=inclusive,
+                unique_fields=unique_fields, solr_types=solr_types,
+                gen_factory=gen_factory, default_field_gens=field_gens
+            )
+            self.records[rectype] = self.records.get(rectype, tuple())
+            return profile
 
         def make(self, rectype, number, context=None, **field_gens):
             """
@@ -288,7 +302,7 @@ class SolrTestDataAssemblerFactory(object):
             """
             context = context or tuple()
             records = tuple()
-            gens = self.gen_factory
+            gens = self.profiles[rectype].gen_factory
             for rec_id, record in test_data:
                 datagens = {k: gens.static(v) for k, v in record.items()}
                 datagens[id_field] = gens.static(rec_id)
