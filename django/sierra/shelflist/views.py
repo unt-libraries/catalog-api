@@ -62,6 +62,7 @@ class ShelflistItemDetail(SimplePutMixin, SimplePatchMixin, SimpleGetMixin,
     multi = False
     parser_classes = (JSONPatchParser, JSONParser)
     permission_classes = (permissions.IsAuthenticatedOrReadOnly,)
+    resource_name = 'shelflistItems'
     
     def get_object(self):
         queryset = self.get_queryset()
