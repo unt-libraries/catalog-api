@@ -786,29 +786,27 @@ def get_linked_view_and_objects():
 
 
 @pytest.fixture(scope='function')
-def assemble_test_records(api_solr_env, basic_solr_assembler):
+def assemble_test_records():
     """
     Pytest fixture. Returns a helper function that assembles & loads a
     set of test records (for one test) into an existing module-level
     Solr test-data environment.
 
-    Defaults to using `api_solr_env` and `basic_solr_assembler`
-    fixtures, but you can override these via the `env` and `assembler`
-    kwargs.
-
-    Required args include a `profile` string, a set of static
-    `test_data` partial records, and the name of the unique `id_field`
-    for each record (for test_data record uniqueness). Returns a tuple
-    of default solr_env records and the new test records that were
-    loaded from the provided test data. len(env_recs) + len(test_recs)
-    should == the total number of Solr records for that profile.
+    Args include a `profile` string, the name of the unique
+    `id_field` for each record (for test_data record uniqueness), a
+    set of static `test_data` partial records, the module-level env
+    (assembler) fixture that serves as context, and the function-level
+    assembler fixture you're using to load the temporary test data.
+    Returns a tuple consisting of the records from the `env` assembler
+    and the new test records that were loaded from the provided test
+    data. len(env_recs) + len(test_recs) should equal the total number
+    of Solr records for that profile.
     """
-    def _assemble_test_records(profile, id_field, test_data, env=api_solr_env,
-                               assembler=basic_solr_assembler):
+    def _assemble_test_records(profile, id_field, test_data, env, assembler):
         env_recs = env.records[profile]
-        test_recs = assembler.load_static_test_data(profile, test_data,
-                                                    id_field=id_field,
-                                                    context=env_recs)
+        test_recs = assembler.load_static_test_data(
+            profile, test_data, id_field=id_field, context=env_recs
+        )
         return (env_recs, test_recs)
     return _assemble_test_records
 

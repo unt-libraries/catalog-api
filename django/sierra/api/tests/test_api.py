@@ -1923,6 +1923,28 @@ def api_settings(settings):
     return settings
 
 
+@pytest.fixture(scope='function')
+def assemble_api_test_records(assemble_test_records, api_solr_env,
+                              basic_solr_assembler):
+    """
+    Pytest fixture. Returns a helper function that assembles & loads a
+    set of test records (for one test) into the api_solr_env test-data
+    environment fixture.
+
+    Required args include a `profile` string, the name of the unique
+    `id_field` for each record (for test_data record uniqueness), and a
+    set of static `test_data` partial records. Returns a tuple of
+    default solr_env records and the new test records that were loaded
+    from the provided test data. len(env_recs) + len(test_recs) should
+    equal the total number of Solr records for that profile.
+    """
+    def _assemble_api_test_records(profile, id_field, test_data):
+        return assemble_test_records(profile, id_field, test_data,
+                                     env=api_solr_env,
+                                     assembler=basic_solr_assembler)
+    return _assemble_api_test_records
+
+
 # TESTS
 # ---------------------------------------------------------------------
 
@@ -2179,8 +2201,8 @@ def test_list_view_pagination(resource, default_limit, max_limit, limit,
                          ids=compile_ids(PARAMETERS__FILTER_TESTS__INTENDED) +
                              compile_ids(PARAMETERS__FILTER_TESTS__STRANGE))
 def test_list_view_filters(resource, test_data, search, expected, api_settings,
-                           assemble_test_records, api_client, get_found_ids,
-                           do_filter_search):
+                           assemble_api_test_records, api_client,
+                           get_found_ids, do_filter_search):
     """
     Given the provided `test_data` records: requesting the given
     `resource` using the provided search filter parameters (`search`)
@@ -2193,7 +2215,7 @@ def test_list_view_filters(resource, test_data, search, expected, api_settings,
 
     profile = RESOURCE_METADATA[resource]['profile']
     id_field = RESOURCE_METADATA[resource]['id_field']
-    erecs, trecs = assemble_test_records(profile, id_field, test_data)
+    erecs, trecs = assemble_api_test_records(profile, id_field, test_data)
 
     # First let's do a quick sanity check to make sure the resource
     # returns the correct num of records before the filter is applied.
@@ -2213,8 +2235,8 @@ def test_list_view_filters(resource, test_data, search, expected, api_settings,
                          ids=compile_ids(PARAMETERS__ORDERBY_TESTS__INTENDED) +
                              compile_ids(PARAMETERS__ORDERBY_TESTS__STRANGE))
 def test_list_view_orderby(resource, test_data, search, expected, api_settings,
-                           assemble_test_records, api_client, get_found_ids,
-                           do_filter_search):
+                           assemble_api_test_records, api_client,
+                           get_found_ids, do_filter_search):
     """
     Given the provided `test_data` records: requesting the given
     `resource` using the provided search filter parameters (`search`)
@@ -2223,7 +2245,7 @@ def test_list_view_orderby(resource, test_data, search, expected, api_settings,
     """
     profile = RESOURCE_METADATA[resource]['profile']
     id_field = RESOURCE_METADATA[resource]['id_field']
-    erecs, trecs = assemble_test_records(profile, id_field, test_data)
+    erecs, trecs = assemble_api_test_records(profile, id_field, test_data)
     print [r.get('call_number_sort', None) for r in trecs]
     resource_url = '{}{}/'.format(API_ROOT, resource)
     response = do_filter_search(resource_url, search, api_client)
@@ -2235,7 +2257,7 @@ def test_list_view_orderby(resource, test_data, search, expected, api_settings,
                          compile_params(PARAMETERS__FIRSTITEMPERLOCATION),
                          ids=compile_ids(PARAMETERS__FIRSTITEMPERLOCATION))
 def test_firstitemperlocation_list(test_data, search, expected, api_settings,
-                                   assemble_test_records, api_client,
+                                   assemble_api_test_records, api_client,
                                    get_found_ids, do_filter_search):
     """
     The `firstitemperlocation` resource is basically a custom filter
@@ -2257,7 +2279,7 @@ def test_firstitemperlocation_list(test_data, search, expected, api_settings,
     for resource in data.keys():
         profile = RESOURCE_METADATA[resource]['profile']
         id_field = RESOURCE_METADATA[resource]['id_field']
-        assemble_test_records(profile, id_field, data[resource])
+        assemble_api_test_records(profile, id_field, data[resource])
 
     resource_url = '{}firstitemperlocation/'.format(API_ROOT)
     rsp = do_filter_search(resource_url, search, api_client)
@@ -2270,7 +2292,7 @@ def test_firstitemperlocation_list(test_data, search, expected, api_settings,
                          compile_params(PARAMETERS__CALLNUMBERMATCHES),
                          ids=compile_ids(PARAMETERS__CALLNUMBERMATCHES))
 def test_callnumbermatches_list(test_data, search, expected, api_settings,
-                                assemble_test_records, api_client,
+                                assemble_api_test_records, api_client,
                                 do_filter_search):
     """
     The `callnumbermatches` resource simply returns an array of
@@ -2287,7 +2309,7 @@ def test_callnumbermatches_list(test_data, search, expected, api_settings,
     for resource in data.keys():
         profile = RESOURCE_METADATA[resource]['profile']
         id_field = RESOURCE_METADATA[resource]['id_field']
-        assemble_test_records(profile, id_field, data[resource])
+        assemble_api_test_records(profile, id_field, data[resource])
 
     resource_url = '{}callnumbermatches/'.format(API_ROOT)
     response = do_filter_search(resource_url, search, api_client)
