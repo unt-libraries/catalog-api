@@ -22,51 +22,8 @@ pytestmark = pytest.mark.django_db
 # External fixtures used below can be found in
 # django/sierra/conftest.py:
 #   apiuser_with_custom_defaults
-#
-
-
-def calculate_expected_apiuser_details(test_cls, new, start=None):
-    """
-    Calculate and return the expected values for an APIUser instance.
-
-    This is a utility function used in a few of the tests. It
-    determines the expected final attributes for an APIUser for tests
-    that test create/update operations. `test_cls` is the APIUser test
-    class that test uses. `new` is a dict containing data attributes
-    for the new/updated APIUser. And `start` is a dict containing data
-    attributes for the existing user that `new` is updating, if you're
-    testing an update operation. Expected values are returned as a
-    dict.
-    """
-    exp, start = {}, (start or {})
-    exp['permissions_dict'] = test_cls.permission_defaults.copy()
-    exp['permissions_dict'].update(start.get('permissions_dict', None) or {})
-    exp['permissions_dict'].update(new.get('permissions_dict', None) or {})
-    exp['permissions'] = ujson.encode(exp['permissions_dict'])
-
-    key_fields = ('username', 'secret_text', 'password', 'email', 'first_name',
-                  'last_name')
-    for k in key_fields:
-        new_val = new.get(k, None)
-        default = start.get(k, None) or ''
-        exp[k] = new_val if new_val is not None else default
-
-    exp['secret'] = test_cls.encode_secret(exp['secret_text'])
-    return exp
-
-
-def assert_apiuser_matches_expected_data(apiuser, expected):
-    """
-    Assert that an `apiuser` obj matches `expected` data.
-    """
-    assert apiuser.secret == expected['secret']
-    assert apiuser.permissions == expected['permissions']
-    assert authenticate(username=expected['username'],
-                        password=expected['password'])
-    assert apiuser.user.email == expected['email']
-    assert apiuser.user.first_name == expected['first_name']
-    assert apiuser.user.last_name == expected['last_name']
-
+#   calculate_expected_apiuser_details
+#   assert_apiuser_matches_expected_data
 
 # TESTS
 # ---------------------------------------------------------------------
@@ -374,9 +331,10 @@ def test_apiuser_creation_permission_errors(apiuser_with_custom_defaults,
     'only new first_name value',
     'provided data is all blank strings'
 ])
-def test_apiuser_updateandsave_works_correctly(apiuser_with_custom_defaults,
-                                               secret_text, permissions_dict,
-                                               pw, email, fn, ln):
+def test_apiuser_updateandsave_works(apiuser_with_custom_defaults,
+                                     calculate_expected_apiuser_details,
+                                     secret_text, permissions_dict, pw, email,
+                                     fn, ln):
     """
     The APIUser `update_and_save` method should update the APIUser
     and/or associated user based on the provided details. Missing
@@ -729,8 +687,10 @@ def test_apiuser_setallpermissionstovalue_errors(apiuser_with_custom_defaults):
     'some exist, update some, create some; no errors',
     'some exist, update one, create some; creation and update errors',
 ])
-def test_apiusermgr_batchimport_works(apiuser_with_custom_defaults, fields,
-                                      start_vals, new_vals, err_vals):
+def test_apiusermgr_batchimport_works(apiuser_with_custom_defaults,
+                                      calculate_expected_apiuser_details,
+                                      assert_apiuser_matches_expected_data,
+                                      fields, start_vals, new_vals, err_vals):
     """
     The APIUser manager's `batch_import_users` method should: create
     new Users/APIUsers for ones that don't already exist; update

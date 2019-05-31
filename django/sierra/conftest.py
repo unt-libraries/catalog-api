@@ -10,10 +10,12 @@ import pytz
 import hashlib
 import urllib
 import random
+import ujson
 from datetime import datetime
 from collections import OrderedDict
 
 from django.conf import settings
+from django.contrib.auth import authenticate
 from django.contrib.auth.models import User
 from django.db.models import ObjectDoesNotExist
 from rest_framework import test as drftest
@@ -845,3 +847,56 @@ def get_found_ids():
         assert len(data) == total_found
         return [r[api_id_field] for r in data]
     return _get_found_ids
+
+
+@pytest.fixture(scope='function')
+def calculate_expected_apiuser_details():
+    """
+    Pytest fixture. Returns a utility function that calculates and
+    returns the expected values for an APIUser instance.
+
+    This is a utility function used in a few of the tests. It
+    determines the expected final attributes for an APIUser for tests
+    that test create/update operations. `test_cls` is the APIUser test
+    class that test uses. `new` is a dict containing data attributes
+    for the new/updated APIUser. And `start` is a dict containing data
+    attributes for the existing user that `new` is updating, if you're
+    testing an update operation. Expected values are returned as a
+    dict.
+    """
+    def _calculate_expected_apiuser_details(test_cls, new, start=None):
+        exp, start = {}, (start or {})
+        exp['permissions_dict'] = test_cls.permission_defaults.copy()
+        exp['permissions_dict'].update(start.get('permissions_dict', None) or
+                                       {})
+        exp['permissions_dict'].update(new.get('permissions_dict', None) or
+                                       {})
+        exp['permissions'] = ujson.encode(exp['permissions_dict'])
+
+        key_fields = ('username', 'secret_text', 'password', 'email',
+                      'first_name', 'last_name')
+        for k in key_fields:
+            new_val = new.get(k, None)
+            default = start.get(k, None) or ''
+            exp[k] = new_val if new_val is not None else default
+
+        exp['secret'] = test_cls.encode_secret(exp['secret_text'])
+        return exp
+    return _calculate_expected_apiuser_details
+
+
+@pytest.fixture(scope='function')
+def assert_apiuser_matches_expected_data():
+    """
+    Pytest fixture. Returns a function that runs through several
+    assertions to assert that an `apiuser` obj matches `expected` data.
+    """
+    def _assert_apiuser_matches_expected_data(apiuser, expected):
+        assert apiuser.secret == expected['secret']
+        assert apiuser.permissions == expected['permissions']
+        assert authenticate(username=expected['username'],
+                            password=expected['password'])
+        assert apiuser.user.email == expected['email']
+        assert apiuser.user.first_name == expected['first_name']
+        assert apiuser.user.last_name == expected['last_name']
+    return _assert_apiuser_matches_expected_data
