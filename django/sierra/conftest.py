@@ -709,7 +709,7 @@ def simple_sig_auth_credentials():
                                                   request_body))
         signature = hasher.hexdigest()
         return {
-            'HTTP_X_USERNAME': 'test',
+            'HTTP_X_USERNAME': api_user.user.username,
             'HTTP_X_TIMESTAMP': timestamp,
             'HTTP_AUTHORIZATION': 'Basic {}'.format(signature)
         }

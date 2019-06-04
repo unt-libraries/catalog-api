@@ -3,7 +3,13 @@ Tests API features applicable to the `shelflist` app.
 """
 
 import pytest
+import ujson
+import jsonpatch
 from datetime import datetime
+
+from shelflist.exporters import ItemsToSolr
+from shelflist.search_indexes import ShelflistItemIndex
+from shelflist.serializers import ShelflistItemSerializer
 
 # FIXTURES AND TEST DATA
 # Fixtures used in the below tests can be found in ...
@@ -11,6 +17,9 @@ from datetime import datetime
 
 # API_ROOT: Base URL for the API we're testing.
 API_ROOT = '/api/v1/'
+
+
+REDIS_SHELFLIST_PREFIX = ItemsToSolr.redis_shelflist_prefix
 
 
 # PARAMETERS__* constants contain parametrization data for certain
@@ -268,6 +277,125 @@ def get_shelflist_urls():
     return _get_shelflist_urls
 
 
+@pytest.fixture
+def assemble_custom_shelflist(assemble_shelflist_test_records):
+    """
+    Pytest fixture. Returns a utility function for creating a custom
+    shelflist at the given location code. Uses the
+    `assemble_shelflist_test_records` fixture to add the records to the
+    active Solr environment for the duration of the test. Returns a
+    tuple: environment records (erecs), location records (lrecs), and
+    item test records (trecs).
+    """
+    def _assemble_custom_shelflist(lcode, sl_item_data, id_field='id'):
+        test_locdata = [(lcode, {})]
+        test_itemdata = []
+        for item_id, data in sl_item_data:
+            new_data = data.copy()
+            new_data['location_code'] = lcode
+            test_itemdata.append((item_id, new_data))
+        _, lrecs = assemble_shelflist_test_records(test_locdata,
+                                                   id_field='code',
+                                                   profile='location')
+        erecs, trecs = assemble_shelflist_test_records(test_itemdata,
+                                                       id_field=id_field)
+        return erecs, lrecs, trecs
+    return _assemble_custom_shelflist
+
+
+@pytest.fixture
+def derive_updated_resource():
+    """
+    Pytest fixture. Returns a helper function that lets you provide a
+    dict representing an existing resource (`old_item`), the relevant
+    REST API serializer for that resource (`serializer`), and the
+    SolrProfile object for that resource (`solr_profile`). Returns an
+    updated version of that resource (dict), giving all fields listed
+    in `which_fields` updated values. (Updates all fields by default.)
+    The dict that's returned can be converted to JSON and submitted
+    directly as a PUT request to update the resource via the API.
+    """
+    def _get_new_val(old_val, field_type):
+        if field_type == 'str':
+            return unicode('{} TEST').format((old_val or ''))
+        if field_type == 'int':
+            return (old_val or 0) + 1
+        if field_type == 'bool':
+            return not bool(old_val)
+        if field_type == 'datetime':
+            return '9999-01-01T00:00:00Z'
+        return None
+
+    def _derive_updated_resource(old_item, serializer, solr_profile,
+                                 which_fields=None):
+        new_item = {}
+        for fname, fopts in serializer.fields.items():
+            rendered_fname = serializer.render_field_name(fname)
+            old_val = old_item[rendered_fname]
+            solr_fname = fopts.get('source', fname)
+            if (which_fields is None) or (rendered_fname in which_fields):
+                field = solr_profile.fields.get(solr_fname, {})
+                if field.get('multi', False):
+                    old_val = old_val or [None]
+                    new_val = [_get_new_val(o, fopts['type']) for o in old_val]
+                else:
+                    new_val = _get_new_val(old_val, fopts['type'])
+            else:
+                new_val = old_val
+            new_item[rendered_fname] = new_val
+        return new_item
+    return _derive_updated_resource
+
+
+@pytest.fixture
+def filter_serializer_fields_by_opt():
+    """
+    Pytest fixture. Returns a helper function that lets you filter a
+    list of REST API serializer fields based on the `serializer.fields`
+    field options. Provide the `serializer`, the field opts `attr` and
+    field opts attr `value`, and get a list of matching fields.
+    """
+    def _filter_serializer_fields_by_opt(serializer, attr, value):
+        fields = []
+        for fname, fopts in serializer.fields.items():
+            rendered_fname = serializer.render_field_name(fname)
+            if fopts.get(attr, None) == value:
+                fields.append(rendered_fname)
+        return fields
+    return _filter_serializer_fields_by_opt
+
+
+@pytest.fixture
+def send_api_data(apiuser_with_custom_defaults, simple_sig_auth_credentials):
+    """
+    Pytest fixture. Returns a helper function that sends API data via
+    the provided `api_client`, to the provided `url`, with the given
+    `req_body`, via the given HTTP `method`. An API user is created and
+    used for authentication. You may optionally supply a `content_type`
+    string; if not supplied, then JSON is assumed by default (or
+    json-patch for patch requests). The response object is returned.
+    """
+    content_types = {
+        'put': 'application/json',
+        'patch': 'application/json-patch+json',
+        'post': 'application/json'
+    }
+
+    def _send_api_data(api_client, url, req_body, method, content_type=None):
+        test_cls = apiuser_with_custom_defaults()
+        api_user = test_cls.objects.create_user('test', 'sec', password='pw',
+                                                email='test@test.com',
+                                                first_name='F', last_name='L')
+        content_type = content_type or content_types[method]
+        api_client.credentials(**simple_sig_auth_credentials(api_user,
+                                                             req_body))
+        do_send = getattr(api_client, method)
+        resp = do_send(url, req_body, content_type=content_type)
+        api_client.credentials()
+        return resp
+    return _send_api_data
+
+
 # TESTS
 # ---------------------------------------------------------------------
 
@@ -388,3 +516,180 @@ def test_shelflistitem_view_orderby(order_by, api_settings, shelflist_solr_env,
     response = api_client.get(test_url)
     assert response.status_code == 400
     assert 'not a valid field for ordering' in response.data['detail']
+
+
+def test_shelflistitem_row_order(api_settings, shelflist_solr_env,
+                                 get_shelflist_urls, api_client, redis_obj,
+                                 get_found_ids):
+    """
+    The `shelflistitems` list view should list items in the same order
+    that the shelflist manifest for that location lists them. The
+    `rowNumber` value should be an incremented integer, starting at 0.
+    """
+    recs = shelflist_solr_env.records['shelflistitem']
+    loc = recs[0]['location_code']
+    loc_recs = [r for r in recs if r['location_code'] == loc]
+    index = ShelflistItemIndex()
+    manifest = index.get_location_manifest(loc)
+    redis_key = '{}:{}'.format(REDIS_SHELFLIST_PREFIX, loc)
+    redis_obj(redis_key).set(manifest)
+
+    url = get_shelflist_urls(shelflist_solr_env.records['shelflistitem'])[loc]
+    response = api_client.get(url)
+    total = response.data['totalCount']
+    found_ids = get_found_ids('id', response)
+    row_numbers = get_found_ids('row_number', response)
+    assert found_ids == manifest
+    assert row_numbers == [num for num in range(0, total)]
+
+
+def test_shelflistitem_putpatch_requires_auth(api_settings,
+                                              assemble_custom_shelflist,
+                                              get_shelflist_urls, api_client):
+    """
+    Saving data (via put or patch) to a shelflistitem resource should
+    fail without authentication. A 403 status code should be returned,
+    and the item should NOT be updated.
+    """
+    test_lcode, test_id = '1test', 99999999
+    _, _, trecs = assemble_custom_shelflist(test_lcode, [(test_id, {})])
+    url = '{}{}'.format(get_shelflist_urls(trecs)[test_lcode], test_id)
+    before = api_client.get(url)
+    put_resp = api_client.put(url, {})
+    patch_resp = api_client.patch(url, {})
+    after = api_client.get(url)    
+    assert put_resp.status_code == 403
+    assert patch_resp.status_code == 403
+    assert before.data == after.data
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize('method', ['put', 'patch'])
+def test_shelflistitem_update_err_nonwritable(method, api_settings,
+                                              assemble_custom_shelflist,
+                                              shelflist_solr_env,
+                                              filter_serializer_fields_by_opt,
+                                              derive_updated_resource,
+                                              send_api_data,
+                                              get_shelflist_urls, api_client):
+    """
+    Attempting to update nonwritable fields raises an error,
+    '... is not a writable field'. The item should NOT be updated.
+    """
+    test_lcode, test_id = '1test', 99999999
+    _, _, trecs = assemble_custom_shelflist(test_lcode, [(test_id, {})])
+    url = '{}{}'.format(get_shelflist_urls(trecs)[test_lcode], test_id)
+    before = api_client.get(url)
+    serializer = before.renderer_context['view'].get_serializer()
+    profile = shelflist_solr_env.profiles['shelflistitem']
+    try_item = derive_updated_resource(before.data, serializer, profile)
+
+    if method == 'put':
+        req_body = ujson.dumps(try_item)
+    elif method == 'patch':
+        req_body = jsonpatch.make_patch(before.data, try_item)
+
+    unwritable = filter_serializer_fields_by_opt(serializer, 'writable', False)
+    resp = send_api_data(api_client, url, req_body, method)
+    after = api_client.get(url)
+
+    assert resp.status_code == 400
+    assert before.data == after.data
+    for fname in unwritable:
+        msg = '{} is not a writable field'.format(fname)
+        assert msg in resp.data['detail']
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize('method', ['put', 'patch'])
+def test_shelflistitem_update_items(method, api_settings,
+                                    assemble_custom_shelflist,
+                                    shelflist_solr_env,
+                                    filter_serializer_fields_by_opt,
+                                    derive_updated_resource, send_api_data,
+                                    get_shelflist_urls, api_client):
+    """
+    Updating writable fields on shelflistitems should update/save the
+    resource: it should update the writable fields that were changed
+    and keep all other fields exactly the same.
+    """
+    test_lcode, test_id = '1test', 99999999
+    _, _, trecs = assemble_custom_shelflist(test_lcode, [(test_id, {})])
+    url = '{}{}'.format(get_shelflist_urls(trecs)[test_lcode], test_id)
+    before = api_client.get(url)
+    serializer = before.renderer_context['view'].get_serializer()
+    writable = filter_serializer_fields_by_opt(serializer, 'writable', True)
+    unwritable = filter_serializer_fields_by_opt(serializer, 'writable', False)
+    profile = shelflist_solr_env.profiles['shelflistitem']
+    try_item = derive_updated_resource(before.data, serializer, profile,
+                                       which_fields=writable)
+
+    if method == 'put':
+        req_body = ujson.dumps(try_item)
+    elif method == 'patch':
+        req_body = jsonpatch.make_patch(before.data, try_item)
+    
+    resp = send_api_data(api_client, url, req_body, method)
+    after = api_client.get(url)
+
+    assert resp.status_code == 200
+    assert resp.data['links']['self']['href'].endswith(url)
+    assert resp.data['links']['self']['id'] == test_id
+
+    print(before.data)
+    print(try_item)
+    print(after.data)
+
+    for fname in writable:
+        assert after.data[fname] == try_item[fname]
+        assert after.data[fname] != before.data[fname]
+
+    for fname in unwritable:
+        assert after.data[fname] == try_item[fname]
+        assert after.data[fname] == before.data[fname]
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize('fname_solr, fname_api, start_val, expect_error', [
+    ('barcode', 'barcode', '9876543210', True),
+    ('shelf_status', 'shelfStatus', 'onShelf', False),
+])
+def test_shelflistitem_put_data_missing_fields(fname_solr, fname_api,
+                                               start_val, expect_error,
+                                               api_settings,
+                                               assemble_custom_shelflist,
+                                               shelflist_solr_env,
+                                               filter_serializer_fields_by_opt,
+                                               derive_updated_resource,
+                                               send_api_data,
+                                               get_shelflist_urls, api_client):
+    """
+    A PUT request should replace the item being updated with the item
+    in the request body. In other words: if a field isn't provided in
+    the PUT request body, the field is set to None/null. This results
+    in an error if the field previously had data and is not writable.
+    """
+    test_lcode, test_id = '1test', 99999999
+    test_data = [(test_id, {fname_solr: start_val})]
+    _, _, trecs = assemble_custom_shelflist(test_lcode, test_data)
+    url = '{}{}'.format(get_shelflist_urls(trecs)[test_lcode], test_id)
+    before = api_client.get(url)
+    serializer = before.renderer_context['view'].get_serializer()
+    profile = shelflist_solr_env.profiles['shelflistitem']
+    writable = filter_serializer_fields_by_opt(serializer, 'writable', True)
+    try_item = derive_updated_resource(before.data, serializer, profile,
+                                       which_fields=writable)
+    del(try_item[fname_api])
+    req_body = ujson.dumps(try_item)
+    resp = send_api_data(api_client, url, req_body, 'put')
+    after = api_client.get(url)
+
+    if expect_error:
+        assert resp.status_code == 400
+        assert before.data == after.data
+        msg = '{} is not a writable field'.format(fname_api)
+        assert msg in resp.data['detail']
+    else:
+        assert resp.status_code == 200
+        assert before.data[fname_api] == start_val
+        assert after.data[fname_api] is None
