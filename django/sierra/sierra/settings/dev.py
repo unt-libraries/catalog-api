@@ -5,7 +5,6 @@
 from .base import *
 
 DEBUG = True
-TEMPLATE_DEBUG = True
 
 # The logging setup from base.py will be used by default, but you can set
 # up your own loggers here, if you'd like, to override the default setup.

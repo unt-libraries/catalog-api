@@ -9,7 +9,6 @@ if STATIC_ROOT is None:
     raise_setting_error('STATIC_ROOT')
 
 DEBUG = False
-TEMPLATE_DEBUG = False
 
 # SolrMarc
 SOLRMARC_CONFIG_FILE = 'production_config.properties'
