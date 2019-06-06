@@ -400,14 +400,20 @@ class ToSolrExporter(Exporter):
             self._indexes = type(self).spawn_indexes(self.export_type)
         return self._indexes
 
+    def handle_error(self, obj_str, error):
+        if obj_str == 'ERROR':
+            raise error
+        obj_info = '' if obj_str == 'WARNING' else '{} '.format(obj_str)
+        msg = '{} update skipped due to error: {}'.format(obj_info, error)
+        self.log('Warning', msg)
+
     def export_records(self, records):
         for index in self.indexes.values():
             index.do_update(records)
 
         for index in self.indexes.values():
             for obj_str, e in index.last_batch_errors:
-                msg = '{} update skipped due to error: {}'.format(obj_str, e)
-                self.log('Warning', msg)
+                self.handle_error(obj_str, e)
 
     def delete_records(self, records):
         for index in self.indexes.values():

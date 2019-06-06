@@ -8,19 +8,13 @@ match the class name that handles that ExportType.
 """
 from __future__ import unicode_literals
 import logging
-import re
-import subprocess
-import os
-from collections import OrderedDict
 
 from django.conf import settings
 
 from base import models as sierra_models
 from base import search_indexes as indexes
-from export import models as export_models
 from export.exporter import (Exporter, ToSolrExporter, MetadataToSolrExporter,
                              CompoundMixin, AttachedRecordExporter)
-from export.sierra2marc import S2MarcError, S2MarcBatch
 from utils import helpers, redisobjs, solr
 
 # set up logger, for debugging
@@ -350,7 +344,13 @@ class HoldingUpdate(CompoundMixin, Exporter):
 
 class BibsDownloadMarc(Exporter):
     """
-    Defines processes that convert Sierra bib records to MARC.
+    This exporter is now deprecated--please do not use.
+
+    Previously this defined processes that convert Sierra bib records
+    to MARC, but now that is handled through a custom Solr backend for
+    Haystack.
+
+    `BibsDownloadMarc` will be removed in the version 1.5.
     """
     max_rec_chunk = 2000
     parallel = False
@@ -369,6 +369,15 @@ class BibsDownloadMarc(Exporter):
     ]
     select_related = ['record_metadata', 'record_metadata__record_type']
 
+    def _warn(self):
+        msg = ('The `BibsDownloadMarc` exporter is deprecated and will be '
+               'removed in version 1.5.')
+        self.log('Warning', msg)
+
+    def __init__(self, *args, **kwargs):
+        super(BibsDownloadMarc, self).__init__(*args, **kwargs)
+        self._warn()
+
     def export_records(self, records):
         batch = S2MarcBatch(records)
         out_recs = batch.to_marc()
@@ -382,17 +391,15 @@ class BibsDownloadMarc(Exporter):
         return { 'marcfile': filename }
 
 
-class BibsToSolr(CompoundMixin, ToSolrExporter):
+class BibsToSolr(ToSolrExporter):
     """
     Defines processes that export Sierra/MARC bibs out to Solr.
     """
     Index = ToSolrExporter.Index
-    Child = CompoundMixin.Child
     index_config = (
         Index('Bibs', indexes.BibIndex, SOLR_CONNS['BibsToSolr:BIBS']),
         Index('MARC', indexes.MarcIndex, SOLR_CONNS['BibsToSolr:MARC'])
     )
-    children_config = (Child('BibsDownloadMarc'),)
     model = sierra_models.BibRecord
     deletion_filter = [
         {
@@ -401,57 +408,19 @@ class BibsToSolr(CompoundMixin, ToSolrExporter):
         }
     ]
     max_rec_chunk = 2000
-
-    @property
-    def prefetch_related(self):
-        return self.children['BibsDownloadMarc'].prefetch_related
-
-    @property
-    def select_related(self):
-        return self.children['BibsDownloadMarc'].select_related
-
-    def export_records(self, records):
-        cmd = 'bash'
-        index_script = settings.SOLRMARC_COMMAND
-        config_file = settings.SOLRMARC_CONFIG_FILE
-        filedir = settings.MEDIA_ROOT
-        if filedir[-1] != '/':
-            filedir = '{}/'.format(filedir)
-        bib_converter = self.children['BibsDownloadMarc']
-        converter_vals = bib_converter.export_records(records)
-        filename = converter_vals['marcfile']
-        filepath = '{}{}'.format(filedir, filename)
-        try:
-            output = subprocess.check_output([cmd, index_script, config_file,
-                                             filepath], 
-                                             stderr=subprocess.STDOUT,
-                                             shell=False,
-                                             universal_newlines=True)
-            output = output.decode('unicode-escape')
-        except subprocess.CalledProcessError as e:
-            error_lines = e.output.split("\n")
-            for line in error_lines:
-                self.log('Error', line)
-            self.log('Error', 'Solrmarc process did not run successfully.')
-        else:
-            error_lines = output.split("\n")
-            del(error_lines[-1])
-            if error_lines:
-                for line in error_lines:
-                    line = re.sub(r'^\s+', '', line)
-                    if re.match(r'^WARN', line):
-                        self.log('Warning', line)
-                    elif re.match(r'^ERROR', line):
-                        self.log('Warning', line)
-
-            # if all went well, we now try to index the MARC record
-            try:
-                self.indexes['MARC'].do_update(records)
-            except Exception as e:
-                self.log_error(e)
-
-        # delete the file when we're done so we don't take up space
-        os.remove(filepath)
+    prefetch_related = [
+        'record_metadata__varfield_set',
+        'bibrecorditemrecordlink_set',
+        'bibrecorditemrecordlink_set__item_record',
+        'bibrecorditemrecordlink_set__item_record__record_metadata',
+        'bibrecorditemrecordlink_set__item_record__record_metadata'
+            '__record_type',
+        'bibrecordproperty_set',
+        'bibrecordproperty_set__material__materialpropertyname_set',
+        'bibrecordproperty_set__material__materialpropertyname_set'
+            '__iii_language',
+    ]
+    select_related = ['record_metadata', 'record_metadata__record_type']
 
 
 class ItemsBibsToSolr(AttachedRecordExporter):

@@ -14,6 +14,7 @@ import fnmatch
 
 from haystack import indexes, constants, utils, exceptions
 
+from django.conf import settings
 from django.core.exceptions import ObjectDoesNotExist
 
 from export import sierra2marc as s2m
@@ -200,7 +201,20 @@ class CustomQuerySetIndex(indexes.SearchIndex):
             return self.prepared_data
 
 
-class BibIndex(CustomQuerySetIndex, indexes.Indexable):
+class SolrmarcIndex(CustomQuerySetIndex):
+    """
+    Extends `CustomQuerySetIndex` with a few class attributes for the
+    SolrmarcIndexBackend, for indexing data via Solrmarc. See the
+    `sierra.solr_backend.SolrmarcIndexBackend` docstring for more info.
+    """
+
+    s2marc_class = s2m.S2MarcBatch
+    index_properties = None
+    config_file = None
+    temp_filedir = None
+
+
+class BibIndex(SolrmarcIndex, indexes.Indexable):
     """
     WARNING: This is a total hack to force Haystack to register our
     BibRecord model as being indexed by Haystack. This is the only way

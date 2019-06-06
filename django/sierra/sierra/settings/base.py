@@ -291,7 +291,7 @@ HAYSTACK_CONNECTIONS = {
         'TIMEOUT': 60 * 20,
     },
     'bibdata': {
-        'ENGINE': 'sierra.solr_backend.CustomSolrEngine',
+        'ENGINE': 'sierra.solr_backend.SolrmarcEngine',
         'URL': solr_bibdata_url,
         'TIMEOUT': 60 * 20,
     },
@@ -299,7 +299,7 @@ HAYSTACK_CONNECTIONS = {
         'ENGINE': 'sierra.solr_backend.CustomSolrEngine',
         'URL': solr_marc_url,
         'TIMEOUT': 60 * 20,
-    },
+    }
 }
 
 # HAYSTACK_LIMIT_TO_REGISTERED_MODELS, set to False to allow Haystack
