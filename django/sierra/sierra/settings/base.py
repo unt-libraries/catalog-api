@@ -62,9 +62,10 @@ DATABASES = {
         'PASSWORD': get_env_variable('SIERRA_DB_PASSWORD'),
         'HOST': get_env_variable('SIERRA_DB_HOST'),
         'PORT': '1032',
-        'TEST_MIRROR': 'sierra',
-        'OPTIONS': {'autocommit': True, },
-        'CONN_MAX_AGE': 0
+        'CONN_MAX_AGE': 0,
+        'TEST': {
+            'MIRROR': 'sierra',
+        },
     },
     'default': {
         'ENGINE': get_env_variable('DEFAULT_DB_ENGINE', 
@@ -74,8 +75,10 @@ DATABASES = {
         'PASSWORD': get_env_variable('DEFAULT_DB_PASSWORD'),
         'HOST': get_env_variable('DEFAULT_DB_HOST', '127.0.0.1'),
         'PORT': get_env_variable('DEFAULT_DB_PORT', '3306'),
-        'TEST_MIRROR': 'default',
-        'CONN_MAX_AGE': 0
+        'CONN_MAX_AGE': 0,
+        'TEST': {
+            'MIRROR': 'default',
+        },
     }
 }
 
@@ -89,7 +92,14 @@ TIME_ZONE = get_env_variable('TIME_ZONE', 'America/Chicago')
 
 # Language code for this installation. All choices can be found here:
 # http://www.i18nguy.com/unicode/language-identifiers.html
-LANGUAGE_CODE = 'en-us'
+LANGUAGE_CODE = get_env_variable('LANGUAGE_CODE', 'en-us')
+
+# Here you can specify the Language of your Sierra instance. This code
+# should correspond with the codes in the Sierra `iii_language` table.
+# It *should be* a MARC Language Code, I think. Whatever you specify
+# here will be used in all calls made to *_name and *_property_name
+# fields. English, `eng`, is the default.
+III_LANGUAGE_CODE = get_env_variable('III_LANGUAGE_CODE', 'eng')
 
 SITE_ID = 1
 
@@ -126,12 +136,28 @@ STATICFILES_FINDERS = (
 # Make this unique, and don't share it with anybody.
 SECRET_KEY = get_env_variable('SECRET_KEY')
 
-# List of callables that know how to import templates from various sources.
-TEMPLATE_LOADERS = (
-    'django.template.loaders.filesystem.Loader',
-    'django.template.loaders.app_directories.Loader',
-    #   'django.template.loaders.eggs.Loader',
-)
+TEMPLATES = [
+    {
+        'BACKEND': 'django.template.backends.django.DjangoTemplates',
+        'DIRS': [
+            # insert your TEMPLATE_DIRS here
+        ],
+        'APP_DIRS': True,
+        'OPTIONS': {
+            'context_processors': [
+                # Insert your TEMPLATE_CONTEXT_PROCESSORS here or use this
+                # list if you haven't customized them:
+                'django.contrib.auth.context_processors.auth',
+                'django.template.context_processors.debug',
+                'django.template.context_processors.i18n',
+                'django.template.context_processors.media',
+                'django.template.context_processors.static',
+                'django.template.context_processors.tz',
+                'django.contrib.messages.context_processors.messages',
+            ],
+        },
+    },
+]
 
 MIDDLEWARE_CLASSES = (
     'corsheaders.middleware.CorsMiddleware',
@@ -266,7 +292,7 @@ HAYSTACK_CONNECTIONS = {
         'TIMEOUT': 60 * 20,
     },
     'bibdata': {
-        'ENGINE': 'sierra.solr_backend.CustomSolrEngine',
+        'ENGINE': 'sierra.solr_backend.SolrmarcEngine',
         'URL': solr_bibdata_url,
         'TIMEOUT': 60 * 20,
     },
@@ -274,7 +300,7 @@ HAYSTACK_CONNECTIONS = {
         'ENGINE': 'sierra.solr_backend.CustomSolrEngine',
         'URL': solr_marc_url,
         'TIMEOUT': 60 * 20,
-    },
+    }
 }
 
 # HAYSTACK_LIMIT_TO_REGISTERED_MODELS, set to False to allow Haystack
@@ -389,16 +415,6 @@ for setting, as_str in ((EXPORTER_MAX_RC_CONFIG, 'EXPORTER_MAX_RC_CONFIG'),
 # generates errors and/or warnings.
 EXPORTER_EMAIL_ON_ERROR = get_env_variable('EXPORTER_EMAIL_ON_ERROR', True)
 EXPORTER_EMAIL_ON_WARNING = get_env_variable('EXPORTER_EMAIL_ON_WARNING', True)
-
-# Maps III record types to Exporter jobs that should run for those
-# record types when an "All" type export is run. Note that you can map
-# multiple jobs to the same record type. In this case all specified
-# jobs will run when the All export is triggered.
-EXPORTER_ALL_TYPE_REGISTRY = {
-    'b': ['BibsToSolr'],
-    'i': ['ItemsToSolr'],
-    'e': ['EResourcesToSolr']
-}
 
 # List of Exporter jobs that should be triggered when an AllMetadata
 # exporter job is run.

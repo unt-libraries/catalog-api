@@ -116,7 +116,7 @@ services:
     networks:
       - testing
     user: ${USERID}:${GROUPID}
-    command: redis-server ${REDIS_APPDATA_CONF_FILE:---dir /project/data --logfile /project/logs/log.txt --appendonly yes}
+    command: redis-server ${REDIS_APPDATA_CONF_FILE:---dir /project/data --logfile /project/logs/log.txt --appendonly no}
 
   app:
     build:
@@ -180,6 +180,23 @@ services:
     networks:
       - testing
     entrypoint: wait-for-it.sh -t 30 default-db-test:3306 -- wait-for-it.sh -t 30 sierra-db-test:5432 -- wait-for-it.sh -t 30 solr-test:8983 -- wait-for-it.sh -t 30 redis-appdata-test:6379 -- py.test
+
+  live-db-test:
+    build:
+      context: .
+      args:
+        userid: ${USERID}
+        groupid: ${GROUPID}
+    depends_on:
+      - default-db-dev
+    volumes:
+      - .:/project/catalog-api
+      - ./docker_data/test/logs:/project/logs
+      - ./docker_data/test/media:/project/media
+    working_dir: /project/catalog-api/
+    networks:
+      - development
+    entrypoint: wait-for-it.sh -t 30 default-db-dev:3306 -- py.test --ds=${DJANGO_SETTINGS_MODULE} django/sierra/base/tests/test_database.py
 
   manage-dev:
     build:

@@ -12,6 +12,72 @@ from sierra.management import relationtrees
 pytestmark = pytest.mark.django_db
 
 
+BAD_RELATION_PARAMS = {
+    'Invalid model': ('invalid', 'fieldname'),
+    'Invalid fieldname': (m.EndNode, 'invalid'),
+    'Fieldname is not a relation': (m.EndNode, 'name'),
+}
+
+
+RELATION_PARAMS = {
+    'ReferenceNode to EndNode': (m.ReferenceNode, 'end'),
+    'ReferenceNode to ThroughNode': (m.ReferenceNode, 'throughnode_set'),
+    'ReferenceNode to ManyToManyNode': (m.ReferenceNode, 'm2m'),
+    'ReferenceNode to SelfReferentialNode': (m.ReferenceNode, 'srn'),
+    'ReferenceNode to OneToOneNode': (m.ReferenceNode, 'one'),
+    'ThroughNode to ReferenceNode': (m.ThroughNode, 'ref'),
+    'ThroughNode to ManyToManyNode': (m.ThroughNode, 'm2m'),
+    'ManyToManyNode to ThroughNode': (m.ManyToManyNode, 'throughnode_set'),
+    'ManyToManyNode to EndNode': (m.ManyToManyNode, 'end'),
+    'ManyToManyNode to ReferenceNode':
+        (m.ManyToManyNode, 'referencenode_set'),
+    'EndNode to ReferenceNode': (m.EndNode, 'referencenode_set'),
+    'EndNode to ManyToManyNode': (m.EndNode, 'manytomanynode_set'),
+    'EndNode to SelfReferentialNode':
+        (m.EndNode, 'selfreferentialnode_set'),
+    'OneToOneNode to ReferenceNode': (m.OneToOneNode, 'referencenode'),
+    'SelfReferentialNode to SelfReferentialNode':
+        (m.SelfReferentialNode, 'parent'),
+    'SelfReferentialNode to ReferenceNode':
+        (m.SelfReferentialNode, 'referencenode_set'),
+    'SelfReferentialNode to EndNode': (m.SelfReferentialNode, 'end'),
+}
+
+
+BRANCH_PARAMS = {
+    'ReferenceNode > end': (m.ReferenceNode, ['end']),
+    'ReferenceNode > one': (m.ReferenceNode, ['one']),
+    'ReferenceNode > m2m, end': (m.ReferenceNode, ['m2m', 'end']),
+    'ReferenceNode > throughnode_set, m2m, end':
+        (m.ReferenceNode, ['throughnode_set', 'm2m', 'end']),
+    'ReferenceNode > srn, parent, end':
+        (m.ReferenceNode, ['srn', 'parent', 'end']),
+    'ThroughNode > ref, one': (m.ThroughNode, ['ref', 'one']),
+    'ThroughNode > m2m, referencenode_set, end':
+        (m.ThroughNode, ['m2m', 'referencenode_set', 'end']),
+    'SelfReferentialNode > referencenode_set, m2m, end':
+        (m.SelfReferentialNode, ['referencenode_set', 'm2m', 'end']),
+    'ThroughNode > ref, m2m, end': (m.ThroughNode, ['ref', 'm2m', 'end']),
+    'EndNode > m2m, ref, end':
+        (m.EndNode, ['manytomanynode_set', 'referencenode_set', 'end']),
+    'OneToOneNode > referencenode, m2m, end':
+        (m.OneToOneNode, ['referencenode', 'm2m', 'end']),
+}
+
+
+TREE_PARAMS = {
+    'No branches (EndNode)':
+        (m.EndNode, []),
+    'Has branches (SelfReferentialNode)':
+        (m.SelfReferentialNode, [
+            ['referencenode_set', 'one'],
+            ['referencenode_set', 'end'],
+            ['referencenode_set', 'srn', 'end'],
+            ['referencenode_set', 'srn', 'parent', 'end']
+        ])
+}
+
+
 @pytest.fixture
 def instname_to_model():
     def do_it(inst_name):
@@ -20,7 +86,8 @@ def instname_to_model():
             'srn': m.SelfReferentialNode,
             'end': m.EndNode,
             'm2m': m.ManyToManyNode,
-            'thr': m.ThroughNode
+            'thr': m.ThroughNode,
+            'one': m.OneToOneNode
         }
         return nameprefix_to_model[inst_name[:3]]
     return do_it
@@ -61,69 +128,16 @@ def assert_all_objset_calls():
     return do_it
 
 
-@pytest.fixture(scope='module')
-def bad_relation_params():
-    return {
-        'Invalid model': ('invalid', 'fieldname'),
-        'Invalid fieldname': (m.EndNode, 'invalid'),
-        'Fieldname is not a relation': (m.EndNode, 'name'),
-    }
-
-
-@pytest.fixture(scope='module')
-def relation_params():
-    return {
-        'ReferenceNode to EndNode': (m.ReferenceNode, 'end'),
-        'ReferenceNode to ThroughNode': (m.ReferenceNode, 'throughnode_set'),
-        'ReferenceNode to ManyToManyNode': (m.ReferenceNode, 'm2m'),
-        'ReferenceNode to SelfReferentialNode': (m.ReferenceNode, 'srn'),
-        'ThroughNode to ReferenceNode': (m.ThroughNode, 'ref'),
-        'ThroughNode to ManyToManyNode': (m.ThroughNode, 'm2m'),
-        'ManyToManyNode to ThroughNode': (m.ManyToManyNode, 'throughnode_set'),
-        'ManyToManyNode to EndNode': (m.ManyToManyNode, 'end'),
-        'ManyToManyNode to ReferenceNode':
-            (m.ManyToManyNode, 'referencenode_set'),
-        'EndNode to ReferenceNode': (m.EndNode, 'referencenode_set'),
-        'EndNode to ManyToManyNode': (m.EndNode, 'manytomanynode_set'),
-        'EndNode to SelfReferentialNode':
-            (m.EndNode, 'selfreferentialnode_set'),
-        'SelfReferentialNode to SelfReferentialNode':
-            (m.SelfReferentialNode, 'parent'),
-        'SelfReferentialNode to ReferenceNode':
-            (m.SelfReferentialNode, 'referencenode_set'),
-        'SelfReferentialNode to EndNode': (m.SelfReferentialNode, 'end'),
-    }
-
-
-@pytest.fixture(params=[key for key in bad_relation_params().keys()])
-def make_bad_relation(bad_relation_params, request):
+@pytest.fixture(params=[key for key in BAD_RELATION_PARAMS.keys()])
+def make_bad_relation(request):
     def do_it():
-        relationtrees.Relation(*bad_relation_params[request.param])
+        relationtrees.Relation(*BAD_RELATION_PARAMS[request.param])
     return do_it
 
 
-@pytest.fixture(params=[key for key in relation_params().keys()])
-def relation(relation_params, request):
-    return relationtrees.Relation(*relation_params[request.param])
-
-
-@pytest.fixture(scope='module')
-def branch_params():
-    return {
-        'ReferenceNode > end': (m.ReferenceNode, ['end']),
-        'ReferenceNode > m2m, end': (m.ReferenceNode, ['m2m', 'end']),
-        'ReferenceNode > throughnode_set, m2m, end':
-            (m.ReferenceNode, ['throughnode_set', 'm2m', 'end']),
-        'ReferenceNode > srn, parent, end':
-            (m.ReferenceNode, ['srn', 'parent', 'end']),
-        'ThroughNode > m2m, referencenode_set, end':
-            (m.ThroughNode, ['m2m', 'referencenode_set', 'end']),
-        'SelfReferentialNode > referencenode_set, m2m, end':
-            (m.SelfReferentialNode, ['referencenode_set', 'm2m', 'end']),
-        'ThroughNode > ref, m2m, end': (m.ThroughNode, ['ref', 'm2m', 'end']),
-        'EndNode > m2m, ref, end':
-            (m.EndNode, ['manytomanynode_set', 'referencenode_set', 'end'])
-    }
+@pytest.fixture(params=[key for key in RELATION_PARAMS.keys()])
+def relation(request):
+    return relationtrees.Relation(*RELATION_PARAMS[request.param])
 
 
 @pytest.fixture(scope='module')
@@ -134,23 +148,9 @@ def make_branch():
     return do_it
 
 
-@pytest.fixture(params=[key for key in branch_params().keys()])
-def branch(branch_params, make_branch, request):
-    return make_branch(*branch_params[request.param])
-
-
-@pytest.fixture(scope='module')
-def tree_params():
-    return {
-        'No branches (EndNode)':
-            (m.EndNode, []),
-        'Has branches (SelfReferentialNode)':
-            (m.SelfReferentialNode, [
-                ['referencenode_set', 'end'],
-                ['referencenode_set', 'srn', 'end'],
-                ['referencenode_set', 'srn', 'parent', 'end']
-            ])
-    }
+@pytest.fixture(params=[key for key in BRANCH_PARAMS.keys()])
+def branch(make_branch, request):
+    return make_branch(*BRANCH_PARAMS[request.param])
 
 
 @pytest.fixture(scope='module')
@@ -161,14 +161,14 @@ def make_tree(make_branch):
     return do_it
 
 
-@pytest.fixture(params=[key for key in tree_params().keys()])
-def tree(tree_params, make_tree, request):
-    return make_tree(*tree_params[request.param])
+@pytest.fixture(params=[key for key in TREE_PARAMS.keys()])
+def tree(make_tree, request):
+    return make_tree(*TREE_PARAMS[request.param])
 
 
 @pytest.fixture
-def all_trees(tree_params, make_tree):
-    return {k: make_tree(*v) for k, v in tree_params.iteritems()}
+def all_trees(make_tree):
+    return {k: make_tree(*v) for k, v in TREE_PARAMS.iteritems()}
 
 
 # TESTS
@@ -275,13 +275,17 @@ def test_relation_init_raises_error_on_invalid_data(make_bad_relation):
 
 @pytest.mark.relation
 @pytest.mark.parametrize('relation, m2m, multi, direct', [
+    ('ReferenceNode to OneToOneNode', False, False, True),
     ('ReferenceNode to EndNode', False, False, True),
     ('ReferenceNode to ManyToManyNode', True, True, True),
+    ('OneToOneNode to ReferenceNode', False, False, False),
     ('EndNode to ReferenceNode', False, True, False),
     ('ManyToManyNode to ReferenceNode', True, True, False)
 ], ids=[
+    'direct 1-1',
     'direct foreign-key',
     'direct m2m',
+    'indirect 1-1',
     'indirect 1-many',
     'indirect m2m',
 ], indirect=['relation'])
@@ -297,13 +301,17 @@ def test_relation_isattrs_return_right_bools(relation, m2m, multi, direct):
 
 @pytest.mark.relation
 @pytest.mark.parametrize('relation, target', [
+    ('ReferenceNode to OneToOneNode', m.OneToOneNode),
     ('ReferenceNode to SelfReferentialNode', m.SelfReferentialNode),
     ('ReferenceNode to ManyToManyNode', m.ManyToManyNode),
+    ('OneToOneNode to ReferenceNode', m.ReferenceNode),
     ('EndNode to ReferenceNode', m.ReferenceNode),
     ('ManyToManyNode to ReferenceNode', m.ReferenceNode)
 ], ids=[
+    'direct 1-1',
     'direct foreign-key',
     'direct m2m',
+    'indirect 1-1',
     'indirect 1-many',
     'indirect m2m',
 ], indirect=['relation'])
@@ -325,14 +333,13 @@ def test_relation_targetmodel_has_right_model(relation, target):
     'direct m2m',
     'indirect m2m'
 ], indirect=['relation'])
-def test_relation_getasthroughrelations_m2m_returns_expected(relation, exp,
-                                                             relation_params):
+def test_relation_getasthroughrelations_m2m_returns_expected(relation, exp):
     """
     Relation.get_as_through_relations should return the expected list
     of Relation objects, if the relationship is many-to-many.
     """
-    exp_objs = [relationtrees.Relation(*relation_params[exp[0]]),
-                relationtrees.Relation(*relation_params[exp[1]])]
+    exp_objs = [relationtrees.Relation(*RELATION_PARAMS[exp[0]]),
+                relationtrees.Relation(*RELATION_PARAMS[exp[1]])]
     result = relation.get_as_through_relations()
     exp_params = [[r.model, r.fieldname, r.target_model] for r in exp_objs]
     res_params = [[r.model, r.fieldname, r.target_model] for r in result]
@@ -341,10 +348,14 @@ def test_relation_getasthroughrelations_m2m_returns_expected(relation, exp,
 
 @pytest.mark.relation
 @pytest.mark.parametrize('relation', [
+    'ReferenceNode to OneToOneNode',
     'ReferenceNode to SelfReferentialNode',
+    'OneToOneNode to ReferenceNode',
     'EndNode to ReferenceNode'
 ], ids=[
+    'direct 1-1',
     'direct foreign-key',
+    'indirect 1-1',
     'indirect 1-many'
 ], indirect=['relation'])
 def test_relation_getasthroughrelations_not_m2m_returns_error(relation):
@@ -358,6 +369,10 @@ def test_relation_getasthroughrelations_not_m2m_returns_error(relation):
 
 @pytest.mark.relation
 @pytest.mark.parametrize('relation, models, result', [
+    ('ReferenceNode to OneToOneNode', None,
+     [m.OneToOneNode, m.ReferenceNode]),
+    ('OneToOneNode to ReferenceNode', None,
+     [m.OneToOneNode, m.ReferenceNode]),
     ('ReferenceNode to SelfReferentialNode', None,
      [m.SelfReferentialNode, m.ReferenceNode]),
     ('SelfReferentialNode to ReferenceNode', None,
@@ -390,6 +405,8 @@ def test_relation_getasthroughrelations_not_m2m_returns_error(relation):
      [m.ReferenceNode, m.SelfReferentialNode, m.EndNode],
      [m.SelfReferentialNode, m.ReferenceNode, m.EndNode]),
 ], ids=[
+    'direct 1-1; second (indirect) should be first',
+    'indirect 1-1; first (indirect) should be first',
     'direct fk, 1-many; second (many) should be first',
     'indirect many-1; first (many) should be first',
     'direct m2m; second should be first',
@@ -415,7 +432,12 @@ def test_relation_arrangemodels_order(relation, models, result):
 @pytest.mark.relation
 @pytest.mark.parametrize('relation, source, result', [
     ('ReferenceNode to EndNode', [], []),
+    ('ReferenceNode to OneToOneNode', ['ref2'], []),
+    ('OneToOneNode to ReferenceNode', ['one2'], []),
+    ('SelfReferentialNode to EndNode', ['srn1'], []),
     ('EndNode to ReferenceNode', ['end1'], []),
+    ('ReferenceNode to OneToOneNode', ['ref0'], ['one0']),
+    ('OneToOneNode to ReferenceNode', ['one1'], ['ref1']),
     ('ReferenceNode to EndNode', ['ref0'], ['end0']),
     ('ReferenceNode to EndNode', ['ref0', 'ref1'], ['end0', 'end2']),
     ('EndNode to ReferenceNode', ['end0'], ['ref0']),
@@ -425,9 +447,14 @@ def test_relation_arrangemodels_order(relation, models, result):
      ['m2m0', 'm2m1', 'm2m2']),
 ], ids=[
     'zero source objects returns empty list',
-    'zero target objects returns empty list',
-    'fk relation, one source object returns target',
-    'fk relation, multiple source objects returns all targets',
+    'direct 1-1 relation, zero target objects returns empty list',
+    'indirect 1-1 relation, zero target objects returns empty list',
+    'direct fk relation, zero target objects returns empty list',
+    'indirect fk relation, zero target objects returns empty list',
+    'direct 1-1 relation, one source object returns target',
+    'indirect 1-1 relation, one source object returns target',
+    'direct fk relation, one source object returns target',
+    'direct fk relation, multiple source objects returns all targets',
     'indirect relation, one source object returns all targets',
     'indirect relation, multiple source objects returns all targets',
     'm2m relation, one source object returns all targets',
@@ -448,21 +475,28 @@ def test_relation_fetchtargetmodelobjects_results(relation, source, result,
 
 @pytest.mark.branch
 @pytest.mark.parametrize('branch, exp_select, exp_prefetch', [
+    ('ReferenceNode > one', 'one', ''),
     ('ReferenceNode > end', 'end', ''),
     ('ReferenceNode > srn, parent, end', 'srn__parent__end', ''),
+    ('ThroughNode > ref, one', 'ref__one', ''),
     ('ReferenceNode > m2m, end', '', 'throughnode_set__m2m__end'),
     ('ReferenceNode > throughnode_set, m2m, end', '',
      'throughnode_set__m2m__end'),
+    ('OneToOneNode > referencenode, m2m, end', '',
+     'referencenode__throughnode_set__m2m__end'),
     ('ThroughNode > m2m, referencenode_set, end', 'm2m',
      'm2m__throughnode_set__ref__end'),
     ('ThroughNode > ref, m2m, end', 'ref', 'ref__throughnode_set__m2m__end'),
 ], ids=[
+    'select_related with one 1-1',
     'select_related with one fk',
     'select_related with multiple fks',
+    'select_related with mix of 1-1 and 1-many fks',
     'prefetch_related starts with first m2m relation',
     'fks after 1st indirect create prefetch_related',
+    'fks after 1st indirect 1-1 create prefetch_related',
     'fks up to 1st indirect create selected_related, then prefetch after that',
-    'fks up to 1st m2m create selected_related, then prefetch after that'
+    'fks up to 1st m2m create selected_related, then prefetch after that',
 ], indirect=['branch'])
 def test_relationbranch_prepareqset_precaches_correctly(branch, exp_select,
                                                         exp_prefetch, mocker):
@@ -531,7 +565,7 @@ def test_relationtree_pick_calls_prepareqset(qset, exp_qset, mocker,
 @pytest.mark.parametrize('tree, exp_comps', [
     ('No branches (EndNode)', [m.EndNode]),
     ('Has branches (SelfReferentialNode)',
-     [m.EndNode, m.SelfReferentialNode, m.ReferenceNode]),
+     [m.EndNode, m.SelfReferentialNode, m.OneToOneNode, m.ReferenceNode]),
 ], ids=[
     'No branches, only the root model is part of the tree',
     'Partial set of branches'
@@ -551,6 +585,7 @@ def test_relationtree_pick_arranges_bucket_compartments(tree, exp_comps):
      [['end0', 'end1', 'end2']]),
     ('Has branches (SelfReferentialNode)', None,
      [['srn0', 'srn1', 'srn2'],
+      ['ref0', 'ref1', 'ref2'], ['one0', 'one1'],
       ['ref0', 'ref1', 'ref2'], ['end0', 'end2'],
       ['ref0', 'ref1', 'ref2'], ['srn0', 'srn1', 'srn2'], ['end0', 'end2'],
       ['ref0', 'ref1', 'ref2'], ['srn0', 'srn1', 'srn2'], ['srn1']]),
@@ -575,6 +610,9 @@ def test_relationtree_pick_puts_correct_qsets(tree, qset, exp_obj_lists,
 @pytest.mark.utilities
 @pytest.mark.parametrize('bp_key, fieldnames', [
     ('ReferenceNode > end', ['end']),
+    ('ReferenceNode > one', ['one']),
+    ('OneToOneNode > referencenode, m2m, end',
+     ['referencenode', 'throughnode_set', 'm2m', 'end']),
     ('ReferenceNode > m2m, end', ['throughnode_set', 'm2m', 'end']),
     ('ReferenceNode > throughnode_set, m2m, end',
      ['throughnode_set', 'm2m', 'end']),
@@ -583,17 +621,19 @@ def test_relationtree_pick_puts_correct_qsets(tree, qset, exp_obj_lists,
      ['manytomanynode_set', 'throughnode_set', 'ref', 'end'])
 ], ids=[
     'root -> foreign-key',
+    'root -> one-to-one',
+    'root -> one-to-one (indirect) -> many-to-many (direct) -> foreign-key',
     'root -> many-to-many (direct) -> foreign-key',
     'root -> indirect (one-to-many) -> foreign-key -> foreign-key',
     'root -> foreign-key -> foreign-key (self-referential) -> foreign-key',
     'root -> indirect (one-to-many) -> indirect (many-to-many) -> foreign-key'
 ])
-def test_makerelationchainfromfieldnames(bp_key, fieldnames, branch_params):
+def test_makerelationchainfromfieldnames(bp_key, fieldnames):
     """
     The `make_relation_chain_from_fieldnames` factory should generate
     the correct list of relations based on the fields passed to it.
     """
-    model, fnames = branch_params[bp_key]
+    model, fnames = BRANCH_PARAMS[bp_key]
     rels = relationtrees.make_relation_chain_from_fieldnames(model, fnames)
     assert all([isinstance(rel, relationtrees.Relation) for rel in rels])
     assert [rel.fieldname for rel in rels] == fieldnames
@@ -602,26 +642,28 @@ def test_makerelationchainfromfieldnames(bp_key, fieldnames, branch_params):
 @pytest.mark.utilities
 @pytest.mark.parametrize('model, exp', [
     (m.ReferenceNode, [['end'], ['srn', 'end'], ['srn', 'parent', 'end'],
-                            ['throughnode_set', 'm2m', 'end']]),
-    (m.ThroughNode, [['ref', 'end'], ['ref', 'srn', 'end'],
+                            ['throughnode_set', 'm2m', 'end'], ['one']]),
+    (m.ThroughNode, [['ref', 'end'], ['ref', 'srn', 'end'], ['ref', 'one'],
                           ['ref', 'srn', 'parent', 'end'],
                           ['ref', 'throughnode_set', 'm2m', 'end'],
                           ['m2m', 'end']]),
     (m.EndNode, []),
+    (m.OneToOneNode, []),
     (m.SelfReferentialNode, [['end'], ['parent', 'end']]),
     (m.ManyToManyNode, [['end']])
 ], ids=[
     'ReferenceNode',
     'ThroughNode',
     'EndNode',
+    'OneToOneNode',
     'SelfReferentialNode',
     'ManyToManyNode'
 ])
 def test_tracebranches_returns_correct_branches(model, exp):
     """
     The `trace_branches` factory should correctly follow direct
-    many-to-many and foreign-key relationships on the given model,
-    resulting in the expected list of branches (exp).
+    1-1, many-to-many, and foreign-key relationships on the given
+    model, resulting in the expected list of branches (exp).
     """
     branches = relationtrees.trace_branches(model)
     result = [branch.fieldnames for branch in branches]

@@ -1,0 +1,474 @@
+[
+{
+  "fields": {
+    "code": "e",
+    "tag": "@"
+  },
+  "model": "base.recordtype",
+  "pk": 3
+},
+{
+  "fields": {
+    "code": "b",
+    "tag": "\""
+  },
+  "model": "base.recordtype",
+  "pk": 4
+},
+{
+  "fields": {
+    "code": "i",
+    "tag": "&"
+  },
+  "model": "base.recordtype",
+  "pk": 12
+},
+{
+  "fields": {
+    "previous_last_updated_gmt": null,
+    "campus_code": "",
+    "deletion_date_gmt": "1994-12-12",
+    "record_last_updated_gmt": null,
+    "num_revisions": 0,
+    "record_type": "b",
+    "record_num": 1000001,
+    "creation_date_gmt": null
+  },
+  "model": "base.recordmetadata",
+  "pk": 420907795009
+},
+{
+  "fields": {
+    "previous_last_updated_gmt": null,
+    "campus_code": "",
+    "deletion_date_gmt": "1994-12-12",
+    "record_last_updated_gmt": null,
+    "num_revisions": 0,
+    "record_type": "b",
+    "record_num": 1000002,
+    "creation_date_gmt": null
+  },
+  "model": "base.recordmetadata",
+  "pk": 420907795010
+},
+{
+  "fields": {
+    "previous_last_updated_gmt": null,
+    "campus_code": "",
+    "deletion_date_gmt": "1994-12-12",
+    "record_last_updated_gmt": null,
+    "num_revisions": 0,
+    "record_type": "b",
+    "record_num": 1000003,
+    "creation_date_gmt": null
+  },
+  "model": "base.recordmetadata",
+  "pk": 420907795011
+},
+{
+  "fields": {
+    "previous_last_updated_gmt": null,
+    "campus_code": "",
+    "deletion_date_gmt": "1994-12-12",
+    "record_last_updated_gmt": null,
+    "num_revisions": 0,
+    "record_type": "b",
+    "record_num": 1000004,
+    "creation_date_gmt": null
+  },
+  "model": "base.recordmetadata",
+  "pk": 420907795012
+},
+{
+  "fields": {
+    "previous_last_updated_gmt": null,
+    "campus_code": "",
+    "deletion_date_gmt": "1994-12-12",
+    "record_last_updated_gmt": null,
+    "num_revisions": 0,
+    "record_type": "b",
+    "record_num": 1000005,
+    "creation_date_gmt": null
+  },
+  "model": "base.recordmetadata",
+  "pk": 420907795013
+},
+{
+  "fields": {
+    "previous_last_updated_gmt": null,
+    "campus_code": "",
+    "deletion_date_gmt": "1994-12-12",
+    "record_last_updated_gmt": null,
+    "num_revisions": 0,
+    "record_type": "b",
+    "record_num": 1000006,
+    "creation_date_gmt": null
+  },
+  "model": "base.recordmetadata",
+  "pk": 420907795014
+},
+{
+  "fields": {
+    "previous_last_updated_gmt": null,
+    "campus_code": "",
+    "deletion_date_gmt": "1994-12-12",
+    "record_last_updated_gmt": null,
+    "num_revisions": 0,
+    "record_type": "b",
+    "record_num": 1000007,
+    "creation_date_gmt": null
+  },
+  "model": "base.recordmetadata",
+  "pk": 420907795015
+},
+{
+  "fields": {
+    "previous_last_updated_gmt": null,
+    "campus_code": "",
+    "deletion_date_gmt": "1994-12-12",
+    "record_last_updated_gmt": null,
+    "num_revisions": 0,
+    "record_type": "b",
+    "record_num": 1000008,
+    "creation_date_gmt": null
+  },
+  "model": "base.recordmetadata",
+  "pk": 420907795016
+},
+{
+  "fields": {
+    "previous_last_updated_gmt": null,
+    "campus_code": "",
+    "deletion_date_gmt": "1994-12-12",
+    "record_last_updated_gmt": null,
+    "num_revisions": 0,
+    "record_type": "b",
+    "record_num": 1000009,
+    "creation_date_gmt": null
+  },
+  "model": "base.recordmetadata",
+  "pk": 420907795017
+},
+{
+  "fields": {
+    "previous_last_updated_gmt": null,
+    "campus_code": "",
+    "deletion_date_gmt": "1994-12-12",
+    "record_last_updated_gmt": null,
+    "num_revisions": 0,
+    "record_type": "b",
+    "record_num": 1000010,
+    "creation_date_gmt": null
+  },
+  "model": "base.recordmetadata",
+  "pk": 420907795018
+},
+{
+  "fields": {
+    "previous_last_updated_gmt": null,
+    "campus_code": "",
+    "deletion_date_gmt": "2012-10-26",
+    "record_last_updated_gmt": null,
+    "num_revisions": 0,
+    "record_type": "e",
+    "record_num": 1000013,
+    "creation_date_gmt": null
+  },
+  "model": "base.recordmetadata",
+  "pk": 433792696909
+},
+{
+  "fields": {
+    "previous_last_updated_gmt": null,
+    "campus_code": "",
+    "deletion_date_gmt": "2012-11-02",
+    "record_last_updated_gmt": null,
+    "num_revisions": 0,
+    "record_type": "e",
+    "record_num": 1000026,
+    "creation_date_gmt": null
+  },
+  "model": "base.recordmetadata",
+  "pk": 433792696922
+},
+{
+  "fields": {
+    "previous_last_updated_gmt": "2012-11-30T20:32:00Z",
+    "campus_code": "",
+    "deletion_date_gmt": "2015-12-10",
+    "record_last_updated_gmt": "2015-07-22T20:15:00Z",
+    "num_revisions": 14,
+    "record_type": "e",
+    "record_num": 1000052,
+    "creation_date_gmt": "2012-05-30T17:43:00Z"
+  },
+  "model": "base.recordmetadata",
+  "pk": 433792696948
+},
+{
+  "fields": {
+    "previous_last_updated_gmt": null,
+    "campus_code": "",
+    "deletion_date_gmt": "2012-11-06",
+    "record_last_updated_gmt": null,
+    "num_revisions": 0,
+    "record_type": "e",
+    "record_num": 1000104,
+    "creation_date_gmt": null
+  },
+  "model": "base.recordmetadata",
+  "pk": 433792697000
+},
+{
+  "fields": {
+    "previous_last_updated_gmt": null,
+    "campus_code": "",
+    "deletion_date_gmt": "2012-12-03",
+    "record_last_updated_gmt": null,
+    "num_revisions": 0,
+    "record_type": "e",
+    "record_num": 1000123,
+    "creation_date_gmt": null
+  },
+  "model": "base.recordmetadata",
+  "pk": 433792697019
+},
+{
+  "fields": {
+    "previous_last_updated_gmt": null,
+    "campus_code": "",
+    "deletion_date_gmt": "2012-11-15",
+    "record_last_updated_gmt": null,
+    "num_revisions": 0,
+    "record_type": "e",
+    "record_num": 1000139,
+    "creation_date_gmt": null
+  },
+  "model": "base.recordmetadata",
+  "pk": 433792697035
+},
+{
+  "fields": {
+    "previous_last_updated_gmt": null,
+    "campus_code": "",
+    "deletion_date_gmt": "2012-11-15",
+    "record_last_updated_gmt": null,
+    "num_revisions": 0,
+    "record_type": "e",
+    "record_num": 1000154,
+    "creation_date_gmt": null
+  },
+  "model": "base.recordmetadata",
+  "pk": 433792697050
+},
+{
+  "fields": {
+    "previous_last_updated_gmt": null,
+    "campus_code": "",
+    "deletion_date_gmt": "2012-11-15",
+    "record_last_updated_gmt": null,
+    "num_revisions": 0,
+    "record_type": "e",
+    "record_num": 1000159,
+    "creation_date_gmt": null
+  },
+  "model": "base.recordmetadata",
+  "pk": 433792697055
+},
+{
+  "fields": {
+    "previous_last_updated_gmt": null,
+    "campus_code": "",
+    "deletion_date_gmt": "2012-10-23",
+    "record_last_updated_gmt": null,
+    "num_revisions": 0,
+    "record_type": "e",
+    "record_num": 1000173,
+    "creation_date_gmt": null
+  },
+  "model": "base.recordmetadata",
+  "pk": 433792697069
+},
+{
+  "fields": {
+    "previous_last_updated_gmt": null,
+    "campus_code": "",
+    "deletion_date_gmt": "2012-11-26",
+    "record_last_updated_gmt": null,
+    "num_revisions": 0,
+    "record_type": "e",
+    "record_num": 1000179,
+    "creation_date_gmt": null
+  },
+  "model": "base.recordmetadata",
+  "pk": 433792697075
+},
+{
+  "fields": {
+    "previous_last_updated_gmt": "2012-09-05T12:52:10Z",
+    "campus_code": "",
+    "deletion_date_gmt": "2017-02-08",
+    "record_last_updated_gmt": "2013-09-09T12:59:19Z",
+    "num_revisions": 43,
+    "record_type": "i",
+    "record_num": 100631,
+    "creation_date_gmt": "1996-03-27T05:17:04Z"
+  },
+  "model": "base.recordmetadata",
+  "pk": 450971666711
+},
+{
+  "fields": {
+    "previous_last_updated_gmt": null,
+    "campus_code": "",
+    "deletion_date_gmt": "1997-01-05",
+    "record_last_updated_gmt": null,
+    "num_revisions": 0,
+    "record_type": "i",
+    "record_num": 101000,
+    "creation_date_gmt": null
+  },
+  "model": "base.recordmetadata",
+  "pk": 450971667080
+},
+{
+  "fields": {
+    "previous_last_updated_gmt": null,
+    "campus_code": "",
+    "deletion_date_gmt": "1997-01-05",
+    "record_last_updated_gmt": null,
+    "num_revisions": 0,
+    "record_type": "i",
+    "record_num": 101001,
+    "creation_date_gmt": null
+  },
+  "model": "base.recordmetadata",
+  "pk": 450971667081
+},
+{
+  "fields": {
+    "previous_last_updated_gmt": null,
+    "campus_code": "",
+    "deletion_date_gmt": "1997-01-05",
+    "record_last_updated_gmt": null,
+    "num_revisions": 0,
+    "record_type": "i",
+    "record_num": 101002,
+    "creation_date_gmt": null
+  },
+  "model": "base.recordmetadata",
+  "pk": 450971667082
+},
+{
+  "fields": {
+    "previous_last_updated_gmt": null,
+    "campus_code": "",
+    "deletion_date_gmt": "1996-12-02",
+    "record_last_updated_gmt": null,
+    "num_revisions": 0,
+    "record_type": "i",
+    "record_num": 101003,
+    "creation_date_gmt": null
+  },
+  "model": "base.recordmetadata",
+  "pk": 450971667083
+},
+{
+  "fields": {
+    "previous_last_updated_gmt": null,
+    "campus_code": "",
+    "deletion_date_gmt": "1997-01-05",
+    "record_last_updated_gmt": null,
+    "num_revisions": 0,
+    "record_type": "i",
+    "record_num": 101004,
+    "creation_date_gmt": null
+  },
+  "model": "base.recordmetadata",
+  "pk": 450971667084
+},
+{
+  "fields": {
+    "previous_last_updated_gmt": null,
+    "campus_code": "",
+    "deletion_date_gmt": "1997-01-05",
+    "record_last_updated_gmt": null,
+    "num_revisions": 0,
+    "record_type": "i",
+    "record_num": 101005,
+    "creation_date_gmt": null
+  },
+  "model": "base.recordmetadata",
+  "pk": 450971667085
+},
+{
+  "fields": {
+    "previous_last_updated_gmt": null,
+    "campus_code": "",
+    "deletion_date_gmt": "1996-12-05",
+    "record_last_updated_gmt": null,
+    "num_revisions": 0,
+    "record_type": "i",
+    "record_num": 101006,
+    "creation_date_gmt": null
+  },
+  "model": "base.recordmetadata",
+  "pk": 450971667086
+},
+{
+  "fields": {
+    "previous_last_updated_gmt": null,
+    "campus_code": "",
+    "deletion_date_gmt": "1997-01-09",
+    "record_last_updated_gmt": null,
+    "num_revisions": 0,
+    "record_type": "i",
+    "record_num": 101007,
+    "creation_date_gmt": null
+  },
+  "model": "base.recordmetadata",
+  "pk": 450971667087
+},
+{
+  "fields": {
+    "previous_last_updated_gmt": null,
+    "campus_code": "",
+    "deletion_date_gmt": "1997-01-05",
+    "record_last_updated_gmt": null,
+    "num_revisions": 0,
+    "record_type": "i",
+    "record_num": 101008,
+    "creation_date_gmt": null
+  },
+  "model": "base.recordmetadata",
+  "pk": 450971667088
+},
+{
+  "fields": {
+    "previous_last_updated_gmt": null,
+    "campus_code": "",
+    "deletion_date_gmt": "1996-12-05",
+    "record_last_updated_gmt": null,
+    "num_revisions": 0,
+    "record_type": "i",
+    "record_num": 101009,
+    "creation_date_gmt": null
+  },
+  "model": "base.recordmetadata",
+  "pk": 450971667089
+},
+{
+  "fields": {
+    "previous_last_updated_gmt": null,
+    "campus_code": "",
+    "deletion_date_gmt": "1997-01-05",
+    "record_last_updated_gmt": null,
+    "num_revisions": 0,
+    "record_type": "i",
+    "record_num": 101010,
+    "creation_date_gmt": null
+  },
+  "model": "base.recordmetadata",
+  "pk": 450971667090
+}
+]

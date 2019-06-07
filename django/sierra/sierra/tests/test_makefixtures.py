@@ -16,23 +16,12 @@ from sierra.management.commands import makefixtures
 
 
 # FIXTURES AND TEST DATA
+# ---------------------------------------------------------------------
+# External fixtures used below can be found in
+# django/sierra/conftest.py:
+#    make_tmpfile
 
 pytestmark = pytest.mark.django_db
-
-
-@pytest.fixture(scope='module')
-def mytempdir(tmpdir_factory):
-    return tmpdir_factory.mktemp('data')
-
-
-@pytest.fixture(scope='module')
-def make_tmpfile(mytempdir):
-    def make(data, filename):
-        path = mytempdir.join(filename)
-        with open(str(path), 'w') as fh:
-            fh.write(data)
-        return path
-    return make
 
 
 @pytest.fixture
@@ -51,6 +40,7 @@ def confdata():
         },
         'branches': [
             ['referencenode_set', 'end'],
+            ['referencenode_set', 'one'],
             ['referencenode_set', 'srn', 'end'],
             ['referencenode_set', 'srn', 'parent', 'end'],
         ]
@@ -73,25 +63,32 @@ def exp_makefixtures_results(scope='module'):
     def all_results():
         objs = (list(m.EndNode.objects.order_by('name')) +
                 list(m.SelfReferentialNode.objects.order_by('name')) +
+                list(m.OneToOneNode.objects.filter(
+                     referencenode__isnull=False).order_by('name')) +
                 list(m.ReferenceNode.objects.order_by('name')) + 
                 list(m.ManyToManyNode.objects.order_by('name')) +
                 list(m.ThroughNode.objects.order_by('name')))
         return serializers.serialize('json', objs, indent=indent)
 
     def fullspec():
+        refname = 'ref1'
         end = m.EndNode.objects.filter(
-            (Q(referencenode__name='ref1') |
-             Q(selfreferentialnode__referencenode__name='ref1') |
-             Q(selfreferentialnode__selfreferentialnode__referencenode__name='ref1'))
+            (Q(referencenode__name=refname) |
+             Q(selfreferentialnode__referencenode__name=refname) |
+             Q(selfreferentialnode__selfreferentialnode__referencenode__name=refname))
         ).order_by('name').distinct()
 
         srn = m.SelfReferentialNode.objects.filter(
-            (Q(referencenode__name='ref1') |
-             Q(selfreferentialnode__referencenode__name='ref1'))
+            (Q(referencenode__name=refname) |
+             Q(selfreferentialnode__referencenode__name=refname))
         ).order_by('name').distinct()
 
-        ref = m.ReferenceNode.objects.filter(name='ref1')
-        objs = list(end) + list(srn) + list(ref)
+        one = m.OneToOneNode.objects.filter(
+            referencenode__name=refname
+        ).order_by('name').distinct()
+
+        ref = m.ReferenceNode.objects.filter(name=refname)
+        objs = list(end) + list(srn) + list(one) + list(ref)
         return serializers.serialize('json', objs, indent=indent)
 
     return {

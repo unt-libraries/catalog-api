@@ -24,9 +24,13 @@ class ThroughNode(models.Model):
     ref = models.ForeignKey('ReferenceNode')
     m2m = models.ForeignKey(ManyToManyNode)
 
+class OneToOneNode(models.Model):
+    name = models.CharField(max_length=255)
+
 
 class ReferenceNode(models.Model):
     name = models.CharField(max_length=255)
     srn = models.ForeignKey(SelfReferentialNode)
     end = models.ForeignKey(EndNode)
+    one = models.OneToOneField(OneToOneNode, null=True)
     m2m = models.ManyToManyField(ManyToManyNode, through=ThroughNode)

@@ -1,0 +1,41 @@
+[
+  {
+    "model": "base.RecordMetadata",
+    "filter": {
+      "record_type": "b",
+      "deletion_date_gmt__isnull": false,
+      "record_num__lte": 1000010
+    },
+    "branches": [
+      [
+        "record_type"
+      ]
+    ]
+  },
+  {
+    "model": "base.RecordMetadata",
+    "filter": {
+      "record_type": "i",
+      "deletion_date_gmt__isnull": false,
+      "record_num__lte": 101010
+    },
+    "branches": [
+      [
+        "record_type"
+      ]
+    ]
+  },
+  {
+    "model": "base.RecordMetadata",
+    "filter": {
+      "record_type": "e",
+      "deletion_date_gmt__isnull": false,
+      "record_num__lte": 1000179
+    },
+    "branches": [
+      [
+        "record_type"
+      ]
+    ]
+  }
+]

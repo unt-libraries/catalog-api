@@ -1,22 +1,21 @@
-'''
+"""
 Contains models for the export app. These are mainly just to provide
 some way to track your exports.
-'''
+"""
 import importlib
 
 from django.db import models
 from django.contrib.auth.models import User
 
 class ExportType(models.Model):
-    '''
+    """
     Describes 'Type' of export: Bib Records (as MARC), etc.
-    '''
+    """
     code = models.CharField(max_length=255, primary_key=True)
     path = models.CharField(max_length=255)
     label = models.CharField(max_length=255)
     description = models.TextField()
     order = models.IntegerField()
-    model = models.CharField(max_length=255)
 
     def __unicode__(self):
         return self.label
@@ -29,10 +28,10 @@ class ExportType(models.Model):
 
 
 class ExportFilter(models.Model):
-    '''
+    """
     Describes the filter used to limit what entities were exported:
     Full export, date-range export, etc.
-    '''
+    """
     code = models.CharField(max_length=255, primary_key=True)
     label = models.CharField(max_length=255)
     order = models.IntegerField()
@@ -43,9 +42,9 @@ class ExportFilter(models.Model):
 
 
 class Status(models.Model):
-    '''
+    """
     Used by ExportInstance to describe the status or state of the job.
-    '''
+    """
     code = models.CharField(max_length=255, primary_key=True)
     label = models.CharField(max_length=255)
     description = models.TextField()
@@ -57,10 +56,10 @@ class Status(models.Model):
         verbose_name_plural = 'statuses'
 
 class ExportInstance(models.Model):
-    '''
+    """
     Instances of exports that have actually been run, including date
     and user that ran them.
-    '''
+    """
     user = models.ForeignKey(User)
     export_type = models.ForeignKey(ExportType)
     export_filter = models.ForeignKey(ExportFilter)

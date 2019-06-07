@@ -15,11 +15,12 @@ def exp_tracebranches_results():
     return {
         'EndNode': [],
         'SelfReferentialNode': [['end'], ['parent', 'end']],
-        'ReferenceNode': [['srn', 'end'], ['srn', 'parent', 'end'],
-                          ['end'], ['throughnode_set', 'm2m', 'end']],
+        'OneToOneNode': [],
+        'ReferenceNode': [['srn', 'end'], ['srn', 'parent', 'end'], ['end'],
+                          ['one'], ['throughnode_set', 'm2m', 'end']],
         'ManyToManyNode': [['end']],
         'ThroughNode': [['ref', 'srn', 'end'], ['ref', 'srn', 'parent', 'end'],
-                        ['ref', 'end'],
+                        ['ref', 'end'], ['ref', 'one'],
                         ['ref', 'throughnode_set', 'm2m', 'end'],
                         ['m2m', 'end']]
     }
@@ -38,6 +39,7 @@ def test_tracebranches_errors_on_invalid_model(mstr):
 @pytest.mark.parametrize('mstr', [
     'EndNode',
     'SelfReferentialNode',
+    'OneToOneNode',
     'ReferenceNode',
     'ManyToManyNode',
     'ThroughNode'])

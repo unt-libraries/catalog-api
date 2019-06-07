@@ -2,7 +2,6 @@
 {
     "fields": {
         "path": "export.batch_exporters.AllMetadataToSolr",
-        "model": "None",
         "order": 2,
         "description": "Triggers loads for all of the III administrative metadata type exporters you've defined and registered in the EXPORT_METADATA_TYPE_REGISTRY setting in your Django.settings file.",
         "label": "Load ALL III administrative metadata-type data into Solr"
@@ -12,19 +11,7 @@
 },
 {
     "fields": {
-        "path": "export.batch_exporters.AllToSolr",
-        "model": "RecordMetadata",
-        "order": 1,
-        "description": "Exports all main III record types, such as bibs, items, patrons, authorities, invoices, orders, etc., that are registered (see exporter.py code) and match the export filter to Solr. ",
-        "label": "Load all registered III record types into Solr"
-    },
-    "model": "export.exporttype",
-    "pk": "AllToSolr"
-},
-{
-    "fields": {
         "path": "export.basic_exporters.BibsAndAttachedToSolr",
-        "model": "BibRecord",
         "order": 7,
         "description": "Exports bib records to Solr based on the provided filter and exports any attached records (items and holdings) to Solr as well.",
         "label": "Load bibs and attached records into Solr"
@@ -35,7 +22,6 @@
 {
     "fields": {
         "path": "export.basic_exporters.BibsDownloadMarc",
-        "model": "BibRecord",
         "order": 11,
         "description": "Lets you export bibliographic records from Sierra and download them as MARC files.",
         "label": "Download bib records as MARC"
@@ -46,7 +32,6 @@
 {
     "fields": {
         "path": "export.basic_exporters.BibsToSolr",
-        "model": "BibRecord",
         "order": 4,
         "description": "Selects bibliographic records from Sierra and loads them into Solr using the BibsToSolr exporter. This exporter saves records to disk as MARC and uses SolrMarc to index them.",
         "label": "Load bib records into Solr"
@@ -57,7 +42,6 @@
 {
     "fields": {
         "path": "export.basic_exporters.EResourcesToSolr",
-        "model": "ResourceRecord",
         "order": 5,
         "description": "Loads Resource Records from Sierra into Solr.",
         "label": "Load resource records into Solr"
@@ -68,7 +52,6 @@
 {
     "fields": {
         "path": "export.basic_exporters.HoldingUpdate",
-        "model": "HoldingRecord",
         "order": 12,
         "description": "Checks for new, updated, or deleted holding records and updates resources accordingly to add, update, or delete holdings.",
         "label": "Check Holding records to update Resources"
@@ -79,7 +62,6 @@
 {
     "fields": {
         "path": "export.basic_exporters.ItemStatusesToSolr",
-        "model": "ItemStatusProperty",
         "order": 9,
         "description": "Loads Item Statuses (codes and labels) into Solr.",
         "label": "Load Item Statuses into Solr"
@@ -90,7 +72,6 @@
 {
     "fields": {
         "path": "export.basic_exporters.ItemsBibsToSolr",
-        "model": "ItemRecord",
         "order": 6,
         "description": "Loads item records into Solr based on the provided filter along with the parent bib records to which the items are attached.",
         "label": "Load items and parent bibs into Solr"
@@ -101,7 +82,6 @@
 {
     "fields": {
         "path": "shelflist.exporters.ItemsToSolr",
-        "model": "ItemRecord",
         "order": 3,
         "description": "Selects item records in Sierra and loads them into Solr using the ItemsToSolr exporter. This exporter uses Haystack to load items directly from the Sierra database.",
         "label": "Load item records into Solr"
@@ -112,7 +92,6 @@
 {
     "fields": {
         "path": "export.basic_exporters.ItypesToSolr",
-        "model": "ItypeProperty",
         "order": 10,
         "description": "Loads your Itypes (codes and labels) into Solr. This always does a full reindex since the tables involved are so small--it just takes a few seconds to run.",
         "label": "Load Itypes into Solr"
@@ -123,7 +102,6 @@
 {
     "fields": {
         "path": "export.basic_exporters.LocationsToSolr",
-        "model": "Location",
         "order": 8,
         "description": "Exports all locations (including codes and labels) to Solr. This always performs a full reindex of these items since there are so few of them and the database query is so fast.",
         "label": "Load locations (branches) into Solr"
