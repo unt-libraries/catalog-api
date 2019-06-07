@@ -214,13 +214,14 @@ class SolrmarcIndexBackend(CustomSolrSearchBackend):
     def _records_to_marcfile(self, index, records):
         batch = index.s2marc_class(records)
         out_recs = batch.to_marc()
-        try:
-            filename = batch.to_file(out_recs, append=False)
-        except IOError as e:
-            raise IOError('Error writing to output file: {}'.format(e))
-        for e in batch.errors:
-            self.log_error(index, e.id, e.msg)
-        return filename
+        if out_recs:
+            try:
+                filename = batch.to_file(out_recs, append=False)
+            except IOError as e:
+                raise IOError('Error writing to output file: {}'.format(e))
+            for e in batch.errors:
+                self.log_error(index, e.id, e.msg)
+            return filename
 
     def _formulate_solrmarc_cmd(self, index, rec_filepath, commit):
         def_ip = '{}_index.properties'.format(self.get_core_name())
@@ -245,23 +246,24 @@ class SolrmarcIndexBackend(CustomSolrSearchBackend):
         if not filedir.endswith('/'):
             filedir = '{}/'.format(filedir)
         rec_filename = self._records_to_marcfile(index, records)
-        rec_filepath = '{}{}'.format(filedir, rec_filename)
-        cmd = self._formulate_solrmarc_cmd(index, rec_filepath, commit)
-        call_options = {'stderr': subprocess.STDOUT, 'shell': False,
-                        'universal_newlines': True}
-        try:
-            result = subprocess.check_output(shlex.split(cmd), **call_options)
-            output = result.decode('unicode-escape')
-        except subprocess.CalledProcessError as e:
-            msg = ('Solrmarc process did not run successfully: {}'
+        if rec_filename is not None:
+            rec_filepath = '{}{}'.format(filedir, rec_filename)
+            cmd = self._formulate_solrmarc_cmd(index, rec_filepath, commit)
+            call_opts = {'stderr': subprocess.STDOUT, 'shell': False,
+                         'universal_newlines': True}
+            try:
+                result = subprocess.check_output(shlex.split(cmd), **call_opts)
+                output = result.decode('unicode-escape')
+            except subprocess.CalledProcessError as e:
+                msg = ('Solrmarc process did not run successfully: {}'
                        ''.format(e.output))
-            self.log_error(index, 'ERROR', msg)
-        else:
-            for line in output.split("\n")[:-1]:
-                line = re.sub(r'^\s+', '', line)
-                if re.match(r'^(WARN|ERROR)', line):
-                    self.log_error(index, 'WARNING', line)
-        os.remove(rec_filepath)
+                self.log_error(index, 'ERROR', msg)
+            else:
+                for line in output.split("\n")[:-1]:
+                    line = re.sub(r'^\s+', '', line)
+                    if re.match(r'^(WARN|ERROR)', line):
+                        self.log_error(index, 'WARNING', line)
+            os.remove(rec_filepath)
 
 
 class SolrmarcEngine(BaseEngine):
