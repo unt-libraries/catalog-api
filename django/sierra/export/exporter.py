@@ -485,6 +485,9 @@ class CompoundMixin(object):
                 self._expclass = export_type.get_exporter_class()
             return self._expclass
 
+        def derive_rel_list(self, exporter, which_rel):
+            return getattr(exporter, which_rel, [])
+
         def get_patched_class_attrs(self):
             """
             Implement this method in subclasses if additional attrs
@@ -520,6 +523,24 @@ class CompoundMixin(object):
                     self.options)
             self._children = type(self).spawn_children(args)
         return self._children
+
+    @staticmethod
+    def combine_lists(*lists):
+        """
+        This is a helper method for combining and deduplicating entries
+        from multiple lists, returning one sorted, flattened list.
+        """
+        combined_dupes = sorted([item for l in lists for item in l])
+        return OrderedDict.fromkeys(combined_dupes).keys()
+
+    def combine_rels_from_children(self, which_rel, which_children=None):
+        """
+        This is a helper method for combining lists of relations (like
+        select_related or prefetch_related) from 1+ children.
+        """
+        children = which_children or self.children.values()
+        rel_lists = [c._config.derive_rel_list(c, which_rel) for c in children]
+        return self.combine_lists(*rel_lists)
 
     def get_records_from_children(self, deletions=False, prefetch=True,
                                   which_children=None):
@@ -651,10 +672,16 @@ class AttachedRecordExporter(CompoundMixin, Exporter):
     relative to the parent.
     """
     class Child(CompoundMixin.Child):
-        rel_prefix = ''
+        rel_prefix = None
 
         def derive_records_from_parent(self, parent_record):
             return [parent_record]
+
+        def derive_rel_list(self, exporter, which_rel):
+            base_list = getattr(exporter, which_rel, [])
+            if self.rel_prefix:
+                return ['{}__{}'.format(self.rel_prefix, r) for r in base_list]
+            return base_list
 
     children_config = tuple()
 
@@ -665,29 +692,6 @@ class AttachedRecordExporter(CompoundMixin, Exporter):
     @property
     def attached_children(self):
         return [c[1] for c in self.children.items()[1:]]
-
-    @staticmethod
-    def combine_lists(*lists):
-        """
-        This is a helper method for combining and deduplicating entries
-        from multiple lists, returning one sorted, flattened list.
-        """
-        combined_dupes = sorted([item for l in lists for item in l])
-        return OrderedDict.fromkeys(combined_dupes).keys()
-
-    def combine_rels_from_children(self, which_rel, which_children=None):
-        """
-        This is a helper method for combining lists of relations (like
-        select_related or prefetch_related) from 1+ children.
-        """
-        rel_lists = []
-        for child in which_children or self.children.values():
-            rel_prefix = child._config.rel_prefix
-            base_list = getattr(child, which_rel)
-            if rel_prefix:
-                base_list = ['{}__{}'.format(rel_prefix, r) for r in base_list]
-            rel_lists.append(base_list)
-        return self.combine_lists(*rel_lists)
 
     @property
     def select_related(self):
