@@ -85,8 +85,7 @@ class S2MarcBatchBlacklightSolrMarc(S2MarcBatch):
         # record number
         recnum = r.record_metadata.get_iii_recnum(False)
         suppressed = 'true' if r.is_suppressed else 'false'
-        # material_type = r.bibrecordproperty_set.all()[0].material\
-        #     .materialpropertyname_set.all()[0].name
+        # material_type = r.bibrecordproperty_set.all()[0].material.get_name()
         material_type = r.bibrecordproperty_set.all()[0].material.code
         metadata_field = pymarc.field.Field(
                 tag='907',

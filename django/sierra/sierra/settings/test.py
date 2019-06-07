@@ -71,8 +71,10 @@ solr_bibdata_url = get_env_variable('SOLR_BIBDATA_URL',
                     'http://{}:{}/solr/bibdata'.format(SOLR_HOST, SOLR_PORT))
 solr_marc_url = get_env_variable('SOLR_MARC_URL', 
                     'http://{}:{}/solr/marc'.format(SOLR_HOST, SOLR_PORT))
+solr_asm_url =  'http://{}:{}/solr/alpha-solrmarc'.format(SOLR_HOST, SOLR_PORT)
 
 HAYSTACK_CONNECTIONS['default']['URL'] = solr_haystack_url
 HAYSTACK_CONNECTIONS['haystack']['URL'] = solr_haystack_url
 HAYSTACK_CONNECTIONS['bibdata']['URL'] = solr_bibdata_url
 HAYSTACK_CONNECTIONS['marc']['URL'] = solr_marc_url
+HAYSTACK_CONNECTIONS['alpha-solrmarc']['URL'] = solr_asm_url
