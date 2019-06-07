@@ -9,7 +9,7 @@ from django.core.management import call_command
 from django.core.management.base import CommandError
 from django.utils.six import StringIO
 
-from sierra.management.commands import importapiusers
+from api.management.commands import importapiusers
 
 
 # FIXTURES AND TEST DATA
