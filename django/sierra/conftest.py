@@ -566,15 +566,13 @@ def get_records_from_index(solr_conns, solr_search):
     """
     def _get_records_from_index(index, record_set, results=None):
         id_fname = index.reserved_fields['haystack_id']
-        meta = index.get_model()._meta
         if results is None:
             conn = solr_conns[getattr(index, 'using', 'default')]
             results = solr_search(conn, '*')
 
         found_records = {}
         for record in record_set:
-            cmp_id = '{}.{}.{}'.format(meta.app_label, meta.model_name,
-                                       record.pk)
+            cmp_id = index.get_qualified_id(record)
             matches = [r for r in results if r[id_fname] == cmp_id]
             if len(matches) == 1:
                 found_records[record.pk] = matches[0]

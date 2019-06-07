@@ -98,8 +98,8 @@ class CustomQuerySetIndex(indexes.SearchIndex):
     def get_django_ct(self):
         return utils.get_model_ct(self.get_model())
 
-    def get_qualified_id(self, _id):
-        return '{}.{}'.format(self.get_django_ct(), _id)
+    def get_qualified_id(self, record):
+        return '{}.{}'.format(self.get_django_ct(), record.pk)
 
     def get_backend(self, using=None):
         using = using or self.using
@@ -163,7 +163,7 @@ class CustomQuerySetIndex(indexes.SearchIndex):
         backend = self.get_backend(using)
         queryset = self.index_queryset() if queryset is None else queryset
         if backend is not None:
-            ids_to_delete = [self.get_qualified_id(r.pk) for r in queryset]
+            ids_to_delete = [self.get_qualified_id(r) for r in queryset]
             backend.conn.delete(id=ids_to_delete, commit=commit)
 
     def clear(self, using=None, commit=True):
