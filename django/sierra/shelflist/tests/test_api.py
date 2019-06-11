@@ -225,6 +225,107 @@ PARAMETERS__FILTER_TESTS = (
     },
 )
 
+
+# TESTDATA__FIRSTITEMPERLOCATION: We use a consistent set of test data
+# for testing the firstitemperlocation resource.
+TESTDATA__FIRSTITEMPERLOCATION = (
+    ( 'atest1', 1,
+        { 'location_code': 'atest',
+          'barcode': '1',
+          'call_number': 'BB 1234 C35 1990',
+          'call_number_type': 'lc'} ),
+    ( 'atest2', 0,
+        { 'location_code': 'atest',
+          'barcode': '2',
+          'call_number': 'BB 1234 A22 2000',
+          'call_number_type': 'lc' } ),
+    ( 'atest3', 2,
+        { 'location_code': 'atest',
+          'barcode': '3',
+          'call_number': 'BC 2345 F80',
+          'call_number_type': 'lc' } ),
+    ( 'atest4', 3,
+        { 'location_code': 'atest',
+          'barcode': '4',
+          'call_number': 'BB 1234',
+          'call_number_type': 'sudoc' } ),
+    ( 'btest1', 0,
+        { 'location_code': 'btest',
+          'barcode': '3',
+          'call_number': 'BB 1234 D99',
+          'call_number_type': 'lc' } ),
+    ( 'btest2', 3,
+        { 'location_code': 'btest',
+          'barcode': '4',
+          'call_number': 'BB 1234 A22',
+          'call_number_type': 'sudoc' } ),
+    ( 'btest3', 1,
+        { 'location_code': 'btest',
+          'barcode': '5',
+          'call_number': 'CC 9876 H43',
+          'call_number_type': 'lc' } ),
+    ( 'btest4', 2,
+        { 'location_code': 'btest',
+          'barcode': '6',
+          'call_number': 'BB 1234',
+          'call_number_type': 'sudoc' } ),
+    ( 'ctest1', 1,
+        { 'location_code': 'ctest',
+          'barcode': '8',
+          'call_number': 'BB 1234 D99 2016',
+          'call_number_type': 'lc' } ),
+    ( 'ctest2', 3,
+        { 'location_code': 'ctest',
+          'barcode': '9',
+          'call_number': 'CC 1234 A22',
+          'call_number_type': 'other' } ),
+    ( 'ctest3', 0,
+        { 'location_code': 'ctest',
+          'barcode': '10',
+          'call_number': '900.1 H43',
+          'call_number_type': 'dewey' } ),
+    ( 'ctest4', 2,
+        { 'location_code': 'ctest',
+          'barcode': '11',
+          'call_number': 'AB 1234',
+          'call_number_type': 'other' } ),
+)
+
+
+PARAMETERS__FIRSTITEMPERLOCATION = (
+    ('test_data, search, expected'),
+    { 'LC call number type | A match at each location':
+        (TESTDATA__FIRSTITEMPERLOCATION,
+         'callNumber[startswith]=BB 12&callNumberType=lc',
+         ['atest2', 'btest1', 'ctest1']),
+    }, { 'LC call number type | A match at one location':
+        (TESTDATA__FIRSTITEMPERLOCATION,
+         'callNumber[startswith]=BC&callNumberType=lc',
+         ['atest3']),
+    }, { 'LC call number type | No matches':
+        (TESTDATA__FIRSTITEMPERLOCATION,
+         'callNumber[startswith]=D&callNumberType=lc',
+         None),
+    }, { 'SUDOC call number type | A match at two locations':
+        (TESTDATA__FIRSTITEMPERLOCATION,
+         'callNumber[startswith]=BB&callNumberType=sudoc',
+         ['atest4', 'btest4']),
+    }, { 'DEWEY call number type | A match at one location':
+        (TESTDATA__FIRSTITEMPERLOCATION,
+         'callNumber[startswith]=900&callNumberType=dewey',
+         ['ctest3']),
+    }, { 'OTHER call number type | A match at one location':
+        (TESTDATA__FIRSTITEMPERLOCATION,
+         'callNumber[startswith]=C&callNumberType=other',
+         ['ctest2']),
+    }, { 'BARCODE | A match at two locations':
+        (TESTDATA__FIRSTITEMPERLOCATION,
+         'barcode=3',
+         ['atest3', 'btest1']),
+    }, 
+)
+
+
 # HELPER FUNCTIONS for compiling test data into pytest parameters
 
 def compile_params(parameters):
@@ -693,3 +794,53 @@ def test_shelflistitem_put_data_missing_fields(fname_solr, fname_api,
         assert resp.status_code == 200
         assert before.data[fname_api] == start_val
         assert after.data[fname_api] is None
+
+
+@pytest.mark.parametrize('test_data, search, expected',
+                         compile_params(PARAMETERS__FIRSTITEMPERLOCATION),
+                         ids=compile_ids(PARAMETERS__FIRSTITEMPERLOCATION))
+def test_shelflist_firstitemperlocation_list(test_data, search, expected,
+                                             api_settings, redis_obj,
+                                             assemble_custom_shelflist,
+                                             api_client, get_found_ids,
+                                             do_filter_search):
+    """
+    The `firstitemperlocation` resource is basically a custom filter
+    for `items` that submits a facet-query to Solr asking for the first
+    item at each location code that matches the provided call number
+    (plus cn type) or barcode. (Used by the Inventory App when doing a
+    call number or barcode lookup without providing a location.) The
+    `api` app contains a basic implementation, but it lacks the
+    `shelflist`-specific extensions needed to make the Inventory App
+    functionality work--namely the rowNumber from the shelflistitem
+    manifest. This tests to make sure the `shelflist` app version
+    overrides the `api` version and includes the rowNumber field.
+    """
+    test_data_by_location = {}
+    for test_id, _, rec in test_data:
+        lcode = rec['location_code']
+        recs = test_data_by_location.get(lcode, []) + [(test_id, rec)]
+        test_data_by_location[lcode] = recs
+
+    index = ShelflistItemIndex()
+    for test_lcode, data in test_data_by_location.items():
+        assemble_custom_shelflist(test_lcode, data, id_field='record_number')
+        manifest = index.get_location_manifest(test_lcode)
+        redis_key = '{}:{}'.format(REDIS_SHELFLIST_PREFIX, test_lcode)
+        redis_obj(redis_key).set(manifest)
+
+    resource_url = '{}firstitemperlocation/'.format(API_ROOT)
+    rsp = do_filter_search(resource_url, search, api_client)
+    rsp_items = rsp.data['_embedded']['items']
+
+    if expected is None:
+        for item in rsp_items:
+            assert item['locationCode'] not in test_data_by_location.keys()
+    else:
+        for exp_id in expected:
+            exp_row = [i[1] for i in test_data if i[0] == exp_id][0]
+            item = [i for i in rsp_items if i['recordNumber'] == exp_id][0]
+            exp_sli = '{}/shelflistitems/{}'.format(item['locationCode'],
+                                                    item['id'])
+            assert item['rowNumber'] == exp_row
+            assert item['_links']['shelflistItem']['href'].endswith(exp_sli)
