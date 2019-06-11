@@ -86,10 +86,10 @@ def api_root(request):
 
 
 class APIUserList(SimpleGetMixin, SimpleView):
-    '''
+    """
     Paginated list of API Users permissions. Requires authorization to
     view.
-    '''
+    """
     queryset = User.objects.exclude(apiuser__exact=None)
     serializer_class = serializers.APIUserSerializer
     resource_name = 'apiusers'
@@ -97,11 +97,12 @@ class APIUserList(SimpleGetMixin, SimpleView):
 
 
 class APIUserDetail(SimpleGetMixin, SimpleView):
-    '''
+    """
     View one API User. Requires authorization to view.
-    '''
+    """
     queryset = User.objects.exclude(apiuser__exact=None)
     serializer_class = serializers.APIUserSerializer
+    resource_name = 'apiusers'
     multi = False
     permission_classes = (permissions.IsAuthenticated,)
 
@@ -116,10 +117,10 @@ class APIUserDetail(SimpleGetMixin, SimpleView):
 
 
 class ItemList(SimpleGetMixin, SimpleView):
-    '''
+    """
     Paginated list of items. Use the 'limit' and 'offset' query
     parameters for paging.
-    '''
+    """
     queryset = solr.Queryset().filter(type='Item')
     serializer_class = serializers.ItemSerializer
     ordering = ['call_number', 'barcode', 'id', 'record_number',
@@ -140,11 +141,12 @@ class ItemList(SimpleGetMixin, SimpleView):
 
 
 class ItemDetail(SimpleGetMixin, SimpleView):
-    '''
+    """
     Retrieve one item.
-    '''
+    """
     queryset = solr.Queryset().filter(type='Item')
     serializer_class = serializers.ItemSerializer
+    resource_name = 'items'
     multi = False
     
     def get_object(self):
@@ -158,10 +160,10 @@ class ItemDetail(SimpleGetMixin, SimpleView):
 
 
 class BibList(SimpleGetMixin, SimpleView):
-    '''
+    """
     Paginated list of bibs. Use the 'limit' and 'offset' query
     parameters for paging.
-    '''
+    """
     queryset = solr.Queryset(using=
                  settings.REST_VIEWS_HAYSTACK_CONNECTIONS['Bibs'])
     serializer_class = serializers.BibSerializer
@@ -186,12 +188,13 @@ class BibList(SimpleGetMixin, SimpleView):
 
 
 class BibDetail(SimpleGetMixin, SimpleView):
-    '''
+    """
     Retrieve one bib.
-    '''
+    """
     queryset = solr.Queryset(using=
                  settings.REST_VIEWS_HAYSTACK_CONNECTIONS['Bibs'])
     serializer_class = serializers.BibSerializer
+    resource_name = 'bibs'
     multi = False
 
     def get_object(self):
@@ -203,11 +206,12 @@ class BibDetail(SimpleGetMixin, SimpleView):
         else:
             return obj
 
+
 class MarcList(SimpleGetMixin, SimpleView):
-    '''
+    """
     Paginated list of MARC records. Use the 'limit' and 'offset' query
     parameters for paging.
-    '''
+    """
     queryset = solr.Queryset(using=
                  settings.REST_VIEWS_HAYSTACK_CONNECTIONS['Marc'])
     serializer_class = serializers.MarcSerializer
@@ -218,12 +222,13 @@ class MarcList(SimpleGetMixin, SimpleView):
 
 
 class MarcDetail(SimpleGetMixin, SimpleView):
-    '''
+    """
     Retrieve one MARC record.
-    '''
+    """
     queryset = solr.Queryset(using=
                  settings.REST_VIEWS_HAYSTACK_CONNECTIONS['Marc'])
     serializer_class = serializers.MarcSerializer
+    resource_name = 'marc'
     multi = False
 
     def get_object(self):
@@ -237,10 +242,10 @@ class MarcDetail(SimpleGetMixin, SimpleView):
 
 
 class EResourceList(SimpleGetMixin, SimpleView):
-    '''
+    """
     Paginated list of eresources. Use the 'limit' and 'offset' query
     parameters for paging.
-    '''
+    """
     queryset = solr.Queryset().filter(type='eResource')
     serializer_class = serializers.EResourceSerializer
     ordering = ['record_number', 'parent_bib_record_number', 'eresource_type',
@@ -254,11 +259,12 @@ class EResourceList(SimpleGetMixin, SimpleView):
 
 
 class EResourceDetail(SimpleGetMixin, SimpleView):
-    '''
+    """
     Retrieve one eresource.
-    '''
+    """
     queryset = solr.Queryset().filter(type='eResource')
     serializer_class = serializers.EResourceSerializer
+    resource_name = 'eresources'
     multi = False
     
     def get_object(self):
@@ -272,10 +278,10 @@ class EResourceDetail(SimpleGetMixin, SimpleView):
 
 
 class LocationList(SimpleGetMixin, SimpleView):
-    '''
+    """
     Paginated list of bibs. Use the 'limit' and 'offset' query
     parameters for paging.
-    '''
+    """
     queryset = solr.Queryset().filter(type='Location')
     serializer_class = serializers.LocationSerializer
     resource_name = 'locations'
@@ -284,11 +290,12 @@ class LocationList(SimpleGetMixin, SimpleView):
 
 
 class LocationDetail(SimpleGetMixin, SimpleView):
-    '''
+    """
     Retrieve one Location.
-    '''
+    """
     queryset = solr.Queryset().filter(type='Location')
     serializer_class = serializers.LocationSerializer
+    resource_name = 'locations'
     multi = False
 
     def get_object(self):
@@ -302,10 +309,10 @@ class LocationDetail(SimpleGetMixin, SimpleView):
 
 
 class ItemTypesList(SimpleGetMixin, SimpleView):
-    '''
+    """
     Paginated list of bibs. Use the 'limit' and 'offset' query
     parameters for paging.
-    '''
+    """
     queryset = solr.Queryset().filter(type='Itype')
     serializer_class = serializers.ItemTypeSerializer
     resource_name = 'itemtypes'
@@ -314,11 +321,12 @@ class ItemTypesList(SimpleGetMixin, SimpleView):
 
 
 class ItemTypesDetail(SimpleGetMixin, SimpleView):
-    '''
+    """
     Retrieve one Location.
-    '''
+    """
     queryset = solr.Queryset().filter(type='Itype')
     serializer_class = serializers.ItemTypeSerializer
+    resource_name = 'itemtypes'
     multi = False
 
     def get_object(self):
@@ -332,10 +340,10 @@ class ItemTypesDetail(SimpleGetMixin, SimpleView):
 
 
 class ItemStatusesList(SimpleGetMixin, SimpleView):
-    '''
+    """
     Paginated list of bibs. Use the 'limit' and 'offset' query
     parameters for paging.
-    '''
+    """
     queryset = solr.Queryset().filter(type='ItemStatus')
     serializer_class = serializers.ItemStatusSerializer
     resource_name = 'itemstatuses'
@@ -344,11 +352,12 @@ class ItemStatusesList(SimpleGetMixin, SimpleView):
 
 
 class ItemStatusesDetail(SimpleGetMixin, SimpleView):
-    '''
+    """
     Retrieve one Item Status.
-    '''
+    """
     queryset = solr.Queryset().filter(type='ItemStatus')
     serializer_class = serializers.ItemStatusSerializer
+    resource_name = 'itemstatuses'
     multi = False
 
     def get_object(self):
@@ -362,24 +371,24 @@ class ItemStatusesDetail(SimpleGetMixin, SimpleView):
 
 
 class CallnumbermatchesList(SimpleGetMixin, SimpleView):
-    '''
+    """
     Returns the first X matching call numbers, where X is the supplied
     limit. Pagination (offset) is not supported.
     You can filter using the
     following fields: callNumber, locationCode, and callNumberType.
-    '''
+    """
     queryset = solr.Queryset().filter(type='Item').only(
                 'call_number').order_by('call_number_sort')
     serializer_class = serializers.ItemSerializer
     resource_name = 'callnumber_matches'
     filter_fields = ['call_number', 'location_code', 'call_number_type']
 
-    def paginate(self, queryset, request):
+    def get_page_data(self, queryset, request):
         # for paging, we only use the 'limit'
         limit_p = settings.REST_FRAMEWORK.get('PAGINATE_BY_PARAM', 'limit')
         max_limit = settings.REST_FRAMEWORK.get('MAX_PAGINATE_BY', 500)
         default_limit = settings.REST_FRAMEWORK.get('PAGINATE_BY', 10)
-        limit = int(request.QUERY_PARAMS.get(limit_p, default_limit))
+        limit = int(request.query_params.get(limit_p, default_limit))
         limit = max_limit if limit > max_limit else limit
         data, i, count = [], 0, queryset.count()
         while len(data) < limit and i < count:
@@ -390,19 +399,21 @@ class CallnumbermatchesList(SimpleGetMixin, SimpleView):
 
         return data
 
+
 class FirstItemPerLocationList(SimpleGetMixin, SimpleView):
-    '''
+    """
     Returns the first item (by call number) for each location within a
     filtered result set.
-    '''
+    """
     facet_field = 'location_code'
     queryset = solr.Queryset().filter(type='Item').search('*:*', 
         params={'facet': 'true', 'facet.field': facet_field, 
                 'facet.sort': 'index', 'facet.mincount': 1})
     serializer_class = serializers.ItemSerializer
+    resource_name = 'firstitemperlocation'
     filter_fields = ['call_number', 'call_number_type', 'barcode']
 
-    def paginate(self, queryset, request):
+    def get_page_data(self, queryset, request):
         ff = self.facet_field
         facets = queryset.full_response.facets['facet_fields'][ff]
         fields = ['id', 'parent_bib_title', 'parent_bib_record_number',

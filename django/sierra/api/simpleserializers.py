@@ -11,7 +11,7 @@ logger = logging.getLogger('sierra.custom')
 
 
 class SimpleSerializer(object):
-    '''
+    """
     A simplified "serializer" base class that works quickly with basic
     dict and dict-like objects that don't require a lot of fuss.
     Subclass this class, define a dict of valid fields to be serialized
@@ -49,7 +49,7 @@ class SimpleSerializer(object):
     method for the field on the serializer that derives the value. This
     is essentially equivalent to DRF serializers' "method" fields. If
     derived is not provided, it defaults to False.
-    '''
+    """
     fields = OrderedDict()
 
     def __init__(self, instance=None, data=None, context=None):
@@ -60,34 +60,37 @@ class SimpleSerializer(object):
         self._errors = None
 
     def render_field_name(self, field_name):
-        '''
+        """
         Override this method to render field names differently than
         they are stored and referenced in/on the serializer class; for
         instance, you may want to render field names as camel case for
         JSON output but otherwise store and reference field names using
         snake case.
-        '''
+        """
         return field_name
 
     def restore_field_name(self, field_name):
-        '''
+        """
         Override this method to specify the reverse function for
         restoring a field name from the version rendered via the
         render_file_name method. For instance, restoring a field
         provided in camel case back to snake case.
-        '''
+        """
         return field_name
 
+    def obj_is_sequence(self, obj):
+        return isinstance(obj, (list, tuple, Sequence,
+                                django.db.models.query.QuerySet))
+
     def to_native(self, obj=None):
-        '''
-        Serializes an object (or list of objects) based on field
+        """
+        Serializes an object (or sequence of objects) based on field
         specifications.
-        '''
+        """
         obj = obj or self.object
         data = obj
 
-        if isinstance(obj, (list, tuple, Sequence,
-                            django.db.models.query.QuerySet)):
+        if self.obj_is_sequence(obj):
             data = []
             for o in obj:
                 data.append(self.to_native(o))
@@ -120,14 +123,14 @@ class SimpleSerializer(object):
         return data
 
     def perform_validation(self, data):
-        '''
+        """
         Runs all validation routines on client-provided data. Note that
         your class may provide validate_{} and validate_type_{} methods
         to validate field data and field type data, respectively. These
         methods should write errors to self._errors and return
         validated and cleaned data, appropriate for plugging back into
         the data used to create the deserialized object.
-        '''
+        """
         obj = self.object or {}
 
         for fname, fsettings in self.fields.iteritems():
@@ -154,7 +157,7 @@ class SimpleSerializer(object):
             return data
 
     def restore_object(self, data, instance=None):
-        '''
+        """
         The data parameter should be a dictionary of attributes that
         needs to be converted into an object instance, useful for
         saving/storing. Override this method to control how
@@ -165,7 +168,7 @@ class SimpleSerializer(object):
         that aren't on the object. Fields not on the object need to be
         added from the Solr doc before it's written back to Solr so
         that no data is lost.
-        '''
+        """
         if not hasattr(data, 'iteritems'):
             self._errors.append('Input must be a single object.')
             data = None
@@ -227,11 +230,11 @@ class SimpleSerializer(object):
         return self._errors
 
     def save(self, **kwargs):
-        '''
+        """
         The object your saving should have a save method on it.
         Override this as needed based on whatever type of object you're
         serializing.
-        '''
+        """
         self._data = None
         self.object.save(**kwargs)
 
@@ -240,7 +243,7 @@ class SimpleSerializer(object):
 
 
 class SimpleSerializerWithLookups(SimpleSerializer):
-    '''
+    """
     Base class to be used to simplify and improve performance of
     serializers that require lookups of some sort on each item--
     either in a search index or a database. The goal is to minimize
@@ -249,35 +252,34 @@ class SimpleSerializerWithLookups(SimpleSerializer):
     To use, your child class should override the cache_all_lookups
     and cache_all_db_objects methods to specify how lookup values are
     derived. (Note that both are optional.)
-    '''
+    """
     _lookup_cache = {}
     _db_cache = {}
     
-    def __init__(self, *args, **kwargs):
-        super(SimpleSerializerWithLookups, self).__init__(*args, **kwargs)
+    def cache_all(self):
         self.cache_all_lookups()
         self.cache_all_db_objects()
 
     def cache_all_lookups(self):
-        '''
+        """
         Child classes should implement this method to load all lookup
         fields using self.cache_lookup
-        '''
+        """
         pass
 
     def cache_all_db_objects(self):
-        '''
+        """
         Child classes should implement this method to cache DB
         objects using self.cache_field. 
-        '''
+        """
         pass
 
     def get_db_objects(self, model, key_field, match_field, prefetch):
-        '''
+        """
         In your cache_all_db_objects implementation, use this to get a
         set of DB objects from a particular model based on a key_field
         in the current model, & a match_field in the foreign-key model.
-        '''
+        """
         if isinstance(self.instance, (list, tuple)):
             objects = self.instance
         else:
@@ -308,3 +310,8 @@ class SimpleSerializerWithLookups(SimpleSerializer):
             return self._db_cache[fname][str(pk)]
         else:
             return None
+
+    def to_native(self, obj=None):
+        if self.obj_is_sequence(obj):
+            self.cache_all()
+        return super(SimpleSerializerWithLookups, self).to_native(obj)

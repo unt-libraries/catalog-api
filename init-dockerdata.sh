@@ -204,7 +204,7 @@ function prepvolume_sierra_db_test {
 # a particular service. Each migrate function takes an argument that tells you
 # whether the volume is ready for migrations or not.
 
-function migrate_default_db_dev { 
+function migrate_default_db_dev {
   docker-compose run --rm manage-dev migrate --database=default
 }
 

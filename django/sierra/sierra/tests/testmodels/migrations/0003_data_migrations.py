@@ -9,6 +9,7 @@ def populate_test_data(apps, schema_editor):
         return True
 
     EndNode = apps.get_model('testmodels', 'EndNode')
+    OneToOneNode = apps.get_model('testmodels', 'OneToOneNode')
     SelfReferentialNode = apps.get_model('testmodels', 'SelfReferentialNode')
     ManyToManyNode = apps.get_model('testmodels', 'ManyToManyNode')
     ReferenceNode = apps.get_model('testmodels', 'ReferenceNode')
@@ -17,6 +18,10 @@ def populate_test_data(apps, schema_editor):
     end = [EndNode.objects.create(name='end0'),
            EndNode.objects.create(name='end1'),
            EndNode.objects.create(name='end2')]
+
+    one = [OneToOneNode.objects.create(name='one0'),
+           OneToOneNode.objects.create(name='one1'),
+           OneToOneNode.objects.create(name='one2')]
 
     srn = [SelfReferentialNode.objects.create(name='srn0', end=end[0]),
            SelfReferentialNode.objects.create(name='srn1'),
@@ -28,8 +33,10 @@ def populate_test_data(apps, schema_editor):
            ManyToManyNode.objects.create(name='m2m1', end=end[2]),
            ManyToManyNode.objects.create(name='m2m2', end=end[0])]
 
-    ref = [ReferenceNode.objects.create(name='ref0', srn=srn[1], end=end[0]),
-           ReferenceNode.objects.create(name='ref1', srn=srn[2], end=end[2]),
+    ref = [ReferenceNode.objects.create(name='ref0', srn=srn[1], end=end[0],
+                                        one=one[0]),
+           ReferenceNode.objects.create(name='ref1', srn=srn[2], end=end[2],
+                                        one=one[1]),
            ReferenceNode.objects.create(name='ref2', srn=srn[0], end=end[2])]
 
     thr = [ThroughNode.objects.create(name='thr0', ref=ref[0], m2m=m2m[0]),
@@ -41,7 +48,7 @@ def populate_test_data(apps, schema_editor):
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('testmodels', '0001_initial'),
+        ('testmodels', '0002_add_onetoone_field'),
     ]
 
     operations = [

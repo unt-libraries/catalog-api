@@ -34,10 +34,10 @@ def api_root(request):
 
 
 class ShelflistItemList(SimpleGetMixin, SimpleView):
-    '''
+    """
     Paginated list of items. Use the 'page' query parameter to specify
     the page number.
-    '''
+    """
     serializer_class = serializers.ShelflistItemSerializer
     ordering = None
     filter_fields = ['call_number', 'call_number_type', 'barcode', 
@@ -54,14 +54,15 @@ class ShelflistItemList(SimpleGetMixin, SimpleView):
 # Put/Patch behavior. Disabled for now for security in production.
 class ShelflistItemDetail(SimplePutMixin, SimplePatchMixin, SimpleGetMixin, 
                           SimpleView):
-    '''
+    """
     Retrieve one item.
-    '''
+    """
     queryset = solr.Queryset().filter(type='Item')
     serializer_class = serializers.ShelflistItemSerializer
     multi = False
     parser_classes = (JSONPatchParser, JSONParser)
     permission_classes = (permissions.IsAuthenticatedOrReadOnly,)
+    resource_name = 'shelflistItems'
     
     def get_object(self):
         queryset = self.get_queryset()
@@ -90,9 +91,9 @@ class ItemDetail(api_views.ItemDetail):
 
 
 class FirstItemPerLocationList(api_views.FirstItemPerLocationList):
-    def paginate(self, queryset, request):
-        data = super(FirstItemPerLocationList, self).paginate(queryset,
-                                                              request)
+    def get_page_data(self, queryset, request):
+        data = super(FirstItemPerLocationList, self).get_page_data(queryset,
+                                                                   request)
         for item in data['_embedded']['items']:
             l_code = item['locationCode']
             this_id = item['id']

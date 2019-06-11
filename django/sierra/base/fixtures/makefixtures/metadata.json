@@ -157,5 +157,200 @@
   },
   {
     "model": "base.NotificationMediumPropertyMyuser"
+  },
+  {
+    "model": "base.FixfldType"
+  },
+  {
+    "model": "base.FixfldTypeName"
+  },
+  {
+    "model": "base.MarclabelType"
+  },
+  {
+    "model": "base.MarclabelTypeName"
+  },
+  {
+    "model": "base.PhraseType"
+  },
+  {
+    "model": "base.PhraseTypeName"
+  },
+  {
+    "model": "base.RecordType"
+  },
+  {
+    "model": "base.RecordTypeName"
+  },
+  {
+    "model": "base.VarfieldType"
+  },
+  {
+    "model": "base.VarfieldTypeName"
+  },
+  {
+    "model": "base.StatisticGroup"
+  },
+  {
+    "model": "base.StatisticGroupName"
+  },
+  {
+    "model": "base.AcqTypeProperty"
+  },
+  {
+    "model": "base.AcqTypePropertyName"
+  },
+  {
+    "model": "base.BillingLocationProperty"
+  },
+  {
+    "model": "base.BillingLocationPropertyName"
+  },
+  {
+    "model": "base.ClaimActionProperty"
+  },
+  {
+    "model": "base.ClaimActionPropertyName"
+  },
+  {
+    "model": "base.FormProperty"
+  },
+  {
+    "model": "base.FormPropertyName"
+  },
+  {
+    "model": "base.OrderNoteProperty"
+  },
+  {
+    "model": "base.OrderNotePropertyName"
+  },
+  {
+    "model": "base.OrderStatusProperty"
+  },
+  {
+    "model": "base.OrderStatusPropertyName"
+  },
+  {
+    "model": "base.OrderTypeProperty"
+  },
+  {
+    "model": "base.OrderTypePropertyName"
+  },
+  {
+    "model": "base.ReceivingActionProperty"
+  },
+  {
+    "model": "base.ReceivingActionPropertyName"
+  },
+  {
+    "model": "base.TempLocationProperty"
+  },
+  {
+    "model": "base.TempLocationPropertyName"
+  },
+  {
+    "model": "base.FirmProperty"
+  },
+  {
+    "model": "base.FirmPropertyName"
+  },
+  {
+    "model": "base.GtypeProperty"
+  },
+  {
+    "model": "base.GtypePropertyName"
+  },
+  {
+    "model": "base.B2MCategory"
+  },
+  {
+    "model": "base.B2MCategoryName"
+  },
+    {
+    "model": "base.ScatCategory"
+  },
+  {
+    "model": "base.ScatCategoryName"
+  },
+  {
+    "model": "base.ScatSection"
+  },
+  {
+    "model": "base.ScatSectionName"
+  },
+  {
+    "model": "base.AccountingUnit"
+  },
+  {
+    "model": "base.AccountingUnitName"
+  },
+  {
+    "model": "base.FundType"
+  },
+  {
+    "model": "base.FundMaster"
+  },
+  {
+    "model": "base.ExternalFundProperty"
+  },
+  {
+    "model": "base.ExternalFundPropertyName"
+  },
+  {
+    "model": "base.FundProperty"
+  },
+  {
+    "model": "base.FundPropertyName"
+  },
+  {
+    "model": "base.LocationPropertyType"
+  },
+  {
+    "model": "base.LocationPropertyTypeName"
+  },
+  {
+    "model": "base.AgencyProperty"
+  },
+  {
+    "model": "base.AgencyPropertyName"
+  },
+  {
+    "model": "base.ReceivingLocationProperty"
+  },
+  {
+    "model": "base.ReceivingLocationPropertyName"
+  },
+  {
+    "model": "base.UserDefinedCategory"
+  },
+  {
+    "model": "base.UserDefinedProperty"
+  },
+  {
+    "model": "base.UserDefinedPropertyName"
+  },
+  {
+    "model": "base.IiiRole"
+  },
+  {
+    "model": "base.IiiRoleName"
+  },
+  {
+    "model": "base.IiiRoleCategory"
+  },
+  {
+    "model": "base.IiiRoleCategoryName"
+  },
+  {
+    "model": "base.SystemOptionGroup"
+  },
+  {
+    "model": "base.SystemOptionGroupName"
+  },
+  {
+    "model": "base.Workflow"
+  },
+  {
+    "model": "base.WorkflowName"
   }
 ]

@@ -48,7 +48,7 @@ class Relation(object):
     """
     Access info about a relationship between two Django Model objects.
 
-    The relationship a given Relatiom object represents is from the POV
+    The relationship a given Relation object represents is from the POV
     of the model provided on init--e.g., model.fieldname. It's mainly a
     simplified way to get information about that relationship.
 
@@ -83,6 +83,7 @@ class Relation(object):
         except AttributeError:
             raise BadRelation('`model` arg must be a model object.')
         try:
+            # db.models.fields.related RelatedObjectsDescriptor object
             accessor = getattr(model, fieldname)
         except AttributeError:
             msg = '{} not found on {}'.format(fieldname, model_name)
@@ -111,23 +112,26 @@ class Relation(object):
         self.is_m2m = False if self.through is None else True
 
     def _get_target_model(self, acc):
-        return acc.field.rel.to if self.is_direct else acc.related.model
+        return acc.field.rel.to if self.is_direct else acc.related.related_model
 
     def get_as_through_relations(self):
         meta = self.model._meta
-        all_rels = meta.get_all_related_objects()
-        matching_rel = [rel for rel in all_rels if rel.model == self.through]
+        all_rels = [
+            f for f in meta.get_fields()
+            if (f.one_to_many or f.one_to_one) and f.auto_created and not f.concrete
+        ]
+        matching_rel = [rel for rel in all_rels if rel.related_model == self.through]
         try:
             through_name = matching_rel[0].get_accessor_name()
         except IndexError:
             msg = ('Models {} and {} have no `through` relation with each '
                    'other.'.format(self.model, self.target_model))
             raise BadRelation(msg)
-        through_model = getattr(self.model, through_name).related.model
-        rel_fs = [f for f in through_model._meta.fields if f.rel]
+        through_model = getattr(self.model, through_name).related.related_model
+        rel_fs = [f for f in through_model._meta.get_fields() if f.related_model]
 
         try:
-            thru_f = [f for f in rel_fs if f.rel.to == self.target_model][0]
+            thru_f = [f for f in rel_fs if f.related_model == self.target_model][0]
         except IndexError:
             msg = ('Field for relation from model {} to {} not found.'
                    ''.format(through_model, self.target_model))
@@ -157,12 +161,18 @@ class Relation(object):
     def fetch_target_model_objects(self, source_objects):
         all_related_objs = []
         for obj in source_objects:
-            subset = getattr(obj, self.fieldname)
-            if self.is_multi:
-                subset = subset.all()
+            try:
+                subset = getattr(obj, self.fieldname)
+                if self.is_multi:
+                    subset = subset.all()
+                else:
+                    subset = [] if subset is None else [subset]
+            except self.target_model.DoesNotExist:
+                # Just skip this relation if there's nothing at the
+                # other end.
+                pass
             else:
-                subset = [] if subset is None else [subset]               
-            all_related_objs += subset
+                all_related_objs += subset
         return list(set(all_related_objs))
 
 
@@ -285,7 +295,7 @@ def trace_branches(model, orig_model=None, brfields=None, cache=None):
     """
     tracing, orig_model = [], orig_model or model
     meta = model._meta
-    relfields = [f for f in meta.fields if f.rel] + meta.many_to_many
+    relfields = [f for f in meta.fields if f.rel] + [f for f in meta.many_to_many]
 
     for field in relfields:
         cache = cache or []
@@ -317,4 +327,3 @@ def harvest(trees, into=None, tree_qsets=None):
     for tree in trees:
         bucket = tree.pick(into=bucket, qset=tree_qsets.get(tree, None))
     return bucket
-
