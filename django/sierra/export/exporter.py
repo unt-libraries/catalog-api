@@ -22,6 +22,7 @@ from utils import helpers
 from utils import dict_merge
 from base import models as sierra_models
 from .models import ExportInstance, ExportType, Status
+from .tasks import SierraExplicitKeyBundler
 
 
 class ExportError(Exception):
@@ -144,6 +145,17 @@ class Exporter(object):
         # set up our loggers for this process
         self.logger = logging.getLogger('exporter.file')
         self.console_logger = logging.getLogger('sierra.custom')
+
+    @property
+    def bundler(self):
+        """
+        Get an object representing the strategy to use to pack/sequence
+        `manifest` lists when running export jobs of this type. This is
+        implemented as a property so that exporters can use different
+        packing strategies depending on factors such as export type,
+        filter details, etc.
+        """
+        return SierraExplicitKeyBundler()
 
     def _base_get_records(self, model, filters, is_deletion=False,
                           select_related=None, prefetch_related=None,
