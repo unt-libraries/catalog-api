@@ -6,6 +6,10 @@ from unipath import Path
 import dotenv
 
 from django.core.exceptions import ImproperlyConfigured
+from celery.concurrency import asynpool
+
+
+asynpool.PROC_ALIVE_TIMEOUT = 60.0
 
 
 def get_env_variable(var_name, default=None):
@@ -264,6 +268,11 @@ LOGGING = {
         'exporter.file': {
             'handlers': ['export_file'],
             'level': 'INFO',
+        },
+        'pysolr': {
+            'handlers': ['export_file'],
+            'level': 'ERROR',
+            'propagate': False,
         }
     }
 }
