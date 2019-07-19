@@ -1,6 +1,8 @@
 """
 Provides Django queryset functionality on top of Solr search results.
 """
+
+from __future__ import unicode_literals
 import re
 import copy
 from datetime import datetime
@@ -197,7 +199,7 @@ class Queryset(object):
             val = '{}T{}Z'.format(date_str, time_str)
         else:
             val = re.sub(r'([ +\-!(){}\[\]\^"~*?:\\/]|&&|\|\|)', r'\\\1',
-                         str(val))
+                         unicode(val))
         return val
 
     def _compile_filter_args(self, filter_args):
