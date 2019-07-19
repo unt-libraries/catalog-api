@@ -79,10 +79,13 @@ def export_dispatch(instance_pk, export_filter, export_type, options):
     connections['default'].close_if_unusable_or_obsolete()
     exp = spawn_exporter(instance_pk, export_filter, export_type, options)
     args = (exp.instance.pk, exp.export_filter, exp.export_type, options)
-    job = delegate_batch.s([], *args, chunk_id='header')
+    init_vals = exp.initialize()
+    job = delegate_batch.s([], *args, chunk_id='header',
+                           cumulative_vals=init_vals)
     job.link_error(do_final_cleanup.s(*args, status='errors',
                                       delegate_error=True,
-                                      chunk_id='error-callback'))
+                                      chunk_id='error-callback',
+                                      cumulative_vals=init_vals))
     job.apply_async()
 
 
@@ -113,43 +116,48 @@ def optimize():
 class RecordSetBundler(object):
     """
     Helper class for defining exactly how sets of records should be
-    packed into manifests and bundles, e.g. for management via a
-    JobPlan.
+    packed into bundles for management via a JobPlan.
     """
 
-    def prep_manifest(self, qset):
+    def pack(self, queryset, size):
         """
-        Prepare a job manifest given a queryset (or list of records).
-        """
-        raise NotImplementedError()
-
-    def pack(self, manifest, start, size):
-        """
-        Pack a portion of the supplied `manifest` into a bundle, given
-        a `start` index and maximum `size` for the bundle.
+        Pack the supplied `queryset` into a series of bundles, given
+        the maximum `size` for each bundle. Should return an iterable
+        (or yield a generator).
         """
         raise NotImplementedError()
 
     def unpack(self, bundle, all_recs):
         """
         Given a queryset (`all_recs`) and a data structure representing
-        a manifest bundle--return the qset for that bundle.
-        """
-        raise NotImplementedError()
-
-    def get_manifest_count(self, manifest):
-        """
-        Return the number of qset records that the given manifest
-        represents or contains.
+        a single packed bundle--return the qset for that bundle.
         """
         raise NotImplementedError()
 
     def get_bundle_count(self, bundle):
         """
-        Return the number of qset records that the given manifest
-        bundle represents or contains.
+        Return the number of qset records that the given bundle
+        represents or contains.
         """
-        raise NotImplementedError()
+        return len(bundle)
+
+    def get_bundle_offset(self, bundle, part_num, size):
+        """
+        Return the (0-based) index offset for a particular bundle,
+        given the `bundle` itself, the 0-based part_num index, and the
+        max chunk `size`.
+        """
+        return part_num * size
+
+    def get_bundle_label(self, bundle):
+        """
+        Return a string representing the label for a bundle created via
+        this bundler--used when generating labels in the celery logs.
+        Default is 'records'. Should be a noun--whatever type of thing
+        is being packed/unpacked, and should make sense in context of
+        a sentence like, "Now processing {records} 1-2500."
+        """
+        return 'records'
 
 
 class SierraExplicitKeyBundler(RecordSetBundler):
@@ -162,65 +170,51 @@ class SierraExplicitKeyBundler(RecordSetBundler):
             return qset.order_by('record_last_updated_gmt', 'pk')
         return qset.order_by('pk')
 
-    def prep_manifest(self, qset):
-        sorted_qset = self.apply_sort(qset)
+    def pack(self, queryset, size):
+        sorted_qset = self.apply_sort(queryset)
         manifest = [r['pk'] for r in sorted_qset.values('pk')]
-        return manifest
-
-    def pack(self, manifest, start, size):
-        bundle = manifest[start:start+size]
-        return bundle
+        for start in range(0, len(manifest), size):
+            yield manifest[start:start+size]
 
     def unpack(self, bundle, all_recs):
         sorted_qset = self.apply_sort(all_recs)
         return sorted_qset.filter(pk__in=bundle)
-
-    def get_manifest_count(self, manifest):
-        return len(manifest)
-
-    def get_bundle_count(self, bundle):
-        return len(bundle)
 
 
 class SolrKeyRangeBundler(RecordSetBundler):
 
     def __init__(self, id_field):
         self.id_field = id_field
-        super(SolrKeyRangePacker, self).__init__()
+        super(SolrKeyRangeBundler, self).__init__()
 
     def apply_sort(self, qset):
         return qset.order_by(self.id_field)
 
     def get_id_by_indexnum(self, qset, indexnum):
         id_f = self.id_field
-        prepped = apply_sort(qset).set_raw_params({'fl': id_f})
+        prepped = self.apply_sort(qset).set_raw_params({'fl': id_f})
         prepped.page_by = 1
         return prepped[indexnum][id_f]
 
-    def prep_manifest(self, qset):
-        return qset
-
-    def pack(self, manifest, start, size):
-        total = manifest.count()
-        bundle_count = size if total > start + size else total - start
-        start_id = self.get_id_by_indexnum(manifest, start)
-        end_id = self.get_id_by_indexnum(manifest, start + bundle_count - 1)
-        return (start_id, end_id, bundle_count)
+    def pack(self, queryset, size):
+        total = queryset.count()
+        for start in range(0, total, size):
+            bundle_count = size if total > start + size else total - start
+            end = start + bundle_count - 1
+            start_id = self.get_id_by_indexnum(queryset, start)
+            end_id = self.get_id_by_indexnum(queryset, end)
+            yield {'start': start_id, 'end': end_id, 'count': bundle_count}
 
     def unpack(self, bundle, all_recs):
         idf = self.id_field
-        start_id, end_id, count = bundle
-        filter_params = {'{}__gte'.format(idf): start_id,
-                         '{}__lte'.format(idf): end_id}
+        filter_params = {'{}__gte'.format(idf): bundle['start_id'],
+                         '{}__lte'.format(idf): bundle['end_id']}
         qs = self.apply_sort(all_recs).filter(**filter_params)
-        qs.page_by = count
+        qs.page_by = bundle['count']
         return qs
 
-    def get_manifest_count(self, manifest):
-        return manifest.count()
-
     def get_bundle_count(self, bundle):
-        return bundle[2]
+        return bundle['count']
 
 
 class JobPlan(object):
@@ -277,12 +271,20 @@ class JobPlan(object):
     def get_method_for_operation(self, exp, op):
         return exp.export_records if op == 'export' else exp.delete_records
 
-    def get_chunk_record_range_details(self, chunk_id):
+    def get_chunk_label(self, chunk_id):
         info = self.get_chunk_info(chunk_id)
-        count = self.bundler.get_bundle_count(self.get_bundle(chunk_id))
-        start = (info['part_num'] * self.chunk_sizes[info['op']]) + 1
+        bundle = self.get_bundle(chunk_id)
+        count = self.bundler.get_bundle_count(bundle)
+        bundle_label = self.bundler.get_bundle_label(bundle)
+        size = self.chunk_sizes[info['op']]
+        start = self.bundler.get_bundle_offset(bundle, info['part_num'],
+                                               size) + 1
         end = start + count - 1
-        return start, end, info['op'], info['rset_name']
+        chunk_label = '{} {} - {} for {}'.format(bundle_label, start, end,
+                                                 info['op'])
+        if info['rset_name'] is not None:
+            chunk_label = '`{}` {}'.format(info['rset_name'], chunk_label)
+        return chunk_label
 
     def _get_reg_obj(self):
         return RedisObject(self.redis_job_reg_key, self.instance_pk)
@@ -331,7 +333,7 @@ class JobPlan(object):
         total_recs_by_op_and_rset = {op: {} for op in self.operations}
         total_chunks_by_op = {op: 0 for op in self.operations}
 
-        for bt_id, ch_id, op, name, count, bundle in self.pack_records(exp):
+        for (bt_id, ch_id, op, name, count, bundle) in self.pack_records(exp):
             self._registry[bt_id] = self._registry.get(bt_id, [])
             self._registry[bt_id].append(ch_id)
             chunk_obj = self._get_chunk_obj(ch_id)
@@ -365,13 +367,10 @@ class JobPlan(object):
             for name, qs in self.get_recordsets_iterable(recs):
                 pt_num = 0
                 if qs is not None:
-                    manifest = self.bundler.prep_manifest(qs)
-                    mcount = self.bundler.get_manifest_count(manifest)
-                    for i in range(0, mcount, chunk_size):
+                    for bundle in self.bundler.pack(qs, chunk_size):
                         bt_id = self.get_batch_id(bt_num)
                         ch_id = self.get_chunk_id(bt_num, ch_num, op, name,
                                                   pt_num)
-                        bundle = self.bundler.pack(manifest, i, chunk_size)
                         bundle_count = self.bundler.get_bundle_count(bundle)
                         yield (bt_id, ch_id, op, name, bundle_count, bundle)
                         pt_num += 1
@@ -410,7 +409,7 @@ class JobPlan(object):
             chunk_size = self.chunk_sizes[op]
             lines.extend([
                 '`{}`: {} {}'.format(op, rec_count, rec_label),
-                '`{}`: {} {} ({} records per chunk)'
+                '`{}`: {} {} (chunk size is {})'
                     ''.format(op, chunk_count, chunk_label, chunk_size),
             ])
             for rset_name, rset_count in op_totals.items():
@@ -636,13 +635,11 @@ def do_export_chunk(cumulative_vals, instance_pk, export_filter, export_type,
     """
     exp = spawn_exporter(instance_pk, export_filter, export_type, options)
     plan = JobPlan(exp)
-    start, end, op, rset_name = plan.get_chunk_record_range_details(chunk_id)
-    chunk_label = 'records {} - {} for {}'.format(start, end, op)
-    if rset_name is not None:
-        chunk_label = '`{}` {}'.format(rset_name, chunk_label)
+    info = plan.get_chunk_info(chunk_id)
+    chunk_label = plan.get_chunk_label(chunk_id)
     exp.log('Info', 'Starting {} ({}).'.format(chunk_id, chunk_label))
     chunk_records = plan.unpack_chunk(exp, chunk_id)
-    vals = plan.get_method_for_operation(exp, op)(chunk_records)
+    vals = plan.get_method_for_operation(exp, info['op'])(chunk_records)
 
     exp.log('Info', 'Finished {} ({}).'.format(chunk_id, chunk_label))
     return vals
