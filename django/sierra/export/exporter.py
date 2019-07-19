@@ -338,6 +338,15 @@ class Exporter(object):
                 vals = dict_merge(vals, item)
         return vals or None
 
+    def initialize(self):
+        """
+        Override this method in your subclasses if you need to provide
+        something that runs once at the start of an export job, e.g.
+        for initialization purposes. You may return a `vals` structure
+        with initial values, if needed.
+        """
+        pass
+
     def final_callback(self, vals=None, status='success'):
         """
         Override this method in your subclasses if you need to provide
@@ -418,6 +427,11 @@ class ToSolrExporter(Exporter):
         obj_info = '' if obj_str == 'WARNING' else '{} '.format(obj_str)
         msg = '{} update skipped due to error: {}'.format(obj_info, error)
         self.log('Warning', msg)
+
+    def initialize(self):
+        if self.export_filter == 'full_export':
+            for index in self.indexes.values():
+                index.conn().delete(q='*:*', commit=False)
 
     def export_records(self, records):
         for index in self.indexes.values():
@@ -603,6 +617,16 @@ class CompoundMixin(object):
                 vals[name] = self.children[name].compile_vals([cvals, rvals])
         return vals
 
+    def do_initialize_on_children(self, which_children=None):
+        """
+        This is a helper method that triggers `initialize` on 1+
+        children.
+        """
+        vals = {}
+        for child in which_children or self.children.values():
+            vals[child._config.name] = child.initialize()
+        return vals
+
     def do_final_callback_on_children(self, vals, status, which_children=None):
         """
         This is a helper method that triggers the final_callback method
@@ -649,6 +673,9 @@ class BatchExporter(CompoundMixin, Exporter):
 
     def compile_vals(self, results):
         return self.compile_vals_from_children(results)
+
+    def initialize(self):
+        return self.do_initialize_on_children()
 
     def final_callback(self, vals=None, status='success'):
         self.do_final_callback_on_children(vals, status)
@@ -773,6 +800,9 @@ class AttachedRecordExporter(CompoundMixin, Exporter):
         """
         return self.do_op_on_children('delete_records', records,
                                       which_children=[self.main_child])
+
+    def initialize(self):
+        return self.do_initialize_on_children()
 
     def final_callback(self, vals=None, status='success'):
         self.do_final_callback_on_children(vals, status)
