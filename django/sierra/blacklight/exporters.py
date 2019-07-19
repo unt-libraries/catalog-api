@@ -3,7 +3,9 @@ Exporters module for catalog-api `blacklight` app.
 """
 
 from __future__ import unicode_literals
-from export.exporter import Exporter, CompoundMixin
+from export.exporter import Exporter, CompoundMixin, ToSolrExporter
+from utils import solr
+from export.tasks import SolrKeyRangeBundler
 
 
 class SameRecSetMultiExporter(CompoundMixin, Exporter):
@@ -66,3 +68,57 @@ class SameRecSetMultiExporter(CompoundMixin, Exporter):
 
     def final_callback(self, vals=None, status='success'):
         self.do_final_callback_on_children(vals, status)
+
+
+class FromSolrMixin(object):
+    """
+    This is a mixin to use with Exporter classes that implements a
+    `get_filtered_queryset` method for grabbing records from a Solr
+    core or index instead of via the Django ORM.
+    """
+    parallel = False
+    model = None
+    source_solr_conn = None
+    deletion_filter = None
+    solr_id_field = 'id'
+    source_fields = tuple()
+
+    @property
+    def bundler(self):
+        return SolrKeyRangeBundler(self.solr_id_field)
+
+    @staticmethod
+    def filter_by(solr_qs, export_filter, options=None):
+        """
+        For now we aren't going to need to actually filter, so we just
+        return the queryset.
+        """
+        return solr_qs
+
+    def get_filtered_queryset(self, export_filter, filter_options,
+                              other_filters=None):
+        """
+        Utility method for fetching a filtered queryset based on the
+        provided args and kwargs. Returns a utils.solr.Queryset, which
+        can be used interchangeably with ORM QuerySets for many common
+        filtering operations.
+        """
+        qs = solr.Queryset(using=self.source_solr_conn)
+        qs = self.filter_by(qs, export_filter, options=filter_options)
+        if other_filters is not None:
+            qs = qs.filter(**other_filters)
+        if self.source_fields:
+            fl = set((self.solr_id_field, '_version_') + self.source_fields)
+            qs = qs.set_raw_params({'fl': list(fl)})
+        return qs
+
+    def get_records(self, prefetch=True):
+        options = self.options.copy()
+        options['is_deletion'] = False
+        return self.get_filtered_queryset(self.export_filter, options)
+
+    def get_deletions(self):
+        """
+        For now we don't need to do deletions, so just return None.
+        """
+        return None
