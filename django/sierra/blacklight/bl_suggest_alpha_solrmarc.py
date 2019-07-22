@@ -36,7 +36,7 @@ def parse_name(name):
     """
     Simple method for parsing an inverted `name` heading string.
     """
-    match = re.match(r'^(.*?)([,;:]\s)(.*?)((\s*[\d,;:]\s*.*)?$)', name)
+    match = re.match(r'^([^()\[\]{}]*?)(,\s)(.*?)((\s*[\d,;:.]\s*.*)?$)', name)
     try:
         sur, given, remainder = match.group(1), match.group(3), match.group(4)
     except AttributeError:
@@ -116,9 +116,8 @@ class SuggestBuilder(object):
 
     You may also populate `source_facet_fields` with a list of field
     names from content records that contain facets that you want
-    recorded as '_fs' facets in the resulting suggest records. These
-    are used for narrowing suggestions based on what content facets are
-    selected.
+    recorded in the resulting suggest records. These are used for
+    narrowing suggestions based on what content facets are selected.
 
     See the `SuggestBuilder.HeadingExtractor` docstring for more info
     about how to implement that class. See `BlSuggestBuilder` for a
@@ -219,29 +218,14 @@ class SuggestBuilder(object):
         )
 
     @property
-    def fs_field_by_source_facet(self):
-        """
-        Return a dict mapping all `source_facet_fields` from content
-        records to the appropriate '_fs' field. Keys are source facet
-        fields and values are fs fields.
-        """
-        try:
-            return self._fs_field_by_source_facet
-        except AttributeError:
-            self._fs_field_by_source_facet = {
-                f: '{}_fs'.format(f) for f in self.source_facet_fields
-            }
-            return self._fs_field_by_source_facet
-
-    @property
     def multi_fields(self):
         """
         Return a set of suggest record field names that are multi-
         valued.
         """
-        fs_fields = tuple(self.fs_field_by_source_facet.values())
-        return set(fs_fields + ('heading_variations', 'more_context',
-                                'heading_keyphrases', 'this_facet_values'))
+        f_fields = tuple(self.source_facet_fields)
+        return set(f_fields + ('heading_variations', 'more_context',
+                               'heading_keyphrases', 'this_facet_values'))
 
     @property
     def all_source_fields(self):
@@ -331,13 +315,13 @@ class SuggestBuilder(object):
 
     def _add_facets_from_bib(self, key, bib):
         """
-        Add '_fs' facet values from the provided `bib` content record
-        to the suggest record with the given `key` (i.e. id).
+        Add facet values from the provided `bib` content record to the
+        suggest record with the given `key` (i.e. id).
         """
-        for source_field, fs_field in self.fs_field_by_source_facet.items():
-            self.srecs[key][fs_field] = self.srecs[key].get(fs_field, set())
-            for fval in bib.get(source_field, []):
-                self.srecs[key][fs_field].add(fval)
+        for f_field in self.source_facet_fields:
+            self.srecs[key][f_field] = self.srecs[key].get(f_field, set())
+            for fval in bib.get(f_field, []):
+                self.srecs[key][f_field].add(fval)
 
     def _build_suggest_rec_for_heading(self, bib, source_field, heading):
         """
@@ -527,10 +511,17 @@ class BlSuggestBuilder(SuggestBuilder):
         Build auto-suggest records for subject headings, from the
         `public_subject_facet` field in the bib Solr record.
 
-        Subjects are indexed as-is.
+        Subjects are indexed as-is; for subjects that happen to be name
+        headings, we create name variations like we do for authors.
         """
         htype = 'subject'
         heading_source_fields = tuple(['public_subject_facet'])
+
+        def extract_info(self, bib, source_field, heading):
+            parent = BlSuggestBuilder.SubjectExtractor
+            srec = super(parent, self).extract_info(bib, source_field, heading)
+            srec['heading_variations'] = make_name_variations(heading)
+            return srec
 
     class GenreExtractor(SuggestBuilder.HeadingExtractor):
         """
@@ -608,7 +599,7 @@ class BlSuggestBuilder(SuggestBuilder):
 
     def determine_thing_type_for_title(self, srec):
         for label, mtype_set in self.title_thing_type_defs.items():
-            if srec['material_type_fs'] - mtype_set == set([]):
+            if srec['material_type'] - mtype_set == set([]):
                 return label
         return 'general_work'
 

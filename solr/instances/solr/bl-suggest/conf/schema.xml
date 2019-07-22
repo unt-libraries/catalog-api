@@ -111,14 +111,12 @@
          be used as a weight for returning suggestions -->
     <field name="record_count" type="integer" indexed="true" stored="true" required="true" multiValued="false" />
 
-    <!-- We use one dynamic field to store facet string values: all facet values for all records that use this
-         heading are applied to the appropriate facet field; that way we can filter suggestions based on currently
-         selected facets. The dynamic field name is composed as `{record_fieldname}_fs`. E.g., for the field
-         `public_author_facet` from the original record, the fieldname here becomes `public_author_facet_fs`
-         ("fs" for facet string).
+    <!-- We use one dynamic catch-all field to store facet string values from the main content index; all facet
+         values for all records that use this heading are applied to the appropriate facet field so we can filter
+         suggestions based on currently selected facets.
      -->
 
-    <dynamicField name="*_fs" type="string" indexed="true" stored="false" multiValued="true" docValues="true" />
+    <dynamicField name="*" type="string" indexed="true" stored="false" multiValued="true" docValues="true" />
 
     <!-- <copyField source="heading" dest="heading_normalized" /> -->
 
