@@ -75,6 +75,8 @@ class BibsToAlphaSolrmarc(ToSolrExporter):
 
         def delete(self, using=None, commit=True, queryset=None):
             self.save_and_suppress_records(using, queryset)
+            super(BibsToAlphaSolrmarc.AlphaSmIndex, self).delete(using, commit,
+                                                                 queryset)
 
     app_name = 'blacklight'
     IndexCfgEntry = ToSolrExporter.Index
