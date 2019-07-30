@@ -154,11 +154,6 @@ class BuildAlphaSolrmarcSuggest(FromSolrMixin, ToSolrExporter):
             ct = sum(len(v) for v in fr.facets['facet_fields'].values()) / 2
             return ct
 
-        def set_base_qs_params(self, qs):
-            params = {'facet': 'true', 'rows': 0, 'facet.sort': 'index',
-                      'facet.mincount': 1}
-            return qs.set_raw_params(params)
-
         def pack(self, queryset, size):
             """
             Each packed bundle is a dict containing the applicable
@@ -166,10 +161,10 @@ class BuildAlphaSolrmarcSuggest(FromSolrMixin, ToSolrExporter):
             for the page of facet-field results to scrape, and the
             number of records and record offset for logging purposes.
             """
-            qs = self.set_base_qs_params(queryset)
             for facet_field in self.heading_fields:
                 start, rec_offset, numrecs = 0, 0, 1
-                qs = qs.set_raw_params({'facet.field': facet_field})
+                qs = queryset.set_raw_params({'facet.field': facet_field,
+                                              'rows': 0})
                 while numrecs > 0:
                     qs = qs.set_raw_params({'facet.limit': size,
                                             'facet.offset': start})
@@ -203,6 +198,7 @@ class BuildAlphaSolrmarcSuggest(FromSolrMixin, ToSolrExporter):
         methods (to mimic basic Haystack index functionality).
         """
         id_field = 'id'
+        builder_class = suggest.BlSuggestBuilder
 
         def __init__(self, using='default'):
             self.using = using
@@ -239,7 +235,7 @@ class BuildAlphaSolrmarcSuggest(FromSolrMixin, ToSolrExporter):
             have been suppressed and the record is queued for deletion.
             Otherwise it's queued for update. 
             """
-            builder = suggest.BlSuggestBuilder()
+            builder = self.builder_class()
             content_qs = queryset.set_raw_params({'facet': 'false',
                                                   'rows': 10000})
             content_qs._search_params['fq'] = []
@@ -302,6 +298,13 @@ class BuildAlphaSolrmarcSuggest(FromSolrMixin, ToSolrExporter):
             else:
                 return solr_qs.filter(timestamp__gte=latest.timestamp)
         return solr_qs
+
+    def get_records(self, prefetch=True):
+        hfields = suggest.BlSuggestBuilder().all_heading_source_fields
+        params = {'facet': 'true', 'facet.sort': 'index', 'facet.limit': -1,
+                  'facet.mincount': 1, 'facet.field': hfields}
+        qset = super(BuildAlphaSolrmarcSuggest, self).get_records(prefetch)
+        return qset.set_raw_params(params)
 
     def final_callback(self, vals=None, status='success'):
         """

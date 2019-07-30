@@ -3,7 +3,9 @@ Tests the `blacklight.exporters_alpha_solrmarc` classes.
 """
 
 import pytest
-
+from datetime import datetime
+import pytz
+import random
 
 # FIXTURES AND TEST DATA
 # Fixtures used in the below tests can be found in
@@ -46,7 +48,8 @@ def do_commit():
 
 @pytest.mark.parametrize('et_code', [
     'BibsToAlphaSolrmarc',
-    'BibsToAlphaSmAndAttachedToSolr'
+    'BibsToAlphaSmAndAttachedToSolr',
+    'BuildAlphaSolrmarcSuggest'
 ])
 def test_exporter_class_versions(et_code, new_exporter, asm_exporter_class):
     """
@@ -86,6 +89,35 @@ def test_asm_export_get_records(et_code, rset_code, asm_exporter_class,
     assert set(records) == set(expected_recs)
 
 
+@pytest.mark.exports
+@pytest.mark.get_records
+def test_buildsuggest_get_records(asm_exporter_class, new_exporter,
+                                  bl_solr_assembler):
+    """
+    The `get_records` method for the `BuildAlphaSolrmarcSuggest`
+    exporter should return the expected recordset. Currently the
+    `full_export` and `last_export` filter types are the only ones that
+    are supported, so both are tested.
+    """
+    expclass = asm_exporter_class('BuildAlphaSolrmarcSuggest')
+
+    gen_a = bl_solr_assembler.gen_factory.type('date', mx=(2015, 1, 1, 0, 0))
+    recs_a = bl_solr_assembler.make('alphasolrmarc', 10, timestamp=gen_a)
+    bl_solr_assembler.save('alphasolrmarc')
+    full_exp = new_exporter(expclass, 'full_export', 'success', {})
+    full_exp.instance.timestamp = datetime(2015, 1, 1, 12, 0, tzinfo=pytz.utc)
+    full_exp.instance.save()
+    full_recs = full_exp.get_records()
+    assert set([r['id'] for r in full_recs]) == set([r['id'] for r in recs_a])
+    
+    gen_b = bl_solr_assembler.gen_factory.type('date', mn=(2015, 1, 2, 0, 0))
+    recs_b = bl_solr_assembler.make('alphasolrmarc', 10, timestamp=gen_b)
+    bl_solr_assembler.save('alphasolrmarc')
+    last_exp = new_exporter(expclass, 'last_export', 'waiting', options={})
+    last_recs = last_exp.get_records()
+    assert set([r['id'] for r in last_recs]) == set([r['id'] for r in recs_b])
+
+
 @pytest.mark.deletions
 @pytest.mark.get_records
 @pytest.mark.parametrize('et_code, rset_code', [
@@ -102,6 +134,22 @@ def test_asm_export_get_deletions(et_code, rset_code, asm_exporter_class,
     exporter = new_exporter(expclass, 'full_export', 'waiting')
     records = exporter.get_deletions()
     assert set(records) == set(record_sets[rset_code])
+
+
+@pytest.mark.deletions
+@pytest.mark.get_records
+def test_buildsuggest_get_deletions(asm_exporter_class, new_exporter,
+                                    bl_solr_assembler):
+    """
+    The `get_deletions` method for the `BuildAlphaSolrmarcSuggest`
+    exporter should return None, no matter what. (Deletions aren't
+    handled this way for this exporter.)
+    """
+    expclass = asm_exporter_class('BuildAlphaSolrmarcSuggest')
+    exporter = new_exporter(expclass, 'full_export', 'success', {})
+    bl_solr_assembler.make('alphasolrmarc', 10)
+    bl_solr_assembler.save('alphasolrmarc')
+    assert exporter.get_deletions() is None
 
 
 @pytest.mark.exports
@@ -168,6 +216,66 @@ def test_bibstoasm_export_records(asm_exporter_class, record_sets,
     for supkey in suprecs:
         assert rdict[supkey]['suppressed']
         assert len(rdict[supkey]) == 2
+
+
+@pytest.mark.exports
+@pytest.mark.do_export
+def test_buildsuggest_export_records(asm_exporter_class,
+                                     new_exporter, solr_conns,
+                                     solr_search, bl_solr_assembler):
+    """
+    The `BuildAlphaSolrmarcSuggest` exporter should use the "suggest"
+    index `builder_class` object to construct a set of suggest records
+    to load into Solr. For headings where all records that have that
+    heading are suppressed, the heading should not be included in the
+    index.
+    """
+    bad_creator = 'Smith, First'
+    good_creators = ['Jones, Second', 'Thompson, Third', 'Donovan, Fourth']
+    creator_choices = [bad_creator] + good_creators
+    creator_gen = bl_solr_assembler.gen_factory.choice(creator_choices)
+
+    def suppressed_gen(record):
+        if record['creator'] == bad_creator:
+            return True
+        return random.choice([False, False, True])
+
+    recs = bl_solr_assembler.make('alphasolrmarc', 50, creator=creator_gen,
+                                  suppressed=suppressed_gen)
+    bl_solr_assembler.save('alphasolrmarc')
+
+    expclass = asm_exporter_class('BuildAlphaSolrmarcSuggest')
+    exporter = new_exporter(expclass, 'full_export', 'waiting')
+    exporter.export_records(exporter.get_records())
+    exporter.commit_indexes()
+
+    index = exporter.indexes['suggest']
+    builder = index.builder_class()
+    srecs = builder.extract_suggest_recs(recs)
+
+    there = [r for r in srecs if r['record_count'] > 0]
+    not_there = [r for r in srecs if r['record_count'] == 0]
+
+    conn = solr_conns[getattr(index, 'using', 'default')]
+    results = solr_search(conn, '*')
+    rdict = {r['id']: r for r in results}
+    authors = {r['heading']: r for r in results
+               if r['heading_type'] == 'author'}
+
+    assert len(there) == len(rdict.keys())
+
+    for srec in there:
+        assert srec['id'] in rdict
+        assert srec['heading'] == rdict[srec['id']]['heading']
+
+    for srec in not_there:
+        assert srec['id'] not in rdict
+
+    assert bad_creator not in authors
+
+    for creator in good_creators:
+        assert creator in authors
+        assert authors[creator]['record_count'] > 1
 
 
 @pytest.mark.deletions

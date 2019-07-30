@@ -24,13 +24,54 @@ ALPHASOLRMARC_FIELDS = (
     'context_notes', 'summary_notes', 'toc_notes', 'era_terms', 'form_terms',
     'general_terms', 'genre_terms', 'geographic_terms', 'other_terms',
     'topic_terms', 'full_subjects', 'series', 'series_exact',
-    'series_creators', 'urls', 'url_labels', 'timestamp', 'text'
+    'series_creators', 'urls', 'url_labels', 'timestamp', 'public_title_facet',
+    'public_author_facet', 'public_series_facet', 'meetings_facet',
+    'public_subject_facet', 'geographic_terms_facet', 'era_terms_facet',
+    'public_genre_facet', 'publication_dates_facet', 'text'
 )
+
+# AlphaSolrmarc field specific gen functions
+
+def _combine_fields(record, fields):
+    """
+    Combine values from multiple fields into one list of values;
+    handles multi- and non-multi-valued fields, and deduplicates
+    values.
+    """
+    values = set()
+    for field in fields:
+        val = record.get(field, None)
+        if val is not None:
+            if isinstance(val, (list, set, tuple)):
+                values |= set(val)
+            else:
+                values.add(val)
+    return list(values) if values else None
+
+
+def public_title_facet(record):
+    fields = ('uniform_title', 'main_title', 'related_titles')
+    return _combine_fields(record, fields)
+
+
+def public_author_facet(record):
+    fields = ('creator', 'contributors', 'series_creators')
+    return _combine_fields(record, fields)
+
+
+def author_title_search(record):
+    author_titles = []
+    titles = record.get('related_titles', [])
+    for i, author in enumerate(record.get('contributors', [])):
+        try:
+            author_titles.append('{}. {}'.format(author, titles[i]))
+        except IndexError:
+            break
+    return author_titles or None
 
 
 ALPHASOLRMARC_GENS = (
     ('id', GENS(tp.auto_increment('b', 10000001))),
-    ('suppressed', GENS.static(False)),
     ('bib_location_codes', GENS(tp.multi(GENS.type('string', mn=1, mx=5,
                                                    alphabet=tp.LETTERS_LOWER),
                                          1, 3))),
@@ -70,7 +111,7 @@ ALPHASOLRMARC_GENS = (
     ('contributors', GENS(tp.chance(tp.multi(tp.random_agent(6, 3, 1), 1, 5),
                                     75))),
     ('statement_of_responsibility', GENS(tp.chance(tp.statement_of_resp, 80))),
-    ('author_title_search', GENS(tp.join_fields(['creator', 'main_title']))),
+    ('author_title_search', GENS(author_title_search)),
     ('publishers', GENS(tp.chance(tp.multi(tp.org_name_like, 1, 3), 70))),
     ('publication_dates', GENS(tp.chance(tp.multi(tp.year_like, 1, 3), 90))),
     ('publication_places', GENS(tp.chance(tp.multi(tp.place_like, 1, 3), 60))),
@@ -97,6 +138,16 @@ ALPHASOLRMARC_GENS = (
     ('timestamp', 'auto'),
     ('item_ids', None),
     ('item_record_numbers', None),
+    ('public_title_facet', GENS(public_title_facet)),
+    ('public_author_facet', GENS(public_author_facet)),
+    ('public_series_facet', GENS(tp.copy_field('series'))),
+    ('meetings_facet', GENS(tp.copy_field('meetings'))),
+    ('public_subject_facet', GENS(tp.copy_field('full_subjects'))),
+    ('geographic_terms_facet', GENS(tp.copy_field('geographic_terms'))),
+    ('era_terms_facet', GENS(tp.copy_field('era_terms'))),
+    ('public_genre_facet', GENS(tp.copy_field('genre_terms'))),
+    ('publication_dates_facet', GENS(tp.copy_field('publication_dates'))),
+    ('suppressed', GENS.static(False)),
     ('text', GENS(tp.join_fields([
         'id', 'material_type', 'bib_location_codes', 'item_location_codes',
         'formats', 'languages', 'isbn_numbers', 'issn_numbers', 'lccn_number',

@@ -604,8 +604,9 @@ class BlSuggestBuilder(SuggestBuilder):
         return 'general_work'
 
     def _finalize_suggest_rec(self, srec):
-        if srec['heading_type'] == 'title':
-            srec['thing_type'] = self.determine_thing_type_for_title(srec)
-        else:
-            srec['thing_type'] = srec['heading_type']
+        if srec['record_count']:
+            if srec['heading_type'] == 'title':
+                srec['thing_type'] = self.determine_thing_type_for_title(srec)
+            else:
+                srec['thing_type'] = srec['heading_type']
         return super(BlSuggestBuilder, self)._finalize_suggest_rec(srec)
