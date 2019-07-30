@@ -19,56 +19,70 @@ def schema():
     though from the Solr schema API. Irrelevant elements `stored`,
     `indexed`, and `required` are not included.
     """
-    return { 'fields': [
-        { 'name': 'haystack_id', 
-          'type': 'string',
-          'multiValued': False,
-          'uniqueKey': True },
-        { 'name': 'django_id', 
-          'type': 'string',
-          'multiValued': False },
-        { 'name': 'django_ct', 
-          'type': 'string',
-          'multiValued': False },
-        { 'name': 'code',
-          'type': 'string',
-          'multiValued': False },
-        { 'name': 'label',
-          'type': 'string',
-          'multiValued': False },
-        { 'name': 'type',
-          'type': 'string',
-          'multiValued': False },
-        { 'name': 'id',
-          'type': 'long',
-          'multiValued': False },
-        { 'name': 'creation_date',
-          'type': 'date',
-          'multiValued': False },
-        { 'name': 'title',
-          'type': 'text_en',
-          'multiValued': False },
-        { 'name': 'notes',
-          'type': 'text_en',
-          'multiValued': True },
-        { 'name': 'status_code',
-          'type': 'string',
-          'multiValued': False },
-        { 'name': 'children_ids',
-          'type': 'long',
-          'multiValued': True },
-        { 'name': 'children_codes',
-          'type': 'string',
-          'multiValued': True },
-        { 'name': 'parent_id',
-          'type': 'long',
-          'multiValued': False },
-        { 'name': 'parent_title',
-          'type': 'text_en',
-          'multiValued': False },
-        { 'name': 'suppressed',
-          'type': 'boolean',
-          'multiValued': False },
+    return {
+        'uniqueKey': 'haystack_id',
+        'fields': [
+            { 'name': 'haystack_id', 
+              'type': 'string',
+              'multiValued': False },
+            { 'name': 'django_id', 
+              'type': 'string',
+              'multiValued': False },
+            { 'name': 'django_ct', 
+              'type': 'string',
+              'multiValued': False },
+            { 'name': 'code',
+              'type': 'string',
+              'multiValued': False },
+            { 'name': 'label',
+              'type': 'string',
+              'multiValued': False },
+            { 'name': 'type',
+              'type': 'string',
+              'multiValued': False },
+            { 'name': 'id',
+              'type': 'long',
+              'multiValued': False },
+            { 'name': 'creation_date',
+              'type': 'date',
+              'multiValued': False },
+            { 'name': 'title',
+              'type': 'text_en',
+              'multiValued': False },
+            { 'name': 'notes',
+              'type': 'text_en',
+              'multiValued': True },
+            { 'name': 'status_code',
+              'type': 'string',
+              'multiValued': False },
+            { 'name': 'children_ids',
+              'type': 'long',
+              'multiValued': True },
+            { 'name': 'children_codes',
+              'type': 'string',
+              'multiValued': True },
+            { 'name': 'parent_id',
+              'type': 'long',
+              'multiValued': False },
+            { 'name': 'parent_title',
+              'type': 'text_en',
+              'multiValued': False },
+            { 'name': 'suppressed',
+              'type': 'boolean',
+              'multiValued': False } ],
+        'dynamicFields': [
+            { 'name': '*_unstem_search',
+              'type': 'textNoStem',
+              'multiValued': True },
+            { 'name': '*_display',
+              'type': 'string',
+              'multiValued': True },
+            { 'name': '*_search',
+              'type': 'string',
+              'multiValued': True },
+            { 'name': '*_facet',
+              'type': 'string',
+              'multiValued': True }
     ] }
 
 
@@ -101,14 +115,13 @@ def profile(schema, gen_factory):
     Pytest fixture function that generates and returns an appropriate
     `SolrProfile` object.
     """
-    def _profile(name='test', user_fields=None, inclusive=None,
-                 unique_fields=None, gens=None, default_field_gens=None,
-                 my_schema=None, solr_types=None):
+    def _profile(name='test', user_fields=None, unique_fields=None, gens=None,
+                 default_field_gens=None, my_schema=None, solr_types=None):
         gens = gens or gen_factory()
         my_schema = my_schema or schema
         return f.SolrProfile(name, schema=my_schema, user_fields=user_fields,
-                             inclusive=inclusive, unique_fields=unique_fields,
-                             gen_factory=gens, solr_types=solr_types,
+                             unique_fields=unique_fields, gen_factory=gens,
+                             solr_types=solr_types,
                              default_field_gens=default_field_gens)
     return _profile
 
@@ -396,7 +409,7 @@ def test_solrprofile_init_fields_structure(profile):
     correctly from the provided schema fields and return the correct
     structure.
     """
-    prof = profile('test', None, True, None)
+    prof = profile('test', None, None)
     assert prof.fields['haystack_id']['name'] == 'haystack_id'
     assert prof.fields['haystack_id']['is_key'] == True
     assert prof.fields['haystack_id']['type'] == 'string'
@@ -412,39 +425,32 @@ def test_solrprofile_init_fields_structure(profile):
 def test_solrprofile_init_fields_include_all(schema, profile):
     """
     Initializing a `SolrProfile` object should result in a field
-    structure that includes all schema fields when the `user_fields`
-    parameter is None and the `inclusive` parameter is either True or
-    False.
+    structure that includes all static schema fields when the
+    `user_fields` parameter is None.
     """
-    inclusive = profile('test', None, True, None)
-    not_inclusive = profile('test', None, False, None)
-    assert inclusive.fields == not_inclusive.fields
-    assert len(inclusive.fields) == len(schema['fields'])
+    assert len(profile().fields) == len(schema['fields'])
 
 
 def test_solrprofile_init_fields_include_selective(profile):
     """
     Initializing a `SolrProfile` object should result in a field
-    structure that includes only the provided list of user fields when
-    the `include` parameter is True.
+    structure that includes only the provided list of user fields.
     """
     user_fields = ['haystack_id', 'creation_date', 'code', 'label']
-    prof = profile('test', user_fields, True, None)
+    prof = profile('test', user_fields, None)
     assert len(prof.fields) == len(user_fields)
     assert all([fname in prof.fields for fname in user_fields])
 
 
-def test_solrprofile_init_fields_exclude_selective(schema, profile):
+def test_solrprofile_init_fields_include_dynamic(profile):
     """
     Initializing a `SolrProfile` object should result in a field
-    structure that excludes only the provided list of user fields when
-    the `include` parameter is False.
+    structure that includes fields matching defined dynamic fields.
     """
-    user_fields = ['haystack_id', 'creation_date', 'code', 'label']
-    prof = profile('test', user_fields, False, None)
-    exp = [f['name'] for f in schema['fields'] if f['name'] not in user_fields]
-    assert len(prof.fields) == len(exp)
-    assert all([fname in prof.fields for fname in exp])
+    user_fields = ['haystack_id', 'code', 'test_facet', 'test_display']
+    prof = profile('test', user_fields, None)
+    assert len(prof.fields) == len(user_fields)
+    assert all([fname in prof.fields for fname in user_fields])
 
 
 def test_solrprofile_init_fields_unique(profile):
@@ -454,7 +460,7 @@ def test_solrprofile_init_fields_unique(profile):
     in the provided `unique_fields` parameter.
     """
     unique_fields = ['haystack_id', 'code']
-    prof = profile('test', None, True, unique_fields)
+    prof = profile('test', None, unique_fields)
     assert all([prof.fields[fn]['unique'] == True for fn in unique_fields])
     assert all([prof.fields[fn]['unique'] == False for fn in prof.fields
                 if fn not in unique_fields])
@@ -466,7 +472,7 @@ def test_solrprofile_init_fields_multi_unique_error(profile):
     field that is both `multi` and `unique` should result in an error.
     """
     with pytest.raises(NotImplementedError):
-        prof = profile('test', ['notes'], True, ['notes'])
+        prof = profile('test', ['notes'], ['notes'])
 
 
 def test_solrprofile_init_fields_invalid_types_error(schema, profile,
@@ -495,10 +501,10 @@ def test_solrprofile_init_unused_fields_invalid_types_okay(schema, profile,
     included as part of the profile.
     """
     invalid_name, invalid_type = 'invalid', 'invalid'
+    fnames = [f['name'] for f in schema['fields']]
     schema['fields'].append({'name': invalid_name, 'type': invalid_type,
                              'multiValued': False})
-    prof = profile(user_fields=[invalid_name], inclusive=False,
-                   my_schema=schema)
+    prof = profile(user_fields=fnames, my_schema=schema)
     assert invalid_type not in solr_types
     assert invalid_name not in prof.fields
 
@@ -539,7 +545,7 @@ def test_solrfixturefactory_make_basic_fields(data_emitter, gen_factory,
     }
 
     gens = gen_factory(data_emitter(alphabet, defaults))
-    prof = profile('test', user_fields, True, None, gens)
+    prof = profile('test', user_fields, None, gens)
     factory = fixture_factory(prof)
     records = factory.make(1000)
 
@@ -567,7 +573,7 @@ def test_solrfixturefactory_make_multi_fields(profile, fixture_factory):
     SolrProfile object. For this test we use multi-valued fields.
     """
     user_fields = ('notes', 'children_ids')
-    prof = profile('test', user_fields, True)
+    prof = profile('test', user_fields)
     factory = fixture_factory(prof)
     records = factory.make(1000)
 
@@ -604,7 +610,7 @@ def test_solrfixturefactory_make_unique_fields(fields, defaults, attempted,
     """
     default_alphabet = list('abcdefghijklmnopqrstuvwxyz')
     gens = gen_factory(data_emitter(default_alphabet, defaults))
-    prof = profile('test', fields, True, fields, gens)
+    prof = profile('test', fields, fields, gens)
     factory = fixture_factory(prof)
     records = factory.make(attempted)
 
@@ -634,7 +640,7 @@ def test_solrfixturefactory_makemore(fields, unique, defaults, attempted,
     """
     default_alphabet = list('abcdefghijklmnopqrstuvwxyz')
     gens = gen_factory(data_emitter(default_alphabet, defaults))
-    prof = profile('test', fields, True, unique, gens)
+    prof = profile('test', fields, unique, gens)
     factory = fixture_factory(prof)
 
     attempted_first = int(expected / 2)
@@ -667,7 +673,7 @@ def test_solrfixturefactory_custom_gens(gen_factory, profile, fixture_factory):
     fields = ('haystack_id', 'django_ct', 'django_id', 'id', 'type', 'code',
               'creation_date', 'suppressed')
     unique = ('haystack_id', 'django_id', 'id', 'code')
-    prof = profile('test', fields, True, unique)
+    prof = profile('test', fields, unique)
     prof.set_field_gens(
         ('django_ct', gens.static('base.location')),
         ('django_id', gens.type('int', mn=1, mx=9999999999)),
@@ -749,7 +755,7 @@ def test_solrfixturefactory_fieldgen_precedence(profgen_fields, callgen_fields,
     callgen = gens.static(2)
     profgens = [(fname, profgen) for fname in profgen_fields]
     callgens = {fname: callgen for fname in callgen_fields}
-    prof = profile('test', fields, True, None, gens, profgens)
+    prof = profile('test', fields, None, gens, profgens)
     factory = fixture_factory(prof)
     records = factory.make(10, **callgens)
 
@@ -815,7 +821,7 @@ def test_solrfixturefactory_fieldgen_order(profgen_fields, auto_fields,
     profgens = [(fname, 'auto' if fname in auto_fields else countgen)
                 for fname in profgen_fields]
     callgens = {fname: countgen for fname in callgen_fields}
-    prof = profile('test', fields, True, None, gens, profgens)
+    prof = profile('test', fields, None, gens, profgens)
     factory = fixture_factory(prof)
     records = factory.make(100, **callgens)
 

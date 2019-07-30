@@ -212,7 +212,7 @@ class SolrTestDataAssemblerFactory(object):
             }
 
         def make_profile(self, rectype, conn=None, user_fields=None,
-                         inclusive=True, unique_fields=None, gen_factory=None,
+                         unique_fields=None, gen_factory=None,
                          solr_types=None, field_gens=None):
             """
             Generate a solr_factories.SolrProfile object using the
@@ -223,7 +223,7 @@ class SolrTestDataAssemblerFactory(object):
             solr_types = solr_types or self.default_solr_types
             field_gens = field_gens or tuple()
             profile = sf.SolrProfile(
-                rectype, conn, user_fields=user_fields, inclusive=inclusive,
+                rectype, conn, user_fields=user_fields,
                 unique_fields=unique_fields, solr_types=solr_types,
                 gen_factory=gen_factory, default_field_gens=field_gens
             )

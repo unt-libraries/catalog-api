@@ -6,6 +6,7 @@ import ujson
 import datetime
 import pytz
 import random
+import fnmatch
 from collections import OrderedDict
 
 
@@ -317,8 +318,8 @@ class SolrProfile(object):
     }
 
     def __init__(self, name, conn=None, schema=None, user_fields=None,
-                 inclusive=True, unique_fields=None, solr_types=None,
-                 gen_factory=None, default_field_gens=None):
+                 unique_fields=None, solr_types=None, gen_factory=None,
+                 default_field_gens=None):
         """
         Initialize a `SolrProfile` object. Lots of options.
 
@@ -329,13 +330,10 @@ class SolrProfile(object):
         will be grabbed automatically; `schema` overrides `conn` if
         both are provided. 
 
-        `user_fields`, `inclusive`: The first is a list of field names
-        (each of which should match with a field name in the schema);
-        if `inclusive` is True, then you're saying you want ONLY those
-        fields to be part of the profile, and if `inclusive` is False,
-        then you want EVERYTHING in the schema BUT those fields to be
-        part of the profile. Using the defaults of None and True
-        assumes you want ALL the [non-dynamic] fields in the schema.
+        `user_fields`: A list of field names (each of which should
+        match a field name (whether static or dynamic) in the schema).
+        Using the default of None assumes you want ALL the
+        [non-dynamic] fields in the schema.
 
         `unique_fields`: A list or tuple of field names (each of which
         should match with a field name in the schema) where values
@@ -366,23 +364,20 @@ class SolrProfile(object):
         self.gen_factory = gen_factory or SolrDataGenFactory()
         self.conn = conn
         schema = schema or self.fetch_schema(conn)
-
-        filtered_fields = self._filter_schema_fields(schema['fields'],
-                                                     user_fields, inclusive)
+        self.key_name = schema['uniqueKey']
+        filtered_fields = self._filter_schema_fields(schema, user_fields)
         self._check_schema_types(filtered_fields, solr_types)
         self.fields = {}
         for sf in filtered_fields:
             field = type(self).Field({
                 'name': sf['name'],
-                'is_key': sf.get('uniqueKey', False),
+                'is_key': sf['name'] == self.key_name,
                 'type': sf['type'],
                 'emtype': solr_types[sf['type']]['emtype'],
                 'pytype': solr_types[sf['type']]['pytype'],
                 'multi': sf.get('multiValued', False),
-                'unique': sf.get('uniqueKey', sf['name'] in unique_fields)
+                'unique': sf['name'] in list(unique_fields) + [self.key_name]
             }, gen_factory)
-            if field['is_key']:
-                self.key_name = field['name']
             self.fields[field['name']] = field
         self.name = name
         self.set_field_gens(*(default_field_gens or tuple()))
@@ -393,14 +388,32 @@ class SolrProfile(object):
         Fetch the Solr schema in JSON format via the provided pysolr
         connection object (`conn`).
         """
-        jsn = conn._send_request('get', 'schema/fields?wt=json')
-        return ujson.loads(jsn)
+        jsn = conn._send_request('get', 'schema?wt=json')
+        return ujson.loads(jsn)['schema']
 
-    def _filter_schema_fields(self, schema_fields, user_fields, inclusive):
-        user_fields = user_fields or []
-        inclusive = False if not user_fields else inclusive
-        return [sf for sf in schema_fields
-                if inclusive == (sf['name'] in user_fields)]
+    def _get_schema_field(self, schema_fields, name):
+        """
+        Return a dict from the Solr schema for a field matching `name`.
+        Returns the first match found, or None.
+        """
+        for field in schema_fields:
+            if fnmatch.fnmatch(name, field['name']):
+                field = field.copy()
+                field['name'] = name
+                return field
+        return None
+
+    def _filter_schema_fields(self, schema, user_fields):
+        if not user_fields:
+            return schema['fields']
+
+        schema_fields = schema['fields'] + schema.get('dynamicFields', [])
+        return_fields = []
+        for ufname in user_fields:
+            field = self._get_schema_field(schema_fields, ufname)
+            if field is not None:
+                return_fields.append(field)
+        return return_fields
 
     def _check_schema_types(self, schema_fields, solr_types):
         schema_types = set([field['type'] for field in schema_fields])
