@@ -17,13 +17,16 @@ from utils.helpers import NormalizedCallNumber
 GLOBAL_UNIQUE_FIELDS = ('django_id', 'code', 'id', 'record_number')
 SOLR_TYPES = {
   'string': {'pytype': unicode, 'emtype': 'string'},
+  'norm_string': {'pytype': unicode, 'emtype': 'string'},
   'alphaOnlySort': {'pytype': unicode, 'emtype': 'string'},
   'text_en': {'pytype': unicode, 'emtype': 'text'},
   'text': {'pytype': unicode, 'emtype': 'text'},
   'textNoStem': {'pytype': unicode, 'emtype': 'text'},
+  'stem_text': {'pytype': unicode, 'emtype': 'text'},
   'long': {'pytype': int, 'emtype': 'int'},
   'slong': {'pytype': int, 'emtype': 'int'},
   'int': {'pytype': int, 'emtype': 'int'},
+  'integer': {'pytype': int, 'emtype': 'int'},
   'date': {'pytype': datetime.datetime, 'emtype': 'date'},
   'boolean': {'pytype': bool, 'emtype': 'boolean'},
 }
