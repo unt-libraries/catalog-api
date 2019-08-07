@@ -460,7 +460,7 @@ class BlSuggestBuilder(SuggestBuilder):
 
             title_key = convert_punctuation(heading)
             display = truncate(heading, 75)
-            context, this_facet_values = set(), set()
+            context, this_facet_values, keyphrases = set(), set(), set()
 
             author = self._pull_author_from_author_title(heading, bib)
             if title_key in (utitle_key, mtitle_key):
@@ -471,16 +471,18 @@ class BlSuggestBuilder(SuggestBuilder):
                     context.add(bib.get('subtitle'))
 
             if author:
+                keyphrases.add(self.normalize_heading(heading))
                 heading = '{} {}'.format(heading, author)
                 display = self._add_author_to_display_title(author, display)
                 this_facet_values.add('public_author_facet:{}'.format(author))
 
             normalized_heading = self.normalize_heading(heading)
+            keyphrases.add(normalized_heading)
 
             srec = {
                 'heading': heading,
                 'heading_display': display,
-                'heading_keyphrases': set([normalized_heading]),
+                'heading_keyphrases': keyphrases,
                 'heading_sort': normalized_heading,
                 'more_context': context,
                 'this_facet_values': this_facet_values,
