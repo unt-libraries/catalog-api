@@ -177,11 +177,11 @@ class BuildAlphaSolrmarcSuggest(FromSolrMixin, ToSolrExporter):
                         rec_offset += numrecs
 
         def unpack(self, bundle, all_recs):
-            qs = self.set_base_qs_params(all_recs)
             page_params = {'facet.field': bundle['facet_field'],
                            'facet.offset': bundle['start'],
-                           'facet.limit': bundle['size']}
-            return qs.set_raw_params(page_params)
+                           'facet.limit': bundle['size'],
+                           'rows': 0}
+            return all_recs.set_raw_params(page_params)
 
         def get_bundle_count(self, bundle):
             return bundle['numrecs']
