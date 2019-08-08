@@ -428,11 +428,6 @@ class ToSolrExporter(Exporter):
         msg = '{} update skipped due to error: {}'.format(obj_info, error)
         self.log('Warning', msg)
 
-    def initialize(self):
-        if self.export_filter == 'full_export':
-            for index in self.indexes.values():
-                index.conn().delete(q='*:*', commit=False)
-
     def export_records(self, records):
         for index in self.indexes.values():
             index.do_update(records)

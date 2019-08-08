@@ -306,6 +306,11 @@ class BuildAlphaSolrmarcSuggest(FromSolrMixin, ToSolrExporter):
         qset = super(BuildAlphaSolrmarcSuggest, self).get_records(prefetch)
         return qset.set_raw_params(params)
 
+    def initialize(self):
+        if self.export_filter == 'full_export':
+            for index in self.indexes.values():
+                index.conn().delete(q='*:*', commit=False)
+
     def final_callback(self, vals=None, status='success'):
         """
         When this exporter is finished running, it needs to delete the
