@@ -457,7 +457,8 @@ class MetadataToSolrExporter(ToSolrExporter):
     class Index(ToSolrExporter.Index):
 
         def do_update(self, instance, records):
-            instance.reindex(commit=False, queryset=records)
+            if records:
+                instance.reindex(commit=False, queryset=records)
 
     index_config = tuple()
 
