@@ -1,7 +1,7 @@
-FROM python:2.7
+FROM python:2.7.16-stretch
 
 RUN apt-get update -qq && \
-    apt-get install -y libpq-dev python-dev mysql-client netcat openjdk-8-jre
+    apt-get install -y libpq-dev python-dev mariadb-client netcat openjdk-8-jre
 
 ARG userid=999
 ARG groupid=999
