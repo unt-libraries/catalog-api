@@ -34,5 +34,6 @@
     <core name="marc" instanceDir="marc" />
     <core name="libguides" instanceDir="libguides" />
     <core name="alpha-solrmarc" instanceDir="alpha-solrmarc" />
+    <core name="bl-suggest" instanceDir="bl-suggest" />
   </cores>
 </solr>

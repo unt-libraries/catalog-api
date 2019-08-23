@@ -14,7 +14,6 @@ from django.db import connections
 
 from celery import Task, shared_task, chord, chain, result
 
-from . import exporter
 from . import models as export_models
 from utils.redisobjs import RedisObject
 
@@ -80,10 +79,13 @@ def export_dispatch(instance_pk, export_filter, export_type, options):
     connections['default'].close_if_unusable_or_obsolete()
     exp = spawn_exporter(instance_pk, export_filter, export_type, options)
     args = (exp.instance.pk, exp.export_filter, exp.export_type, options)
-    job = delegate_batch.s([], *args, chunk_id='header')
+    init_vals = exp.initialize()
+    job = delegate_batch.s([], *args, chunk_id='header',
+                           cumulative_vals=init_vals)
     job.link_error(do_final_cleanup.s(*args, status='errors',
                                       delegate_error=True,
-                                      chunk_id='error-callback'))
+                                      chunk_id='error-callback',
+                                      cumulative_vals=init_vals))
     job.apply_async()
 
 
@@ -111,6 +113,110 @@ def optimize():
 
 # Export Workflow Components
 
+class RecordSetBundler(object):
+    """
+    Helper class for defining exactly how sets of records should be
+    packed into bundles for management via a JobPlan.
+    """
+
+    def pack(self, queryset, size):
+        """
+        Pack the supplied `queryset` into a series of bundles, given
+        the maximum `size` for each bundle. Should return an iterable
+        (or yield a generator).
+        """
+        raise NotImplementedError()
+
+    def unpack(self, bundle, all_recs):
+        """
+        Given a queryset (`all_recs`) and a data structure representing
+        a single packed bundle--return the qset for that bundle.
+        """
+        raise NotImplementedError()
+
+    def get_bundle_count(self, bundle):
+        """
+        Return the number of qset records that the given bundle
+        represents or contains.
+        """
+        return len(bundle)
+
+    def get_bundle_offset(self, bundle, part_num, size):
+        """
+        Return the (0-based) index offset for a particular bundle,
+        given the `bundle` itself, the 0-based part_num index, and the
+        max chunk `size`.
+        """
+        return part_num * size
+
+    def get_bundle_label(self, bundle):
+        """
+        Return a string representing the label for a bundle created via
+        this bundler--used when generating labels in the celery logs.
+        Default is 'records'. Should be a noun--whatever type of thing
+        is being packed/unpacked, and should make sense in context of
+        a sentence like, "Now processing {records} 1-2500."
+        """
+        return 'records'
+
+
+class SierraExplicitKeyBundler(RecordSetBundler):
+
+    def apply_sort(self, qset):
+        if hasattr(qset.model, 'record_metadata'):
+            return qset.order_by('record_metadata__record_last_updated_gmt',
+                                 'pk')
+        if hasattr(qset.model, 'record_last_updated_gmt'):
+            return qset.order_by('record_last_updated_gmt', 'pk')
+        return qset.order_by('pk')
+
+    def pack(self, queryset, size):
+        sorted_qset = self.apply_sort(queryset)
+        manifest = [r['pk'] for r in sorted_qset.values('pk')]
+        for start in range(0, len(manifest), size):
+            yield manifest[start:start+size]
+
+    def unpack(self, bundle, all_recs):
+        sorted_qset = self.apply_sort(all_recs)
+        return sorted_qset.filter(pk__in=bundle)
+
+
+class SolrKeyRangeBundler(RecordSetBundler):
+
+    def __init__(self, id_field):
+        self.id_field = id_field
+        super(SolrKeyRangeBundler, self).__init__()
+
+    def apply_sort(self, qset):
+        return qset.order_by(self.id_field)
+
+    def get_id_by_indexnum(self, qset, indexnum):
+        id_f = self.id_field
+        prepped = self.apply_sort(qset).set_raw_params({'fl': id_f})
+        prepped.page_by = 1
+        return prepped[indexnum][id_f]
+
+    def pack(self, queryset, size):
+        total = queryset.count()
+        for start in range(0, total, size):
+            bundle_count = size if total > start + size else total - start
+            end = start + bundle_count - 1
+            start_id = self.get_id_by_indexnum(queryset, start)
+            end_id = self.get_id_by_indexnum(queryset, end)
+            yield {'start': start_id, 'end': end_id, 'count': bundle_count}
+
+    def unpack(self, bundle, all_recs):
+        idf = self.id_field
+        filter_params = {'{}__gte'.format(idf): bundle['start_id'],
+                         '{}__lte'.format(idf): bundle['end_id']}
+        qs = self.apply_sort(all_recs).filter(**filter_params)
+        qs.page_by = bundle['count']
+        return qs
+
+    def get_bundle_count(self, bundle):
+        return bundle['count']
+
+
 class JobPlan(object):
     """
     Helper class for breaking jobs into batches and chunks and caching
@@ -129,24 +235,33 @@ class JobPlan(object):
             op: exp.max_del_chunk if op == 'deletion' else exp.max_rec_chunk
                 for op in operations
         }
+        self.bundler = exp.bundler
         self.batch_size = batch_size
         self.operations = operations
         self._registry = {}
         self._totals = {}
 
     def get_batch_id(self, batch_num):
-        return '{}-{:05d}'.format(self.instance_pk, batch_num)
+        return '{}:{:05d}'.format(self.instance_pk, batch_num)
 
-    def get_chunk_id(self, batch_num, chunk_num, op):
+    def get_chunk_id(self, batch_num, chunk_num, op, rset_name, part_num):
+        batch_id = self.get_batch_id(batch_num)
         max_digits = len(str(self.batch_size - 1))
         padded_cnum = str(chunk_num).zfill(max_digits)
-        return '{}-{}-{}'.format(self.get_batch_id(batch_num), padded_cnum, op)
+        if rset_name is None:
+            return '{}-{}-{}-{}'.format(batch_id, padded_cnum, op, part_num)
+        else:
+            return '{}-{}-{}-{}-{}'.format(batch_id, padded_cnum, op,
+                                           rset_name, part_num)
 
-    def what_operation(self, chunk_id):
-        return chunk_id.split('-')[-1]
-
-    def what_batch(self, chunk_id):
-        return self.get_batch_id(int(chunk_id.split('-')[1]))
+    def get_chunk_info(self, chunk_id):
+        try:
+            batch_id, padded_cnum, op, rset_name, pnum = chunk_id.split('-')
+        except ValueError:
+            batch_id, padded_cnum, op, pnum = chunk_id.split('-')
+            rset_name = None
+        return { 'batch_id': batch_id, 'chunk_num': int(padded_cnum),
+                 'rset_name': rset_name, 'op': op, 'part_num': int(pnum) }
 
     def get_records_for_operation(self, exp, op, prefetch=True):
         if op == 'export':
@@ -156,19 +271,20 @@ class JobPlan(object):
     def get_method_for_operation(self, exp, op):
         return exp.export_records if op == 'export' else exp.delete_records
 
-    def get_chunk_record_range(self, chunk_id):
-        _, batch_num, chunk_num, op = chunk_id.split('-')
-        batch_num, chunk_num = int(batch_num), int(chunk_num)
-        chunk_totals = self.totals['chunks_by_op']
-        ch_offset = sum(
-            [chunk_totals[iop] for i, iop in enumerate(self.operations)
-             if i < self.operations.index(op)]
-        )
-        abs_chunk_num = ((batch_num * self.batch_size) + chunk_num) - ch_offset
-        last_rec_count = abs_chunk_num * self.chunk_sizes[op]
-        start = (last_rec_count + 1)
-        end = (last_rec_count + len(self.get_chunk_pks(chunk_id)))
-        return (start, end, op)
+    def get_chunk_label(self, chunk_id):
+        info = self.get_chunk_info(chunk_id)
+        bundle = self.get_bundle(chunk_id)
+        count = self.bundler.get_bundle_count(bundle)
+        bundle_label = self.bundler.get_bundle_label(bundle)
+        size = self.chunk_sizes[info['op']]
+        start = self.bundler.get_bundle_offset(bundle, info['part_num'],
+                                               size) + 1
+        end = start + count - 1
+        chunk_label = '{} {} - {} for {}'.format(bundle_label, start, end,
+                                                 info['op'])
+        if info['rset_name'] is not None:
+            chunk_label = '`{}` {}'.format(info['rset_name'], chunk_label)
+        return chunk_label
 
     def _get_reg_obj(self):
         return RedisObject(self.redis_job_reg_key, self.instance_pk)
@@ -195,34 +311,17 @@ class JobPlan(object):
         for chunk_list in self.registry.values():
             for chunk_id in chunk_list:
                 try:
-                    self.get_chunk_pks(chunk_id)
+                    self.get_bundle(chunk_id)
                 except ValueError:
                     pass
                 else:
                     res.append(chunk_id)
         return sorted(res)
 
-    def get_chunk_pks(self, chunk_id):
-        data = self._get_chunk_obj(chunk_id).get()
-        if data is None:
-            raise ValueError('chunk_id {} is not valid'.format(chunk_id))
-        return data
+    def get_recordsets_iterable(self, recs):
+        return recs.items() if hasattr(recs, 'items') else [(None, recs)]
 
-    def slice_pk_lists(self, pk_lists):
-        batch_num, chunk_num = 0, 0
-        for op in self.operations:
-            chunk_size = self.chunk_sizes[op]
-            for i in range(0, len(pk_lists[op]), chunk_size):
-                batch_id = self.get_batch_id(batch_num)
-                chunk_id = self.get_chunk_id(batch_num, chunk_num, op)
-                yield (batch_id, chunk_id, op, pk_lists[op][i:i+chunk_size])
-                if chunk_num == (self.batch_size - 1):
-                    chunk_num = 0
-                    batch_num += 1
-                else:
-                    chunk_num += 1
-
-    def generate(self, pk_lists):
+    def generate(self, exp):
         if self.registry:
             msg = ('Detected an existing registry for this ExportInstance. '
                    'You must instantiate a new JobPlan using a new '
@@ -231,29 +330,70 @@ class JobPlan(object):
             raise self.AlreadyRegistered(msg)
 
         total_chunks = 0
-        total_recs_by_op = {op: 0 for op in self.operations}
+        total_recs_by_op_and_rset = {op: {} for op in self.operations}
         total_chunks_by_op = {op: 0 for op in self.operations}
-        for batch_id, chunk_id, op, pk_slice in self.slice_pk_lists(pk_lists):
-            self._registry[batch_id] = self._registry.get(batch_id, [])
-            self._registry[batch_id].append(chunk_id)
-            chunk_obj = self._get_chunk_obj(chunk_id)
-            chunk_obj.set(pk_slice)
+
+        for (bt_id, ch_id, op, name, count, bundle) in self.pack_records(exp):
+            self._registry[bt_id] = self._registry.get(bt_id, [])
+            self._registry[bt_id].append(ch_id)
+            chunk_obj = self._get_chunk_obj(ch_id)
+            chunk_obj.set(bundle)
 
             total_chunks += 1
+            rset_ct = total_recs_by_op_and_rset[op].get(name, 0)
+            total_recs_by_op_and_rset[op][name] = rset_ct + count
             total_chunks_by_op[op] += 1
-            total_recs_by_op[op] += len(pk_slice)
+
+        total_recs_by_op = {op: sum(total_recs_by_op_and_rset[op].values())
+                            for op in self.operations}
 
         self._totals = {
             'batches': len(self.registry.keys()),
             'chunks': total_chunks,
             'chunks_by_op': total_chunks_by_op,
             'records': sum(total_recs_by_op.values()),
-            'records_by_op': total_recs_by_op
+            'records_by_op_and_rset': total_recs_by_op_and_rset
         }
 
         self._get_reg_obj().set(self._registry)
         self._get_totals_obj().set(self._totals)
         return self._registry
+
+    def pack_records(self, exp):
+        bt_num, ch_num = 0, 0
+        for op in self.operations:
+            recs = self.get_records_for_operation(exp, op, prefetch=False)
+            chunk_size = self.chunk_sizes[op]
+            for name, qs in self.get_recordsets_iterable(recs):
+                pt_num = 0
+                if qs is not None:
+                    for bundle in self.bundler.pack(qs, chunk_size):
+                        bt_id = self.get_batch_id(bt_num)
+                        ch_id = self.get_chunk_id(bt_num, ch_num, op, name,
+                                                  pt_num)
+                        bundle_count = self.bundler.get_bundle_count(bundle)
+                        yield (bt_id, ch_id, op, name, bundle_count, bundle)
+                        pt_num += 1
+                        if ch_num == (self.batch_size - 1):
+                            ch_num = 0
+                            bt_num += 1
+                        else:
+                            ch_num += 1
+
+    def unpack_chunk(self, exp, chunk_id):
+        bundle = self.get_bundle(chunk_id)
+        info = self.get_chunk_info(chunk_id)
+        rset_name, op = info['rset_name'], info['op']
+        recs = self.get_records_for_operation(exp, op, prefetch=True)
+        if rset_name is None:
+            return self.bundler.unpack(bundle, recs)
+        return {rset_name: self.bundler.unpack(bundle, recs[rset_name])}
+
+    def get_bundle(self, chunk_id):
+        data = self._get_chunk_obj(chunk_id).get()
+        if data is None:
+            raise ValueError('chunk_id {} is not valid'.format(chunk_id))
+        return data
 
     def log_plan_summary(self, exp):
         def _plural(word, count, add='s'):
@@ -261,16 +401,25 @@ class JobPlan(object):
 
         lines = ['JOB PLAN']
         for op in self.operations:
-            rec_count = self.totals['records_by_op'][op]
+            op_totals = self.totals['records_by_op_and_rset'][op]
+            rec_count = sum(op_totals.values())
             rec_label = _plural('record', rec_count)
             chunk_count = self.totals['chunks_by_op'][op]
             chunk_label = _plural('chunk', chunk_count)
             chunk_size = self.chunk_sizes[op]
             lines.extend([
                 '`{}`: {} {}'.format(op, rec_count, rec_label),
-                '`{}`: {} {} ({} records per chunk)'
+                '`{}`: {} {} (chunk size is {})'
                     ''.format(op, chunk_count, chunk_label, chunk_size),
             ])
+            for rset_name, rset_count in op_totals.items():
+                if rset_name is not None:
+                    rset_rec_label = _plural('record', rset_count)
+                    lines.extend([
+                        '    `{}`: {} {}'.format(rset_name, rset_count,
+                                                 rset_rec_label)
+                    ])
+                
         tot_chunks = self.totals['chunks']
         tot_chunks_label = _plural('chunk', tot_chunks)
         tot_batches = self.totals['batches']
@@ -351,79 +500,6 @@ def _hr_line(char='-', len=80):
     return char * len
 
 
-def _fetch_job_pk_lists(exp, plan):
-    pk_lists = {}
-    for op in OPERATIONS:
-        records = plan.get_records_for_operation(exp, op, prefetch=False)
-        pk_lists[op] = _pack_pks_from_records(records)
-    return pk_lists
-
-
-def _pack_pks_from_records(records):
-    """
-    Prepare a list of PKs given a `records` data structure.
-
-    `records` is whatever a given Exporter's `get_records` or
-    `get_deletions` method outputs. Normally it will be a single
-    queryset, but it could be a dict of querysets. In the former case,
-    the list of PKs is returned as-is: each PK is a PK from a record in
-    the queryset. In the latter, PKs from different querysets may
-    overlap, so each PK is qualified using the key from the QS dict,
-    and the PK becomes a tuple: (key, PK).
-    """
-    pks = []
-    for name, qset in _get_recordsets_iterable(records):
-        if qset is not None:
-            pk_qset = _apply_pk_sort_order(qset)
-            if name is None:
-                pks.extend([r['pk'] for r in pk_qset.values('pk')])
-            else:
-                pks.extend([(name, r['pk']) for r in pk_qset.values('pk')])
-    return pks
-
-
-def _filter_records_by_packed_pks(records, pks):
-    """
-    Filter a `records` data structure based on the given list of `pks`.
-
-    `records` is whatever a given Exporter's `get_records` or
-    `get_deletions` method outputs. Normally it will be a single
-    queryset, but it could be a dict of querysets. In the latter case,
-    PKs would have been packed using keys from the QS dict, which has
-    to be taken into account when we filter records to send to the
-    Exporter to operate on, for a given chunk.
-
-    Whatever the structure of `records`, this function does the
-    appropriate filtering and returns either a single QS or a dict of
-    QSes, where each QS is filtered to records matching PKS in the
-    given `pks` list.
-    """
-    qsets = {}
-    for name, qset in _get_recordsets_iterable(records):
-        if qset is not None:
-            sorted_qset = _apply_pk_sort_order(qset)
-            if name is None:
-                qset_pks = pks
-            else:
-                qset_pks = [pk for n, pk in pks if n == name]
-            qsets[name] = sorted_qset.filter(pk__in=qset_pks)
-        else:
-            qsets[name] = qset
-    return qsets.get(None, qsets)
-
-
-def _get_recordsets_iterable(records):
-    return records.items() if hasattr(records, 'items') else [(None, records)]
-
-
-def _apply_pk_sort_order(qset):
-    if hasattr(qset.model, 'record_metadata'):
-        return qset.order_by('record_metadata__record_last_updated_gmt', 'pk')
-    if hasattr(qset.model, 'record_last_updated_gmt'):
-        return qset.order_by('record_last_updated_gmt', 'pk')
-    return qset.order_by('pk')
-
-
 def _compile_vals_list_for_batch(prev_batch_task_id):
     """
     This is used when a task runs as an error callback. When that
@@ -462,17 +538,14 @@ def delegate_batch(vals_list, instance_pk, export_filter, export_type, options,
         exp.log('Info', 'EXPORTER {} -- {}'.format(exp.instance.pk,
                                                    exp.export_type))
         exp.log('Info', _hr_line())
-        exp.log('Info', 'Fetching PK lists.')
-        pk_lists = _fetch_job_pk_lists(exp, plan)
-        exp.log('Info', 'Initializing job plan.')
-        plan.generate(pk_lists)
+        exp.log('Info', 'Initializing job plan (may take several minutes).')
+        plan.generate(exp)
         if plan.registry:
             exp.log('Info', _hr_line())
             plan.log_plan_summary(exp)
             exp.log('Info', _hr_line())
         else:
-            msg = ('No records found for {}. Nothing to do!'
-                   ''.format(', '.join(pk_lists.keys())))
+            msg = ('No records found! Nothing to do.')
             exp.log('Info', msg)
 
     elif prev_batch_had_errors:
@@ -487,8 +560,7 @@ def delegate_batch(vals_list, instance_pk, export_filter, export_type, options,
     # exp.log('Info', 'cumulative_vals: {}'.format(cumulative_vals))
 
     batch_id = plan.get_batch_id(batch_num)
-    args = (exp.instance.pk, exp.export_filter, exp.export_type,
-            exp.options)
+    args = (exp.instance.pk, exp.export_filter, exp.export_type, exp.options)
 
     batch_tasks = []
     for task_chunk_id in plan.registry.get(batch_id, []):
@@ -563,14 +635,11 @@ def do_export_chunk(cumulative_vals, instance_pk, export_filter, export_type,
     """
     exp = spawn_exporter(instance_pk, export_filter, export_type, options)
     plan = JobPlan(exp)
-    start, end, op = plan.get_chunk_record_range(chunk_id)
-    chunk_label = 'records {} - {} for {}'.format(start, end, op)
+    info = plan.get_chunk_info(chunk_id)
+    chunk_label = plan.get_chunk_label(chunk_id)
     exp.log('Info', 'Starting {} ({}).'.format(chunk_id, chunk_label))
-
-    records = plan.get_records_for_operation(exp, op)
-    packed_chunk_pks = plan.get_chunk_pks(chunk_id)
-    chunk_records = _filter_records_by_packed_pks(records, packed_chunk_pks)
-    vals = plan.get_method_for_operation(exp, op)(chunk_records)
+    chunk_records = plan.unpack_chunk(exp, chunk_id)
+    vals = plan.get_method_for_operation(exp, info['op'])(chunk_records)
 
     exp.log('Info', 'Finished {} ({}).'.format(chunk_id, chunk_label))
     return vals

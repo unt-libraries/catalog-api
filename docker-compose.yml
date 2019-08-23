@@ -56,6 +56,7 @@ services:
       - ./docker_data/solr_dev/haystack_data:/project/solr/instances/solr/haystack/data
       - ./docker_data/solr_dev/marc_data:/project/solr/instances/solr/marc/data
       - ./docker_data/solr_dev/alpha-solrmarc_data:/project/solr/instances/solr/alpha-solrmarc/data
+      - ./docker_data/solr_dev/bl-suggest_data:/project/solr/instances/solr/bl-suggest/data
     working_dir: /project/solr/instances
     ports:
       - "${SOLR_HOST:-127.0.0.1}:${SOLR_PORT:-8983}:8983"
@@ -73,6 +74,7 @@ services:
       - ./docker_data/solr_test/haystack_data:/project/solr/instances/solr/haystack/data
       - ./docker_data/solr_test/marc_data:/project/solr/instances/solr/marc/data
       - ./docker_data/solr_test/alpha-solrmarc_data:/project/solr/instances/solr/alpha-solrmarc/data
+      - ./docker_data/solr_test/bl-suggest_data:/project/solr/instances/solr/bl-suggest/data
     working_dir: /project/solr/instances
     ports:
       - "${TEST_SOLR_HOST:-127.0.0.1}:${TEST_SOLR_PORT:-8883}:8983"

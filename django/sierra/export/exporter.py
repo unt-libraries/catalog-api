@@ -22,6 +22,7 @@ from utils import helpers
 from utils import dict_merge
 from base import models as sierra_models
 from .models import ExportInstance, ExportType, Status
+from .tasks import SierraExplicitKeyBundler
 
 
 class ExportError(Exception):
@@ -144,6 +145,17 @@ class Exporter(object):
         # set up our loggers for this process
         self.logger = logging.getLogger('exporter.file')
         self.console_logger = logging.getLogger('sierra.custom')
+
+    @property
+    def bundler(self):
+        """
+        Get an object representing the strategy to use to pack/sequence
+        `manifest` lists when running export jobs of this type. This is
+        implemented as a property so that exporters can use different
+        packing strategies depending on factors such as export type,
+        filter details, etc.
+        """
+        return SierraExplicitKeyBundler()
 
     def _base_get_records(self, model, filters, is_deletion=False,
                           select_related=None, prefetch_related=None,
@@ -326,6 +338,15 @@ class Exporter(object):
                 vals = dict_merge(vals, item)
         return vals or None
 
+    def initialize(self):
+        """
+        Override this method in your subclasses if you need to provide
+        something that runs once at the start of an export job, e.g.
+        for initialization purposes. You may return a `vals` structure
+        with initial values, if needed.
+        """
+        pass
+
     def final_callback(self, vals=None, status='success'):
         """
         Override this method in your subclasses if you need to provide
@@ -436,7 +457,8 @@ class MetadataToSolrExporter(ToSolrExporter):
     class Index(ToSolrExporter.Index):
 
         def do_update(self, instance, records):
-            instance.reindex(commit=False, queryset=records)
+            if records:
+                instance.reindex(commit=False, queryset=records)
 
     index_config = tuple()
 
@@ -591,6 +613,16 @@ class CompoundMixin(object):
                 vals[name] = self.children[name].compile_vals([cvals, rvals])
         return vals
 
+    def do_initialize_on_children(self, which_children=None):
+        """
+        This is a helper method that triggers `initialize` on 1+
+        children.
+        """
+        vals = {}
+        for child in which_children or self.children.values():
+            vals[child._config.name] = child.initialize()
+        return vals
+
     def do_final_callback_on_children(self, vals, status, which_children=None):
         """
         This is a helper method that triggers the final_callback method
@@ -637,6 +669,9 @@ class BatchExporter(CompoundMixin, Exporter):
 
     def compile_vals(self, results):
         return self.compile_vals_from_children(results)
+
+    def initialize(self):
+        return self.do_initialize_on_children()
 
     def final_callback(self, vals=None, status='success'):
         self.do_final_callback_on_children(vals, status)
@@ -761,6 +796,9 @@ class AttachedRecordExporter(CompoundMixin, Exporter):
         """
         return self.do_op_on_children('delete_records', records,
                                       which_children=[self.main_child])
+
+    def initialize(self):
+        return self.do_initialize_on_children()
 
     def final_callback(self, vals=None, status='success'):
         self.do_final_callback_on_children(vals, status)

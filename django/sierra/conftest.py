@@ -834,15 +834,15 @@ def get_found_ids():
     from calling `do_filter_search`.) `solr_id_field` is the name of
     that ID field as it exists in Solr.
     """
-    def _get_found_ids(solr_id_field, response):
+    def _get_found_ids(solr_id_field, response, max_found=None):
         serializer = response.renderer_context['view'].get_serializer()
         api_id_field = serializer.render_field_name(solr_id_field)
-        total_found = response.data['totalCount']
+        max_found = response.data.get('totalCount', max_found)
         data = response.data.get('_embedded', {'data': []}).values()[0]
         # reality check: FAIL if there's any data returned on a different
         # page of results. If we don't return ALL available data, further
         # assertions will be invalid.
-        assert len(data) == total_found
+        assert len(data) <= max_found
         return [r[api_id_field] for r in data]
     return _get_found_ids
 

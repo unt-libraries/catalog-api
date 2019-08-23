@@ -6,6 +6,10 @@ from unipath import Path
 import dotenv
 
 from django.core.exceptions import ImproperlyConfigured
+from celery.concurrency import asynpool
+
+
+asynpool.PROC_ALIVE_TIMEOUT = 60.0
 
 
 def get_env_variable(var_name, default=None):
@@ -264,6 +268,11 @@ LOGGING = {
         'exporter.file': {
             'handlers': ['export_file'],
             'level': 'INFO',
+        },
+        'pysolr': {
+            'handlers': ['export_file'],
+            'level': 'ERROR',
+            'propagate': False,
         }
     }
 }
@@ -277,6 +286,7 @@ solr_bibdata_url = get_env_variable('SOLR_BIBDATA_URL',
 solr_marc_url = get_env_variable('SOLR_MARC_URL', 
                     'http://{}:{}/solr/marc'.format(SOLR_HOST, SOLR_PORT))
 solr_asm_url =  'http://{}:{}/solr/alpha-solrmarc'.format(SOLR_HOST, SOLR_PORT)
+solr_bls_url =  'http://{}:{}/solr/bl-suggest'.format(SOLR_HOST, SOLR_PORT)
 
 # HAYSTACK_CONNECTIONS, a required setting for Haystack
 HAYSTACK_CONNECTIONS = {
@@ -305,6 +315,11 @@ HAYSTACK_CONNECTIONS = {
     'alpha-solrmarc': {
         'ENGINE': 'sierra.solr_backend.SolrmarcEngine',
         'URL': solr_asm_url,
+        'TIMEOUT': 60 * 20,
+    },
+    'bl-suggest': {
+        'ENGINE': 'sierra.solr_backend.CustomSolrEngine',
+        'URL': solr_bls_url,
         'TIMEOUT': 60 * 20,
     }
 }
