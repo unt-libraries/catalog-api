@@ -77,13 +77,18 @@ def truncate(string, limit):
     return string
 
 
-def make_normalized_heading_string(heading):
+def make_normalized_heading_string(heading, for_browse=True):
     """
     Create a basic normalized form of a heading string.
 
-    Punctuation is converted to space, and then spaces between digits
-    and non digits are removed. Queries against this field must be
-    normalized the same way.
+    Punctuation is converted to space. If `for_browse` is True, then
+    spaces between digits and non digits are removed.
+
+    Search queries against a normalized field must be normalized using
+    `for_browse` is False; browse queries must be normalized using
+    `for_browse` is True.
+
+    E.g., if `for_browse` is True, then:
 
     "Bach, Johann Sebastian, 1685-1750"
     becomes
@@ -94,12 +99,14 @@ def make_normalized_heading_string(heading):
     "MT130C35 1996"
 
     The idea is that spacing/punctuation around ambiguous word
-    delimiters is normalized out both at index and query time to
-    provide the best chance of matching.
+    delimiters is normalized out both at index and query time to give
+    the best chance of matching, particularly for call numbers.
     """
     heading = convert_punctuation(heading, ' ')
-    parts = re.split(r'\s*([\d\s]+)\s*', heading)
-    return ''.join([p.strip() or p for p in parts])
+    if for_browse:
+        parts = re.split(r'\s*([\d\s]+)\s*', heading)
+        return ''.join([p.strip() or p for p in parts])
+    return heading
 
 
 class SuggestBuilder(object):
@@ -180,13 +187,14 @@ class SuggestBuilder(object):
             id_ = base64.b64encode(hashlib.md5(id_.encode('utf-8')).digest())
             return id_
 
-        def normalize_heading(self, heading):
+        def normalize_heading(self, heading, for_browse=True):
             """
             Produce a normalized (string) form of the given `heading`.
-            Default behavior is to convert punctuation to space and
-            remove spaces between digits and non-digits.
+            Default behavior is to convert punctuation to space. If 
+            `for_browse` is True, then it also remove spaces between
+            digits and non-digits.
             """
-            return make_normalized_heading_string(heading)
+            return make_normalized_heading_string(heading, for_browse)
 
         def extract_info(self, bib, source_field, heading):
             """
@@ -195,13 +203,14 @@ class SuggestBuilder(object):
             and return a suggest record (dict). This is a basic default
             implementation; override in your subclass if needed.
             """
-            normalized_heading = self.normalize_heading(heading)
+            norm_browse_heading = self.normalize_heading(heading, True)
+            norm_search_heading = self.normalize_heading(heading, False)
             srec = {
-                'heading': heading,
+                'heading': norm_search_heading,
                 'heading_display': heading,
                 'heading_type': self.htype,
-                'heading_keyphrases': set([normalized_heading]),
-                'heading_sort': normalized_heading
+                'heading_keyphrases': set([norm_browse_heading]),
+                'heading_sort': norm_browse_heading
             }
             srec['id'] = self.compose_id(srec)
             return srec
@@ -471,19 +480,20 @@ class BlSuggestBuilder(SuggestBuilder):
                     context.add(bib.get('subtitle'))
 
             if author:
-                keyphrases.add(self.normalize_heading(heading))
+                keyphrases.add(self.normalize_heading(heading, True))
                 heading = '{} {}'.format(heading, author)
                 display = self._add_author_to_display_title(author, display)
                 this_facet_values.add('public_author_facet:{}'.format(author))
 
-            normalized_heading = self.normalize_heading(heading)
-            keyphrases.add(normalized_heading)
+            norm_browse_heading = self.normalize_heading(heading, True)
+            norm_search_heading = self.normalize_heading(heading, False)
+            keyphrases.add(norm_browse_heading)
 
             srec = {
-                'heading': heading,
+                'heading': norm_search_heading,
                 'heading_display': display,
                 'heading_keyphrases': keyphrases,
-                'heading_sort': normalized_heading,
+                'heading_sort': norm_browse_heading,
                 'more_context': context,
                 'this_facet_values': this_facet_values,
                 'heading_type': self.htype

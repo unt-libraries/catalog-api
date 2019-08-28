@@ -259,7 +259,7 @@ def test_buildsuggest_export_records(asm_exporter_class,
     conn = solr_conns[getattr(index, 'using', 'default')]
     results = solr_search(conn, '*')
     rdict = {r['id']: r for r in results}
-    authors = {r['heading']: r for r in results
+    authors = {r['heading_display']: r for r in results
                if r['heading_type'] == 'author'}
 
     assert len(there) == len(rdict.keys())

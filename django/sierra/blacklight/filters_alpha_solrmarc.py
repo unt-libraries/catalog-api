@@ -21,7 +21,7 @@ class AsmSuggestionsFilter(BaseFilterBackend):
     reserved_params = [settings.REST_FRAMEWORK['PAGINATE_BY_PARAM'],
                        settings.REST_FRAMEWORK['SEARCH_PARAM']]
 
-    def _normalize_search_string(self, search):
+    def _normalize_search_string(self, query, for_browse=False):
         """
         This uses the `make_normalized_heading_string` suggest function
         to normalize the search query. BUT, quotes have to be handled
@@ -32,9 +32,9 @@ class AsmSuggestionsFilter(BaseFilterBackend):
         the first phrase in quotes but not the second.
         """
         phrases, quote_phrase = [], ''
-        for i, phrase in enumerate(search.split('"')):
+        for i, phrase in enumerate(query.split('"')):
             inside_quotes = i % 2
-            phrase = suggest.make_normalized_heading_string(phrase)
+            phrase = suggest.make_normalized_heading_string(phrase, for_browse)
             if inside_quotes:
                 quote_phrase = phrase
             else:
@@ -53,10 +53,11 @@ class AsmSuggestionsFilter(BaseFilterBackend):
             val = val if isinstance(val, (list, tuple)) else [val]
             if val:
                 if key == settings.REST_FRAMEWORK['SEARCH_PARAM']:
-                    q = self._normalize_search_string(val[0])                    
+                    browse = True if view.suggest_type == 'browse' else False
+                    q = self._normalize_search_string(val[0], browse)
                     if q[-1] != '"':
                         q = '{}*'.format(q)
-                    if view.suggest_type == 'browse':
+                    if browse:
                         q = '\ '.join(q.split(' '))
                 elif key == 'fq':
                     fq.extend(val)

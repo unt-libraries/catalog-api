@@ -240,6 +240,9 @@ PARAMETERS__FILTER_TESTS = (
         ('TEST4', {'heading': 'Only something', 'heading_type': 'genre' }),
         ('TEST5', {'heading': 'Something else', 'heading_type': 'genre' }),
      ), 'search="audio thing" online', ['TEST3']),
+    }, { 'search: match on numbers within heading': ('search', (
+        ('TEST1', {'heading': 'ABC, no. 32 op. 12', 'heading_type': 'title'}),
+     ), 'search=abc 32 12', ['TEST1']),
     },
 
     # BROWSE QUERY BEHAVIOR
