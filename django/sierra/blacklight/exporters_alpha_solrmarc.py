@@ -236,21 +236,23 @@ class BuildAlphaSolrmarcSuggest(FromSolrMixin, ToSolrExporter):
             Otherwise it's queued for update. 
             """
             builder = self.builder_class()
+            conn = self.conn()
+            page_contentqs_by, fcount_limit = 1000, 1000
+
             content_qs = queryset.set_raw_params({'facet': 'false',
-                                                  'rows': 10000})
+                                                  'rows': page_contentqs_by})
             content_qs._search_params['fq'] = []
-            add_srecs, del_srecs, limit = [], [], 1000
             facet_fields = queryset.full_response.facets['facet_fields']
             for facet_field, values in facet_fields.items():
                 fvals, fcounts = values[::2], values[1::2]
                 ext = builder.extractors_by_heading_source[facet_field]
+                params = {'fl': ext.source_fields}
                 content_qfield = '{}__in'.format(facet_field)
-                qvals, qcounts = [], []
+                add_srecs, del_srecs, qvals, qcounts = [], [], [], []
                 for i, fval in enumerate(fvals):
                     qvals.append(fval)
                     qcounts.append(int(fcounts[i]))
-                    if (sum(qcounts) >= limit) or (i == len(fvals) - 1):
-                        params = {'fl': ext.source_fields}
+                    if (sum(qcounts) >= fcount_limit) or (i == len(fvals) - 1):
                         filt = {content_qfield: qvals}
                         bibs = content_qs.set_raw_params(params).filter(**filt)
                         args = [bibs, [facet_field], qvals]
@@ -259,9 +261,12 @@ class BuildAlphaSolrmarcSuggest(FromSolrMixin, ToSolrExporter):
                                 add_srecs.append(srec)
                             else:
                                 del_srecs.append(srec)
-                        qvals, qcounts = [], []
-            self._update_batch(add_srecs, 1000)
-            self._update_batch(del_srecs, 1000, is_delete=True)
+                        if del_srecs:
+                            conn.delete(id=[r['id'] for r in del_srecs],
+                                        commit=False)
+                        if add_srecs:
+                            conn.add(add_srecs, commit=False)
+                        add_srecs, del_srecs, qvals, qcounts = [], [], [], []
             if commit:
                 self.commit()
 
@@ -276,7 +281,7 @@ class BuildAlphaSolrmarcSuggest(FromSolrMixin, ToSolrExporter):
     IndexCfgEntry = ToSolrExporter.Index
     index_config = (IndexCfgEntry('suggest', SuggestIndex, 'bl-suggest'),)
     solr_id_field = SuggestIndex.id_field
-    max_rec_chunk = 10000
+    max_rec_chunk = 2000
 
     @property
     def bundler(self):
