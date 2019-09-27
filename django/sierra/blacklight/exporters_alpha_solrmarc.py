@@ -150,11 +150,16 @@ class BuildAlphaSolrmarcSuggest(FromSolrMixin, ToSolrExporter):
             """
             self.heading_fields = heading_fields
 
-        def get_num_facets(self, fr):
-            ct = sum(len(v) for v in fr.facets['facet_fields'].values()) / 2
-            return ct
+        def get_end_facet_index(self, fr, limit):
+            running_total, index = 0, None
+            fvals = fr.facets['facet_fields'].values()[0]
+            for index, facet_count in enumerate(fvals[1::2]):
+                running_total += facet_count
+                if running_total >= limit:
+                    return index
+            return index
 
-        def pack(self, queryset, size):
+        def pack(self, queryset, limit):
             """
             Each packed bundle is a dict containing the applicable
             facet field for an export task, the start index and size
@@ -162,19 +167,17 @@ class BuildAlphaSolrmarcSuggest(FromSolrMixin, ToSolrExporter):
             number of records and record offset for logging purposes.
             """
             for facet_field in self.heading_fields:
-                start, rec_offset, numrecs = 0, 0, 1
+                start, i = 0, 0
                 qs = queryset.set_raw_params({'facet.field': facet_field,
                                               'rows': 0})
-                while numrecs > 0:
-                    qs = qs.set_raw_params({'facet.limit': size,
+                while i is not None:
+                    qs = qs.set_raw_params({'facet.limit': limit,
                                             'facet.offset': start})
-                    numrecs = self.get_num_facets(qs.full_response)
-                    if numrecs > 0:
+                    i = self.get_end_facet_index(qs.full_response, limit)
+                    if i is not None:
                         yield { 'facet_field': facet_field, 'start': start,
-                                'size': size, 'rec_offset': rec_offset,
-                                'numrecs': numrecs }
-                        start += size
-                        rec_offset += numrecs
+                                'size': i + 1 }
+                        start += i + 1
 
         def unpack(self, bundle, all_recs):
             page_params = {'facet.field': bundle['facet_field'],
@@ -184,10 +187,10 @@ class BuildAlphaSolrmarcSuggest(FromSolrMixin, ToSolrExporter):
             return all_recs.set_raw_params(page_params)
 
         def get_bundle_count(self, bundle):
-            return bundle['numrecs']
+            return bundle['size']
 
         def get_bundle_offset(self, bundle, part_num, size):
-            return bundle['rec_offset']
+            return bundle['start']
 
         def get_bundle_label(self, bundle):
             return '`{}` values'.format(bundle['facet_field'])
@@ -237,7 +240,7 @@ class BuildAlphaSolrmarcSuggest(FromSolrMixin, ToSolrExporter):
             """
             builder = self.builder_class()
             conn = self.conn()
-            page_contentqs_by, fcount_limit = 1000, 1000
+            page_contentqs_by, fcount_limit = 5000, 1000
 
             content_qs = queryset.set_raw_params({'facet': 'false',
                                                   'rows': page_contentqs_by})
@@ -281,7 +284,7 @@ class BuildAlphaSolrmarcSuggest(FromSolrMixin, ToSolrExporter):
     IndexCfgEntry = ToSolrExporter.Index
     index_config = (IndexCfgEntry('suggest', SuggestIndex, 'bl-suggest'),)
     solr_id_field = SuggestIndex.id_field
-    max_rec_chunk = 2000
+    max_rec_chunk = 10000
 
     @property
     def bundler(self):
