@@ -7,6 +7,7 @@ import dotenv
 
 from django.core.exceptions import ImproperlyConfigured
 from celery.concurrency import asynpool
+from . import marcdata
 
 
 asynpool.PROC_ALIVE_TIMEOUT = 60.0
@@ -488,3 +489,5 @@ ADMIN_ACCESS = get_env_variable('ADMIN_ACCESS', True)
 
 # Is this settings file for testing?
 TESTING = False
+
+MARCDATA = marcdata
