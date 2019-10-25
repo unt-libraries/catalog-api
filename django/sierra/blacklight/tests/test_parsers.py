@@ -224,3 +224,26 @@ def test_clean(data, expected):
     normalize whitespace and punctuation.
     """
     assert parsers.clean(data) == expected
+
+
+@pytest.mark.parametrize('data, first_indicator, exp_forename, exp_surname, exp_family_name', [
+    ('Thomale, Jason,', '0', 'Jason', 'Thomale', ''),
+    ('Thomale, Jason,', '1', 'Jason', 'Thomale', ''),
+    ('Thomale, Jason,', '3', 'Jason', 'Thomale', ''),
+    ('John,', '0', 'John', '', ''),
+    ('John II Comnenus,', '0', 'John II Comnenus', '', ''),
+    ('Byron, George Gordon Byron,', '1', 'George Gordon Byron', 'Byron', ''),
+    ('Joannes Aegidius, Zamorensis,', '1', 'Zamorensis', 'Joannes Aegidius', ''),
+    ('Morton family.', '3', '', 'Morton', 'Morton family'),
+    ('Morton family.', '2', '', 'Morton', 'Morton family'),
+    ('Morton family.', '2', '', 'Morton', 'Morton family'),
+])
+def test_person_name(data, first_indicator, exp_forename, exp_surname, exp_family_name):
+    """
+    `person_name` should parse a personal name into the expected
+    forename, surname, and family name.
+    """
+    name = parsers.person_name(data, first_indicator)
+    assert name['forename'] == exp_forename
+    assert name['surname'] == exp_surname
+    assert name['family_name'] == exp_family_name

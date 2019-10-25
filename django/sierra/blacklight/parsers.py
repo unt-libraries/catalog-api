@@ -155,3 +155,26 @@ def clean(data):
     ellipses_stripped = strip_ellipses(brackets_stripped)
     cleaned = normalize_punctuation(ellipses_stripped)
     return cleaned
+
+
+def person_name(data, indicators):
+    """
+    Parse a personal name into forename, surname, and family name.
+    """
+    (forename, surname, family_name) = ('', '', '')
+    if has_comma_in_middle(data):
+        (surname, forename) = re.split(r',\s*', data, 1)
+    else:
+        is_forename = True if indicators[0] == '0' else False
+        is_surname = True if indicators[0] == '1' else False
+        is_family_name = True if indicators[0] == '3' else False
+        if is_forename:
+            forename = data
+        else:
+            surname = data
+            if is_family_name or re.search(r'\s*family\b', surname, flags=re.I):
+                family_name = surname
+                surname = re.sub(r'\s*family\b', '', surname, flags=re.I)
+    return {'forename': strip_ends(forename),
+            'surname': strip_ends(surname),
+            'family_name': strip_ends(family_name)}
