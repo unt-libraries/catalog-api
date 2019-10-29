@@ -19,6 +19,11 @@ def bl_solr_profile_definitions(global_solr_conn, solr_profile_definitions):
         'user_fields': tp.ALPHASOLRMARC_FIELDS,
         'field_gens': tp.ALPHASOLRMARC_GENS
     }
+    pdefs['alphasolrmarc02'] = {
+        'conn': global_solr_conn('alpha-solrmarc-02'),
+        'user_fields': tp.ALPHASOLRMARC02_FIELDS,
+        'field_gens': tp.ALPHASOLRMARC02_GENS
+    }
     pdefs['blsuggest'] = {
         'conn': global_solr_conn('bl-suggest'),
         'user_fields': tp.BLSUGGEST_FIELDS,
@@ -59,6 +64,7 @@ def bl_solr_env(global_bl_solr_assembler):
     """
     assembler = global_bl_solr_assembler
     alphasolrmarc_recs = assembler.make('alphasolrmarc', 200)
+    alphasolrmarc02_recs = assembler.make('alphasolrmarc02', 200)
     blsuggest_recs = assembler.make('blsuggest', 200)
     assembler.save_all()
     return assembler
