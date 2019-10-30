@@ -11,7 +11,7 @@ from export.exporter import ToSolrExporter
 from export.tasks import export_dispatch, RecordSetBundler
 from export.models import ExportInstance
 from blacklight.exporters import SameRecSetMultiExporter, FromSolrMixin
-from blacklight.sierra2marc import S2MarcBatchBlacklightSolrMarc
+from blacklight import sierra2marc_alpha_solrmarc_02 as s2m
 from blacklight import bl_suggest_alpha_solrmarc as suggest
 from utils import solr
 
@@ -34,7 +34,7 @@ class BibsToAlphaSolrmarc02(ToSolrExporter):
             'django_ct': None,
             'django_id': None
         }
-        s2marc_class = S2MarcBatchBlacklightSolrMarc
+        s2marc_class = s2m.S2MarcBatchBlacklightSolrMarc
 
         def get_qualified_id(self, record):
             try:
