@@ -69,13 +69,13 @@ class BibsToAlphaSolrmarc02(ToSolrExporter):
                 self.get_backend().conn.add(saved, commit=False)
 
         def update(self, using=None, commit=True, queryset=None):
-            self.save_and_suppress_records(using, queryset)
+            # self.save_and_suppress_records(using, queryset)
             super(BibsToAlphaSolrmarc02.AlphaSmIndex, self).update(using,
                                                                    commit,
                                                                    queryset)
 
         def delete(self, using=None, commit=True, queryset=None):
-            self.save_and_suppress_records(using, queryset)
+            # self.save_and_suppress_records(using, queryset)
             super(BibsToAlphaSolrmarc02.AlphaSmIndex, self).delete(using,
                                                                    commit,
                                                                    queryset)
@@ -113,13 +113,14 @@ class BibsToAlphaSolrmarc02(ToSolrExporter):
         new job to build the bl-suggest index.
         """
         super(BibsToAlphaSolrmarc02, self).final_callback(vals, status)
-        if status in ('success', 'done_with_errors', 'errors'):
+        if False:
+        # if status in ('success', 'done_with_errors', 'errors'):
             self.log('Info', 'Triggering bl-suggest build.')
             if self.export_filter == 'full_export':
                 suggest_ftype = 'full_export'
             else:
                 suggest_ftype = 'last_export'
-            export_dispatch(-1, suggest_ftype, 'BuildAlphaSolrmarcSuggest02',
+            export_dispatch(-1, suggest_ftype, 'BuildAlphaSolrmarc02Suggest',
                             {})
         else:
             self.log('Info', 'Skipping bl-suggest build.')
