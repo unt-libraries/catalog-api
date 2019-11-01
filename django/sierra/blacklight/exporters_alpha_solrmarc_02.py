@@ -307,7 +307,7 @@ class BuildAlphaSolrmarc02Suggest(FromSolrMixin, ToSolrExporter):
                        'before. Defaulting to `full_export`.')
                 self.log('Warning', msg)
             else:
-                return solr_qs.filter(timestamp__gte=latest.timestamp)
+                return solr_qs.filter(timestamp_of_last_solr_update__gte=latest.timestamp)
         return solr_qs
 
     def get_records(self, prefetch=True):

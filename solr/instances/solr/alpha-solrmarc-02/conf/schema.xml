@@ -80,14 +80,57 @@
     </fieldType>
   </types>
 
-  <fields>   
-    <!-- NOTE: this is not a full list of fields in the index; dynamic fields are also used -->
+  <fields>
+    <!-- REVISED SCHEMA ###################################################################################
+         Fields in this section have been fully implemented.
+
+         To implement a field:
+            - Add it below.
+            - Add a line to alpha-solrmarc-02_index.properties defining how to derive it.
+            - If it's a calculated field (not straight from MARC):
+                - Add it to sierra2marc_alpha_solrmarc_02.py, and
+                - Add relevant tests for it.
+            - Make sure it's represented in solr_test_profiles.py.
+            - Comment out the old field(s) in the OLD FIELDS section.
+
+         After implementing a field, run tests:
+            - django/sierra/blacklight/tests/test_exporters_alpha_solrmarc_02.py
+            - django/sierra/blacklight/tests/test_sierra2marc_alpha_solrmarc_02.py
+
+         If bl-suggest tests fail (and they probably will), then make adjustments to the bl-suggest
+         exporters, classes, etc.
+    -->
+
+    <!-- default, catch-all search field -->
+    <field name="text" type="text" indexed="true" stored="false" multiValued="true"/>
+    
+    <!-- META-INFORMATION ############################################################################## -->
     <field name="id" type="string" indexed="true" stored="true" required="true" multiValued="false" />
-    <field name="item_ids" type="slong" indexed="true" stored="true" multiValued="true"/>
-    <field name="item_record_numbers" type="string" indexed="true" stored="true" multiValued="true"/>
-    <field name="timestamp" type="date" indexed="true" stored="true" default="NOW" multiValued="false"/>
-    <!-- default, catch all search fields -->
-	<field name="text" type="text" indexed="true" stored="false" multiValued="true"/>
+    <field name="timestamp_of_last_solr_update" type="date" indexed="true" stored="true" default="NOW" multiValued="false"/>
+    <field name="suppressed" type="boolean" indexed="true" stored="true" multiValued="false" />
+    <field name="_version_" type="long" indexed="true" stored="true"/>
+
+    <!-- DISPLAY-ONLY FIELDS ########################################################################### -->
+    <!-- Attached Items -->
+    <field name="items_json" type="string" indexed="false" stored="true" multiValued="true" />
+    <field name="has_more_items" type="boolean" indexed="true" stored="true" multiValued="false" />
+    <field name="more_items_json" type="string" indexed="false" stored="true" multiValued="true" />
+
+
+
+    <!-- OLD FIELDS ###################################################################################
+         I am commenting out each field below as I address it in the new version of the schema. That means
+         either adding it to the REVISED SCHEMA section (above), removing it completely, or converting it to
+         different fields.
+    -->
+    
+    <!-- <field name="id" type="string" indexed="true" stored="true" required="true" multiValued="false" /> -->
+    <!-- <field name="item_ids" type="slong" indexed="true" stored="true" multiValued="true"/> -->
+    <!-- <field name="item_record_numbers" type="string" indexed="true" stored="true" multiValued="true"/> -->
+    <!-- <field name="timestamp" type="date" indexed="true" stored="true" default="NOW" multiValued="false"/> -->
+	<!-- <field name="text" type="text" indexed="true" stored="false" multiValued="true"/> -->
+    <!-- <field name="suppressed" type="boolean" indexed="true" stored="true" multiValued="false" /> -->
+    <!-- <field name="_version_" type="long" indexed="true" stored="true"/> -->
 
     <!-- Locations -->
     <field name="bib_location_codes" type="string" indexed="true" stored="true" multiValued="true"/>
@@ -170,10 +213,7 @@
     <!-- Summary -->
     <field name="summary_notes" type="text" indexed="true" stored="true" multiValued="true" />
     
-    <field name="suppressed" type="boolean" indexed="true" stored="true" multiValued="false" />
-    
     <field name="formats" type="string" indexed="true" stored="true" multiValued="true"/>
-    <field name="_version_" type="long" indexed="true" stored="true"/>
 
     <!-- Temporary Fields to remove later: these were dynamic fields, but we want to start making
          sure all our fields are defined explicitly. -->

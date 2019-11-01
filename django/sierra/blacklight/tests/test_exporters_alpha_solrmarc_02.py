@@ -102,7 +102,8 @@ def test_buildsuggest_get_records(asm_exporter_class, new_exporter,
     expclass = asm_exporter_class('BuildAlphaSolrmarc02Suggest')
 
     gen_a = bl_solr_assembler.gen_factory.type('date', mx=(2015, 1, 1, 0, 0))
-    recs_a = bl_solr_assembler.make('alphasolrmarc02', 10, timestamp=gen_a)
+    recs_a = bl_solr_assembler.make('alphasolrmarc02', 10,
+                                    timestamp_of_last_solr_update=gen_a)
     bl_solr_assembler.save('alphasolrmarc02')
     full_exp = new_exporter(expclass, 'full_export', 'success', {})
     full_exp.instance.timestamp = datetime(2015, 1, 1, 12, 0, tzinfo=pytz.utc)
@@ -111,7 +112,8 @@ def test_buildsuggest_get_records(asm_exporter_class, new_exporter,
     assert set([r['id'] for r in full_recs]) == set([r['id'] for r in recs_a])
     
     gen_b = bl_solr_assembler.gen_factory.type('date', mn=(2015, 1, 2, 0, 0))
-    recs_b = bl_solr_assembler.make('alphasolrmarc02', 10, timestamp=gen_b)
+    recs_b = bl_solr_assembler.make('alphasolrmarc02', 10,
+                                    timestamp_of_last_solr_update=gen_b)
     bl_solr_assembler.save('alphasolrmarc02')
     last_exp = new_exporter(expclass, 'last_export', 'waiting', options={})
     last_recs = last_exp.get_records()

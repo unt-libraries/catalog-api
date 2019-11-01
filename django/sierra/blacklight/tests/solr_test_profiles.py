@@ -47,10 +47,10 @@ ALPHASOLRMARC02_FIELDS = (
     'context_notes', 'summary_notes', 'toc_notes', 'era_terms', 'form_terms',
     'general_terms', 'genre_terms', 'geographic_terms', 'other_terms',
     'topic_terms', 'full_subjects', 'series', 'series_exact',
-    'series_creators', 'urls', 'url_labels', 'timestamp', 'public_title_facet',
-    'public_author_facet', 'public_series_facet', 'meetings_facet',
-    'public_subject_facet', 'geographic_terms_facet', 'era_terms_facet',
-    'public_genre_facet', 'publication_dates_facet', 'text'
+    'series_creators', 'urls', 'url_labels', 'timestamp_of_last_solr_update',
+    'public_title_facet', 'public_author_facet', 'public_series_facet',
+    'meetings_facet', 'public_subject_facet', 'geographic_terms_facet',
+    'era_terms_facet', 'public_genre_facet', 'publication_dates_facet', 'text'
 )
 
 # AlphaSolrmarc field specific gen functions
@@ -250,9 +250,10 @@ ALPHASOLRMARC02_GENS = (
                                                 1, 3), 50))),
     ('urls', GENS(tp.chance(tp.multi(tp.url_like, 1, 3), 75))),
     ('url_labels', None),
-    ('timestamp', 'auto'),
-    ('item_ids', None),
-    ('item_record_numbers', None),
+    ('timestamp_of_last_solr_update', 'auto'),
+    ('items_json', None),
+    ('has_more_items', None),
+    ('more_items_json', None),
     ('public_title_facet', GENS(public_title_facet)),
     ('public_author_facet', GENS(public_author_facet)),
     ('public_series_facet', GENS(tp.copy_field('series'))),

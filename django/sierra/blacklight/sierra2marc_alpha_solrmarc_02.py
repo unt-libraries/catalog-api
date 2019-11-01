@@ -6,6 +6,7 @@ from __future__ import unicode_literals
 import pymarc
 import logging
 import re
+import ujson
 
 from base import models
 from export.sierra2marc import S2MarcBatch, S2MarcError
@@ -51,7 +52,9 @@ class BlacklightASMPipeline(object):
     Use the `do` method to run something through the pipeline and get a
     fully-populated dict.
     """
-    fields = ['id', 'suppressed']
+    fields = [
+        'id', 'suppressed', 'item_info',
+    ]
     prefix = 'get_'
 
     def do(self, r, marc_record):
@@ -82,6 +85,63 @@ class BlacklightASMPipeline(object):
         """
         return { 'suppressed': 'true' if r.is_suppressed else 'false' }
 
+    def get_item_info(self, r, marc_record):
+        items = []
+        item_links = r.bibrecorditemrecordlink_set.all()
+        for item_link in item_links.order_by('items_display_order'):
+            item = item_link.item_record
+            item_id = str(item.record_metadata.record_num)
+            callnum = self.calculate_item_display_call_number(item)
+            barcode = self.fetch_varfields(item, 'b', only_first=True)
+            notes = self.fetch_varfields(item, 'p')
+            items.append({'i': item_id, 'c': callnum, 'b': barcode, 'n': notes,
+                          'r': self.calculate_item_requestability(item, r)})
+
+        items_json, has_more_items, more_items_json = [], False, []
+        items_json = [ujson.dumps(i) for i in items[0:3]]
+        if len(items) > 3:
+            has_more_items = True
+            more_items_json = [ujson.dumps(i) for i in items[3:]]
+        return {
+            'items_json': items_json,
+            'has_more_items': 'true' if has_more_items else 'false',
+            'more_items_json': more_items_json or None
+        }
+
+    def fetch_varfields(self, record, vf_code, only_first=False):
+        filt = {'varfield_type_code': vf_code}
+        vf_set = record.record_metadata.varfield_set.filter(**filt)
+        vf_set = vf_set.order_by('occ_num')
+        if len(vf_set) > 0:
+            if only_first:
+                return vf_set[0].field_content
+            return [vf.field_content for vf in vf_set]
+        return None
+
+    def calculate_item_display_call_number(self, item):
+        cn_string = ''
+        item_cn_tuples = item.get_call_numbers()
+        try:
+            bib_cn_tuples = (item.bibrecorditemrecordlink_set.all()[0]
+                                 .bib_record.get_call_numbers())
+        except IndexError:
+            bib_cn_tuples = []
+
+        if len(item_cn_tuples) > 0:
+            cn_string = item_cn_tuples[0][0]
+        elif len(bib_cn_tuples) > 0:
+            cn_string = bib_cn_tuples[0][0]
+
+        vol = self.fetch_varfields(item, 'v', only_first=True)
+        if vol is not None:
+            cn_string = '{} {}'.format(cn_string, vol)
+
+        if item.copy_num > 1:
+            cn_string = '{} c.{}'.format(cn_string, item.copy_num)
+        return cn_string or None
+
+    def calculate_item_requestability(self, item, bib):
+        return None
 
 class PipelineBundleConverter(object):
     """
@@ -303,39 +363,24 @@ class S2MarcBatchBlacklightSolrMarc(S2MarcBatch):
             raise S2MarcError('Skipped. No MARC fields on Bib record.', str(r))
 
         bundle = self.custom_data_pipeline.do(r, marc_record)
-        # marc_record.add_ordered_field(*self.to_9xx_converter.do(bundle))
+        marc_record.add_ordered_field(*self.to_9xx_converter.do(bundle))
         
         material_type = r.bibrecordproperty_set.all()[0].material.code
         metadata_field = pymarc.field.Field(
-                tag='907',
+                tag='957',
                 indicators=[' ', ' '],
-                subfields=['a', bundle['id'], 'b', str(r.id), 
-                           'c', bundle['suppressed'], 'd', material_type]
+                subfields=['d', material_type]
         )
         marc_record.add_ordered_field(metadata_field)
         # Add bib locations to the 911a.
         for loc in r.locations.all():
             loc_field = pymarc.field.Field(
-                tag='911',
+                tag='961',
                 indicators=[' ', ' '],
                 subfields=['a', loc.code]
             )
             marc_record.add_ordered_field(loc_field)
 
-        # Add a list of attached items to the 908 field.
-        for item_link in r.bibrecorditemrecordlink_set.all():
-            item = item_link.item_record
-            try:
-                item_lcode = item.location.code
-            except (models.Location.DoesNotExist, AttributeError):
-                item_lcode = 'none'
-            item_field = pymarc.field.Field(
-                tag='908',
-                indicators=[' ', ' '],
-                subfields=['a', item.record_metadata.get_iii_recnum(True),
-                           'b', str(item.pk), 'c', item_lcode]
-            )
-            marc_record.add_ordered_field(item_field)
         # For each call number in the record, add a 909 field.
         i = 0
         for cn, ctype in r.get_call_numbers():
@@ -351,7 +396,7 @@ class S2MarcBatchBlacklightSolrMarc(S2MarcBatch):
             subfield_data.extend([self.cn_type_subfield_mapping[ctype], cn])
 
             cn_field = pymarc.field.Field(
-                tag='909',
+                tag='959',
                 indicators=[' ', ' '],
                 subfields=subfield_data
             )
@@ -367,7 +412,7 @@ class S2MarcBatchBlacklightSolrMarc(S2MarcBatch):
             for token in media_tokens:
                 mf_subfield_data += ['a', token]
             mf_field = pymarc.field.Field(
-                tag='910',
+                tag='960',
                 indicators=[' ', ' '],
                 subfields = mf_subfield_data
             )

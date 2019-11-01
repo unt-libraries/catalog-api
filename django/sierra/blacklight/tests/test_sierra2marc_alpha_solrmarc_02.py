@@ -4,6 +4,7 @@ Tests the blacklight.parsers functions.
 
 import pytest
 import pymarc
+import ujson
 
 from blacklight import sierra2marc_alpha_solrmarc_02 as s2m
 
@@ -13,18 +14,11 @@ pytestmark = pytest.mark.django_db
 
 
 @pytest.fixture
-def get_args_for_pipeline(sierra_records_by_recnum_range):
-    """
-    Pytest fixture; returns a function that takes a Sierra record
-    number (`recnum`) and provides the arguments to pass to a pipeline
-    method, for testing: `r` (the DB bib record instance) and
-    `marc_record` (the PyMARC version of the same record).
-    """
-    def _get_args_for_pipeline(recnum):
-        r = sierra_records_by_recnum_range(recnum)[0]
-        mrecord = s2m.S2MarcBatchBlacklightSolrMarc(r).compile_original_marc(r)
-        return (r, mrecord)
-    return _get_args_for_pipeline
+def bibrecord_to_pymarc():
+    def _bibrecord_to_pymarc(bib):
+        s2m_obj = s2m.S2MarcBatchBlacklightSolrMarc(bib)
+        return s2m_obj.compile_original_marc(bib)
+    return _bibrecord_to_pymarc
 
 
 @pytest.fixture
@@ -41,6 +35,46 @@ def plbundleconverter_class():
     Pytest fixture; returns the PipelineBundleConverter class.
     """
     return s2m.PipelineBundleConverter
+
+
+@pytest.fixture
+def assert_json_matches_expected():
+    """
+    Pytest fixture for asserting that a list of `json_strs` and
+    `exp_dicts` are equivalent. Tests to make sure each key/val pair
+    in each of exp_dicts is found in the corresponding `json_strs`
+    obj.
+    """
+    def _assert_json_matches_expected(json_strs, exp_dicts):
+        for json, exp_dict in zip(json_strs, exp_dicts):
+            cmp_dict = ujson.loads(json)
+            for key in exp_dict.keys():
+                assert cmp_dict[key] == exp_dict[key]
+    return _assert_json_matches_expected
+
+
+@pytest.fixture
+def update_test_bib_inst(add_varfields_to_record, add_items_to_bib):
+    """
+    Pytest fixture. Update the given `bib` (base.models.BibRecord)
+    instance with given `varfields` and/or `items_info`. Returns the
+    updated bib instance. Underneath, fixture factories are used that
+    ensure the changes are reverted after the test runs. 
+    """
+    def _update_test_bib_inst(bib, varfields=[], items=[]):
+        for field_tag, marc_tag, vals in varfields:
+            bib = add_varfields_to_record(bib, field_tag, marc_tag, vals,
+                                          overwrite_existing=True)
+
+        items_to_add = []
+        for item in items:
+            try:
+                attrs, item_vfs = item
+            except ValueError:
+                attrs, item_vfs = item, []
+            items_to_add.append({'attrs': attrs, 'varfields': item_vfs})
+        return add_items_to_bib(bib, items_to_add)
+    return _update_test_bib_inst
 
 
 # TESTS
@@ -110,27 +144,247 @@ def test_blasmpipeline_do_creates_compiled_dict(blasm_pipeline_class):
                        'stuff': ['thing'] }
 
 
-def test_blasmpipeline_get_id(get_args_for_pipeline, blasm_pipeline_class):
+def test_blasmpipeline_getid(bl_sierra_test_record, blasm_pipeline_class):
     """
     BlacklightASMPipeline.get_id should return the bib Record ID
     formatted according to III's specs.
     """
     pipeline = blasm_pipeline_class()
-    r, marc_record = get_args_for_pipeline('b4371446')
-    val = pipeline.get_id(r, marc_record)
-    assert val == {'id': '.b4371446'}
+    bib = bl_sierra_test_record('b6029459')
+    val = pipeline.get_id(bib, None)
+    assert val == {'id': '.b6029459'}
 
 
-def test_blasmpipeline_get_suppressed(get_args_for_pipeline,
-                                      blasm_pipeline_class):
+@pytest.mark.parametrize('in_val, expected', [
+    (True, 'true'),
+    (False, 'false')
+])
+def test_blasmpipeline_getsuppressed(in_val, expected, bl_sierra_test_record,
+                                     blasm_pipeline_class,
+                                     setattr_model_instance):
     """
     BlacklightASMPipeline.get_suppressed should return 'false' if the
     record is not suppressed.
     """
     pipeline = blasm_pipeline_class()
-    r, marc_record = get_args_for_pipeline('b4371446')
-    val = pipeline.get_suppressed(r, marc_record)
-    assert val == {'suppressed': 'false'}
+    bib = bl_sierra_test_record('b6029459')
+    setattr_model_instance(bib, 'is_suppressed', in_val)
+    val = pipeline.get_suppressed(bib, None)
+    assert val == {'suppressed': expected}
+
+
+def test_blasmpipeline_getiteminfo_ids(bl_sierra_test_record,
+                                       blasm_pipeline_class,
+                                       update_test_bib_inst,
+                                       assert_json_matches_expected):
+    """
+    The `items_json` key of the value returned by
+    BlacklightASMPipeline.get_item_info should be a list of JSON
+    objects, each one corresponding to an item. The 'i' key for each
+    JSON object should match the numeric portion of the III rec num for
+    that item.
+    """
+    pipeline = blasm_pipeline_class()
+    bib = bl_sierra_test_record('bib_no_items')
+    bib = update_test_bib_inst(bib, items=[{}, {}])
+    val = pipeline.get_item_info(bib, None)
+    
+    items = [l.item_record for l in bib.bibrecorditemrecordlink_set.all()]
+    expected = [{'i': str(item.record_metadata.record_num)} for item in items]
+    assert_json_matches_expected(val['items_json'], expected)
+
+
+@pytest.mark.parametrize('bib_cn_info, items_info, expected_cns', [
+    ([('c', '050', ['|aTEST BIB CN'])],
+     [({'copy_num': 1}, [])],
+     ['TEST BIB CN']),
+    ([('c', '090', ['|aTEST BIB CN'])],
+     [({'copy_num': 1}, [])],
+     ['TEST BIB CN']),
+    ([('c', '092', ['|aTEST BIB CN'])],
+     [({'copy_num': 1}, [])],
+     ['TEST BIB CN']),
+    ([('c', '099', ['|aTEST BIB CN'])],
+     [({'copy_num': 1}, [])],
+     ['TEST BIB CN']),
+    ([],
+     [({'copy_num': 1}, [('c', '050', ['|aTEST ITEM CN'])])],
+     ['TEST ITEM CN']),
+    ([],
+     [({'copy_num': 1}, [('c', '090', ['|aTEST ITEM CN'])])],
+     ['TEST ITEM CN']),
+    ([],
+     [({'copy_num': 1}, [('c', '092', ['|aTEST ITEM CN'])])],
+     ['TEST ITEM CN']),
+    ([],
+     [({'copy_num': 1}, [('c', '099', ['|aTEST ITEM CN'])])],
+     ['TEST ITEM CN']),
+    ([],
+     [({'copy_num': 1}, [('c', None, ['TEST ITEM CN'])])],
+     ['TEST ITEM CN']),
+    ([('c', '050', ['TEST BIB CN'])],
+     [({'copy_num': 1}, [('c', None, ['TEST ITEM CN'])]),
+      ({'copy_num': 1}, [])],
+     ['TEST ITEM CN',
+      'TEST BIB CN']),
+    ([('c', '050', ['TEST BIB CN'])],
+     [({'copy_num': 2}, [('c', None, ['TEST ITEM CN'])]),
+      ({'copy_num': 3}, [])],
+     ['TEST ITEM CN c.2',
+      'TEST BIB CN c.3']),
+    ([('c', '050', ['TEST BIB CN'])],
+     [({'copy_num': 1}, [('v', None, ['volume 1'])])],
+     ['TEST BIB CN volume 1']),
+    ([('c', '050', ['TEST BIB CN'])],
+     [({'copy_num': 1}, [('v', None, ['volume 2', 'volume 1'])])],
+     ['TEST BIB CN volume 2']),
+    ([('c', '050', ['TEST BIB CN'])],
+     [({'copy_num': 2}, [('v', None, ['volume 1'])])],
+     ['TEST BIB CN volume 1 c.2']),
+    ([],
+     [({'copy_num': 1}, [])],
+     [None]),
+], ids=[
+    'bib cn (c050), no item cn => bib cn',
+    'bib cn (c090), no item cn => bib cn',
+    'bib cn (c092), no item cn => bib cn',
+    'bib cn (c099), no item cn => bib cn',
+    'no bib cn, item cn (c050) => item cn',
+    'no bib cn, item cn (c090) => item cn',
+    'no bib cn, item cn (c092) => item cn',
+    'no bib cn, item cn (c099) => item cn',
+    'no bib cn, item cn (non-marc c-tagged field) => item cn',
+    'item cn, if present, overrides bib cn',
+    'copy_num > 1 is appended to cn',
+    'volume is appended to cn',
+    'if >1 volumes, only the first is used',
+    'both copy_num AND volume may appear (volume first, then copy)',
+    'if NO cn, copy, or volume, cn defaults to None/null'
+])
+def test_blasmpipeline_getiteminfo_callnumbers(bib_cn_info, items_info,
+                                               expected_cns,
+                                               bl_sierra_test_record,
+                                               blasm_pipeline_class,
+                                               update_test_bib_inst,
+                                               assert_json_matches_expected):
+    """
+    The `items_json` key of the value returned by
+    BlacklightASMPipeline.get_item_info should be a list of JSON
+    objects, each one corresponding to an item. The 'c' key for each
+    JSON object contains the call number. Various parameters test how
+    the item call number is generated.
+    """
+    pipeline = blasm_pipeline_class()
+    bib = bl_sierra_test_record('bib_no_items')
+    bib = update_test_bib_inst(bib, varfields=bib_cn_info, items=items_info)
+    val = pipeline.get_item_info(bib, None)
+    expected = [{'c': cn} for cn in expected_cns]
+    assert_json_matches_expected(val['items_json'], expected)
+
+
+@pytest.mark.parametrize('items_info, expected', [
+    ([({'copy_num': 1}, [('b', None, ['1234567890'])])],
+     [{'b': '1234567890'}]),
+    ([({'copy_num': 1}, [('b', None, ['2', '1'])])],
+     [{'b': '2'}]),
+    ([({'copy_num': 1}, [('p', None, ['Note1', 'Note2'])])],
+     [{'n': ['Note1', 'Note2']}]),
+    ([({'copy_num': 1}, [])],
+     [{'b': None, 'n': None}]),
+], ids=[
+    'one barcode',
+    'if the item has >1 barcode, just the first is used',
+    'if the item has >1 note, then all are included',
+    'if no barcodes/notes, barcode/notes is None/null',
+])
+def test_blasmpipeline_getiteminfo_bcodes_notes(items_info, expected,
+                                                bl_sierra_test_record,
+                                                blasm_pipeline_class,
+                                                update_test_bib_inst,
+                                                assert_json_matches_expected):
+    """
+    The `items_json` key of the value returned by
+    BlacklightASMPipeline.get_item_info should be a list of JSON
+    objects, each one corresponding to an item. The 'b' and 'n' keys
+    for each JSON object contain the barcode and public notes,
+    respectively. Various parameters test how those are generated.
+    """
+    pipeline = blasm_pipeline_class()
+    bib = bl_sierra_test_record('bib_no_items')
+    bib = update_test_bib_inst(bib, items=items_info)
+    val = pipeline.get_item_info(bib, None)
+    assert_json_matches_expected(val['items_json'], expected)
+
+
+@pytest.mark.parametrize('items_info, exp_items, exp_more_items', [
+    ([({}, [('b', None, ['1'])]),
+      ({}, [('b', None, ['2'])])],
+     [{'b': '1'},
+      {'b': '2'}],
+     None),
+    ([({}, [('b', None, ['1'])]),
+      ({}, [('b', None, ['2'])]),
+      ({}, [('b', None, ['3'])])],
+     [{'b': '1'},
+      {'b': '2'},
+      {'b': '3'}],
+     None),
+    ([({}, [('b', None, ['1'])]),
+      ({}, [('b', None, ['2'])]),
+      ({}, [('b', None, ['3'])]),
+      ({}, [('b', None, ['4'])]),
+      ({}, [('b', None, ['5'])])],
+     [{'b': '1'},
+      {'b': '2'},
+      {'b': '3'}],
+     [{'b': '4'},
+      {'b': '5'}]),
+    ([({}, [('b', None, ['7'])]),
+      ({}, [('b', None, ['3'])]),
+      ({}, [('b', None, ['5'])]),
+      ({}, [('b', None, ['2'])]),
+      ({}, [('b', None, ['4'])]),
+      ({}, [('b', None, ['6'])]),
+      ({}, [('b', None, ['1'])])],
+     [{'b': '7'},
+      {'b': '3'},
+      {'b': '5'}],
+     [{'b': '2'},
+      {'b': '4'},
+      {'b': '6'},
+      {'b': '1'},]),
+], ids=[
+    'fewer than three items => expect <3 items, no more_items',
+    'three items => expect 3 items, no more_items',
+    'more than three items => expect >3 items, plus more_items',
+    'multiple items in bizarre order stay in order'
+])
+def test_blasmpipeline_get_item_info_num_items(items_info, exp_items,
+                                               exp_more_items,
+                                               bl_sierra_test_record,
+                                               blasm_pipeline_class,
+                                               update_test_bib_inst,
+                                               assert_json_matches_expected):
+    """
+    BlacklightASMPipeline.get_item_info return value should be a dict
+    with keys `items_json`, `more_items_json`, and `has_more_items`
+    that are based on the total number of items on the record. The
+    first three attached items are in items_json; others are in
+    more_items_json. has_more_items is 'true' if more_items_json is
+    not empty. Additionally, items should remain in the order they
+    appear on the record.
+    """
+    pipeline = blasm_pipeline_class()
+    bib = bl_sierra_test_record('bib_no_items')
+    bib = update_test_bib_inst(bib, items=items_info)
+    val = pipeline.get_item_info(bib, None)
+    assert_json_matches_expected(val['items_json'], exp_items)
+    if exp_more_items:
+        assert val['has_more_items'] == 'true'
+        assert_json_matches_expected(val['more_items_json'], exp_more_items)
+    else:
+        assert val['has_more_items'] == 'false'
+        assert val['more_items_json'] is None
 
 
 @pytest.mark.parametrize('mapping, bundle, expected', [
