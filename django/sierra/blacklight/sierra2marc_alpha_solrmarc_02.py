@@ -87,15 +87,18 @@ class BlacklightASMPipeline(object):
 
     def get_item_info(self, r, marc_record):
         items = []
-        item_links = r.bibrecorditemrecordlink_set.all()
-        for item_link in item_links.order_by('items_display_order'):
-            item = item_link.item_record
+        item_links = [l for l in r.bibrecorditemrecordlink_set.all()]
+        for link in sorted(item_links, key=lambda l: l.items_display_order):
+            item = link.item_record
+            item_id, callnum, barcode, notes, rqbility = '', '', '', [], ''
+            callnum = self.calculate_item_display_call_number(item, r)
             item_id = str(item.record_metadata.record_num)
-            callnum = self.calculate_item_display_call_number(item)
             barcode = self.fetch_varfields(item, 'b', only_first=True)
             notes = self.fetch_varfields(item, 'p')
+            rqbility = self.calculate_item_requestability(item)
+
             items.append({'i': item_id, 'c': callnum, 'b': barcode, 'n': notes,
-                          'r': self.calculate_item_requestability(item, r)})
+                          'r': rqbility})
 
         items_json, has_more_items, more_items_json = [], False, []
         items_json = [ujson.dumps(i) for i in items[0:3]]
@@ -109,23 +112,19 @@ class BlacklightASMPipeline(object):
         }
 
     def fetch_varfields(self, record, vf_code, only_first=False):
-        filt = {'varfield_type_code': vf_code}
-        vf_set = record.record_metadata.varfield_set.filter(**filt)
-        vf_set = vf_set.order_by('occ_num')
-        if len(vf_set) > 0:
+        vf_set = record.record_metadata.varfield_set
+        vfields = [f for f in vf_set.all() if f.varfield_type_code == vf_code]
+        if len(vfields) > 0:
+            vfields = sorted(vfields, key=lambda f: f.occ_num)
             if only_first:
-                return vf_set[0].field_content
-            return [vf.field_content for vf in vf_set]
+                return vfields[0].field_content
+            return [vf.field_content for vf in vfields]
         return None
 
-    def calculate_item_display_call_number(self, item):
+    def calculate_item_display_call_number(self, item, bib):
         cn_string = ''
         item_cn_tuples = item.get_call_numbers()
-        try:
-            bib_cn_tuples = (item.bibrecorditemrecordlink_set.all()[0]
-                                 .bib_record.get_call_numbers())
-        except IndexError:
-            bib_cn_tuples = []
+        bib_cn_tuples = bib.get_call_numbers()
 
         if len(item_cn_tuples) > 0:
             cn_string = item_cn_tuples[0][0]
@@ -140,7 +139,7 @@ class BlacklightASMPipeline(object):
             cn_string = '{} c.{}'.format(cn_string, item.copy_num)
         return cn_string or None
 
-    def calculate_item_requestability(self, item, bib):
+    def calculate_item_requestability(self, item):
         nr_ruleset = [
             {'location_id': (
                 'czmrf', 'czmrs', 'czwww', 'd', 'dcare', 'dfic', 'djuv',

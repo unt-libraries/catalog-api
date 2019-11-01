@@ -99,6 +99,8 @@ class BibsToAlphaSolrmarc02(ToSolrExporter):
         'bibrecorditemrecordlink_set__item_record__record_metadata',
         'bibrecorditemrecordlink_set__item_record__record_metadata'
             '__record_type',
+        'bibrecorditemrecordlink_set__item_record__record_metadata'
+            '__varfield_set',
         'bibrecordproperty_set',
         'bibrecordproperty_set__material__materialpropertyname_set',
         'bibrecordproperty_set__material__materialpropertyname_set'
