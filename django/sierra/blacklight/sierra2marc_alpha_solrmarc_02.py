@@ -73,6 +73,22 @@ class BlacklightASMPipeline(object):
                 bundle[k] = v
         return bundle
 
+    def fetch_varfields(self, record, vf_code, only_first=False):
+        """
+        Fetch varfield content from the given `record`, limited to the
+        given `vf_code` (i.e. field tag or varfield type code). If
+        `only_first` is True, then it gets only the first vf, based on
+        vf.occ_num.
+        """
+        vf_set = record.record_metadata.varfield_set
+        vfields = [f for f in vf_set.all() if f.varfield_type_code == vf_code]
+        if len(vfields) > 0:
+            vfields = sorted(vfields, key=lambda f: f.occ_num)
+            if only_first:
+                return vfields[0].field_content
+            return [vf.field_content for vf in vfields]
+        return None
+
     def get_id(self, r, marc_record):
         """
         Return the III Record Number, minus the check digit.
@@ -86,6 +102,10 @@ class BlacklightASMPipeline(object):
         return { 'suppressed': 'true' if r.is_suppressed else 'false' }
 
     def get_item_info(self, r, marc_record):
+        """
+        Return a dict containing item table information: `items_json`,
+        `has_more_items`, and `more_items_json`.
+        """
         items = []
         item_links = [l for l in r.bibrecorditemrecordlink_set.all()]
         for link in sorted(item_links, key=lambda l: l.items_display_order):
@@ -111,17 +131,11 @@ class BlacklightASMPipeline(object):
             'more_items_json': more_items_json or None
         }
 
-    def fetch_varfields(self, record, vf_code, only_first=False):
-        vf_set = record.record_metadata.varfield_set
-        vfields = [f for f in vf_set.all() if f.varfield_type_code == vf_code]
-        if len(vfields) > 0:
-            vfields = sorted(vfields, key=lambda f: f.occ_num)
-            if only_first:
-                return vfields[0].field_content
-            return [vf.field_content for vf in vfields]
-        return None
-
     def calculate_item_display_call_number(self, item, bib):
+        """
+        Sub-method used by `get_item_info` to return the display call
+        number for the given `item`.
+        """
         cn_string = ''
         item_cn_tuples = item.get_call_numbers()
         bib_cn_tuples = bib.get_call_numbers()
@@ -140,6 +154,10 @@ class BlacklightASMPipeline(object):
         return cn_string or None
 
     def calculate_item_requestability(self, item):
+        """
+        Sub-method used by `get_item_info` to return a requestability
+        string based on established request rules.
+        """
         nr_ruleset = [
             {'location_id': (
                 'czmrf', 'czmrs', 'czwww', 'd', 'dcare', 'dfic', 'djuv',
