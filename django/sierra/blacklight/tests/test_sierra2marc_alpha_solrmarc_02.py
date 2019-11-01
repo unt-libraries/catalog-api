@@ -359,12 +359,12 @@ def test_blasmpipeline_getiteminfo_bcodes_notes(items_info, expected,
     'more than three items => expect >3 items, plus more_items',
     'multiple items in bizarre order stay in order'
 ])
-def test_blasmpipeline_get_item_info_num_items(items_info, exp_items,
-                                               exp_more_items,
-                                               bl_sierra_test_record,
-                                               blasm_pipeline_class,
-                                               update_test_bib_inst,
-                                               assert_json_matches_expected):
+def test_blasmpipeline_getiteminfo_num_items(items_info, exp_items,
+                                             exp_more_items,
+                                             bl_sierra_test_record,
+                                             blasm_pipeline_class,
+                                             update_test_bib_inst,
+                                             assert_json_matches_expected):
     """
     BlacklightASMPipeline.get_item_info return value should be a dict
     with keys `items_json`, `more_items_json`, and `has_more_items`
@@ -385,6 +385,55 @@ def test_blasmpipeline_get_item_info_num_items(items_info, exp_items,
     else:
         assert val['has_more_items'] == 'false'
         assert val['more_items_json'] is None
+
+
+@pytest.mark.parametrize('items_info, expected_r', [
+    ([({'location_id': 'w3'}, {}),
+      ({'location_id': 'xmus', 'itype_id': 7}, {})],
+     'catalog'),
+    ([({'location_id': 'czwww'}, {}),
+      ({'location_id': 'w3', 'item_status_id': 'o'}, {}),
+      ({'location_id': 'w3', 'itype_id': 7}, {}),
+      ({'location_id': 'w3', 'itype_id': 20}, {}),
+      ({'location_id': 'w3', 'itype_id': 29}, {}),
+      ({'location_id': 'w3', 'itype_id': 69}, {}),
+      ({'location_id': 'w3', 'itype_id': 74}, {}),
+      ({'location_id': 'w3', 'itype_id': 112}, {}),
+      ],
+     None),
+    ([({'location_id': 'w4spe'}, {}),
+      ({'location_id': 'w4mr1'}, {}),
+      ({'location_id': 'w4mr2'}, {}),
+      ({'location_id': 'w4mr3'}, {}),
+      ({'location_id': 'w4mrb'}, {}),
+      ({'location_id': 'w4mrx'}, {})],
+     'aeon'),
+], ids=[
+    'items that are requestable through the catalog (Sierra)',
+    'items that are not requestable',
+    'items that are requestable through Aeon',
+])
+def test_blasmpipeline_getiteminfo_requesting(items_info, expected_r,
+                                              bl_sierra_test_record,
+                                              blasm_pipeline_class,
+                                              update_test_bib_inst,
+                                              assert_json_matches_expected):
+    """
+    The `items_json` key of the value returned by
+    BlacklightASMPipeline.get_item_info should be a list of JSON
+    objects, each one corresponding to an item. The 'r' key for each
+    JSON object contains a string describing how end users request the
+    item. (See parameters for details.) Note that this hits the
+    highlights but isn't exhaustive.
+    """
+    pipeline = blasm_pipeline_class()
+    bib = bl_sierra_test_record('bib_no_items')
+    bib = update_test_bib_inst(bib, items=items_info)
+    val = pipeline.get_item_info(bib, None)
+    exp_items = [{'r': expected_r} for i in range(0, len(items_info))]
+    assert_json_matches_expected(val['items_json'], exp_items[0:3])
+    if val['more_items_json'] is not None:
+        assert_json_matches_expected(val['more_items_json'], exp_items[3:])
 
 
 @pytest.mark.parametrize('mapping, bundle, expected', [

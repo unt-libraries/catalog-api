@@ -141,7 +141,46 @@ class BlacklightASMPipeline(object):
         return cn_string or None
 
     def calculate_item_requestability(self, item, bib):
-        return None
+        nr_ruleset = [
+            {'location_id': (
+                'czmrf', 'czmrs', 'czwww', 'd', 'dcare', 'dfic', 'djuv',
+                'dmed', 'dref', 'dresv', 'fip', 'frsco', 'gwww', 'hscfw',
+                'ill', 'jlf', 'kmatt', 'kpacs', 'kpeb', 'law', 'lawcl', 'lawh',
+                'lawrf', 'lawrs', 'lawtx', 'lawww', 'libr', 'lwww', 'mwww',
+                'rzzrf', 'rzzrs', 'sdai', 'sdbi', 'sdmp', 'sdov', 'sdtov',
+                'sdvf', 'sdzmr', 'sdzrf', 'sdzrs', 'sdzsd', 'spe', 'spec',
+                'swr', 'szmp', 'szzov', 'szzrf', 'szzrs', 'szzsd', 'tamc',
+                'test', 'twu', 'txsha', 'unt', 'w1grs', 'w1gwt', 'w1ia',
+                'w1ind', 'w2awt', 'w2lan', 'w3dai', 'w3lab', 'w3mfa', 'w3per',
+                'w433a', 'w4422', 'w4438', 'w4fil', 'w4mai', 'w4mav', 'w4mbg',
+                'w4mfb', 'w4mla', 'w4moc', 'w4mr1', 'w4mr2', 'w4mr3', 'w4mrb',
+                'w4mrf', 'w4mrs', 'w4mrx', 'w4mts', 'w4mwf', 'w4mwr', 'w4spe',
+                'w4srf', 'wgrc', 'wlmic', 'wlper', 'xprsv', 'xspe', 'xts'
+            )},
+            {'item_status_id': tuple('efijmnopwyz')},
+            {'itype_id': (20, 29, 69, 74, 112)},
+            {'itype_id': (7,), '-location_id': ('xmus',) }
+        ]
+        aeon_ruleset = [
+            {'location_id': ('w4mr1', 'w4mr2', 'w4mr3', 'w4mrb', 'w4mrx',
+                             'w4spe')}
+        ]
+
+        def _item_matches_rule(rule, item):
+            for field, valset in rule.items():
+                if field[0] == '-':
+                    if getattr(item, field[1:]) in valset:
+                        return False
+                elif getattr(item, field) not in valset:
+                    return False
+            return True
+
+        if any([_item_matches_rule(rule, item) for rule in aeon_ruleset]):
+            return 'aeon'
+        if any([_item_matches_rule(rule, item) for rule in nr_ruleset]):
+            return None
+        return 'catalog'
+
 
 class PipelineBundleConverter(object):
     """
