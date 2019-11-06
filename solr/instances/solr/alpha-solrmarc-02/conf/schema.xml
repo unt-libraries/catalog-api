@@ -115,6 +115,8 @@
     <field name="items_json" type="string" indexed="false" stored="true" multiValued="true" />
     <field name="has_more_items" type="boolean" indexed="true" stored="true" multiValued="false" />
     <field name="more_items_json" type="string" indexed="false" stored="true" multiValued="true" />
+    <!-- Thumnails -->
+    <field name="thumbnail_url" type="string" indexed="false" stored="true" multiValued="false"/>
     <!-- URLs -->
     <field name="urls_json" type="string" indexed="false" stored="true" multiValued="true" />
 

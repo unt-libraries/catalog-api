@@ -53,7 +53,7 @@ class BlacklightASMPipeline(object):
     fully-populated dict.
     """
     fields = [
-        'id', 'suppressed', 'item_info', 'urls_json',
+        'id', 'suppressed', 'item_info', 'urls_json', 'thumbnail_url',
     ]
     prefix = 'get_'
 
@@ -215,8 +215,8 @@ class BlacklightASMPipeline(object):
                                   't': utype})
 
         for f962 in marc_record.get_fields('962'):
-            url, thumb = f962.get_subfields('u'), f962.get_subfields('e')
-            if url and not thumb:
+            url = f962.get_subfields('u')
+            if url and not self._url_is_media_cover_image(url[0]):
                 title = f962.get_subfields('t') or [None]
                 urls_data.append({'u': url[0], 'n': title[0], 'l': None,
                                   't': 'media'})
@@ -228,6 +228,50 @@ class BlacklightASMPipeline(object):
 
         return { 'urls_json': urls_json }
 
+    def _url_is_media_cover_image(self, url):
+        """
+        Return True if the given `url` is a UNT Media Library cover
+        image.
+        """
+        return 'library.unt.edu/media/covers' in url
+
+    def _url_is_from_digital_library(self, url):
+        """
+        Return True if the given `url` is from the UNT Digital Library
+        (or Portal to Texas History).
+        """
+        return 'digital.library.unt.edu/ark:' in url or\
+               'texashistory.unt.edu/ark:' in url
+
+    def _url_is_from_media_booking_system(self, url):
+        """
+        Return True if the given `url` is from the UNTL Media Booking
+        system.
+        """
+        return 'mediabook.library.unt.edu' in url
+
+    def _url_note_indicates_fulltext(self, note):
+        """
+        Return True if the given `note` (|z text from an 856 URL)
+        matches a pattern indicating it's probably a full-text link.
+        """
+        eres_re = r'[Ee]lectronic|[Ee].?[Rr]esource'
+        online_re = r'[Oo]nline.?'
+        fulltext_re = r'[Ff]ull.?[Tt]ext.?'
+        alternatives = r'|'.join([eres_re, online_re, fulltext_re])
+        regex = r'(^|\s)({})(\s|$)'.format(alternatives)
+        return bool(re.search(regex, note))
+
+    def _bib_has_item_with_online_status(self, bib):
+        """
+        Return True if there's at least one item attached to this bib
+        with an item status ONLINE (w).
+        """
+        for link in bib.bibrecorditemrecordlink_set.all():
+            if link.item_record.item_status_id == 'w':
+                return True
+        return False
+
     def review_url_type(self, url_data, num_urls, bib):
         """
         Make a second pass at determining the URL type: full_text,
@@ -237,31 +281,42 @@ class BlacklightASMPipeline(object):
         item attached with status 'ONLINE' (w) and it's the only URL,
         then it's fulltext. Otherwise, keep whatever soft determination
         was made in the `get_urls_json` method.
-        """
-        def _has_mediabooking_url(url):
-            return 'mediabook.library.unt.edu' in url
-
-        def _note_indicates_fulltext(note):
-            eres_re = r'[Ee]lectronic|[Ee].?[Rr]esource'
-            online_re = r'[Oo]nline.?'
-            fulltext_re = r'[Ff]ull.?[Tt]ext.?'
-            alternatives = r'|'.join([eres_re, online_re, fulltext_re])
-            regex = r'(^|\s)({})(\s|$)'.format(alternatives)
-            return bool(re.search(regex, note))
-
-        def _has_online_item(bib):
-            for link in bib.bibrecorditemrecordlink_set.all():
-                if link.item_record.item_status_id == 'w':
-                    return True
-            return False
-
-        if _has_mediabooking_url(url_data['u']):
+        """ 
+        if self._url_is_from_media_booking_system(url_data['u']):
             return 'booking'
-        if url_data['n'] and _note_indicates_fulltext(url_data['n']):
+        if url_data['n'] and self._url_note_indicates_fulltext(url_data['n']):
             return 'fulltext'
-        if num_urls == 1 and _has_online_item(bib):
+        if num_urls == 1 and self._bib_has_item_with_online_status(bib):
             return 'fulltext'
         return url_data['t']
+
+    def get_thumbnail_url(self, r, marc_record):
+        """
+        Try finding a (local) thumbnail URL for this bib record. If it
+        exists, it will either be from a cover image scanned by the
+        Media Library, or it will be from the Digital Library or
+        Portal.
+        """
+        def _try_media_cover_image(f962s):
+            for f962 in f962s:
+                url = f962.get_subfields('u')
+                if url and self._url_is_media_cover_image(url[0]):
+                    return re.sub(r'^(https?):\/\/(www\.)?', 'https://',
+                                  url[0])
+
+        def _try_digital_library_image(f856s):
+            for f856 in f856s:
+                url = f856.get_subfields('u')
+                if url and self._url_is_from_digital_library(url[0]):
+                    url = url[0].split('?')[0].rstrip('/')
+                    url = re.sub(r'^http:', 'https:', url)
+                    return '{}/small/'.format(url)
+
+        url = _try_media_cover_image(marc_record.get_fields('962')) or\
+              _try_digital_library_image(marc_record.get_fields('856')) or\
+              None
+
+        return {'thumbnail_url': url}
 
 
 class PipelineBundleConverter(object):

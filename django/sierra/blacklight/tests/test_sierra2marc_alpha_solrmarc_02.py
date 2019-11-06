@@ -538,8 +538,9 @@ def test_blasmpipeline_getiteminfo_requesting(items_info, expected_r,
     ([('962', ['t', 'Media Thing', 'u', 'http://example.com'])],
      [],
      [{'u': 'http://example.com', 'n': 'Media Thing', 't': 'media' }]),
-    ([('962', ['t', 'Media Thing', 'u', 'http://example.com',
-               'e', 'http://example.com/thumbnail'])],
+    ([('962', ['t', 'Media Thing',
+               'u', 'http://www.library.unt.edu/media/covers/cover.jpg',
+               'e', 'http://www.library.unt.edu/media/thumb/thumb.jpg'])],
      [],
      []),
     ([('962', ['t', 'Media Thing'])],
@@ -567,8 +568,8 @@ def test_blasmpipeline_getiteminfo_requesting(items_info, expected_r,
     '856, type fulltext: item with online status and 1 URL',
     '856, type fulltext: >1 items, 1 with online status, and 1 URL',
     '856, type link: item with online status but >1 URLs',
-    '962 (media manager) URL, no thumb => urls_json entry',
-    '962 (media manager) URL, w/thumb => NO urls_json entry',
+    '962 (media manager) URL, no media cover => urls_json entry',
+    '962 (media manager) URL, w/media cover => NO urls_json entry',
     '962 (media manager) field, no URL => NO urls_json entry',
     '962 (media manager) field, type fulltext based on title',
 ])
@@ -590,6 +591,52 @@ def test_blasmpipeline_geturlsjson(marcfields, items_info, expected,
     bibmarc = add_marc_fields(bibmarc, marcfields)
     val = pipeline.get_urls_json(bib, bibmarc)
     assert_json_matches_expected(val['urls_json'], expected)
+
+
+@pytest.mark.parametrize('marcfields, expected_url', [
+    ([('962', ['t', 'Cover Image',
+               'u', 'http://www.library.unt.edu/media/covers/cover.jpg',
+               'e', 'http://www.library.unt.edu/media/covers/thumb.jpg'])],
+     'https://library.unt.edu/media/covers/cover.jpg'),
+    ([('962', ['t', 'Cover Image',
+               'u', 'http://example.com/media/covers/cover.jpg',
+               'e', 'http://example.com/media/covers/thumb.jpg'])],
+     None),
+    ([('856', ['u', 'http://digital.library.unt.edu/ark:/67531/metadc130771',
+               'z', 'Connect to online resource'])],
+     'https://digital.library.unt.edu/ark:/67531/metadc130771/small/'),
+    ([('856', ['u', 'http://texashistory.unt.edu/ark:/67531/metadc130771',
+               'z', 'Connect to online resource'])],
+     'https://texashistory.unt.edu/ark:/67531/metadc130771/small/'),
+    ([('856', ['u', 'http://digital.library.unt.edu/ark:/1/md/?utm_source=cat',
+               'z', 'Connect to online resource'])],
+     'https://digital.library.unt.edu/ark:/1/md/small/'),
+    ([('856', ['u', 'http://example.com/whatever', 'z', 'Resource'])],
+     None),
+], ids=[
+    'standard media library cover',
+    'other 962 image(s): ignore non-UNTL media images',
+    'standard Digital Library cover',
+    'standard Portal cover',
+    'strip querystrings when formulating DL/Portal URLs',
+    'other 856 link(s): ignore non-DL/Portal URLs'
+])
+def test_blasmpipeline_getthumbnailurl(marcfields, expected_url,
+                                       bl_sierra_test_record,
+                                       blasm_pipeline_class,
+                                       bibrecord_to_pymarc, add_marc_fields):
+    """
+    BlacklightASMPipeline.get_thumbnail_url should return a URL for
+    a local thumbnail image, if one exists. (Either Digital Library or
+    a Media Library thumbnail.)
+    """
+    pipeline = blasm_pipeline_class()
+    bib = bl_sierra_test_record('bib_no_items')
+    bibmarc = bibrecord_to_pymarc(bib)
+    bibmarc.remove_fields('856', '962')
+    bibmarc = add_marc_fields(bibmarc, marcfields)
+    val = pipeline.get_thumbnail_url(bib, bibmarc)
+    assert val['thumbnail_url'] == expected_url
 
 
 @pytest.mark.parametrize('mapping, bundle, expected', [
