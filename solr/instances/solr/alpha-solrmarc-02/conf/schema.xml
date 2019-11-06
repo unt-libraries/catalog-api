@@ -91,37 +91,43 @@
                 - Add it to sierra2marc_alpha_solrmarc_02.py, and
                 - Add relevant tests for it.
             - Make sure it's represented in solr_test_profiles.py.
-            - Comment out the old field(s) in the OLD FIELDS section.
+            - Move the field from the OLD FIELDS: TO-DO section to OLD FIELDS: DONE.
 
          After implementing a field, run tests:
             - django/sierra/blacklight/tests/test_exporters_alpha_solrmarc_02.py
             - django/sierra/blacklight/tests/test_sierra2marc_alpha_solrmarc_02.py
 
-         If bl-suggest tests fail (and they probably will), then make adjustments to the bl-suggest
-         exporters, classes, etc.
+         For now bl-suggest tests have been disabled. Once schema updates are complete, we'll go back and
+         revise how we're deriving bl-suggest headings.
     -->
 
     <!-- default, catch-all search field -->
     <field name="text" type="text" indexed="true" stored="false" multiValued="true"/>
     
-    <!-- META-INFORMATION ############################################################################## -->
+    <!-- META-INFORMATION ================================================================================= -->
     <field name="id" type="string" indexed="true" stored="true" required="true" multiValued="false" />
     <field name="timestamp_of_last_solr_update" type="date" indexed="true" stored="true" default="NOW" multiValued="false"/>
     <field name="suppressed" type="boolean" indexed="true" stored="true" multiValued="false" />
     <field name="_version_" type="long" indexed="true" stored="true"/>
 
-    <!-- DISPLAY-ONLY FIELDS ########################################################################### -->
+    <!-- DISPLAY-ONLY FIELDS ============================================================================== -->
     <!-- Attached Items -->
     <field name="items_json" type="string" indexed="false" stored="true" multiValued="true" />
     <field name="has_more_items" type="boolean" indexed="true" stored="true" multiValued="false" />
     <field name="more_items_json" type="string" indexed="false" stored="true" multiValued="true" />
+    <!-- URLs -->
+    <field name="urls_json" type="string" indexed="false" stored="true" multiValued="true" />
 
 
 
-    <!-- OLD FIELDS ###################################################################################
-         I am commenting out each field below as I address it in the new version of the schema. That means
-         either adding it to the REVISED SCHEMA section (above), removing it completely, or converting it to
-         different fields.
+    <!-- OLD FIELDS: DONE #################################################################################
+         Fields in this section have been re-implemented in the new schema and have one or more
+         counterparts in the REVISED SCHEMA section, above.
+
+         Some fields below are commented out and some are not. Fields that are not needed or have a
+         duplicate name in the section above have been commented out. Fields that may still be used in the
+         Blacklight UI will remain active until they are removed from the UI, at which point I will comment
+         them out.
     -->
     
     <!-- <field name="id" type="string" indexed="true" stored="true" required="true" multiValued="false" /> -->
@@ -131,6 +137,13 @@
 	<!-- <field name="text" type="text" indexed="true" stored="false" multiValued="true"/> -->
     <!-- <field name="suppressed" type="boolean" indexed="true" stored="true" multiValued="false" /> -->
     <!-- <field name="_version_" type="long" indexed="true" stored="true"/> -->
+    <field name="urls" type="string" indexed="false" stored="true" multiValued="true"/>
+    <field name="url_labels" type="string" indexed="false" stored="true" multiValued="true"/>
+
+
+    <!-- OLD FIELDS: TO-DO ################################################################################
+         Everything below has yet to be looked at and added to the schema revisions.
+    -->
 
     <!-- Locations -->
     <field name="bib_location_codes" type="string" indexed="true" stored="true" multiValued="true"/>
@@ -185,10 +198,6 @@
     <field name="publication_places" type="text" indexed="true" stored="true" multiValued="true"/>
     <field name="publishers" type="text" indexed="true" stored="true" multiValued="true"/>
     <field name="publication_dates" type="text" indexed="true" stored="true" multiValued="true"/>
-    
-    <!-- URL Fields -->
-    <field name="urls" type="string" indexed="false" stored="true" multiValued="true"/>
-    <field name="url_labels" type="string" indexed="false" stored="true" multiValued="true"/>
 
     <!-- Call Number Fields -->
     <field name="main_call_number" type="string" indexed="true" stored="true" multiValued="false" />

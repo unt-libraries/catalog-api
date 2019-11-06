@@ -15,10 +15,45 @@ pytestmark = pytest.mark.django_db
 
 @pytest.fixture
 def bibrecord_to_pymarc():
+    """
+    Pytest fixture for converting a `bib` from the Sierra DB (i.e. a
+    base.models.BibRecord instance) to a pymarc MARC record object.
+    """
     def _bibrecord_to_pymarc(bib):
         s2m_obj = s2m.S2MarcBatchBlacklightSolrMarc(bib)
         return s2m_obj.compile_original_marc(bib)
     return _bibrecord_to_pymarc
+
+@pytest.fixture
+def add_marc_fields():
+    """
+    Pytest fixture for adding fields to the given `bib` (pymarc Record
+    object). If `overwrite_existing` is True, which is the default,
+    then all new MARC fields will overwrite existing fields with the
+    same tag.
+
+    One or more `fields` may be passed. Each field is a tuple of:
+        (tag, contents, indicators)
+
+    Indicators is optional. If the MARC tag is 001 to 009, then a data
+    field is created from `contents`. Otherwise `contents` is treated
+    as a list of subfields, and `indicators` defaults to blank, blank.
+    """
+    def _add_marc_fields(bib, fields, overwrite_existing=True):
+        pm_fields = []
+        for f in fields:
+            tag, contents = f[0:2]
+            if overwrite_existing:
+                bib.remove_fields(tag)
+            if int(tag) < 10:
+                pm_fields.append(s2m.make_pmfield(tag, data=contents))
+            else:
+                ind = tuple(f[2]) if len(f) > 2 else tuple('  ')
+                pm_fields.append(s2m.make_pmfield(tag, subfields=contents,
+                                                  indicators=ind))
+        bib.add_grouped_field(*pm_fields)
+        return bib
+    return _add_marc_fields
 
 
 @pytest.fixture
@@ -46,6 +81,7 @@ def assert_json_matches_expected():
     obj.
     """
     def _assert_json_matches_expected(json_strs, exp_dicts):
+        assert len(json_strs) == len(exp_dicts)
         for json, exp_dict in zip(json_strs, exp_dicts):
             cmp_dict = ujson.loads(json)
             for key in exp_dict.keys():
@@ -436,6 +472,126 @@ def test_blasmpipeline_getiteminfo_requesting(items_info, expected_r,
         assert_json_matches_expected(val['more_items_json'], exp_items[3:])
 
 
+@pytest.mark.parametrize('marcfields, items_info, expected', [
+    ([('856', ['u', 'http://example.com', 'y', 'The Resource',
+               'z', 'connect to electronic resource'])],
+     [],
+     [{'u': 'http://example.com', 'n': 'connect to electronic resource',
+       'l': 'The Resource', 't': 'fulltext' }]),
+    ([('856', ['u', 'http://example.com" target="_blank"', 'y', 'The Resource',
+               'z', 'connect to electronic resource'])],
+     [],
+     [{'u': 'http://example.com', 'n': 'connect to electronic resource',
+       'l': 'The Resource', 't': 'fulltext' }]),
+    ([('856', ['u', 'http://example.com', 'u', 'incorrect',
+               'z', 'connect to electronic resource', 'z', 'incorrect'])],
+     [],
+     [{'u': 'http://example.com', 'n': 'connect to electronic resource',
+       't': 'fulltext'}]),
+    ([('856', ['u', 'http://example.com'])],
+     [],
+     [{'u': 'http://example.com', 't': 'link' }]),
+    ([('856', ['z', 'Some label, no URL'])],
+     [],
+     []),
+    ([('856', ['u', 'http://example.com', 'z', 'connect to e-resource'])],
+     [],
+     [{'t': 'fulltext'}]),
+    ([('856', ['u', 'http://example.com', 'z', 'connect to online version'])],
+     [],
+     [{'t': 'fulltext'}]),
+    ([('856', ['u', 'http://example.com', 'z', 'access Journal Online'])],
+     [],
+     [{'t': 'fulltext'}]),
+    ([('856', ['u', 'http://example.com', 'z', 'get full-text access'])],
+     [],
+     [{'t': 'fulltext'}]),
+    ([('856', ['u', 'http://example.com', 'z', 'access Full Text'])],
+     [],
+     [{'t': 'fulltext'}]),
+    ([('856', ['u', 'http://example.com', 'z', 'access thing here'], ' 0')],
+     [],
+     [{'t': 'fulltext'}]),
+    ([('856', ['u', 'http://example.com', 'z', 'access thing here'], ' 1')],
+     [],
+     [{'t': 'fulltext'}]),
+    ([('856', ['u', 'http://example.com', 'z', 'access thing here'], ' 2')],
+     [],
+     [{'t': 'link'}]),
+    ([('856', ['u', 'http://example.com', 'z', 'access online copy'], ' 2')],
+     [],
+     [{'t': 'fulltext'}]),
+    ([('856', ['u', 'http://example.com', 'z', 'access Bookplate here'])],
+     [],
+     [{'t': 'link'}]),
+    ([('856', ['u', 'http://example.com', 'z', 'access thing here'])],
+     [({'item_status_id': 'w'}, [])],
+     [{'t': 'fulltext'}]),
+    ([('856', ['u', 'http://example.com', 'z', 'access thing here'])],
+     [({'item_status_id': '-'}, []),
+      ({'item_status_id': 'w'}, [])],
+     [{'t': 'fulltext'}]),
+    ([('856', ['u', 'http://example.com', 'z', 'access contents here']),
+      ('856', ['u', 'http://example.com/2', 'z', 'access thing here'])],
+     [({'item_status_id': 'w'}, [])],
+     [{'t': 'link'}, {'t': 'link'}]),
+    ([('962', ['t', 'Media Thing', 'u', 'http://example.com'])],
+     [],
+     [{'u': 'http://example.com', 'n': 'Media Thing', 't': 'media' }]),
+    ([('962', ['t', 'Media Thing', 'u', 'http://example.com',
+               'e', 'http://example.com/thumbnail'])],
+     [],
+     []),
+    ([('962', ['t', 'Media Thing'])],
+     [],
+     []),
+    ([('962', ['t', 'Access Online Version', 'u', 'http://example.com'])],
+     [],
+     [{'t': 'fulltext' }]),
+], ids=[
+    '856: simple full text URL',
+    '856: strip text from end of URL: " target=_blank',
+    '856 w/repeated subfields: use the first occ of each subfield',
+    '856 w/out |y or |z is okay',
+    '856 w/out |u is ignored (NO urls_json entry)',
+    '856, type fulltext ("e-resource")',
+    '856, type fulltext ("online version")',
+    '856, type fulltext ("X Online")',
+    '856, type fulltext ("full-text")',
+    '856, type fulltext ("Full Text")',
+    '856, type fulltext, ind2 == 0',
+    '856, type fulltext, ind2 == 1',
+    '856, type link, ind2 == 2',
+    '856, type fulltext, ind2 == 2 BUT note says e.g. "online copy"',
+    '856, type link ("bookplate")',
+    '856, type fulltext: item with online status and 1 URL',
+    '856, type fulltext: >1 items, 1 with online status, and 1 URL',
+    '856, type link: item with online status but >1 URLs',
+    '962 (media manager) URL, no thumb => urls_json entry',
+    '962 (media manager) URL, w/thumb => NO urls_json entry',
+    '962 (media manager) field, no URL => NO urls_json entry',
+    '962 (media manager) field, type fulltext based on title',
+])
+def test_blasmpipeline_geturlsjson(marcfields, items_info, expected,
+                                   bl_sierra_test_record, blasm_pipeline_class,
+                                   bibrecord_to_pymarc, update_test_bib_inst,
+                                   add_marc_fields,
+                                   assert_json_matches_expected):
+    """
+    The `urls_json` key of the value returned by
+    BlacklightASMPipeline.get_urls_json should be a list of JSON
+    objects, each one corresponding to a URL.
+    """
+    pipeline = blasm_pipeline_class()
+    bib = bl_sierra_test_record('bib_no_items')
+    bib = update_test_bib_inst(bib, items=items_info)
+    bibmarc = bibrecord_to_pymarc(bib)
+    bibmarc.remove_fields('856', '962')
+    bibmarc = add_marc_fields(bibmarc, marcfields)
+    val = pipeline.get_urls_json(bib, bibmarc)
+    assert_json_matches_expected(val['urls_json'], expected)
+
+
 @pytest.mark.parametrize('mapping, bundle, expected', [
     ( (('900', ('name', 'title')),),
       {'name': 'N1', 'title': 'T1'},
@@ -579,6 +735,3 @@ def test_plbundleconverter_do_maps_correctly(mapping, bundle, expected,
     for field, exp in zip(fields, expected):
         assert field.tag == exp['tag']
         assert list(field) == exp['data']
-
-
-

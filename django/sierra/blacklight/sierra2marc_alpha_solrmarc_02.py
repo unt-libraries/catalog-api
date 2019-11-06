@@ -53,7 +53,7 @@ class BlacklightASMPipeline(object):
     fully-populated dict.
     """
     fields = [
-        'id', 'suppressed', 'item_info',
+        'id', 'suppressed', 'item_info', 'urls_json',
     ]
     prefix = 'get_'
 
@@ -197,6 +197,71 @@ class BlacklightASMPipeline(object):
         if any([_item_matches_rule(rule, item) for rule in nr_ruleset]):
             return None
         return 'catalog'
+
+    def get_urls_json(self, r, marc_record):
+        """
+        Return a JSON string representing URLs associated with the
+        given record.
+        """
+        urls_data = []
+        for f856 in marc_record.get_fields('856'):
+            url = f856.get_subfields('u')
+            if url:
+                url = re.sub(r'^([^"]+).*$', r'\1', url[0])
+                note = f856.get_subfields('z') or [None]
+                label = f856.get_subfields('y') or [None]
+                utype = 'fulltext' if f856.indicator2 in ('0', '1') else 'link'
+                urls_data.append({'u': url, 'n': note[0], 'l': label[0],
+                                  't': utype})
+
+        for f962 in marc_record.get_fields('962'):
+            url, thumb = f962.get_subfields('u'), f962.get_subfields('e')
+            if url and not thumb:
+                title = f962.get_subfields('t') or [None]
+                urls_data.append({'u': url[0], 'n': title[0], 'l': None,
+                                  't': 'media'})
+
+        urls_json = []
+        for ud in urls_data:
+            ud['t'] = self.review_url_type(ud, len(urls_data), r)
+            urls_json.append(ujson.dumps(ud))
+
+        return { 'urls_json': urls_json }
+
+    def review_url_type(self, url_data, num_urls, bib):
+        """
+        Make a second pass at determining the URL type: full_text,
+        booking, media, or link. If it has a media-booking URL, then
+        it's a booking URL. If it has a note indicating that it's an
+        online or full-text link, then it's fulltext. If it has an
+        item attached with status 'ONLINE' (w) and it's the only URL,
+        then it's fulltext. Otherwise, keep whatever soft determination
+        was made in the `get_urls_json` method.
+        """
+        def _has_mediabooking_url(url):
+            return 'mediabook.library.unt.edu' in url
+
+        def _note_indicates_fulltext(note):
+            eres_re = r'[Ee]lectronic|[Ee].?[Rr]esource'
+            online_re = r'[Oo]nline.?'
+            fulltext_re = r'[Ff]ull.?[Tt]ext.?'
+            alternatives = r'|'.join([eres_re, online_re, fulltext_re])
+            regex = r'(^|\s)({})(\s|$)'.format(alternatives)
+            return bool(re.search(regex, note))
+
+        def _has_online_item(bib):
+            for link in bib.bibrecorditemrecordlink_set.all():
+                if link.item_record.item_status_id == 'w':
+                    return True
+            return False
+
+        if _has_mediabooking_url(url_data['u']):
+            return 'booking'
+        if url_data['n'] and _note_indicates_fulltext(url_data['n']):
+            return 'fulltext'
+        if num_urls == 1 and _has_online_item(bib):
+            return 'fulltext'
+        return url_data['t']
 
 
 class PipelineBundleConverter(object):
@@ -394,13 +459,11 @@ class S2MarcBatchBlacklightSolrMarc(S2MarcBatch):
             try:
                 if tag in ['{:03}'.format(num) for num in range(1,10)]:
                     field = make_pmfield(tag, data=content)
-                elif tag[0] != '9':
-                    # Ignore existing 9XX fields from Sierra.
+                elif tag[0] != '9' or tag in ('962',):
+                    # Ignore most existing 9XX fields from Sierra.
                     ind = [ind1, ind2]
                     sf = re.split(r'\|([a-z0-9])', content)[1:]
                     field = make_pmfield(tag, indicators=ind, subfields=sf)
-                    if tag == '856' and field['u'] is not None:
-                        field['u'] = re.sub(r'^([^"]+).*$', r'\1', field['u'])
             except Exception as e:
                 raise S2MarcError('Skipped. Couldn\'t create MARC field '
                         'for {}. ({})'.format(vf.marc_tag, e), str(r))
