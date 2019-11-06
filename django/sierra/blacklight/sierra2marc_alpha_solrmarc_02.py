@@ -510,7 +510,7 @@ class S2MarcBatchBlacklightSolrMarc(S2MarcBatch):
                               '({})'.format(e), str(r))
         for vf in varfields:
             tag, ind1, ind2 = vf.marc_tag, vf.marc_ind1, vf.marc_ind2
-            content = vf.field_content
+            content, field = vf.field_content, None
             try:
                 if tag in ['{:03}'.format(num) for num in range(1,10)]:
                     field = make_pmfield(tag, data=content)
@@ -522,7 +522,8 @@ class S2MarcBatchBlacklightSolrMarc(S2MarcBatch):
             except Exception as e:
                 raise S2MarcError('Skipped. Couldn\'t create MARC field '
                         'for {}. ({})'.format(vf.marc_tag, e), str(r))
-            mfields.append(field)
+            if field is not None:
+                mfields.append(field)
         return mfields
 
     def compile_original_marc(self, r):
