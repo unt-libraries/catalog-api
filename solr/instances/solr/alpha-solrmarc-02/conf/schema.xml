@@ -111,7 +111,9 @@
                 - Add it to sierra2marc_alpha_solrmarc_02.py, and
                 - Add relevant tests for it.
             - Make sure it's represented in solr_test_profiles.py.
-            - Update the solrconfig.xml file so that it uses the new field, if applicable.
+            - Update the solrconfig.xml file so that it uses the new field:
+                - For fields that display in search results, add to "catalog-search" request
+                  handler, `fl` parameter.
             - Move the field from the OLD FIELDS: TO-DO section to OLD FIELDS: DONE.
 
          After implementing a field, run tests:

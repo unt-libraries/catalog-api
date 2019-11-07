@@ -1924,9 +1924,11 @@
          era_terms_facet,
          form_terms_facet,
          genre_terms_facet,
-         urls,
-         url_labels,
-         isbn_numbers
+         thumbnail_url,
+         urls_json,
+         isbn_numbers,
+         items_json,
+         has_more_items
        </str>
  
        <str name="facet">true</str>
