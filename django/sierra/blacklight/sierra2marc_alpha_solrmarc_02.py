@@ -539,6 +539,10 @@ class S2MarcBatchBlacklightSolrMarc(S2MarcBatch):
 
         bundle = self.custom_data_pipeline.do(r, marc_record)
         marc_record.add_ordered_field(*self.to_9xx_converter.do(bundle))
+
+        marc_record.remove_fields('001')
+        hacked_id = 'a{}'.format(bundle['id'])
+        marc_record.add_grouped_field(make_pmfield('001', data=hacked_id))
         
         material_type = r.bibrecordproperty_set.all()[0].material.code
         metadata_field = pymarc.field.Field(
