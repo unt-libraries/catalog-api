@@ -78,6 +78,26 @@
         <filter class="solr.LowerCaseFilterFactory" />
       </analyzer>
     </fieldType>
+
+    <fieldType name="reverse_number" class="solr.TextField" sortMissingLast="true" omitNorms="true">
+      <analyzer type="index">
+        <tokenizer class="solr.KeywordTokenizerFactory"/>
+        <filter class="solr.PatternReplaceFilterFactory" pattern="^(\d+\-?\d*)$" replacement="$1|$1"/>
+        <filter class="solr.PatternReplaceFilterFactory" pattern="9(?=.*\|)" replacement="a"/>
+        <filter class="solr.PatternReplaceFilterFactory" pattern="8(?=.*\|)" replacement="b"/>
+        <filter class="solr.PatternReplaceFilterFactory" pattern="7(?=.*\|)" replacement="c"/>
+        <filter class="solr.PatternReplaceFilterFactory" pattern="6(?=.*\|)" replacement="d"/>
+        <filter class="solr.PatternReplaceFilterFactory" pattern="5(?=.*\|)" replacement="e"/>
+        <filter class="solr.PatternReplaceFilterFactory" pattern="4(?=.*\|)" replacement="f"/>
+        <filter class="solr.PatternReplaceFilterFactory" pattern="3(?=.*\|)" replacement="g"/>
+        <filter class="solr.PatternReplaceFilterFactory" pattern="2(?=.*\|)" replacement="h"/>
+        <filter class="solr.PatternReplaceFilterFactory" pattern="1(?=.*\|)" replacement="i"/>
+        <filter class="solr.PatternReplaceFilterFactory" pattern="0(?=.*\|)" replacement="j"/>
+      </analyzer>
+    <analyzer type="query">
+        <tokenizer class="solr.KeywordTokenizerFactory"/>
+    </analyzer>
+    </fieldType>
   </types>
 
   <fields>
@@ -91,6 +111,7 @@
                 - Add it to sierra2marc_alpha_solrmarc_02.py, and
                 - Add relevant tests for it.
             - Make sure it's represented in solr_test_profiles.py.
+            - Update the solrconfig.xml file so that it uses the new field, if applicable.
             - Move the field from the OLD FIELDS: TO-DO section to OLD FIELDS: DONE.
 
          After implementing a field, run tests:
@@ -115,10 +136,17 @@
     <field name="items_json" type="string" indexed="false" stored="true" multiValued="true" />
     <field name="has_more_items" type="boolean" indexed="true" stored="true" multiValued="false" />
     <field name="more_items_json" type="string" indexed="false" stored="true" multiValued="true" />
-    <!-- Thumnails -->
+    <!-- Thumbnails -->
     <field name="thumbnail_url" type="string" indexed="false" stored="true" multiValued="false"/>
     <!-- URLs -->
     <field name="urls_json" type="string" indexed="false" stored="true" multiValued="true" />
+
+    <!-- SORT FIELDS ====================================================================================== -->
+    <field name="publication_sort" type="string" indexed="true" stored="false" multiValued="false" docValues="true"/>
+
+    <!-- FACET FIELDS ===================================================================================== -->
+    <field name="publication_decade_facet" type="reverse_number" indexed="true" stored="true" multiValued="true" />
+    <field name="publication_year_facet" type="reverse_number" indexed="true" stored="true" multiValued="true" />
 
 
 
@@ -141,6 +169,7 @@
     <!-- <field name="_version_" type="long" indexed="true" stored="true"/> -->
     <field name="urls" type="string" indexed="false" stored="true" multiValued="true"/>
     <field name="url_labels" type="string" indexed="false" stored="true" multiValued="true"/>
+    <field name="publication_dates_facet" type="string" indexed="true" stored="true" multiValued="true" />
 
 
     <!-- OLD FIELDS: TO-DO ################################################################################
@@ -242,7 +271,6 @@
     <field name="form_terms_facet" type="string" indexed="true" stored="true" multiValued="true" />
     <field name="era_terms_facet" type="string" indexed="true" stored="true" multiValued="true" />
     <field name="public_genre_facet" type="string" indexed="true" stored="true" multiValued="true" />
-    <field name="publication_dates_facet" type="string" indexed="true" stored="true" multiValued="true" />
     <field name="call_numbers_search" type="string" indexed="true" stored="false" multiValued="true" />
 
     <!-- Commenting out other/default dynamic fields, just to simplify things.
