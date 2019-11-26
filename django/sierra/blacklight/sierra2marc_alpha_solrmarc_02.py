@@ -263,10 +263,11 @@ class BlacklightASMPipeline(object):
             url = f856.get_subfields('u')
             if url:
                 url = re.sub(r'^([^"]+).*$', r'\1', url[0])
-                note = f856.get_subfields('z') or [None]
-                label = f856.get_subfields('y') or [None]
+                note = ' '.join(f856.get_subfields('3', 'z')) or None
+                label = ' '.join(f856.get_subfields('y')) or None
                 utype = 'fulltext' if f856.indicator2 in ('0', '1') else 'link'
-                urls_data.append({'u': url, 'n': note[0], 'l': label[0],
+
+                urls_data.append({'u': url, 'n': note, 'l': label,
                                   't': utype})
 
         for f962 in marc_record.get_fields('962'):
