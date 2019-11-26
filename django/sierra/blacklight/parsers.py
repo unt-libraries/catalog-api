@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*- 
+
 """
 Contains Sierra field data parsing functions.
 """
@@ -40,20 +42,14 @@ def normalize_whitespace(data):
     return consolidated.strip()
 
 
-def normalize_punctuation(data, left_space_re=settings.MARCDATA.NO_LEFT_WHITESPACE_PUNCTUATION_REGEX,
-                          punctuation_re=settings.MARCDATA.ENDING_PUNCTUATION_REGEX):
+def compress_punctuation(data, left_space_re=settings.MARCDATA.NO_LEFT_WHITESPACE_PUNCTUATION_REGEX,
+                         punctuation_re=settings.MARCDATA.ENDING_PUNCTUATION_REGEX):
     """
-    Normalize punctuation in the input data string.
-    Normalization entails removing whitespace to the immediate left of
-    certain punctuation marks and removing instances of consecutive
-    punctuation marks, which can sometimes result from parsing.
-    Because normalization may remove certain punctuation marks, it's
-    important this is the last step you take when you're done parsing
-    field data. This parsers is simply to make the data look nicer.
+    Compress punctuation in the input data string.
+    Compression entails removing whitespace to the immediate left of
+    ending punctuation marks. (Purely cosmetic.)
     """
-    extra_whitespace_removed = re.sub(r'\s+({})'.format(left_space_re), r'\1', data)
-    multiples_removed = re.sub(r'(\s*{0})+(\s*{0})'.format(punctuation_re), r'\2', extra_whitespace_removed)
-    return multiples_removed
+    return re.sub(r'\s+({})'.format(left_space_re), r'\1', data)
 
 
 def strip_brackets(data, keep_inner=True, to_keep_re=None,
@@ -122,6 +118,24 @@ def protect_periods_and_do(data, do, repl_char='~',
     return periods_restored
 
 
+def normalize_punctuation(data, punctuation_re=settings.MARCDATA.ENDING_PUNCTUATION_REGEX):
+    """
+    Normalize punctuation in the input `data` string.
+    Normalization entails removing multiple ending punctuation marks
+    in a row (perhaps separated by whitespace) and stripping
+    punctuation from the beginning of the string or the beginning of an
+    opening bracket (parenthetical, square, or curly).
+    """
+    def _normalize(data):
+        bracket_front_punct_removed = re.sub(r'([\[\{{\(])(\s*{}\s*)+'.format(punctuation_re), r'\1', data)
+        bracket_end_punct_removed = re.sub(r'(\s*{}\s*)+([\]\}}\)])'.format(punctuation_re), r'\2', bracket_front_punct_removed)
+        empty_brackets_removed = re.sub(r'(\[\s*\]|\(\s*\)|\{\s*\})', r'', bracket_end_punct_removed)
+        multiples_removed = re.sub(r'(\s?)(\s*{0})+\s*({0})'.format(punctuation_re), r'\1\3', empty_brackets_removed)
+        front_punct_removed = re.sub(r'^(\s*{}\s*)+'.format(punctuation_re), r'', multiples_removed)
+        return front_punct_removed
+    return compress_punctuation(protect_periods_and_do(data.strip(), _normalize), left_space_re=r'[\.,]')
+
+
 def strip_ends(data, end_punctuation_re=settings.MARCDATA.ENDING_PUNCTUATION_REGEX):
     """
     Strip unnecessary punctuation from both ends of the input string.
@@ -155,6 +169,52 @@ def clean(data):
     ellipses_stripped = strip_ellipses(brackets_stripped)
     cleaned = normalize_punctuation(ellipses_stripped)
     return cleaned
+
+
+def extract_years(data):
+    """
+    Extract individual years from a string, such as a publication
+    string, and return them as a tuple.
+    """
+    dates = re.findall(r'(?<!\d)(\d---|\d\d--|\d\d\d-|\d{3,4})(?!\d)', data)
+    return tuple(d.replace('-', 'u') for d in dates)
+
+
+def strip_unknown_pub(data):
+    """
+    Strip, e.g., "S.l", "s.n.", and "X not identified" from the given
+    publisher-related data.
+
+    Caveat: This does NOT strip or otherwise normalize punctuation that
+    may be left over after stripping this text. `normalize_punctuation`
+    should help.
+    """
+    unknown_re = r'([A-Za-z\s]+ not identified|[Ss]\.?\s*[LlNn]\.?\s*)'
+    return re.sub(unknown_re, r'', data)
+
+
+def split_pdate_and_cdate(data):
+    """
+    Split a value from a 260 or 264 $c into two: publication date and
+    copyright date (return a tuple: (pdate, cdate)). The copyright date
+    returns only the year, while the label that sets off the copyright
+    date is removed from the publication date portion. IMPORTANT: After
+    the split, extraneous punctuation from the publication date portion
+    is NOT stripped; the caller is responsible for taking care of that.
+
+    Examples:
+
+    '1964, copyright 1963' returns the tuple ('1964,', '1963')
+    '1964' returns the tuple ('1964', '')
+    'c1964' returns the tuple ('', '1964')
+    """
+    copyright_re = r'(^|\s+)(c|©|copyright)\s*(\d{4})'
+    cdate_match = re.search(copyright_re, data)
+    if cdate_match:
+        cdate = cdate_match.groups()[2]
+        pub_date = data.replace(cdate_match.group(), '')
+        return pub_date, cdate
+    return data, ''
 
 
 def person_name(data, indicators):

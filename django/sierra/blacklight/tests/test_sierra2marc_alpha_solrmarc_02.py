@@ -121,7 +121,7 @@ def update_test_bib_inst(add_varfields_to_record, add_items_to_bib):
     {'data': 'abcdefg', 'subfields': ['a', 'Test']},
     {'data': 'abcdefg', 'indicators': '12', 'subfields': ['a', 'Test']}
 ])
-def test_make_pmfield_creates_control_field(kwargs):
+def test_makepmfield_creates_control_field(kwargs):
     """
     When passed a `data` parameter, `make_pmfield` should create a
     pymarc control field, even if a `subfields` and/or `indicators`
@@ -139,7 +139,7 @@ def test_make_pmfield_creates_control_field(kwargs):
     {'indicators': '12'},
     {'subfields': ['a', 'Test1', 'b', 'Test2']}
 ])
-def test_make_pmfield_creates_varfield(kwargs):
+def test_makepmfield_creates_varfield(kwargs):
     """
     When NOT passed a `data` parameters, `make_pmfield` should create a
     pymarc variable-length field. If indicators are not provided,
@@ -153,6 +153,107 @@ def test_make_pmfield_creates_varfield(kwargs):
     assert field.indicator1 == expected_ind[0]
     assert field.indicator2 == expected_ind[1]
     assert field.subfields == expected_sf
+
+
+def test_explodesubfields_returns_expected_results():
+    """
+    `explode_subfields` should return lists of subfield values for a
+    pymarc Field object based on the provided sftags string.
+    """
+    field = s2m.make_pmfield('260', subfields=['a', 'Place :',
+                                               'b', 'Publisher,',
+                                               'c', '1960;',
+                                               'a', 'Another place :',
+                                               'b', 'Another Publisher,',
+                                               'c', '1992.'])
+    places, pubs, dates = s2m.explode_subfields(field, 'abc')
+    assert places == ['Place :', 'Another place :']
+    assert pubs == ['Publisher,', 'Another Publisher,']
+    assert dates == ['1960;', '1992.']
+
+
+@pytest.mark.parametrize('field_info, sftags, expected', [
+    (('260', ['a', 'a1', 'b', 'b1', 'c', 'c1',
+              'a', 'a2', 'b', 'b2', 'c', 'c2']),
+     'abc',
+     ('a1 b1 c1', 'a2 b2 c2')),
+    (('260', ['a', 'a1', 'b', 'b1', 'c', 'c1',
+              'a', 'a2', 'b', 'b2', 'c', 'c2']),
+     'ac',
+     ('a1 c1', 'a2 c2')),
+    (('260', ['a', 'a1', 'b', 'b1', 'c', 'c1',
+              'a', 'a2', 'b', 'b2', 'c', 'c2']),
+     'acd',
+     ('a1 c1', 'a2 c2')),
+    (('260', ['a', 'a1', 'b', 'b1', 'c', 'c1',
+              'a', 'a2', 'b', 'b2', 'c', 'c2']),
+     'cba',
+     ('a1 b1 c1', 'a2 b2 c2')),
+    (('260', ['a', 'a1', 'b', 'b1', 'c', 'c1']),
+     'abc',
+     ('a1 b1 c1',)),
+    (('260', ['a', 'a1', 'b', 'b1',
+              'a', 'a2', 'c', 'c2']),
+     'abc',
+     ('a1 b1', 'a2 c2')),
+    (('260', ['b', 'b1',
+              'b', 'b2', 'a', 'a1', 'c', 'c1']),
+     'abc',
+     ('b1', 'b2 a1 c1')),
+])
+def test_groupsubfields_groups_correctly(field_info, sftags, expected):
+    """
+    `group_subfields` should put subfields from a pymarc Field object
+    into groupings based on the provided sftags string.
+    """
+    field = s2m.make_pmfield(field_info[0], subfields=field_info[1])
+    for group, exp in zip(s2m.group_subfields(field, sftags), expected):
+        assert group.value() == exp
+
+
+@pytest.mark.parametrize('field_info, sftags, expected', [
+    (('260', ['a', 'a1', 'b', 'b1', 'c', 'c1',
+              'a', 'a2', 'b', 'b2', 'c', 'c2']),
+     'a',
+     (['a1', 'a2'])),
+    (('260', ['a', 'a1', 'b', 'b1', 'c', 'c1',
+              'a', 'a2', 'b', 'b2', 'c', 'c2']),
+     'abc',
+     (['a1', 'b1', 'c1', 'a2', 'b2', 'c2'])),
+    (('260', ['a', 'a1', 'b', 'b1', 'c', 'c1',
+              'a', 'a2', 'b', 'b2', 'c', 'c2']),
+     None,
+     (['a1', 'b1', 'c1', 'a2', 'b2', 'c2'])),
+])
+def test_pullfromsubfields_and_no_pullfunc(field_info, sftags, expected):
+    """
+    Calling `pull_from_subfields` with no `pull_func` specified should
+    return values from the given pymarc Field object and the specified
+    sftags, as a list.
+    """
+    field = s2m.make_pmfield(field_info[0], subfields=field_info[1])
+    for val, exp in zip(s2m.pull_from_subfields(field, sftags), expected):
+        assert  val == exp
+
+
+def test_pullfromsubfields_with_pullfunc():
+    """
+    Calling `pull_from_subfields` with a custom `pull_func` specified
+    should return values from the given pymarc Field object and the
+    specified sftags, run through pull_func, as a flat list.
+    """
+    subfields = ['a', 'a1.1 a1.2', 'b', 'b1.1 b1.2', 'c', 'c1',
+                 'a', 'a2', 'b', 'b2', 'c', 'c2.1 c2.2']
+    field = s2m.make_pmfield('260', subfields=subfields)
+
+    def pf(val):
+        return val.split(' ')
+
+    expected = ['a1.1', 'a1.2', 'b1.1', 'b1.2', 'c1', 'a2', 'b2', 'c2.1',
+                'c2.2']
+    pulled = s2m.pull_from_subfields(field, sftags='abc', pull_func=pf)
+    for val, exp in zip(pulled, expected):
+        assert val == exp
 
 
 def test_blasmpipeline_do_creates_compiled_dict(blasm_pipeline_class):
@@ -637,6 +738,138 @@ def test_blasmpipeline_getthumbnailurl(marcfields, expected_url,
     bibmarc = add_marc_fields(bibmarc, marcfields)
     val = pipeline.get_thumbnail_url(bib, bibmarc)
     assert val['thumbnail_url'] == expected_url
+
+
+@pytest.mark.parametrize('marcfields, exp_ps, exp_pyd, exp_py, exp_pds', [
+    ([('008', 's2004    '),
+      ('260', ['a', 'Place :', 'b', 'Publisher,', 'c', '2004'])],
+     '2004', '2004', ['2004'], ['2004']),
+    ([('008', 's2004    '),
+      ('264', ['a', 'Place :', 'b', 'Publisher,', 'c', '2004'])],
+     '2004', '2004', ['2004'], ['2004']),
+    ([('008', 's2004    '),
+      ('260', ['a', 'Place1 :', 'b', 'Publisher,', 'c', '2004']),
+      ('260', ['a', 'Place2 :', 'b', 'Printer,', 'c', '2005'])],
+     '2004', '2004', ['2004', '2005'], ['2004', '2005']),
+    ([('008', 's2004    '),
+      ('264', ['a', 'Place1 :', 'b', 'Publisher,', 'c', '2004']),
+      ('264', ['a', 'Place2 :', 'b', 'Printer,', 'c', '2005'])],
+     '2004', '2004', ['2004', '2005'], ['2004', '2005']),
+    ([('008', 's2004    '),
+      ('046', ['a', 's', 'c', '2019']),
+      ('264', ['a', 'Place1 :', 'b', 'Publisher,', 'c', '2004']),
+      ('264', ['a', 'Place2 :', 'b', 'Printer,', 'c', '2005'])],
+     '2004', '2004', ['2004', '2005', '2019'], ['2004', '2005', '2019']),
+    ([('008', 's2004    '),
+      ('046', ['k', '2019']),
+      ('264', ['a', 'Place1 :', 'b', 'Publisher,', 'c', '2004']),
+      ('264', ['a', 'Place2 :', 'b', 'Printer,', 'c', '2005'])],
+     '2004', '2004', ['2004', '2005', '2019'], ['2004', '2005', '2019']),
+    ([('008', 's2004    '),
+      ('046', ['a', 's', 'c', '2018', 'k', '2019'])],
+     '2004', '2004', ['2004', '2018', '2019'], ['2004', '2018', '2019']),
+    ([('008', 's2004    ')],
+     '2004', '2004', ['2004'], ['2004']),
+    ([('046', ['a', 's', 'c', '2019']),],
+     '2019', '2019', ['2019'], ['2019']),
+    ([('046', ['k', '2019']),],
+     '2019', '2019', ['2019'], ['2019']),
+    ([('264', ['a', 'Place1 :', 'b', 'Publisher,', 'c', '2004']),],
+     '2004', '2004', ['2004'], ['2004']),
+    ([('008', 's2004    '),
+      ('046', ['k', '2004']),
+      ('264', ['a', 'Place1 :', 'b', 'Publisher,', 'c', '2004']),
+      ('264', ['a', 'Place2 :', 'b', 'Printer,', 'c', '2005'])],
+     '2004', '2004', ['2004', '2005'], ['2004', '2005']),
+    ([('008', 's2004    '),
+      ('260', ['a', 'Place1 :', 'b', 'Publisher,', 'c', '2004, c2003',
+               'e', 'Place2 :', 'f', 'Printer', 'g', '2005'])],
+     '2004', '2004', ['2003', '2004', '2005'], ['2003', '2004', '2005']),
+    ([('008', 'b2004    ')],
+     '2004', '2004', ['2004'], ['2004']),
+    ([('008', 'c20049999')],
+     '2004', '2004 to present', ['2004'], ['2004']),
+    ([('008', 'd20042016')],
+     '2004', '2004 to 2016', ['2004'], ['2004']),
+    ([('008', 'd20042016'),
+     ('264', ['a', 'Place1 :', 'b', 'Publisher,', 'c', '2004-2016'])],
+     '2004', '2004 to 2016', ['2004', '2016'], ['2004', '2016']),
+    ([('008', 'e20041126')],
+     '2004', '2004', ['2004'], ['2004']),
+    ([('008', 'i20042016')],
+     '2004', '2004 to 2016', ['2004'], ['2004']),
+    ([('008', 'k20042016')],
+     '2004', '2004 to 2016', ['2004'], ['2004']),
+    ([('008', 'm20042016')],
+     '2004', '2004 to 2016', ['2004'], ['2004']),
+    ([('008', 'nuuuuuuuu')],
+     '----', 'dates unknown', ['----'], ['----']),
+    ([('008', 'p20162004')],
+     '2016', '2016', ['2004', '2016'], ['2004', '2016']),
+    ([('008', 'q20042005')],
+     '2004', '2004 to 2005', ['2004'], ['2004']),
+    ([('008', 'r20042016')],
+     '2004', '2004', ['2004', '2016'], ['2004', '2016']),
+    ([('008', 't20042016')],
+     '2004', '2004', ['2004', '2016'], ['2004', '2016']),
+    ([('008', 'u2004uuuu')],
+     '2004', '2004 to ?', ['2004'], ['2004']),
+], ids=[
+    'standard, single date in 008 repeated in 260',
+    'standard, single date in 008 repeated in 264',
+    'single date in 008, multiple dates in 260s',
+    'single date in 008, multiple dates in 264s',
+    'single date in 008, dates in 264s and coded part of 046',
+    'single date in 008, dates in 264s and non-coded part of 046',
+    'single date in 008, multiple dates in 046',
+    'single date in 008, no other dates',
+    'date in coded 046, no other pubdate fields',
+    'date in non-coded 046, no other pubdate fields',
+    'date in 260/264, no other pubdate fields',
+    'various repeated dates should be deduplicated',
+    'various dates in one 260 field should all be captured',
+    '008 code b: interpreted as single pub date',
+    '008 code c: continuing resource date range to present',
+    '008 code d: continuing resource, past date range',
+    '008 code d: continuing resource, past date range, w/264',
+    '008 code e: detailed date',
+    '008 code i: inclusive dates of collection',
+    '008 code k: range of years of bulk of collection',
+    '008 code m: multiple dates',
+    '008 code n: dates unknown',
+    '008 code p: date of distribution, date of production',
+    '008 code q: questionable date',
+    '008 code r: reprint date, original date',
+    '008 code t: publication date, copyright date',
+    '008 code u: continuing resource, status unknown',
+])
+def test_blasmpipeline_getpubinfo_dates(marcfields, exp_ps, exp_pyd, exp_py,
+                                        exp_pds, bl_sierra_test_record,
+                                        blasm_pipeline_class,
+                                        bibrecord_to_pymarc, add_marc_fields):
+    """
+    BlacklightASMPipeline.get_pub_info should return date-string fields
+    matching the expected parameters.
+    """
+    pipeline = blasm_pipeline_class()
+    bib = bl_sierra_test_record('bib_no_items')
+    bibmarc = bibrecord_to_pymarc(bib)
+    bibmarc.remove_fields('260', '264')
+    if len(marcfields) and marcfields[0][0] == '008':
+        data = bibmarc.get_fields('008')[0].data
+        data = '{}{}{}'.format(data[0:6], marcfields[0][1], data[15:])
+        marcfields[0] = ('008', data)
+        bibmarc.remove_fields('008')
+    bibmarc = add_marc_fields(bibmarc, marcfields)
+    val = pipeline.get_pub_info(bib, bibmarc)
+    assert val['publication_sort'] == exp_ps
+    assert val['publication_year_display'] == exp_pyd
+    assert len(val['publication_years']) == len(exp_py)
+    assert len(val['publication_dates_search']) == len(exp_pds)
+    for v in val['publication_years']:
+        assert v in exp_py
+    for v in val['publication_dates_search']:
+        assert v in exp_pds
 
 
 @pytest.mark.parametrize('mapping, bundle, expected', [

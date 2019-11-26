@@ -142,13 +142,26 @@
     <field name="thumbnail_url" type="string" indexed="false" stored="true" multiValued="false"/>
     <!-- URLs -->
     <field name="urls_json" type="string" indexed="false" stored="true" multiValued="true" />
+    <!-- Publication -->
+    <field name="publication_year_display" type="string" indexed="false" stored="true" multiValued="false"/>
+    <field name="creation_display" type="string" indexed="false" stored="true" multiValued="true"/>
+    <field name="publication_display" type="string" indexed="false" stored="true" multiValued="true"/>
+    <field name="distribution_display" type="string" indexed="false" stored="true" multiValued="true"/>
+    <field name="manufacture_display" type="string" indexed="false" stored="true" multiValued="true"/>
+    <field name="copyright_display" type="string" indexed="false" stored="true" multiValued="true"/>
 
     <!-- SORT FIELDS ====================================================================================== -->
-    <field name="publication_sort" type="string" indexed="true" stored="false" multiValued="false" docValues="true"/>
+    <field name="publication_sort" type="string" indexed="false" stored="false" multiValued="false" docValues="true"/>
 
     <!-- FACET FIELDS ===================================================================================== -->
     <field name="publication_decade_facet" type="reverse_number" indexed="true" stored="true" multiValued="true" />
     <field name="publication_year_facet" type="reverse_number" indexed="true" stored="true" multiValued="true" />
+
+    <!-- GENERAL SEARCH OR SEARCH/DISPLAY FIELDS ========================================================== -->
+    <!-- Publication -->
+    <field name="publication_places_search" type="text" indexed="true" stored="true" multiValued="true"/>
+    <field name="publishers_search" type="text" indexed="true" stored="true" multiValued="true"/>
+    <field name="publication_dates_search" type="text" indexed="true" stored="true" multiValued="true"/>
 
 
 
@@ -172,6 +185,11 @@
     <field name="urls" type="string" indexed="false" stored="true" multiValued="true"/>
     <field name="url_labels" type="string" indexed="false" stored="true" multiValued="true"/>
     <field name="publication_dates_facet" type="string" indexed="true" stored="true" multiValued="true" />
+    <field name="imprints" type="text" indexed="true" stored="true" multiValued="true"/>
+    <field name="publication_country" type="text" indexed="true" stored="true" multiValued="false"/>
+    <field name="publication_places" type="text" indexed="true" stored="true" multiValued="true"/>
+    <field name="publishers" type="text" indexed="true" stored="true" multiValued="true"/>
+    <field name="publication_dates" type="text" indexed="true" stored="true" multiValued="true"/>
 
 
     <!-- OLD FIELDS: TO-DO ################################################################################
@@ -224,13 +242,6 @@
     <field name="era_terms" type="text" indexed="true" stored="true" multiValued="true"/>
     <field name="form_terms" type="text" indexed="true" stored="true" multiValued="true"/>
     <field name="other_terms" type="text" indexed="true" stored="true" multiValued="true"/>
-
-    <!-- Publication Fields -->
-    <field name="imprints" type="text" indexed="true" stored="true" multiValued="true"/>
-    <field name="publication_country" type="text" indexed="true" stored="true" multiValued="false"/>
-    <field name="publication_places" type="text" indexed="true" stored="true" multiValued="true"/>
-    <field name="publishers" type="text" indexed="true" stored="true" multiValued="true"/>
-    <field name="publication_dates" type="text" indexed="true" stored="true" multiValued="true"/>
 
     <!-- Call Number Fields -->
     <field name="main_call_number" type="string" indexed="true" stored="true" multiValued="false" />

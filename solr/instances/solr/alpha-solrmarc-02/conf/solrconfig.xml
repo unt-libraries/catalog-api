@@ -1799,6 +1799,7 @@
          main_title^100000
          subtitle^50000
          full_title^25000
+         publication_dates_search^5000
          uniform_title^5000
          alternate_titles^1500
          series^1500
@@ -1816,6 +1817,8 @@
          statement_of_responsibility^250
          contributors^250
          series_creator^250
+         publishers_search^250
+         publication_places_search^100
          toc_notes^100
          text
        </str>
@@ -1839,6 +1842,8 @@
          creator^2500
          contributors^2500
          series_creator^2500
+         publishers_search^2500
+         publication_places_search^2500
          toc_notes^1000
          text^10
        </str>
@@ -1913,9 +1918,7 @@
          languages,
          main_call_number,
          material_type,
-         publishers,
-         publication_place,
-         publication_dates,
+         publication_display,
          full_title,
          main_title,
          subtitle,

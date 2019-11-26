@@ -10,6 +10,7 @@ import ujson
 
 from base import models
 from export.sierra2marc import S2MarcBatch, S2MarcError
+from blacklight import parsers as p
 from utils import helpers
 
 
@@ -28,6 +29,59 @@ def make_pmfield(tag, data=None, indicators=None, subfields=None):
     else:
         kwargs['data'] = data
     return pymarc.field.Field(**kwargs)
+
+
+def explode_subfields(pmfield, sftags):
+    """
+    Get subfields (`sftags`) if on the given pymarc Field object
+    (`pmfield`) and split them into a tuple, where each tuple value
+    contains the list of values for the corresponding subfield tag.
+    E.g., subfields 'abc' would return a tuple of 3 lists, the first
+    corresponding with all subfield 'a' values from the MARC field, the
+    second with subfield 'b' values, and the third with subfield 'c'
+    values. Any subfields not present become an empty list.
+
+    Use like this:
+        title, subtitle, responsibility = explode_subfields(f245, 'abc')
+    """
+    return (pmfield.get_subfields(tag) for tag in sftags)
+
+
+def group_subfields(pmfield, sftags):
+    """
+    Put subfields from the given `pmfield` pymarc Field object into
+    groupings based on the given `sftags` string. Returns a list of new
+    pymarc Field objects, where each represents a grouping.
+    """
+    grouped, group = [], []
+    for tag, value in pmfield:
+        if tag in sftags:
+            if group and tag in [group_item[0] for group_item in group]:
+                nfield = make_pmfield(pmfield.tag, subfields=group,
+                                      indicators=pmfield.indicators)
+                grouped.append(nfield)
+                group = []
+            group.extend([tag, value])
+    if group:
+        nfield = make_pmfield(pmfield.tag, subfields=group,
+                              indicators=pmfield.indicators)
+        grouped.append(nfield)
+    return grouped
+
+
+def pull_from_subfields(pmfield, sftags=None, pull_func=None):
+    """
+    Extract a list of values from the given pymarc Field object
+    (`pmfield`). Optionally specify which `sftags` to pull data from
+    and/or a `pull_func` function. The function should take a string
+    value (i.e. from one subfield) and return a LIST of values.
+    A single flattened list of collective values is returned.
+    """
+    sftags = tuple(sftags) if sftags else [sf[0] for sf in pmfield]
+    vals = pmfield.get_subfields(*sftags)
+    if pull_func is None:
+        return vals
+    return [v2 for v1 in vals for v2 in pull_func(v1)]
 
 
 class BlacklightASMPipeline(object):
@@ -54,6 +108,7 @@ class BlacklightASMPipeline(object):
     """
     fields = [
         'id', 'suppressed', 'item_info', 'urls_json', 'thumbnail_url',
+        'pub_info',
     ]
     prefix = 'get_'
 
@@ -318,6 +373,180 @@ class BlacklightASMPipeline(object):
 
         return {'thumbnail_url': url}
 
+    def _extract_pub_statements_from_26x(self, f26x):
+        """
+        Return a list of publication statements found in the given 26X
+        field (pymarc Field object).
+        """
+        ind2_type_map = {'0': 'creation', '1': 'publication',
+                         '2': 'distribution', '3': 'manufacture',
+                         '4': 'copyright'}
+        pub_type = ind2_type_map.get(f26x.indicator2, 'publication')
+        statements = []
+        for gr in group_subfields(f26x, 'abc'):
+            dates = pull_from_subfields(gr, 'c', p.split_pdate_and_cdate)
+            pub, copy = tuple(dates[0:2]) if len(dates) > 1 else ('', '')
+            statement = ' '.join(gr.get_subfields('a', 'b') + [pub])
+            statements.append((pub_type, p.strip_ends(statement)))
+            if copy:
+                statements.append(('copyright', copy))
+        for group in group_subfields(f26x, 'efg'):
+            statement = p.strip_ends(group.format_field())
+            statements.append(('manufacture', statement))
+        return statements
+
+    def _interpret_coded_date(self, dtype, date1, date2):
+        pub_type_map = {
+            'i': [('creation', 'Originally collected or created in ')],
+            'k': [('creation', 'Originally collected or created in ')],
+            'p': [('distribution', 'Released in '),
+                  ('creation', 'Created or produced in ')],
+            'r': [('distribution', 'Reproduced or reissued in '),
+                  ('publication', 'Originally published in ')],
+            't': [('publication', ''), ('copyright', '')],
+            '046kl': [('creation', '')],
+            '046op': [('creation', 'Content originally created in ')]
+        }
+        default_entry = [('publication', '')]
+        coded_dates = []
+        date1 = date1[0:4] if len(date1) > 4 else date1
+        date2 = date2[0:4] if len(date2) > 4 else date2
+        date1_valid = bool(re.search(r'^[\du]+$', date1) and date1 != '0000')
+        date2_valid = bool(re.search(r'^[\du]+$', date2))
+        if date1_valid:
+            if dtype in ('es') or date1 == date2 or not date2_valid:
+                date2 = None
+            details_list = pub_type_map.get(dtype, default_entry)
+            if len(details_list) > 1:
+                dates = [date1, date2]
+                for i, details in enumerate(details_list):
+                    pub_field, label = details
+                    coded_dates.append((dates[i], None, pub_field, label))
+            else:
+                pub_field, label = details_list[0]
+                coded_dates.append((date1, date2, pub_field, label))
+        return coded_dates
+
+    def _format_years_for_display(self, year1, year2=None, the=False):
+        """
+        Convert a single year (`year1`) or a year range (`year1` to
+        `year2`), where each year is formatted ~ MARC 008 ("196u" is
+        "1960s"), to a display label. Pass True for `the` if you want
+        the word `the` included, otherwise False. (E.g.: "the 20th
+        century" or "the 1960s".)
+        """
+        def _format_year(year, the):
+            the = 'the ' if the else ''
+            century_suffix_map = {'1': 'st', '2': 'nd', '3': 'rd'}
+            match = re.search(r'^(\d*)(u+)$', year or '')
+            if match:
+                if match.groups()[1] == 'u':
+                    year = year.replace('u', '0s')
+                elif match.groups()[1] == 'uu':
+                    century = unicode(int(match.groups()[0]) + 1)
+                    suffix = century_suffix_map.get(century[-1], 'th')
+                    year = '{}{} century'.format(century, suffix)
+                else:
+                    return '?'
+                return '{}{}'.format(the, year)
+            return year
+        
+        disp_y1, disp_y2 = _format_year(year1, the), _format_year(year2, the)
+        if disp_y1 is None:
+            return ''
+
+        if disp_y2 is None:
+            if disp_y1 == '?':
+                return 'dates unknown'
+            return disp_y1
+
+        if disp_y2 == '9999':
+            return '{} to present'.format(disp_y1)
+
+        if disp_y1.endswith('century') and disp_y2.endswith('century'):
+            disp_y1 = disp_y1.replace(' century', '')
+
+        return '{} to {}'.format(disp_y1, disp_y2)
+
+    def get_pub_info(self, r, marc_record):
+        """
+        Get and handle all the needed publication and related info for
+        the given bib and marc record.
+        """
+        def _strip_unknown_pub(data):
+            pub_stripped = p.normalize_punctuation(p.strip_unknown_pub(data))
+            if re.search(r'\w', pub_stripped):
+                return [pub_stripped]
+            return []
+
+        pub_info, described_years, places, publishers = {}, set(), set(), set()
+        for f26x in marc_record.get_fields('260', '264'):
+            years = pull_from_subfields(f26x, 'cg', p.extract_years)
+            described_years |= set(years)
+            for stype, stext in self._extract_pub_statements_from_26x(f26x):
+                pub_info[stype] = pub_info.get(stype, [])
+                pub_info[stype].append(stext)
+
+            places |= set(pull_from_subfields(f26x, 'ae', _strip_unknown_pub))
+            publishers |= set(pull_from_subfields(f26x, 'bf',
+                                                  _strip_unknown_pub))
+
+        coded_dates = []
+        f008 = (marc_record.get_fields('008') or [None])[0]
+        if f008 is not None and len(f008.data) >= 15:
+            data = f008.data
+            entries = self._interpret_coded_date(data[6], data[7:11],
+                                                 data[11:15])
+            coded_dates.extend(entries)
+
+        for field in marc_record.get_fields('046'):
+            coded_group = group_subfields(field, 'abcde')
+            if coded_group:
+                dtype = (coded_group[0].get_subfields('a') or [''])[0]
+                date1 = (coded_group[0].get_subfields('c') or [''])[0]
+                date2 = (coded_group[0].get_subfields('e') or [''])[0]
+                entries = self._interpret_coded_date(dtype, date1, date2)
+                coded_dates.extend(entries)
+
+            other_group = group_subfields(field, 'klop')
+            if other_group:
+                _k = (other_group[0].get_subfields('k') or [''])[0]
+                _l = (other_group[0].get_subfields('l') or [''])[0]
+                _o = (other_group[0].get_subfields('o') or [''])[0]
+                _p = (other_group[0].get_subfields('p') or [''])[0]
+                coded_dates.extend(self._interpret_coded_date('046kl', _k, _l))
+                coded_dates.extend(self._interpret_coded_date('046op', _o, _p))
+
+        sort, year_display = '', ''
+        for i, row in enumerate(coded_dates):
+            date1, date2, pub_field, label = row
+            if i == 0:
+                sort = date1
+                year_display = self._format_years_for_display(date1, date2)
+            if date1 is not None and date1 not in described_years:
+                display_date = self._format_years_for_display(date1, date2,
+                                                              the=True)
+                new_stext = '{}{}'.format(label, display_date).capitalize()
+                pub_info[pub_field] = pub_info.get(pub_field, [])
+                pub_info[pub_field].append(new_stext)
+                described_years.add(date1)
+
+        if not coded_dates and described_years:
+            sort = sorted([y for y in described_years])[0]
+            year_display = self._format_years_for_display(sort)
+
+        years = [y.replace('u', '-') for y in list(described_years)]
+        ret_val = {'{}_display'.format(k): v for k, v in pub_info.items()}
+        ret_val.update({
+            'publication_sort': sort.replace('u', '-'),
+            'publication_years': years,
+            'publication_year_display': year_display,
+            'publication_places_search': list(places),
+            'publishers_search': list(publishers),
+            'publication_dates_search': years
+        })
+        return ret_val
+
 
 class PipelineBundleConverter(object):
     """
@@ -396,6 +625,13 @@ class PipelineBundleConverter(object):
         ( '915', ('dewey_call_numbers',) ),
         ( '915', ('sudoc_call_numbers',) ),
         ( '915', ('other_call_numbers',) ),
+        ( '916', ('publication_sort', 'publication_years',
+                  'publication_year_display') ),
+        ( '916', ('creation_display', 'publication_display',
+                  'distribution_display', 'manufacture_display',
+                  'copyright_display') ),
+        ( '916', ('publication_places_search', 'publishers_search',
+                  'publication_dates_search') ),
     )
 
     def __init__(self, mapping=None):

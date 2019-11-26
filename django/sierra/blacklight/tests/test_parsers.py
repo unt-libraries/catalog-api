@@ -1,7 +1,9 @@
+# -*- coding: utf-8 -*- 
+
 """
 Tests the blacklight.parsers functions.
 """
-
+from __future__ import unicode_literals
 import re
 
 import pytest
@@ -66,17 +68,32 @@ def test_normalize_whitespace(data, expected):
     ('test : data', 'test: data'),
     ('test / data', 'test / data'),
     ('test : data / data', 'test: data / data'),
-    ('test . ; : data / data', 'test: data / data'),
-    ('test .;: data / data', 'test: data / data'),
-    ('test . ; : / data / data', 'test / data / data'),
-    ('.:;test / data', ';test / data'),
+])
+def test_compress_punctuation(data, expected):
+    """
+    `compress_punctuation` should remove whitespace to the immediate
+    left of certain punctuation marks.
+    """
+    assert parsers.compress_punctuation(data) == expected
+
+
+@pytest.mark.parametrize('data, expected', [
+    ('test . ; : data / data', 'test : data / data'),
+    ('test .;: data / data', 'test : data / data'),
+    ('.:;test / data', 'test / data'),
     ('test / data.:;', 'test / data;'),
+    ('.:;test / data. : ;', 'test / data;'),
+    ('[ : test', '[test'),
+    ('( : test', '(test'),
+    ('{ : test', '{test'),
+    ('test : [],', 'test,'),
+    ('test : [.],', 'test,'),
+    ('test ; [Test :]', 'test ; [Test]'),
+    ('ed. : test', 'ed. : test'),
 ])
 def test_normalize_punctuation(data, expected):
     """
-    `normalize_punctuation` should remove whitespace to the immediate
-    left of certain punctuation marks and instances of consecutive
-    punctuation marks.
+    `normalize_punctuation` should ...
     """
     assert parsers.normalize_punctuation(data) == expected
 
@@ -215,7 +232,7 @@ def test_strip_ellipses(data, expected):
 
 
 @pytest.mark.parametrize('data, expected', [
-    ('This is an example of a title : subtitle / ed. by John Doe.', 'This is an example of a title: subtitle / ed. by John Doe'),
+    ('This is an example of a title : subtitle / ed. by John Doe.', 'This is an example of a title : subtitle / ed. by John Doe'),
     ('Some test data ... that we have (whatever [whatever]).', 'Some test data that we have (whatever whatever)'),
 ])
 def test_clean(data, expected):
@@ -224,6 +241,63 @@ def test_clean(data, expected):
     normalize whitespace and punctuation.
     """
     assert parsers.clean(data) == expected
+
+
+@pytest.mark.parametrize('data, expected', [
+    ('1980.', ('1980',)),
+    ('c1980.', ('1980',)),
+    ('[198-]', ('198u',)),
+    ('1979 printing, c1975.', ('1979', '1975')),
+    ('1968 [i.e. 1971] 1973 printing.', ('1968', '1971', '1973')),
+    ('1898-1945', ('1898', '1945')),
+    ('April 15, 1977.', ('1977',)),
+    ('1878-[1927?]', ('1878', '1927')),
+    ('1878-[1927?]', ('1878', '1927')),
+    ('18--?-1890', ('18uu', '1890')),
+    ('[197-]-1987', ('197u', '1987')),
+    ('19th and early 20th century', ()),
+])
+def test_extract_years(data, expected):
+    """
+    `extract_years` should extract year-strings from the given data.
+    """
+    assert parsers.extract_years(data) == expected
+
+
+@pytest.mark.parametrize('data, expected', [
+    ('[S.l.] :', '[] :'),
+    ('[s.n.]', '[]'),
+    ('s.n.]', ']'),
+    ('[s.n.', '['),
+    ('s.n.', ''),
+    ('[Place of publication not identified]', '[]'),
+    ('[S.l. : s.n., 15--?]', '[: , 15--?]')
+])
+def test_strip_unknown_pub(data, expected):
+    """
+    `strip_unknown_pub` should strip, e.g., [S.l], [s.n.], and [X not
+    identified] from the given publisher-related data.
+    """
+    assert parsers.strip_unknown_pub(data) == expected
+
+
+@pytest.mark.parametrize('data, expected', [
+    ('1984', ('1984', '')),
+    ('1984, 2003', ('1984, 2003', '')),
+    ('1984, c2003', ('1984,', '2003')),
+    ('c2003', ('', '2003')),
+    ('copyright 2003', ('', '2003')),
+    ('©2003', ('', '2003')),
+    ('© 2003', ('', '2003')),
+    ('[2003]', ('[2003]', '')),
+    ('1984 printing copyright 2003', ('1984 printing', '2003')),
+])
+def test_split_pdate_and_cdate(data, expected):
+    """
+    `split_pdate_and_cdate` should split a string (e.g. from a 26X$c)
+    into the publication date and copyright date.
+    """
+    assert parsers.split_pdate_and_cdate(data) == expected
 
 
 @pytest.mark.parametrize('data, first_indicator, exp_forename, exp_surname, exp_family_name', [
