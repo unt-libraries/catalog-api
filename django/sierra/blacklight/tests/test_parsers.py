@@ -255,13 +255,17 @@ def test_clean(data, expected):
     ('1878-[1927?]', ('1878', '1927')),
     ('18--?-1890', ('18uu', '1890')),
     ('[197-]-1987', ('197u', '1987')),
-    ('19th and early 20th century', ()),
+    ('19th and early 20th century', ('18uu', '19uu')),
+    ('[1980s?]', ('198u',)),
+    ('1975, [1980s?], 1996, 21st century', ('1975', '198u', '1996', '20uu')),
+    ('1 in 1975, 15 in the 18th Century, and 23 in the 1810s',
+     ('1975', '17uu', '181u')),
 ])
 def test_extract_years(data, expected):
     """
     `extract_years` should extract year-strings from the given data.
     """
-    assert parsers.extract_years(data) == expected
+    assert sorted(parsers.extract_years(data)) == sorted(expected)
 
 
 @pytest.mark.parametrize('data, expected', [

@@ -176,8 +176,21 @@ def extract_years(data):
     Extract individual years from a string, such as a publication
     string, and return them as a tuple.
     """
-    dates = re.findall(r'(?<!\d)(\d---|\d\d--|\d\d\d-|\d{3,4})(?!\d)', data)
-    return tuple(d.replace('-', 'u') for d in dates)
+    dates = []
+    century_re = r'\d{1,2}st|\d{1,2}nd|\d{1,2}rd|\d{1,2}th(?=.+centur)'
+    decade_re = r'\d{2,3}0s'
+    year_re = r'\d---|\d\d--|\d\d\d-|\d{3,4}(?![\ds])'
+    combined_re = r'(?<!\d)({}|{}|{})'.format(century_re, decade_re, year_re)
+    
+    for date in re.findall(combined_re, data, flags=re.IGNORECASE):
+        if date.lower().endswith('0s'):
+            dates.append('{}u'.format(date[:-2]))
+        elif date[-2:].lower() in ('st', 'nd', 'rd', 'th'):
+            century = int(date[:-2]) - 1
+            dates.append('{}uu'.format(century))
+        else:
+            dates.append(date.replace('-', 'u'))
+    return tuple(dates)
 
 
 def strip_unknown_pub(data):
