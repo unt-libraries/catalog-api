@@ -7,6 +7,7 @@ import pymarc
 import logging
 import re
 import ujson
+from datetime import datetime
 
 from base import models
 from export.sierra2marc import S2MarcBatch, S2MarcError
@@ -469,6 +470,49 @@ class BlacklightASMPipeline(object):
 
         return '{} to {}'.format(disp_y1, disp_y2)
 
+    def _make_pub_limit_years(self, described_years):
+        """
+        Given a *set* of `described_years`, each formatted as in the
+        MARC 008, return a tuple of lists--one for the publication year
+        facet, one for the publication decade facet, and one for
+        searchable publication dates.
+        """
+        def _year_to_decade_facet(year):
+            return '{0}0-{0}9'.format(year[:-1])
+
+        def _year_to_decade_label(year):
+            return self._format_years_for_display('{}u'.format(year[:-1]))
+
+        def _century_to_decade_facet(formatted_year):
+            # formatted_year would be like '19uu' for 20th century
+            return '{0}{1}0-{0}{1}9'.format(formatted_year[:-2], i)
+
+        facet_years, facet_decades = set(), set()
+        search_pdates = set()
+        this_year = datetime.now().year
+        for year in list(described_years):
+            if 'u' not in year:
+                facet_years.add(year)
+                facet_decades.add(_year_to_decade_facet(year))
+                search_pdates.add(_year_to_decade_label(year))
+                search_pdates.add(self._format_years_for_display(year))
+            elif re.search(r'^\d+u$', year):
+                for i in range(0, 10):
+                    add_year = '{}{}'.format(year[:-1], i)
+                    if int(add_year) <= this_year:
+                        facet_years.add(add_year)
+                        search_pdates.add(add_year)
+                facet_decades.add(_year_to_decade_facet(year))
+                search_pdates.add(self._format_years_for_display(year))
+            elif re.search(r'^\d+uu$', year):
+                for i in range(0, 10):
+                    add_decade = '{}{}u'.format(year[:-2], i)
+                    if int(add_decade[:-1]) <= this_year / 10:
+                        facet_decades.add(_year_to_decade_facet(add_decade))
+                        search_pdates.add(_year_to_decade_label(add_decade))
+                search_pdates.add(self._format_years_for_display(year))
+        return (list(facet_years), list(facet_decades), list(search_pdates))
+
     def get_pub_info(self, r, marc_record):
         """
         Get and handle all the needed publication and related info for
@@ -536,15 +580,17 @@ class BlacklightASMPipeline(object):
             sort = sorted([y for y in described_years])[0]
             year_display = self._format_years_for_display(sort)
 
-        years = [y.replace('u', '-') for y in list(described_years)]
+        yfacet, dfacet, sdates = self._make_pub_limit_years(described_years)
+        
         ret_val = {'{}_display'.format(k): v for k, v in pub_info.items()}
         ret_val.update({
             'publication_sort': sort.replace('u', '-'),
-            'publication_years': years,
+            'publication_year_facet': yfacet,
+            'publication_decade_facet': dfacet,
             'publication_year_display': year_display,
             'publication_places_search': list(places),
             'publishers_search': list(publishers),
-            'publication_dates_search': years
+            'publication_dates_search': sdates
         })
         return ret_val
 
@@ -626,8 +672,8 @@ class PipelineBundleConverter(object):
         ( '915', ('dewey_call_numbers',) ),
         ( '915', ('sudoc_call_numbers',) ),
         ( '915', ('other_call_numbers',) ),
-        ( '916', ('publication_sort', 'publication_years',
-                  'publication_year_display') ),
+        ( '916', ('publication_sort', 'publication_year_facet',
+                  'publication_decade_facet', 'publication_year_display') ),
         ( '916', ('creation_display', 'publication_display',
                   'distribution_display', 'manufacture_display',
                   'copyright_display') ),
