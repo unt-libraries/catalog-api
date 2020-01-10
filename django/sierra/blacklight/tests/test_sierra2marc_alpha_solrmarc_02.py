@@ -172,42 +172,50 @@ def test_explodesubfields_returns_expected_results():
     assert dates == ['1960;', '1992.']
 
 
-@pytest.mark.parametrize('field_info, sftags, expected', [
+@pytest.mark.parametrize('field_info, sftags, unqtags, brktags, expected', [
     (('260', ['a', 'a1', 'b', 'b1', 'c', 'c1',
               'a', 'a2', 'b', 'b2', 'c', 'c2']),
-     'abc',
+     'abc', 'abc', None,
      ('a1 b1 c1', 'a2 b2 c2')),
     (('260', ['a', 'a1', 'b', 'b1', 'c', 'c1',
               'a', 'a2', 'b', 'b2', 'c', 'c2']),
-     'ac',
+     'ac', 'ac', None,
      ('a1 c1', 'a2 c2')),
     (('260', ['a', 'a1', 'b', 'b1', 'c', 'c1',
               'a', 'a2', 'b', 'b2', 'c', 'c2']),
-     'acd',
+     'acd', 'acd', None,
      ('a1 c1', 'a2 c2')),
     (('260', ['a', 'a1', 'b', 'b1', 'c', 'c1',
               'a', 'a2', 'b', 'b2', 'c', 'c2']),
-     'cba',
+     'cba', 'cba', None,
      ('a1 b1 c1', 'a2 b2 c2')),
     (('260', ['a', 'a1', 'b', 'b1', 'c', 'c1']),
-     'abc',
+     'abc', 'abc', None,
      ('a1 b1 c1',)),
     (('260', ['a', 'a1', 'b', 'b1',
               'a', 'a2', 'c', 'c2']),
-     'abc',
+     'abc', 'abc', None,
      ('a1 b1', 'a2 c2')),
     (('260', ['b', 'b1',
               'b', 'b2', 'a', 'a1', 'c', 'c1']),
-     'abc',
+     'abc', 'abc', None,
      ('b1', 'b2 a1 c1')),
+    (('260', ['a', 'a1.1', 'a', 'a1.2', 'b', 'b1.1',
+              'a', 'a2.1', 'b', 'b2.1',
+              'b', 'b3.1']),
+     'ab', None, 'b',
+     ('a1.1 a1.2 b1.1', 'a2.1 b2.1', 'b3.1')),
 ])
-def test_groupsubfields_groups_correctly(field_info, sftags, expected):
+def test_groupsubfields_groups_correctly(field_info, sftags, unqtags, brktags,
+                                         expected):
     """
     `group_subfields` should put subfields from a pymarc Field object
-    into groupings based on the provided sftags string.
+    into groupings based on the provided sftags and uniquetags strings.
     """
     field = s2m.make_pmfield(field_info[0], subfields=field_info[1])
-    for group, exp in zip(s2m.group_subfields(field, sftags), expected):
+    result = s2m.group_subfields(field, sftags, unqtags, brktags)
+    assert len(result) == len(expected)
+    for group, exp in zip(result, expected):
         assert group.value() == exp
 
 
@@ -957,6 +965,192 @@ def test_blasmpipeline_getpubinfo_dates(marcfields, exp_pub_sort,
         assert v in exp_pub_decade_facet
     for v in val['publication_dates_search']:
         assert v in exp_pub_dates_search
+
+
+@pytest.mark.parametrize('marcfields, expected', [
+    ([('008', 's2004    '),
+      ('260', ['a', 'Place :', 'b', 'Publisher,', 'c', '2004.'])],
+     {'publication_display': ['Place : Publisher, 2004']}),
+    ([('008', 's2004    '),
+      ('264', ['a', 'Place :', 'b', 'Publisher,', 'c', '2004.'], ' 1')],
+     {'publication_display': ['Place : Publisher, 2004']}),
+    ([('008', 's2004    '),
+      ('264', ['a', 'Place :', 'b', 'Producer,', 'c', '2004.'], ' 0')],
+     {'creation_display': ['Place : Producer, 2004']}),
+    ([('008', 's2004    '),
+      ('264', ['a', 'Place :', 'b', 'Distributor,', 'c', '2004.'], ' 2')],
+     {'distribution_display': ['Place : Distributor, 2004']}),
+    ([('008', 's2004    '),
+      ('264', ['a', 'Place :', 'b', 'Manufacturer,', 'c', '2004.'], ' 3')],
+     {'manufacture_display': ['Place : Manufacturer, 2004']}),
+    ([('008', 's2004    '),
+      ('264', ['c', '2004'], ' 4')],
+     {'copyright_display': ['2004']}),
+    ([('008', 's2004    '),
+      ('264', ['c', 'c2004'], ' 4')],
+     {'copyright_display': ['2004']}),
+    ([('008', 'b2004    ')],
+     {'publication_display': ['2004']}),
+    ([('008', 'c20049999')],
+     {'publication_display': ['2004 to present']}),
+    ([('008', 'd20042012')],
+     {'publication_display': ['2004 to 2012']}),
+    ([('008', 'e20040101')],
+     {'publication_display': ['2004']}),
+    ([('008', 'i20042012')],
+     {'creation_display': ['Collection created in 2004 to 2012']}),
+    ([('008', 'k20042012')],
+     {'creation_display': ['Collection created in 2004 to 2012']}),
+    ([('008', 'm20042012')],
+     {'publication_display': ['2004 to 2012']}),
+    ([('008', 'm20049999')],
+     {'publication_display': ['2004 to present']}),
+    ([('008', 'm2004    ')],
+     {'publication_display': ['2004']}),
+    ([('008', 'muuuu2012')],
+     {'publication_display': ['? to 2012']}),
+    ([('008', 'nuuuuuuuu')], {}),
+    ([('008', 'p20122004')],
+     {'distribution_display': ['Released in 2012'],
+      'creation_display': ['Created or produced in 2004']}),
+    ([('008', 'q20042012')],
+     {'publication_display': ['2004 to 2012']}),
+    ([('008', 'r20122004')],
+     {'distribution_display': ['Reproduced or reissued in 2012'],
+      'publication_display': ['Originally published in 2004']}),
+    ([('008', 'ruuuu2004')],
+     {'publication_display': ['Originally published in 2004']}),
+    ([('008', 'r2012uuuu')],
+     {'distribution_display': ['Reproduced or reissued in 2012']}),
+    ([('008', 's2004    ')],
+     {'publication_display': ['2004']}),
+    ([('008', 't20042012')],
+     {'publication_display': ['2004'],
+      'copyright_display': ['2012']}),
+    ([('008', 'u2004uuuu')],
+     {'publication_display': ['2004 to ?']}),
+    ([('008', 's201u    ')],
+     {'publication_display': ['The 2010s']}),
+    ([('008', 's20uu    ')],
+     {'publication_display': ['The 21st century']}),
+    ([('008', 'm200u201u')],
+     {'publication_display': ['The 2000s to the 2010s']}),
+    ([('008', 'm19uu20uu')],
+     {'publication_display': ['The 20th to the 21st century']}),
+    ([('008', 'm19uu201u')],
+     {'publication_display': ['The 20th century to the 2010s']}),
+    ([('008', 's2012    '),
+      ('260', ['a', 'Place :', 'b', 'Publisher,', 'c', '2012, c2004.'])],
+     {'publication_display': ['Place : Publisher, 2012'],
+      'copyright_display': ['2004']}),
+    ([('008', 's2004    '),
+      ('260', ['a', 'Place :', 'b', 'Publisher,', 'c', 'c2012, 2004.'])],
+     {'publication_display': ['Place : Publisher, 2004'],
+      'copyright_display': ['2012']}),
+    ([('008', 's2004    '),
+      ('260', ['a', 'Place :', 'b', 'Publisher,',
+               'c', '2012 printing, copyright 2004.'])],
+     {'publication_display': ['Place : Publisher, 2012 printing'],
+      'copyright_display': ['2004']}),
+    ([('008', 's2004    '),
+      ('260', ['a', 'Place :', 'b', 'Publisher,',
+               'c', '2004-2012.'])],
+     {'publication_display': ['Place : Publisher, 2004-2012']}),
+    ([('008', 's2004    '),
+      ('260', ['a', 'First Place :', 'b', 'First Publisher;', 
+               'a', 'Second Place :', 'b', 'Second Publisher,',
+               'c', '2004.'])],
+     {'publication_display': ['First Place : First Publisher; '
+                              'Second Place : Second Publisher, 2004']}),
+    ([('008', 's2004    '),
+      ('260', ['a', 'First Place;', 'a', 'Second Place :', 'b', 'Publisher,',
+               'c', '2004.'])],
+     {'publication_display': ['First Place; Second Place : Publisher, 2004']}),
+    ([('008', 's2004    '),
+      ('260', ['a', 'P Place :', 'b', 'Publisher,', 'c', '2004',
+               'e', '(M Place :', 'f', 'Printer)'])],
+     {'publication_display': ['P Place : Publisher, 2004'],
+      'manufacture_display': ['M Place : Printer']}),
+    ([('008', 's2004    '),
+      ('260', ['a', 'P Place :', 'b', 'Publisher,', 'c', '2004',
+               'e', '(M Place :', 'f', 'Printer,', 'g', '2005)'])],
+     {'publication_display': ['P Place : Publisher, 2004'],
+      'manufacture_display': ['M Place : Printer, 2005']}),
+    ([('008', 's2004    '),
+      ('260', ['a', 'P Place :', 'b', 'Publisher,', 'c', '2004',
+               'g', '(2010 printing)'])],
+     {'publication_display': ['P Place : Publisher, 2004'],
+      'manufacture_display': ['2010 printing']}),
+], ids=[
+    'Plain 260 => publication_display',
+    '264 _1 => publication_display',
+    '264 _0 => creation_display',
+    '264 _2 => distribution_display',
+    '264 _3 => manufacture_display',
+    '264 _4 => copyright_display',
+    '264 _4 => copyright_display (includes `c`, e.g. `c2004`)',
+    'from 008 code b: p_display, no label (interpreted as single pub date)',
+    'from 008 code c: p_display, no label, date range (continuing resource)',
+    'from 008 code d: p_display, no label, date range (continuing resource)',
+    'from 008 code e: p_display, no label, just year (detailed date)',
+    'from 008 code i: creation_display, custom label (dates of collection)',
+    'from 008 code k: creation_display, custom label (dates of collection)',
+    'from 008 code m: p_display, no label (multiple dates, as range)',
+    'from 008 code m: p_display, no label (multiple dates, to present)',
+    'from 008 code m: p_display, no label (multiple dates, only one date)',
+    'from 008 code m: p_display, no label (multiple dates, unkn start date)',
+    'from 008 code n: dates unknown',
+    'from 008 code p: distribution_ and creation_display, custom labels',
+    'from 008 code q: questionable date',
+    'from 008 code r: distribution_ and p_display, custom labels',
+    'from 008 code r: distribution_ and p_display, custom labels (unk ddate)',
+    'from 008 code r: distribution_ and p_display, custom labels (unk pdate)',
+    'from 008 code s: p_display, no label (single date)',
+    'from 008 code t: publication_ and copyright_display, no label',
+    'from 008 code u: continuing resource, status unknown',
+    'from 008, generated, decade',
+    'from 008, generated, century',
+    'from 008, generated, decade range',
+    'from 008, generated, century range',
+    'from 008, generated, mixed century/decade range',
+    '260 with publication date then copyright date',
+    '260 with copyright date then publication date',
+    '260 with labeled dates',
+    '260 with date range',
+    '260 with multiple groupings',
+    '260 with multiple places',
+    '260 with manufacturer information (no mf date)',
+    '260 with manufacturer information (has mf date)',
+    '260 with manufacturer information (ONLY mf date)',
+])
+def test_blasmpipeline_getpubinfo_statements(marcfields, expected,
+                                             bl_sierra_test_record,
+                                             blasm_pipeline_class,
+                                             bibrecord_to_pymarc,
+                                             add_marc_fields):
+    """
+    BlacklightASMPipeline.get_pub_info should return display statement
+    fields matching the expected parameters.
+    """
+    pipeline = blasm_pipeline_class()
+    bib = bl_sierra_test_record('bib_no_items')
+    bibmarc = bibrecord_to_pymarc(bib)
+    bibmarc.remove_fields('260', '264')
+    if len(marcfields) and marcfields[0][0] == '008':
+        data = bibmarc.get_fields('008')[0].data
+        data = '{}{}{}'.format(data[0:6], marcfields[0][1], data[15:])
+        marcfields[0] = ('008', data)
+        bibmarc.remove_fields('008')
+    bibmarc = add_marc_fields(bibmarc, marcfields)
+    val = pipeline.get_pub_info(bib, bibmarc)
+    if len(expected.keys()) == 0:
+        assert 'created_display' not in val.keys()
+        assert 'publication_display' not in val.keys()
+        assert 'distribution_display' not in val.keys()
+        assert 'manufacture_display' not in val.keys()
+        assert 'copyright_display' not in val.keys()
+    for k, v in expected.items():
+        assert v == val[k]
 
 
 @pytest.mark.parametrize('mapping, bundle, expected', [

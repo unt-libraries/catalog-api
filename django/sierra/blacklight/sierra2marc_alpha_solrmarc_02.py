@@ -48,21 +48,28 @@ def explode_subfields(pmfield, sftags):
     return (pmfield.get_subfields(tag) for tag in sftags)
 
 
-def group_subfields(pmfield, sftags):
+def group_subfields(pmfield, sftags, uniquetags=None, breaktags=None):
     """
     Put subfields from the given `pmfield` pymarc Field object into
     groupings based on the given `sftags` string. Returns a list of new
     pymarc Field objects, where each represents a grouping.
     """
     grouped, group = [], []
+    uniquetags = uniquetags or ''
+    breaktags = breaktags or ''
     for tag, value in pmfield:
         if tag in sftags:
-            if group and tag in [group_item[0] for group_item in group]:
+            if group and tag in uniquetags and tag in [gi[0] for gi in group]:
                 nfield = make_pmfield(pmfield.tag, subfields=group,
                                       indicators=pmfield.indicators)
                 grouped.append(nfield)
                 group = []
             group.extend([tag, value])
+            if tag in breaktags:
+                nfield = make_pmfield(pmfield.tag, subfields=group,
+                                      indicators=pmfield.indicators)
+                grouped.append(nfield)
+                group = []
     if group:
         nfield = make_pmfield(pmfield.tag, subfields=group,
                               indicators=pmfield.indicators)
@@ -385,11 +392,15 @@ class BlacklightASMPipeline(object):
                          '4': 'copyright'}
         pub_type = ind2_type_map.get(f26x.indicator2, 'publication')
         statements = []
-        for gr in group_subfields(f26x, 'abc'):
+        for gr in group_subfields(f26x, 'abc', breaktags='c'):
             dates = pull_from_subfields(gr, 'c', p.split_pdate_and_cdate)
             pub, copy = tuple(dates[0:2]) if len(dates) > 1 else ('', '')
-            statement = ' '.join(gr.get_subfields('a', 'b') + [pub])
-            statements.append((pub_type, p.strip_ends(statement)))
+            statement_parts = gr.get_subfields('a', 'b')
+            if pub:
+                statement_parts.append(p.normalize_punctuation(pub))
+            statement = p.strip_ends(' '.join(statement_parts))
+            if statement:
+                statements.append((pub_type, statement))
             if copy:
                 statements.append(('copyright', copy))
         for group in group_subfields(f26x, 'efg'):
@@ -399,8 +410,8 @@ class BlacklightASMPipeline(object):
 
     def _interpret_coded_date(self, dtype, date1, date2):
         pub_type_map = {
-            'i': [('creation', 'Originally collected or created in ')],
-            'k': [('creation', 'Originally collected or created in ')],
+            'i': [('creation', 'Collection created in ')],
+            'k': [('creation', 'Collection created in ')],
             'p': [('distribution', 'Released in '),
                   ('creation', 'Created or produced in ')],
             'r': [('distribution', 'Reproduced or reissued in '),
@@ -545,7 +556,7 @@ class BlacklightASMPipeline(object):
             coded_dates.extend(entries)
 
         for field in marc_record.get_fields('046'):
-            coded_group = group_subfields(field, 'abcde')
+            coded_group = group_subfields(field, 'abcde', uniquetags='abcde')
             if coded_group:
                 dtype = (coded_group[0].get_subfields('a') or [''])[0]
                 date1 = (coded_group[0].get_subfields('c') or [''])[0]
@@ -553,7 +564,7 @@ class BlacklightASMPipeline(object):
                 entries = self._interpret_coded_date(dtype, date1, date2)
                 coded_dates.extend(entries)
 
-            other_group = group_subfields(field, 'klop')
+            other_group = group_subfields(field, 'klop', uniquetags='klop')
             if other_group:
                 _k = (other_group[0].get_subfields('k') or [''])[0]
                 _l = (other_group[0].get_subfields('l') or [''])[0]
@@ -571,10 +582,11 @@ class BlacklightASMPipeline(object):
             if date1 is not None and date1 not in described_years:
                 display_date = self._format_years_for_display(date1, date2,
                                                               the=True)
-                new_stext = '{}{}'.format(label, display_date).capitalize()
-                pub_info[pub_field] = pub_info.get(pub_field, [])
-                pub_info[pub_field].append(new_stext)
-                described_years.add(date1)
+                if display_date != 'dates unknown':
+                    new_stext = '{}{}'.format(label, display_date)
+                    pub_info[pub_field] = pub_info.get(pub_field, [])
+                    pub_info[pub_field].append(new_stext.capitalize())
+                    described_years.add(date1)
 
         if not coded_dates and described_years:
             sort = sorted([y for y in described_years])[0]
