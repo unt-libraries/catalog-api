@@ -1153,6 +1153,98 @@ def test_blasmpipeline_getpubinfo_statements(marcfields, expected,
         assert v == val[k]
 
 
+@pytest.mark.parametrize('marcfields, expected', [
+    ([('008', 's2004    '),
+      ('260', ['a', 'Place :', 'b', 'Publisher,', 'c', '2004.'])],
+     {'publication_places_search': ['Place'],
+      'publishers_search': ['Publisher']}),
+    ([('008', 's2004    '),
+      ('260', ['a', 'P Place :', 'b', 'Publisher,', 'c', '2004',
+               'e', '(M Place :', 'f', 'Printer,', 'g', '2005)'])],
+     {'publication_places_search': ['P Place', 'M Place'],
+      'publishers_search': ['Publisher', 'Printer']}),
+    ([('008', 's2004    '),
+      ('264', ['a', 'Place :', 'b', 'Producer,', 'c', '2004.'], ' 0')],
+     {'publication_places_search': ['Place'],
+      'publishers_search': ['Producer']}),
+    ([('008', 's2004    '),
+      ('264', ['a', 'Place :', 'b', 'Publisher,', 'c', '2004.'], ' 1')],
+     {'publication_places_search': ['Place'],
+      'publishers_search': ['Publisher']}),
+    ([('008', 's2004    '),
+      ('264', ['a', 'Place :', 'b', 'Distributor,', 'c', '2004.'], ' 2')],
+     {'publication_places_search': ['Place'],
+      'publishers_search': ['Distributor']}),
+    ([('008', 's2004    '),
+      ('264', ['a', 'Place :', 'b', 'Manufacturer,', 'c', '2004.'], ' 3')],
+     {'publication_places_search': ['Place'],
+      'publishers_search': ['Manufacturer']}),
+    ([('008', 's2004    '),
+      ('264', ['a', 'Prod Place :', 'b', 'Producer,', 'c', '2004.'], ' 0'),
+      ('264', ['a', 'Place :', 'b', 'Publisher,', 'c', '2004.'], ' 1'),
+      ('264', ['a', 'Place :', 'b', 'Distributor,', 'c', '2004.'], ' 2'),
+      ('264', ['a', 'Place :', 'b', 'Manufacturer,', 'c', '2004.'], ' 3')],
+     {'publication_places_search': ['Prod Place', 'Place'],
+      'publishers_search': ['Producer', 'Publisher', 'Distributor',
+                            'Manufacturer']}),
+    ([('008', 's2004    '),
+      ('260', ['a', '[S.l. :', 'b', 's.n.]', 'c', '2004.']),
+      ('264', ['a', 'Place :', 'b', 'Producer,', 'c', '2004.'], ' 0'),
+      ('264', ['a', '[Place of publication not identified] :',
+               'b', 'Publisher,', 'c', '2004.'], ' 1'),
+      ('264', ['a', 'Place :', 'b', '[distributor not identified],',
+               'c', '2004.'], ' 2'),
+      ('264', ['a', 'Place :', 'b', 'Manufacturer,', 'c', '2004.'], ' 3')],
+     {'publication_places_search': ['Place'],
+      'publishers_search': ['Producer', 'Publisher', 'Manufacturer']}),
+    ([('008', 's2004    '),
+      ('260', ['c', '2004.']),
+      ('264', ['c', '2004.'], ' 4')],
+     {'publication_places_search': [],
+      'publishers_search': []}),
+    ([('008', 's2004    '),],
+     {'publication_places_search': [],
+      'publishers_search': []}),
+], ids=[
+    'Plain 260 => publisher and place search values',
+    '260 w/manufacturer info, includes mf place and entity',
+    '264 _0',
+    '264 _1',
+    '264 _2',
+    '264 _3',
+    '264: multiple fields include all relevant info (deduplicated)',
+    '260/264: unknown info ([S.l.], [s.n.], X not identified) stripped',
+    '260/264: missing pub info okay',
+    'no 260/264 okay'
+])
+def test_blasmpipeline_getpubinfo_pub_and_place_search(marcfields, expected,
+                                                       bl_sierra_test_record,
+                                                       blasm_pipeline_class,
+                                                       bibrecord_to_pymarc,
+                                                       add_marc_fields):
+    """
+    BlacklightASMPipeline.get_pub_info should return publishers_search
+    and publication_places_search fields matching the expected
+    parameters.
+    """
+    pipeline = blasm_pipeline_class()
+    bib = bl_sierra_test_record('bib_no_items')
+    bibmarc = bibrecord_to_pymarc(bib)
+    bibmarc.remove_fields('260', '264')
+    if len(marcfields) and marcfields[0][0] == '008':
+        data = bibmarc.get_fields('008')[0].data
+        data = '{}{}{}'.format(data[0:6], marcfields[0][1], data[15:])
+        marcfields[0] = ('008', data)
+        bibmarc.remove_fields('008')
+    bibmarc = add_marc_fields(bibmarc, marcfields)
+    val = pipeline.get_pub_info(bib, bibmarc)
+    if len(expected.keys()) == 0:
+        assert 'publication_places_search' not in val.keys()
+        assert 'publishers_search' not in val.keys()
+    for k, v in expected.items():
+        assert set(v) == set(val[k])
+
+
 @pytest.mark.parametrize('mapping, bundle, expected', [
     ( (('900', ('name', 'title')),),
       {'name': 'N1', 'title': 'T1'},

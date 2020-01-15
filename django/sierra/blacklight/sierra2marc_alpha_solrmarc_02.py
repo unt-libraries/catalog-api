@@ -387,6 +387,9 @@ class BlacklightASMPipeline(object):
         Return a list of publication statements found in the given 26X
         field (pymarc Field object).
         """
+        def _clean_pub_statement(statement):
+            return p.strip_outer_parentheses(p.strip_ends(statement), True)
+
         ind2_type_map = {'0': 'creation', '1': 'publication',
                          '2': 'distribution', '3': 'manufacture',
                          '4': 'copyright'}
@@ -398,13 +401,13 @@ class BlacklightASMPipeline(object):
             statement_parts = gr.get_subfields('a', 'b')
             if pub:
                 statement_parts.append(p.normalize_punctuation(pub))
-            statement = p.strip_ends(' '.join(statement_parts))
+            statement = _clean_pub_statement(' '.join(statement_parts))
             if statement:
                 statements.append((pub_type, statement))
             if copy:
                 statements.append(('copyright', copy))
         for group in group_subfields(f26x, 'efg'):
-            statement = p.strip_ends(group.format_field())
+            statement = _clean_pub_statement(group.format_field())
             statements.append(('manufacture', statement))
         return statements
 
@@ -543,9 +546,13 @@ class BlacklightASMPipeline(object):
                 pub_info[stype] = pub_info.get(stype, [])
                 pub_info[stype].append(stext)
 
-            places |= set(pull_from_subfields(f26x, 'ae', _strip_unknown_pub))
-            publishers |= set(pull_from_subfields(f26x, 'bf',
-                                                  _strip_unknown_pub))
+            for place in pull_from_subfields(f26x, 'ae', _strip_unknown_pub):
+                place = p.strip_ends(place)
+                places.add(p.strip_outer_parentheses(place, True))
+
+            for pub in pull_from_subfields(f26x, 'bf', _strip_unknown_pub):
+                pub = p.strip_ends(pub)
+                publishers.add(p.strip_outer_parentheses(pub, True))
 
         coded_dates = []
         f008 = (marc_record.get_fields('008') or [None])[0]
