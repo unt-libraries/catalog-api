@@ -35,11 +35,11 @@ def has_comma_in_middle(data):
 def normalize_whitespace(data):
     """
     Normalize whitespace in the input data string.
-    Removes multiple consecutive spaces. Strips whitespace from the
-    beginning and end of the provided string.
+    Consolidates multiple consecutive spaces into one throughout the
+    input string (and at both ends). DOES NOT strip ending whitespace
+    (just use the `strip` string method for that).
     """
-    consolidated = re.sub(r'\s+', ' ', data)
-    return consolidated.strip()
+    return re.sub(r'\s+', ' ', data)
 
 
 def compress_punctuation(data, left_space_re=settings.MARCDATA.NO_LEFT_WHITESPACE_PUNCTUATION_REGEX,
@@ -81,6 +81,102 @@ def strip_brackets(data, keep_inner=True, to_keep_re=None,
     protected_brackets_restored = re.sub(r'\{([^\}]*)\}', r'[\1]', brackets_removed)
 
     return protected_brackets_restored.lstrip()
+
+
+def deconstruct_bracketed(data, group_on_mismatch=True, openchar='(',
+                          closechar=')'):
+    """
+    Deconstruct a string, grouping bracketed data into nested lists.
+
+    Use this to parse parenthesized or bracketed data within the given
+    `data` string. It converts the string to nested lists based on
+    brackets defined by the given `openchar` and `closechar` -- which
+    are open/closed parentheses by default but can be any two different
+    characters.
+
+    E.g., the string 'st (st) (st (st)) ' returns:
+    ['s', 't', ' ' ['s', 't'], ' ' ['s', 't', ' ', ['s', 't']], ' ']
+
+    This function always returns a list. You can use the function
+    `reconstruct_bracketed` to reconstruct the string from that
+    list.
+
+    MISMATCHED BRACKETS
+    -------------------
+    In any given string you may have brackets that are mismatched,
+    where you have too many opening or too many closing brackets. In
+    such cases you may want to handle these differently depending on
+    your ultimate goal. You may control this via the kwarg
+    `group_on_mismatch`. If True, then it uses a reasonable grouping to
+    resolve the mismatch. If False, it puts any mismatched bracket
+    characters into the list at the appropiate points as literal
+    characters.
+
+    E.g., for the string '((st)', if `group_on_mismatch` is True:
+    [[['s', 't']]]
+    Otherwise:
+    ['(', ['s', 't']]
+
+    When `group_on_mismatch` is True, it will always ADD a group (as
+    though the input data were missing a bracket) rather than removing
+    a group (as though the input data had an extra bracket). Groups
+    are always added at the beginning or end of the data, depending on
+    which bracket is mismatched. E.g., 'st (st st)) st' is assumed to
+    group as '(st (st st)) st' and not 'st ((st st)) st'. Likewise,
+    'st ((st st) st' is assumed to group as '((st st) st)' and not
+    '((st st)) st'.
+
+    When `group_on_mismatch` is False, the outermost brackets are the
+    ones that convert to literal bracket characters. E.g., '(st))'
+    becomes [['s', 't'], ')'] and not [['s', 't', ')']].
+    """
+    stack, working = [], []
+    for char in data:
+        if char == openchar:
+            stack.append(working)
+            working = []
+        elif char == closechar:
+            if len(stack):
+                working = stack.pop() + [working]
+            else:
+                # We only get here if there are extra closing brackets
+                working = [working] if group_on_mismatch else working + [char]
+        else:
+            working.append(char)
+    while(stack):
+        # We only get here if there are extra opening brackets
+        fixed = [working] if group_on_mismatch else [openchar] + working
+        working = stack.pop() + fixed
+    return working
+
+
+def reconstruct_bracketed(data, openchar='(', closechar=')', stripchars=''):
+    """
+    Reconstruct a string from the output of `deconstruct_bracketed`.
+
+    Once you've deconstructed a string that may contain brackets, you
+    can use this to rebuild the string, with bracket characters in the
+    correct positions.
+
+    Optionally, provide `stripchars`, a string of characters you want
+    stripped from the final output BEFORE the correct bracket
+    characters get added. The main use is to help you strip any
+    mismatched brackets where you had set `group_on_mismatch` to False
+    when you ran `deconstruct_bracketed`. For instance, if you want to
+    strip the mismatched parentheses from '(st) st))', you can do:
+    reconstruct_bracketed(deconstruct_bracketed('(st) st))', False),
+                          stripchars='()')
+    and you'd get: '(st) st'
+    """
+    strings = []
+    for group in data:
+        if isinstance(group, list):
+            st = reconstruct_bracketed(group, openchar, closechar, stripchars)
+            strings.append('{}{}{}'.format(openchar, st, closechar))
+        else:
+            if not group in stripchars:
+                strings.append(group)
+    return ''.join(strings)
 
 
 def protect_periods_and_do(data, do, repl_char='~',
@@ -138,16 +234,78 @@ def normalize_punctuation(data, punctuation_re=settings.MARCDATA.ENDING_PUNCTUAT
 
 def strip_ends(data, end_punctuation_re=settings.MARCDATA.ENDING_PUNCTUATION_REGEX):
     """
-    Strip unnecessary punctuation from both ends of the input string.
-    Strips whitespace. Strips parentheses, if the full string is
-    enclosed. Otherwise, it does not. Strips ending punctuation,
-    including [.,;:/\]. Retains periods if they belong to an
+    Strip unnecessary punctuation/whitespace from both ends of the
+    input string (`data`). Retains periods if they belong to an
     abbreviation.
     """
     def strip_punctuation(data):
-        parens_stripped = re.sub(r'^\((.*)\)\s*{}*$'.format(end_punctuation_re), r'\1', data)
-        return re.sub(r'\s*{}*$'.format(end_punctuation_re), '', parens_stripped).strip()
-    return protect_periods_and_do(data.strip(), strip_punctuation)
+        return re.sub(r'^(\s*{0}*\s*)*(.+?)(\s*{0}*\s*)*$'.format(end_punctuation_re), r'\2', data)
+    return protect_periods_and_do(data, strip_punctuation)
+
+
+def strip_outer_parentheses(data, strip_mismatched=True):
+    """
+    Remove sets of parentheses that enclose the given data string:
+    (string) => string
+    ((string)) => string
+    (string (string)) => string (string)
+    BUT:
+    (string) (string) => (string) (string)
+    string (string) string => string (string) string
+    string (string) => string (string)
+
+    In cases where you have mismatched parentheses at the start or end
+    of a string, you may or may not want to try to strip them, so use
+    `strip_mismatched` to control this. Note that mismatched
+    parentheses are often ambiguous, so output may not be exactly what
+    you'd expect.
+
+    If strip_mismatched is True:
+    (string => string
+    ((string => string
+    ((string) => string
+    string) => string
+    ((string) (string) => (string) (string)
+    BUT:
+    string (string string => string (string string
+
+    If strip_mismatched is False:
+    (string => (string
+    ((string => ((string
+    ((string) => (string
+    string) => string)
+    (string)) => string)
+    ((string) (string) => ((string) (string)
+    """
+    def _collect_mismatched(struct, is_left_side):
+        stack = []
+        i = 0 if is_left_side else -1
+        while len(struct) and (struct[i] == '(' or struct[i] == ')'):
+            stack.append(struct[i])
+            struct = struct[1:] if is_left_side else struct[:-1]
+        return stack, struct
+
+    def _unnest(struct):
+        while len(struct) == 1 and isinstance(struct[0], list):
+            struct = struct[0]
+        return struct
+
+    def _reattach_mismatched(struct, stack, is_left_side):
+        while len(stack):
+            if is_left_side:
+                struct.insert(0, stack.pop())
+            else:
+                struct.append(stack.pop())
+        return struct
+
+    dc = deconstruct_bracketed(data, group_on_mismatch=False)
+    left_stack, dc = _collect_mismatched(dc, True)
+    right_stack, dc = _collect_mismatched(dc, False)
+    dc = _unnest(dc)
+    if not strip_mismatched:
+        dc = _reattach_mismatched(dc, left_stack, True)
+        dc = _reattach_mismatched(dc, right_stack, False)
+    return reconstruct_bracketed(dc)
 
 
 def strip_ellipses(data):

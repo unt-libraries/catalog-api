@@ -48,18 +48,17 @@ def test_has_comma_in_middle(data, expected):
 
 
 @pytest.mark.parametrize('data, expected', [
-    (' test data', 'test data'),
-    ('test data ', 'test data'),
+    ('test data', 'test data'),
     ('test  data', 'test data'),
-    (' test  data ', 'test data'),
-    (' test  data test', 'test data test'),
-    (' test  data test  ', 'test data test'),
-    (' test data  test  ', 'test data test'),
+    ('test  data ', 'test data '),
+    ('  test  data test', ' test data test'),
+    (' test  data test  ', ' test data test '),
+    (' test data  test  ', ' test data test '),
 ])
 def test_normalize_whitespace(data, expected):
     """
-    `normalize_whitespace` should strip whitespace from the beginning
-    and end of a string AND consolidate internal spacing.
+    `normalize_whitespace` should consolidate whitespace throughout the
+    input data string.
     """
     assert parsers.normalize_whitespace(data) == expected
 
@@ -180,23 +179,77 @@ def test_protect_periods_and_do(data, expected, pp_do):
     assert parsers.protect_periods_and_do(data, pp_do) == expected
 
 
+@pytest.mark.parametrize('data, gr_on_mm, brackets, expected', [
+    ('st', True, '()', ['s', 't']),
+    ('(st)', True, '()', [['s', 't']]),
+    ('((st))', True, '()', [[['s', 't']]]),
+    ('st (st)', True, '()', ['s', 't', ' ', ['s', 't']]),
+    ('(st) st', True, '()', [['s', 't'], ' ', 's', 't']),
+    ('(st)(st)', True, '()', [['s', 't'], ['s', 't']]),
+    ('(st) (st)', True, '()', [['s', 't'], ' ', ['s', 't']]),
+    ('((st) (st))', True, '()', [[['s', 't'], ' ', ['s', 't']]]),
+    (' (st) ', True, '()', [' ', ['s', 't'], ' ']),
+    (' (st)) ', True, '()', [[' ', ['s', 't']], ' ']),
+    (' (st)) ', False, '()', [' ', ['s', 't'], ')', ' ']),
+    (' ((st) ', True, '()', [' ', [['s', 't'], ' ']]),
+    (' ((st) ', False, '()', [' ', '(', ['s', 't'], ' ']),
+    (')()(st)', True, '()', [[], [], ['s', 't']]),
+    (')()(st)', False, '()', [')', [], ['s', 't']]),
+    ('(st)(', True, '()', [['s', 't'], []]),
+    ('(st)(', False, '()', [['s', 't'], '(']),
+    ('[st]', True, '[]', [['s', 't']]),
+])
+def test_deconstruct_bracketed(data, gr_on_mm, brackets, expected):
+    """
+    `deconstruct_bracketed` should return the expected data structure,
+    when passed the given `data`, `group_on_mismatch` value, and
+    `openchar` and `closechar` values.
+    """
+    oc, cc = brackets
+    assert parsers.deconstruct_bracketed(data, gr_on_mm, oc, cc) == expected
+
+
+@pytest.mark.parametrize('data, brackets, stripchars, expected', [
+    (['s', 't'], '()', '', 'st'),
+    ([['s', 't']], '()', '', '(st)'),
+    ([[['s', 't']]], '()', '', '((st))'),
+    (['s', 't', ' ', ['s', 't']], '()', '', 'st (st)'),
+    ([['s', 't'], ' ', 's', 't'], '()', '', '(st) st'),
+    ([['s', 't'], ['s', 't']], '()', '', '(st)(st)'),
+    ([['s', 't'], ' ', ['s', 't']], '()', '', '(st) (st)'),
+    ([[['s', 't'], ' ', ['s', 't']]], '()', '', '((st) (st))'),
+    ([' ', ['s', 't'], ' '], '()', '', ' (st) '),
+    ([' ', ['s', 't'], ')', ' '], '()', '', ' (st)) '),
+    ([' ', ['s', 't'], ')', ' '], '()', '()', ' (st) '),
+    (['(', ['s', 't'], ' '], '()', '', '((st) '),
+    (['(', ['s', 't'], ' '], '()', '()', '(st) '),
+    ([['s', 't']], '[]', '', '[st]'),
+    ([' ', ['s', 't'], ')', ' '], '[]', '()', ' [st] '),
+])
+def test_reconstruct_bracketed(data, brackets, stripchars, expected):
+    """
+    `reconstruct_bracketed` should return the expected string, when
+    passed the given `data` structure, `openchar` and `closechar`
+    values, and `stripchars` values.
+    """
+    oc, cc = brackets
+    assert parsers.reconstruct_bracketed(data, oc, cc, stripchars) == expected
+
+
 @pytest.mark.parametrize('data, expected', [
     ('do not strip inner whitespace', 'do not strip inner whitespace'),
     ('do not strip, inner punctuation', 'do not strip, inner punctuation'),
-    (' strip whitespace ', 'strip whitespace'),
+    (' strip whitespace at ends ', 'strip whitespace at ends'),
     ('strip one punctuation mark at end.', 'strip one punctuation mark at end'),
     ('strip repeated punctuation marks at end...', 'strip repeated punctuation marks at end'),
     ('strip multiple different punctuation marks at end./', 'strip multiple different punctuation marks at end'),
-    ('strip whitespace then punctuation :', 'strip whitespace then punctuation'),
-    ('strip punctuation then whitespace. ', 'strip punctuation then whitespace'),
-    ('strip w then p then w : ', 'strip w then p then w'),
-    ('(strip full parens)', 'strip full parens'),
-    ('(strip full parens with punctuation after).', 'strip full parens with punctuation after'),
-    ('(strip full parens with punctuation before.)', 'strip full parens with punctuation before'),
-    ('(strip full parens with punctuation before and after.) :', 'strip full parens with punctuation before and after'),
-    ('do not strip (partial parens)', 'do not strip (partial parens)'),
-    ('do not strip (partial parens).', 'do not strip (partial parens)'),
-    ('do not strip (partial parens) :', 'do not strip (partial parens)'),
+    ('strip punctuation marks and whitespace at end . ;. / ', 'strip punctuation marks and whitespace at end'),
+    (';strip one punctuation mark at beginning', 'strip one punctuation mark at beginning'),
+    (';;;strip repeated punctuation marks at beginning', 'strip repeated punctuation marks at beginning'),
+    ('./strip multiple different punctuation marks at beginning', 'strip multiple different punctuation marks at beginning'),
+    ('. ;./ strip punctuation marks and whitespace at beginning', 'strip punctuation marks and whitespace at beginning'),
+    (' . . . strip punctuation and whitespace from both ends . /; ', 'strip punctuation and whitespace from both ends'),
+    ('(do not strip parentheses or punct inside parentheses...);', '(do not strip parentheses or punct inside parentheses...)'),
 ])
 def test_strip_ends(data, expected):
     """
@@ -204,6 +257,52 @@ def test_strip_ends(data, expected):
     both ends of the input data string.
     """
     assert parsers.strip_ends(data) == expected
+
+
+@pytest.mark.parametrize('data, strip_mismatched, expected', [
+    ('st', True, 'st'),
+    ('(st)', True, 'st'),
+    ('((st))', True, 'st'),
+    ('(st (st))', True, 'st (st)'),
+    ('((st) (st))', True, '(st) (st)'),
+    ('(st) (st)', True, '(st) (st)'),
+    ('st (st) st', True, 'st (st) st'),
+    ('st (st)', True, 'st (st)'),
+    # Behavior for mismatched parentheses:
+    ('(st', True, 'st'),
+    ('((st', True, 'st'),
+    ('((st)', True, 'st'),
+    ('st)', True, 'st'),
+    ('((st) (st)', True, '(st) (st)'),
+    ('st (st st', True, 'st (st st'),
+    ('(st', False, '(st'),
+    ('((st', False, '((st'),
+    ('((st)', False, '(st'),
+    ('st)', False, 'st)'),
+    ('(st))', False, 'st)'),
+    ('((st) (st)', False, '((st) (st)'),
+    ('st (st st', False, 'st (st st'),
+    # A few weird cases that hopefully won't appear in the wild:
+    (')()st', True, '()st'),
+    (')()st', False, ')()st'),
+    (')st', True, 'st'),
+    (')st', False, ')st'),
+    ('st()(', True, 'st()'),
+    ('st()(', False, 'st()('),
+    ('st(', True, 'st'),
+    ('st(', False, 'st('),
+    ('(st(', True, 'st'),
+    ('(st(', False, '(st('),
+    (')st(', True, 'st'),
+    (')st(', False, ')st('),
+])
+def test_strip_outer_parentheses(data, strip_mismatched, expected):
+    """
+    `strip_outer_parentheses` should correctly remove the parentheses
+    on the left/right of the given `data` string, matching the
+    `expected` value.
+    """
+    assert parsers.strip_outer_parentheses(data, strip_mismatched) == expected
 
 
 @pytest.mark.parametrize('data, expected', [
