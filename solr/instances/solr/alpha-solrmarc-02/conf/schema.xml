@@ -159,9 +159,9 @@
 
     <!-- GENERAL SEARCH OR SEARCH/DISPLAY FIELDS ========================================================== -->
     <!-- Publication -->
-    <field name="publication_places_search" type="text" indexed="true" stored="true" multiValued="true"/>
-    <field name="publishers_search" type="text" indexed="true" stored="true" multiValued="true"/>
-    <field name="publication_dates_search" type="text" indexed="true" stored="true" multiValued="true"/>
+    <field name="publication_places_search" type="text" indexed="true" stored="false" multiValued="true"/>
+    <field name="publishers_search" type="text" indexed="true" stored="false" multiValued="true"/>
+    <field name="publication_dates_search" type="text" indexed="true" stored="false" multiValued="true"/>
 
 
 
