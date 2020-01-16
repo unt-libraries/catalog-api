@@ -454,6 +454,7 @@ class BlacklightASMPipeline(object):
         def _format_year(year, the):
             the = 'the ' if the else ''
             century_suffix_map = {'1': 'st', '2': 'nd', '3': 'rd'}
+            year = year.lstrip('0') if year else None
             match = re.search(r'^(\d*)(u+)$', year or '')
             if match:
                 if match.groups()[1] == 'u':

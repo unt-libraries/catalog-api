@@ -359,6 +359,8 @@ def test_clean(data, expected):
     ('1975, [1980s?], 1996, 21st century', ('1975', '198u', '1996', '20uu')),
     ('1 in 1975, 15 in the 18th Century, and 23 in the 1810s',
      ('1975', '17uu', '181u')),
+    ('300 A.D.', ('0300',)),
+    ('201[4]', ('2014',)),
 ])
 def test_extract_years(data, expected):
     """
