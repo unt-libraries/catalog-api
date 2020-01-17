@@ -375,25 +375,53 @@ def strip_unknown_pub(data):
 def split_pdate_and_cdate(data):
     """
     Split a value from a 260 or 264 $c into two: publication date and
-    copyright date (return a tuple: (pdate, cdate)). The copyright date
-    returns only the year, while the label that sets off the copyright
-    date is removed from the publication date portion. IMPORTANT: After
-    the split, extraneous punctuation from the publication date portion
-    is NOT stripped; the caller is responsible for taking care of that.
+    copyright date (return a tuple: (pdate, cdate)). A copyright date
+    must be set off by a label such as: 'c1964', 'copyright 1964', or
+    '©1964'; otherwise it is not interpreted as a copyright date. The
+    copyright date, label, and any text following it are included in
+    the return value.
+
+    IMPORTANT: After the split, extraneous punctuation from the
+    publication date portion is NOT stripped; the caller is responsible
+    for taking care of that.
 
     Examples:
 
-    '1964, copyright 1963' returns the tuple ('1964,', '1963')
+    '1964, copyright 1963' returns the tuple ('1964,', 'copyright 1963')
     '1964' returns the tuple ('1964', '')
-    'c1964' returns the tuple ('', '1964')
+    'c1964' returns the tuple ('', 'c1964')
+
+    Hint: To normalize display of the copyright symbol, use the
+    `normalize_cr_symbol` parser function on the returned `cdate` value.
     """
-    copyright_re = r'(^|\s+)(c|©|copyright)\s*(\d{4})'
+    copyright_labels = r'\(c\)|c|C|©|copyright|cop\.?|\(p\)|p|P|℗|phonogram'
+    copyright_re = r'(^|\s+)(({})\s*\d{{4}}.*)$'.format(copyright_labels)
     cdate_match = re.search(copyright_re, data)
     if cdate_match:
-        cdate = cdate_match.groups()[2]
+        cdate = cdate_match.groups()[1]
         pub_date = data.replace(cdate_match.group(), '')
         return pub_date, cdate
     return data, ''
+
+
+def normalize_cr_symbol(cr_statement):
+    """
+    Normalize copyright symbols in the provided copyright statement.
+
+    In the given `cr_statement` string, any strings standing in for the
+    copyright or phonogram symbols (© or ℗) are converted to the proper
+    symbol. If none are found, nothing is changed. The statement--with
+    replacements--is returned.
+    """
+    labels_map = (
+        (r'\(c\)|c|C|©|copyright|cop\.?', '©'),
+        (r'\(p\)|p|P|℗|phonogram', '℗')
+    )
+    re_template = r'(^|\s+)({})\s*(\d{{4}})'
+    for label_re, symbol in labels_map:
+        cr_statement = re.sub(re_template.format(label_re),
+                              r'\1{}\3'.format(symbol), cr_statement)
+    return cr_statement
 
 
 def person_name(data, indicators):

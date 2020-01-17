@@ -393,19 +393,24 @@ class BlacklightASMPipeline(object):
         ind2_type_map = {'0': 'creation', '1': 'publication',
                          '2': 'distribution', '3': 'manufacture',
                          '4': 'copyright'}
-        pub_type = ind2_type_map.get(f26x.indicator2, 'publication')
+        ptype = ind2_type_map.get(f26x.indicator2, 'publication')
         statements = []
         for gr in group_subfields(f26x, 'abc', breaktags='c'):
-            dates = pull_from_subfields(gr, 'c', p.split_pdate_and_cdate)
-            pub, copy = tuple(dates[0:2]) if len(dates) > 1 else ('', '')
-            statement_parts = gr.get_subfields('a', 'b')
-            if pub:
-                statement_parts.append(p.normalize_punctuation(pub))
-            statement = _clean_pub_statement(' '.join(statement_parts))
+            if f26x.tag == '260':                
+                d = pull_from_subfields(gr, 'c', p.split_pdate_and_cdate)
+                pdate, cdate = tuple(d[0:2]) if len(d) > 1 else ('', '')
+                pdate = p.normalize_punctuation(pdate)
+                cdate = _clean_pub_statement(p.normalize_cr_symbol(cdate))
+                statements.append(('copyright', cdate))
+            else:
+                pdate = (pull_from_subfields(gr, 'c') or [''])[0]
+                if ptype == 'copyright':
+                    pdate = p.normalize_cr_symbol(pdate)
+            parts = gr.get_subfields('a', 'b') + ([pdate] if pdate else [])
+            statement = _clean_pub_statement(' '.join(parts))
             if statement:
-                statements.append((pub_type, statement))
-            if copy:
-                statements.append(('copyright', copy))
+                statements.append((ptype, statement))
+                
         for group in group_subfields(f26x, 'efg'):
             statement = _clean_pub_statement(group.format_field())
             statements.append(('manufacture', statement))

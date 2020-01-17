@@ -389,13 +389,16 @@ def test_strip_unknown_pub(data, expected):
 @pytest.mark.parametrize('data, expected', [
     ('1984', ('1984', '')),
     ('1984, 2003', ('1984, 2003', '')),
-    ('1984, c2003', ('1984,', '2003')),
-    ('c2003', ('', '2003')),
-    ('copyright 2003', ('', '2003')),
-    ('©2003', ('', '2003')),
-    ('© 2003', ('', '2003')),
+    ('1984, c2003', ('1984,', 'c2003')),
+    ('c2003', ('', 'c2003')),
+    ('copyright 2003', ('', 'copyright 2003')),
+    ('cop. 2003 by XYZ', ('', 'cop. 2003 by XYZ')),
+    ('©2003', ('', '©2003')),
+    ('© 2003', ('', '© 2003')),
     ('[2003]', ('[2003]', '')),
-    ('1984 printing copyright 2003', ('1984 printing', '2003')),
+    ('1984 printing copyright 2003', ('1984 printing', 'copyright 2003')),
+    ('1984, P 2003', ('1984,', 'P 2003')),
+    ('℗2003', ('', '℗2003')),
 ])
 def test_split_pdate_and_cdate(data, expected):
     """
@@ -403,6 +406,31 @@ def test_split_pdate_and_cdate(data, expected):
     into the publication date and copyright date.
     """
     assert parsers.split_pdate_and_cdate(data) == expected
+
+
+@pytest.mark.parametrize('data, expected', [
+    ('c1984', '©1984'),
+    ('copyright 1984', '©1984'),
+    ('c 1984', '©1984'),
+    ('(c) 1984', '©1984'),
+    ('©1984', '©1984'),
+    ('c1984 by XYZ', '©1984 by XYZ'),
+    ('p1984', '℗1984'),
+    ('phonogram 1984', '℗1984'),
+    ('p 1984', '℗1984'),
+    ('(p) 1984', '℗1984'),
+    ('P 1984', '℗1984'),
+    ('℗1984', '℗1984'),
+    ('p1984, c1985', '℗1984, ©1985'),
+    ('1984', '1984'),
+    ('something else 1984', 'something else 1984'),
+])
+def test_normalize_cr_symbol(data, expected):
+    """
+    `normalize_cr_symbol` should replace the appropriate patterns in
+    the given string with the appropriate copyright symbol.
+    """
+    assert parsers.normalize_cr_symbol(data) == expected
 
 
 @pytest.mark.parametrize('data, first_indicator, exp_forename, exp_surname, exp_family_name', [
