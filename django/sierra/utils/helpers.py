@@ -1,7 +1,7 @@
-'''
+"""
 Contains various utility functions and classes for Sierra API project
 code. 
-'''
+"""
 from __future__ import unicode_literals
 import operator
 import re
@@ -10,11 +10,11 @@ from django.db.models import Q
 
 
 def reduce_filter_kwargs(filters):
-    '''
+    """
     Given a list of filter_kwargs, where each list should be 'ORed'
     with each other, this function returns a Q filter that can be
     passed straight into a QuerySet.filter() call.
-    '''
+    """
     return reduce(operator.or_,
                       [reduce(operator.and_, 
                       [Q(**{key: filter[key]}) for key in filter])
@@ -23,7 +23,7 @@ def reduce_filter_kwargs(filters):
 
 def get_varfield_vals(vf_set, tag, marc_tags=['*'], many=False,
                       content_method=None, cm_kw_params={}):
-        '''
+        """
         This method lets us get varfield data from a Django ORM object
         easily without triggering another DB query (e.g. by using a
         queryset.filter).
@@ -41,7 +41,7 @@ def get_varfield_vals(vf_set, tag, marc_tags=['*'], many=False,
         wildcard that ignores the marc tag and matches only based on
         III field tag; None means the VF has no MARC tag and is
         therefore non-MARC data.
-        '''
+        """
         values = [] if many else None
         if not isinstance(marc_tags, (list, tuple)):
             marc_tags = [marc_tags]
@@ -61,12 +61,86 @@ def get_varfield_vals(vf_set, tag, marc_tags=['*'], many=False,
         return values
 
 
+def reverse_set_mapping(forward_mapping):
+    """
+    Generate the reverse of the provided `forward_mapping`.
+    Values in `forward_mapping` can be any iterable: sets, lists,
+    tuples, etc. During the reversal they will be converted to dict key
+    values and will be made unique. Values in the return dict will be
+    sets.
+
+    For example:
+
+    >>> forward_mapping = {
+    >>>     'Collection1': set(['code1', 'code2', 'code3']),
+    >>>     'Collection2': set(['code2', 'code4', 'code5'])
+    >>> }
+    >>> reverse_mapping(forward_mapping)
+    {
+        'code1': set(['Collection1']),
+        'code2': set(['Collection1', 'Collection2']),
+        'code3': set(['Collection1']),
+        'code4': set(['Collection2']),
+        'code5': set(['Collection2']),
+    }
+    """
+    reverse_mapping = {}
+    for key, vals in forward_mapping.items():
+        for val in list(vals):
+            reverse_mapping[val] = reverse_mapping.get(val, set())
+            reverse_mapping[val].add(key)
+    return reverse_mapping
+
+
+class StrPatternMap(object):
+    """
+    Map strings (i.e., codes) to labels based on regex patterns.
+    StrPatternMap objects use a similar `get` method interface used by
+    dicts; however they default to returning 'None' rather than raising
+    a KeyError for non-matching values.
+
+    For example:
+
+    >>> pmap = StrPatternMap({
+    >>>     r'^w': 'Willis Library',
+    >>>     r'^s': 'Eagle Commons Library'}, exclude=['wx'])
+    >>> pmap.get('w3')
+    'Willis Library'
+
+    >>> pmap.get('sdus')
+    'Eagle Commons Library'
+
+    >>> pmap.get('wx')
+    None
+
+    >>> pmap.get('abcd')
+    None
+
+    >>> pmap.get('wx', 'Error')
+    'Error'
+    """
+    def __init__(self, patterns, exclude=None):
+        self.patterns = patterns or {}
+        self.exclude = tuple(exclude) or tuple()
+
+    def get(self, code, default=None):
+        """
+        Map the given string (`code`) to the appropriate value based on
+        the initialized pattern settings.
+        """
+        if code not in self.exclude:
+            for pattern, val in self.patterns.items():
+                if bool(re.search(pattern, code)):
+                    return val
+        return default
+
+
 class CallNumberError(Exception):
     pass
 
 
 class NormalizedCallNumber(object):
-    '''
+    """
     Class to normalize a call number string--e.g., to make it sortable.
     Intended to handle multiple types of call numbers, such as dewey,
     library of congress (lc), gov docs (sudoc), etc.
@@ -85,7 +159,7 @@ class NormalizedCallNumber(object):
     parameter upon init. If you want to add new kinds, simply add a
     _process_{kind} method, and then initialize new objects using that
     kind string. Use the normalize method to get the normalized string.
-    '''
+    """
     space_char = '!'
 
     def __init__(self, call, kind='default'):
@@ -94,10 +168,10 @@ class NormalizedCallNumber(object):
         self.normalized_call = None
 
     def normalize(self):
-        '''
+        """
         Parses the call number in self.call based on the string in
         self.kind. Stores it in self.normalized_call and returns it. 
-        '''
+        """
         kind = self.kind
         call = self.call
         process_it = getattr(self, '_process_{}'.format(kind), 
@@ -111,9 +185,9 @@ class NormalizedCallNumber(object):
         return self.normalized_call
 
     def _process_sudoc(self, call=None):
-        '''
+        """
         Processes sudoc (gov docs) numbers.
-        '''
+        """
         call = self.call if call is None else call
         call = call.upper()
         call = self._normalize_spaces(call)
@@ -161,9 +235,9 @@ class NormalizedCallNumber(object):
         return ret
 
     def _process_dewey(self, call=None):
-        '''
+        """
         Processes Dewey Decimal call numbers.
-        '''
+        """
         call = self.call if call is None else call
         call = call.upper()
         call = self._normalize_spaces(call)
@@ -172,9 +246,9 @@ class NormalizedCallNumber(object):
         return call
 
     def _process_lc(self, call=None):
-        '''
+        """
         Processes Library of Congress call numbers.
-        '''
+        """
         call = self.call if call is None else call
         call = self._normalize_spaces(call)
         call = re.sub(r'([a-z])\.\s*', r'\1 ', call)
@@ -189,11 +263,11 @@ class NormalizedCallNumber(object):
         return call
 
     def _process_other(self, call=None):
-        '''
+        """
         Processes local (other) call numbers. Example: LPCD100,000 or
         LPCD 100,000 or LPCD 100000 and all other permutations become
         LPCD 0000100000.
-        '''
+        """
         call = self.call if call is None else call
         call = self._normalize_spaces(call)
         call = self._normalize_numbers(call)
@@ -202,20 +276,20 @@ class NormalizedCallNumber(object):
         return call.upper()
 
     def _process_search(self, call=None):
-        '''
+        """
         This is for doing normalization of call numbers for searching.
-        '''
+        """
         call = self.call if call is None else call
         call = call.upper()
         call = re.sub(r'[\s./,?\-]', r'', call)
         return call
 
     def _process_default(self, call=None):
-        '''
+        """
         Default processor, used for things like copy numbers and volume
         numbers, which might have things like: V1 or Vol 1 etc., where
         we only care about the numeric portion for sorting.
-        '''
+        """
         call = self.call if call is None else call
         call = self._normalize_spaces(call)
         call = self._remove_labels(call, case_sensitive=False)
@@ -226,27 +300,27 @@ class NormalizedCallNumber(object):
         return call.upper()
 
     def _normalize_spaces(self, data=None):
-        '''
+        """
         Normalzes spaces: trims left/right spaces and condenses
         multiple spaces.
-        '''
+        """
         data = self.call if data is None else data
         data = re.sub(r'^\s*(.*)\s*$', r'\1', data)
         data = re.sub(r'\s{2,}', ' ', data)
         return data
 
     def _normalize_numbers(self, data=None):
-        '''
+        """
         Removes commas delineating thousands and normalizes number
         ranges to remove the hyphen and the second number.
-        '''
+        """
         data = self.call if data is None else data
         data = re.sub(r'(\d{1,3}),(\d)', r'\1\2', data)
         data = re.sub(r'(\d)\s*\-+\s*\d+', r'\1', data)
         return data
 
     def _remove_labels(self, data=None, case_sensitive=True):
-        '''
+        """
         Removes textual content that might be immaterial to the sort.
         The case_sensitive version tries to get the "vol." and "no."
         abbreviations that slip into LC call numbers while retaining
@@ -254,7 +328,7 @@ class NormalizedCallNumber(object):
         But it might miss a few abbreviations, like "V. 1". The case
         insensitive version removes most of the non-numeric content,
         unless there's no non-numeric content.
-        '''
+        """
         data = self.call if data is None else data
         if case_sensitive:
             data = re.sub(r'(^|\s+)[A-Za-z]?[a-z]+[. ]*(\d)', r'\1\2', data)
@@ -263,28 +337,28 @@ class NormalizedCallNumber(object):
         return data
 
     def _normalize_decimals(self, data=None):
-        '''
+        """
         Removes decimal points before non-digits and spaces out
         decimals that do involve digits.
-        '''
+        """
         data = self.call if data is None else data
         data = re.sub(r'([^ \d])\.', r'\1 .', data)
         data = re.sub(r'\.([^ \d])', r'\1', data)
         return data
 
     def _separate_numbers(self, data=None):
-        '''
+        """
         Separates numbers/decimals from non-numbers, using spaces.
-        '''
+        """
         data = self.call if data is None else data
         data = re.sub(r'([^ .\d])(\d)', r'\1 \2', data)
         data = re.sub(r'(\d)([^ .\d])', r'\1 \2', data)
         return data
 
     def _numbers_to_sortable_strings(self, data=None, decimals=True):
-        '''
+        """
         Formats numeric components so they'll sort as strings.
-        '''
+        """
         data = self.call if data is None else data
         parts = []
         for x in data.split(' '):
