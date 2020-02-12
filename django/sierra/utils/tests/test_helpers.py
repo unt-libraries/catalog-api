@@ -8,8 +8,13 @@ from utils import helpers as h
 
 # FIXTURES AND TEST DATA
 @pytest.fixture
-def example_str_pattern_map_obj():
-    return h.StrPatternMap({
+def str_pattern_map_class():
+    return h.StrPatternMap
+
+
+@pytest.fixture
+def example_str_pattern_map_obj(str_pattern_map_class):
+    return str_pattern_map_class({
         r'(^a|^b)': 'Label A/B',
         r'^c': 'Label C',
     }, exclude=('azzzz', 'bzzzz', 'czzzz'))
@@ -52,3 +57,12 @@ def test_strpatternmap_get(args, expected, example_str_pattern_map_obj):
     return the `expected` value.
     """
     assert example_str_pattern_map_obj.get(*args) == expected
+
+
+def test_strpatternmap_init_blank_object(str_pattern_map_class):
+    """
+    Initializing a StrPatternMap object with empty parameters (and no
+    optional `exclude` parameter) should not raise errors.
+    """
+    str_pattern_map_class({})
+    assert True

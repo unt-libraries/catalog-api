@@ -121,7 +121,7 @@ class StrPatternMap(object):
     """
     def __init__(self, patterns, exclude=None):
         self.patterns = patterns or {}
-        self.exclude = tuple(exclude) or tuple()
+        self.exclude = tuple() if exclude is None else tuple(exclude)
 
     def get(self, code, default=None):
         """
