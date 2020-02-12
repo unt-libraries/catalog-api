@@ -1,5 +1,5 @@
 """
-Tests the blacklight.localsierrarules classes and functions.
+Tests the base.ruleset classes and functions.
 """
 
 from __future__ import unicode_literals
@@ -8,15 +8,9 @@ import pytest
 from base import ruleset as r
 
 # FIXTURES / TEST DATA
-
-@pytest.fixture
-def ruleset_test_obj_class():
-    class RulesetTestObjClass(object):
-        def __init__(self, **kwargs):
-            for kwarg, val in kwargs.items():
-                setattr(self, kwarg, val)
-    return RulesetTestObjClass
-
+# Note that, in addition to the fixtures below, we're using these
+# fixtures from base.tests.conftest:
+#   - ruleset_test_obj_class
 
 @pytest.fixture
 def ex_nondict_map_class():
