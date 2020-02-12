@@ -59,6 +59,19 @@ def nondict_ruleset(ruleset_class, ex_nondict_map_class):
     ], default=None)
 
 
+@pytest.fixture
+def str_pattern_map_class():
+    return r.StrPatternMap
+
+
+@pytest.fixture
+def example_str_pattern_map_obj(str_pattern_map_class):
+    return str_pattern_map_class({
+        r'(^a|^b)': 'Label A/B',
+        r'^c': 'Label C',
+    }, exclude=('azzzz', 'bzzzz', 'czzzz'))
+
+
 # TESTS
 
 @pytest.mark.parametrize('obj_attrs, expected', [
@@ -100,3 +113,49 @@ def test_ruleset_evaluate_works_for_nondict_ruleset(obj_attrs, expected,
     """
     obj = ruleset_test_obj_class(**obj_attrs)
     assert nondict_ruleset.evaluate(obj) == expected
+
+
+@pytest.mark.parametrize('forward_mapping, expected', [
+    ({'a1': ['b1', 'b2'], 'a2': ['b3', 'b4']},
+     {'b1': set(['a1']), 'b2': set(['a1']), 'b3': set(['a2']),
+      'b4': set(['a2'])}),
+    ({'a1': set(['b1', 'b2']), 'a2': set(['b3', 'b4'])},
+     {'b1': set(['a1']), 'b2': set(['a1']), 'b3': set(['a2']),
+      'b4': set(['a2'])}),
+    ({'a1': ['b1', 'b2', 'b3'], 'a2': ['b1', 'b3', 'b4']},
+     {'b1': set(['a1', 'a2']), 'b2': set(['a1']), 'b3': set(['a1', 'a2']),
+      'b4': set(['a2'])}),
+])
+def test_reversesetmapping(forward_mapping, expected):
+    """
+    The reverse_set_mapping helper function should take the given
+    `forward_mapping` dict and return the `expected` dict.
+    """
+    assert r.reverse_set_mapping(forward_mapping) == expected
+
+
+@pytest.mark.parametrize('args, expected', [
+    (['a'], 'Label A/B'),
+    (['b'], 'Label A/B'),
+    (['ax'], 'Label A/B'),
+    (['c'], 'Label C'),
+    (['cabc'], 'Label C'),
+    (['bzzzz'], None),
+    (['z'], None),
+    (['z', 'Error'], 'Error'),
+])
+def test_strpatternmap_get(args, expected, example_str_pattern_map_obj):
+    """
+    A call to StrPatternMap's `get` method with the given `args` should
+    return the `expected` value.
+    """
+    assert example_str_pattern_map_obj.get(*args) == expected
+
+
+def test_strpatternmap_init_blank_object(str_pattern_map_class):
+    """
+    Initializing a StrPatternMap object with empty parameters (and no
+    optional `exclude` parameter) should not raise errors.
+    """
+    str_pattern_map_class({})
+    assert True

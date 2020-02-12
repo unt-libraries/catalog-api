@@ -13,6 +13,7 @@ override that locally.
 """
 
 from __future__ import unicode_literals
+import re
 
 from utils import helpers as h
 
@@ -62,3 +63,85 @@ class Ruleset(object):
                 val_from_obj = getattr(obj, fields, None)
             result = mapping.get(val_from_obj, result)
         return result
+
+
+def reverse_set_mapping(forward_mapping):
+    """
+    Generate the reverse of the provided `forward_mapping`.
+    This is a utility function for helping define mappings to use in
+    rulesets more concisely.
+
+    Values in `forward_mapping` can be any iterable: sets, lists,
+    tuples, etc. During the reversal they will be converted to dict key
+    values and will be made unique. Values in the return dict will be
+    sets.
+
+    For example:
+
+    >>> forward_mapping = {
+    >>>     'Collection1': set(['code1', 'code2', 'code3']),
+    >>>     'Collection2': set(['code2', 'code4', 'code5'])
+    >>> }
+    >>> reverse_mapping(forward_mapping)
+    {
+        'code1': set(['Collection1']),
+        'code2': set(['Collection1', 'Collection2']),
+        'code3': set(['Collection1']),
+        'code4': set(['Collection2']),
+        'code5': set(['Collection2']),
+    }
+    """
+    reverse_mapping = {}
+    for key, vals in forward_mapping.items():
+        for val in list(vals):
+            reverse_mapping[val] = reverse_mapping.get(val, set())
+            reverse_mapping[val].add(key)
+    return reverse_mapping
+
+
+class StrPatternMap(object):
+    """
+    Map strings (i.e., codes) to labels based on regex patterns.
+    StrPatternMap objects use a similar `get` method interface used by
+    dicts; however they default to returning 'None' rather than raising
+    a KeyError for non-matching values.
+
+    This is a utility class intended for use as an alternative-style
+    mapping (rather than a dict) in Rulesets. Essentially, instead of
+    mapping strings to strings, you're mapping string patterns to
+    strings (or any other value).
+
+    For example:
+
+    >>> pmap = StrPatternMap({
+    >>>     r'^w': 'Willis Library',
+    >>>     r'^s': 'Eagle Commons Library'}, exclude=['wx'])
+    >>> pmap.get('w3')
+    'Willis Library'
+
+    >>> pmap.get('sdus')
+    'Eagle Commons Library'
+
+    >>> pmap.get('wx')
+    None
+
+    >>> pmap.get('abcd')
+    None
+
+    >>> pmap.get('wx', 'Error')
+    'Error'
+    """
+    def __init__(self, patterns, exclude=None):
+        self.patterns = patterns or {}
+        self.exclude = tuple() if exclude is None else tuple(exclude)
+
+    def get(self, code, default=None):
+        """
+        Map the given string (`code`) to the appropriate value based on
+        the initialized pattern settings.
+        """
+        if code not in self.exclude:
+            for pattern, val in self.patterns.items():
+                if bool(re.search(pattern, code)):
+                    return val
+        return default

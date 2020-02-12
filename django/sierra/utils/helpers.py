@@ -61,80 +61,6 @@ def get_varfield_vals(vf_set, tag, marc_tags=['*'], many=False,
         return values
 
 
-def reverse_set_mapping(forward_mapping):
-    """
-    Generate the reverse of the provided `forward_mapping`.
-    Values in `forward_mapping` can be any iterable: sets, lists,
-    tuples, etc. During the reversal they will be converted to dict key
-    values and will be made unique. Values in the return dict will be
-    sets.
-
-    For example:
-
-    >>> forward_mapping = {
-    >>>     'Collection1': set(['code1', 'code2', 'code3']),
-    >>>     'Collection2': set(['code2', 'code4', 'code5'])
-    >>> }
-    >>> reverse_mapping(forward_mapping)
-    {
-        'code1': set(['Collection1']),
-        'code2': set(['Collection1', 'Collection2']),
-        'code3': set(['Collection1']),
-        'code4': set(['Collection2']),
-        'code5': set(['Collection2']),
-    }
-    """
-    reverse_mapping = {}
-    for key, vals in forward_mapping.items():
-        for val in list(vals):
-            reverse_mapping[val] = reverse_mapping.get(val, set())
-            reverse_mapping[val].add(key)
-    return reverse_mapping
-
-
-class StrPatternMap(object):
-    """
-    Map strings (i.e., codes) to labels based on regex patterns.
-    StrPatternMap objects use a similar `get` method interface used by
-    dicts; however they default to returning 'None' rather than raising
-    a KeyError for non-matching values.
-
-    For example:
-
-    >>> pmap = StrPatternMap({
-    >>>     r'^w': 'Willis Library',
-    >>>     r'^s': 'Eagle Commons Library'}, exclude=['wx'])
-    >>> pmap.get('w3')
-    'Willis Library'
-
-    >>> pmap.get('sdus')
-    'Eagle Commons Library'
-
-    >>> pmap.get('wx')
-    None
-
-    >>> pmap.get('abcd')
-    None
-
-    >>> pmap.get('wx', 'Error')
-    'Error'
-    """
-    def __init__(self, patterns, exclude=None):
-        self.patterns = patterns or {}
-        self.exclude = tuple() if exclude is None else tuple(exclude)
-
-    def get(self, code, default=None):
-        """
-        Map the given string (`code`) to the appropriate value based on
-        the initialized pattern settings.
-        """
-        if code not in self.exclude:
-            for pattern, val in self.patterns.items():
-                if bool(re.search(pattern, code)):
-                    return val
-        return default
-
-
 class CallNumberError(Exception):
     pass
 
@@ -368,4 +294,3 @@ class NormalizedCallNumber(object):
                 x = re.sub(r'\.0$', '', x)
             parts.append(x)
         return ' '.join(parts)
-
