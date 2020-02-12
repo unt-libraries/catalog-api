@@ -38,11 +38,6 @@ def ruleset_class():
 
 
 @pytest.fixture
-def ruleset_collection_class():
-    return r.RulesetCollection
-
-
-@pytest.fixture
 def dict_ruleset(ruleset_class):
     return ruleset_class([
         ('location_id', {'czm': False, 'law': False, 'w': False}),
@@ -75,16 +70,16 @@ def nondict_ruleset(ruleset_class, ex_nondict_map_class):
     ({'location_id': 'xmus', 'itype_id': 8}, False),
     ({'location_id': 'xmus'}, True),
 ])
-def test_ruleset_apply_works_for_dict_ruleset(obj_attrs, expected,
-                                              dict_ruleset,
-                                              ruleset_test_obj_class):
+def test_ruleset_evaluate_works_for_dict_ruleset(obj_attrs, expected,
+                                                 dict_ruleset,
+                                                 ruleset_test_obj_class):
     """
-    The `Ruleset.apply` method should return the expected value, for
+    The `Ruleset.evaluate` method should return the expected value, for
     Ruleset objects configured using standard dictionaries (i.e. the
     `dict_ruleset` fixture).
     """
     obj = ruleset_test_obj_class(**obj_attrs)
-    assert dict_ruleset.apply(obj) == expected
+    assert dict_ruleset.evaluate(obj) == expected
 
 
 @pytest.mark.parametrize('obj_attrs, expected', [
@@ -94,47 +89,14 @@ def test_ruleset_apply_works_for_dict_ruleset(obj_attrs, expected,
     ({'location_id': 'w1'}, 'Willis Library'),
     ({}, None),
 ])
-def test_ruleset_apply_works_for_nondict_ruleset(obj_attrs, expected,
-                                                 nondict_ruleset,
-                                                 ruleset_test_obj_class):
+def test_ruleset_evaluate_works_for_nondict_ruleset(obj_attrs, expected,
+                                                    nondict_ruleset,
+                                                    ruleset_test_obj_class):
     """
-    The `Ruleset.apply` method should return the expected value, for
+    The `Ruleset.evaluate` method should return the expected value, for
     Ruleset objects configured using custom, non-dict map objects, if
     the custom object implements an appropriate `get` method (i.e.
     the `nondict_ruleset` fixture).
     """
     obj = ruleset_test_obj_class(**obj_attrs)
-    assert nondict_ruleset.apply(obj) == expected
-
-
-@pytest.mark.parametrize('obj_attrs, expected', [
-    ({'location_id': 'czm', 'itype_id': 1},
-     {'is_requestable': False,
-      'building_location': 'Chilton Hall Media Library'}),
-    ({'location_id': 'czwww'},
-     {'is_requestable': True,
-      'building_location': None}),
-    ({'itype_id': 7},
-     {'is_requestable': False,
-      'building_location': None}),
-    ({'location_id': 'w1', 'itype_id': 8},
-     {'is_requestable': False,
-      'building_location': 'Willis Library'}),
-    ({},
-     {'is_requestable': True,
-      'building_location': None}),
-])
-def test_rulesetcollection_applyrules(obj_attrs, expected, dict_ruleset,
-                                      nondict_ruleset, ruleset_test_obj_class,
-                                      ruleset_collection_class):
-    """
-    The `RulesetCollection.apply_rules` method should return the
-    expected dict, given an input object with the provided `obj_attrs`.
-    """
-    obj = ruleset_test_obj_class(**obj_attrs)
-    all_rules = ruleset_collection_class({
-        'is_requestable': dict_ruleset,
-        'building_location': nondict_ruleset
-    })
-    assert all_rules.apply_rules(obj) == expected
-
+    assert nondict_ruleset.evaluate(obj) == expected
