@@ -93,18 +93,21 @@ def assert_json_matches_expected():
 
 
 @pytest.fixture
-def update_test_bib_inst(add_varfields_to_record, add_items_to_bib):
+def update_test_bib_inst(add_varfields_to_record, add_items_to_bib,
+                         add_locations_to_bib):
     """
     Pytest fixture. Update the given `bib` (base.models.BibRecord)
-    instance with given `varfields` and/or `items_info`. Returns the
-    updated bib instance. Underneath, fixture factories are used that
-    ensure the changes are reverted after the test runs. 
+    instance with given `varfields`, `items_info`, and/or `locations`.
+    Returns the updated bib instance. Underneath, fixture factories are
+    used that ensure the changes are reverted after the test runs.
     """
-    def _update_test_bib_inst(bib, varfields=[], items=[]):
+    def _update_test_bib_inst(bib, varfields=[], items=[], locations=[]):
+        if locations:
+            bib = add_locations_to_bib(bib, locations, overwrite_existing=True)
+
         for field_tag, marc_tag, vals in varfields:
             bib = add_varfields_to_record(bib, field_tag, marc_tag, vals,
                                           overwrite_existing=True)
-
         items_to_add = []
         for item in items:
             try:
@@ -556,10 +559,13 @@ def test_blasmpipeline_getiteminfo_num_items(items_info, exp_items,
       ({'location_id': 'w4mrb'}, {}),
       ({'location_id': 'w4mrx'}, {})],
      'aeon'),
+    ([({'location_id': 'jlf'}, {})],
+     'jlf'),
 ], ids=[
     'items that are requestable through the catalog (Sierra)',
     'items that are not requestable',
     'items that are requestable through Aeon',
+    'items that are at JLF'
 ])
 def test_blasmpipeline_getiteminfo_requesting(items_info, expected_r,
                                               bl_sierra_test_record,
@@ -1268,6 +1274,108 @@ def test_blasmpipeline_getpubinfo_pub_and_place_search(marcfields, expected,
     if len(expected.keys()) == 0:
         assert 'publication_places_search' not in val.keys()
         assert 'publishers_search' not in val.keys()
+    for k, v in expected.items():
+        assert set(v) == set(val[k])
+
+
+@pytest.mark.parametrize('bib_locations, item_locations, expected', [
+    ( (('czm', 'Chilton Media Library'),),
+      (('czm', 'Chilton Media Library'),),
+      {'access_facet': ['At the Library'],
+       'collection_facet': ['Media Library'],
+       'building_facet': ['Chilton Media Library'],
+       'shelf_facet': []},
+    ),
+    ( (('blah', 'Blah'),),
+      (('blah2', 'Blah2'), ('czm', 'Chilton Media Library'),),
+      {'access_facet': ['At the Library'],
+       'collection_facet': ['Media Library'],
+       'building_facet': ['Chilton Media Library'],
+       'shelf_facet': []}
+    ),
+    ( (('blah', 'Blah'),),
+      (('blah2', 'Blah2'), ('blah', 'Blah'),),
+      {'access_facet': [],
+       'collection_facet': [],
+       'building_facet': [],
+       'shelf_facet': []}
+    ),
+    ( (('r', 'Discovery Park Library'),),
+      (('lwww', 'UNT ONLINE RESOURCES'),),
+      {'access_facet': ['Online'],
+       'collection_facet': ['General Collection'],
+       'building_facet': [],
+       'shelf_facet': []}
+    ),
+    ( (('w', 'Willis Library'),),
+      (('lwww', 'UNT ONLINE RESOURCES'),),
+      {'access_facet': ['Online'],
+       'collection_facet': ['General Collection'],
+       'building_facet': [],
+       'shelf_facet': []}
+    ),
+    ( (('x', 'Remote Storage'),),
+      (('xdoc', 'Government Documents Remote Storage'),),
+      {'access_facet': ['At the Library'],
+       'collection_facet': ['Government Documents'],
+       'building_facet': ['Remote Storage'],
+       'shelf_facet': []}
+    ),
+    ( (('sd', 'Eagle Commons Library Government Documents'),),
+      (('xdoc', 'Government Documents Remote Storage'),),
+      {'access_facet': ['At the Library'],
+       'collection_facet': ['Government Documents'],
+       'building_facet': ['Remote Storage'],
+       'shelf_facet': []}
+    ),
+    ( (('w', 'Willis Library'),),
+      (('lwww', 'UNT ONLINE RESOURCES'), ('w3', 'Willis Library-3rd Floor'),),
+      {'access_facet': ['Online', 'At the Library'],
+       'collection_facet': ['General Collection'],
+       'building_facet': ['Willis Library'],
+       'shelf_facet': ['Willis Library-3rd Floor']}
+    ),
+    ( (('sd', 'Eagle Commons Library Government Documents'),),
+      (('gwww', 'GOVT ONLINE RESOURCES'),
+       ('sdus', 'Eagle Commons Library US Documents'),
+       ('rst', 'Discovery Park Library Storage'),
+       ('xdoc', 'Government Documents Remote Storage'),),
+      {'access_facet': ['Online', 'At the Library'],
+       'collection_facet': ['Government Documents', 'Discovery Park Library'],
+       'building_facet': ['Eagle Commons Library', 'Discovery Park Library',
+                          'Remote Storage'],
+       'shelf_facet': ['Eagle Commons Library US Documents',
+                       'Discovery Park Library Storage']}
+    ),
+], ids=[
+    'czm / same bib and item location',
+    'czm / unknown bib location and one unknown item location',
+    'all bib and item locations are unknown',
+    'r, lwww / online-only item with bib location in different collection',
+    'w, lwww / online-only item with bib location in same collection',
+    'x, xdoc / Remote Storage, bib loc is x',
+    'sd, xdoc / Remote Storage, bib loc is not x',
+    'w, lwww, w3 / bib with online and physical locations',
+    'sd, gwww, sdus, rst, xdoc / multiple items at multiple locations',
+])
+def test_blasmpipeline_getaccessinfo(bib_locations, item_locations, expected,
+                                     bl_sierra_test_record,
+                                     blasm_pipeline_class,
+                                     update_test_bib_inst,
+                                     get_or_make_location_instances,
+                                     assert_json_matches_expected):
+    """
+    BlacklightASMPipeline.get_access_info should ...
+    """
+    pipeline = blasm_pipeline_class()
+    bib = bl_sierra_test_record('bib_no_items')
+
+    loc_set = list(set(bib_locations) | set(item_locations))
+    loc_info = [{'code': code, 'name': name} for code, name in loc_set]
+    items_info = [{'location_id': code} for code, name in item_locations]
+    locations = get_or_make_location_instances(loc_info)
+    bib = update_test_bib_inst(bib, items=items_info, locations=locations)
+    val = pipeline.get_access_info(bib, None)
     for k, v in expected.items():
         assert set(v) == set(val[k])
 

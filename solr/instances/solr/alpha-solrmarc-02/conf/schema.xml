@@ -156,6 +156,10 @@
     <!-- FACET FIELDS ===================================================================================== -->
     <field name="publication_decade_facet" type="reverse_number" indexed="true" stored="true" multiValued="true" />
     <field name="publication_year_facet" type="reverse_number" indexed="true" stored="true" multiValued="true" />
+    <field name="access_facet" type="string" indexed="false" stored="true" multiValued="true" docValues="true" />
+    <field name="building_facet" type="string" indexed="false" stored="true" multiValued="true" docValues="true" />
+    <field name="shelf_facet" type="string" indexed="false" stored="true" multiValued="true" docValues="true" />
+    <field name="collection_facet" type="string" indexed="false" stored="true" multiValued="true" docValues="true" />
 
     <!-- GENERAL SEARCH OR SEARCH/DISPLAY FIELDS ========================================================== -->
     <!-- Publication -->
@@ -190,15 +194,13 @@
     <field name="publication_places" type="text" indexed="true" stored="true" multiValued="true"/>
     <field name="publishers" type="text" indexed="true" stored="true" multiValued="true"/>
     <field name="publication_dates" type="text" indexed="true" stored="true" multiValued="true"/>
+    <field name="bib_location_codes" type="string" indexed="true" stored="true" multiValued="true"/>
+    <field name="item_location_codes" type="string" indexed="true" stored="true" multiValued="true"/>
 
 
     <!-- OLD FIELDS: TO-DO ################################################################################
          Everything below has yet to be looked at and added to the schema revisions.
     -->
-
-    <!-- Locations -->
-    <field name="bib_location_codes" type="string" indexed="true" stored="true" multiValued="true"/>
-    <field name="item_location_codes" type="string" indexed="true" stored="true" multiValued="true"/>
     
     <!-- Language Field -->
     <field name="languages" type="string" indexed="true" stored="true" multiValued="true" />

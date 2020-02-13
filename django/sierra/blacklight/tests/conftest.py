@@ -7,6 +7,7 @@ import pytz
 from datetime import datetime
 import decimal
 
+from django.conf import settings
 from base import models as m
 from . import solr_test_profiles as tp
 
@@ -145,6 +146,50 @@ def make_record_metadata_instance(model_instance):
 
 
 @pytest.fixture
+def get_or_make_location_instances(model_instance, setattr_model_instance):
+    """
+    Pytest fixture that takes a list of dicts (`loc_info_list`) and
+    ensures that Location model instances exist matching the provided
+    details. (It creates or updates instances as needed.) It returns
+    the list of location instances.
+    """
+    def _get_or_make_location_instances(loc_info_list):
+        locations = []
+        loc_objs = m.Location.objects.all()
+        lname_objs = m.LocationName.objects.all()
+        lang_id = m.IiiLanguage.objects.get(code=settings.III_LANGUAGE_CODE).id
+
+        for supplied_info in loc_info_list:
+            info = supplied_info.copy()
+            code, name, lname = info['code'], info.pop('name', None), None
+            try:
+                loc = loc_objs.get(code=code)
+            except m.Location.DoesNotExist:
+                info['id'] = loc_objs.order_by('-id')[0].id + 1
+                loc = model_instance(m.Location, **info)
+            else:
+                try:
+                    lname = lname_objs.get(iii_language_id=lang_id,
+                                           location_id=loc.id)
+                except m.LocationName.DoesNotExist:
+                    pass
+                else:
+                    if name and lname.name != name:
+                        setattr_model_instance(lname, 'name', name)
+                        loc.refresh_from_db()
+            if lname is None:
+                lname_info = {
+                    'location_id': loc.id, 'iii_language_id': lang_id,
+                    'name': name if name else 'Test'
+                }
+                lname = model_instance(m.LocationName, **lname_info)
+                loc.refresh_from_db()
+            locations.append(loc)
+        return locations
+    return _get_or_make_location_instances
+
+
+@pytest.fixture
 def add_varfields_to_record(model_instance, setattr_model_instance):
     """
     Pytest fixture. Add one or more varfields using the specified
@@ -279,7 +324,7 @@ def add_items_to_bib(model_instance, make_record_metadata_instance,
                           overwrite_existing=False):
         if overwrite_existing:
             for link in bib.bibrecorditemrecordlink_set.all():
-                setattr_model_instance(link.bib_record_id, 'id', 0)
+                setattr_model_instance(link, 'bib_record_id', None)
             bib.refresh_from_db()
         if start_order_num is None:
             link_set = bib.bibrecorditemrecordlink_set.all()
@@ -304,3 +349,36 @@ def add_items_to_bib(model_instance, make_record_metadata_instance,
         bib.refresh_from_db()
         return bib
     return _add_items_to_bib
+
+
+@pytest.fixture
+def add_locations_to_bib(model_instance, setattr_model_instance):
+    """
+    Pytest fixture that adds one or more locations to a bib record.
+
+    `bib` is the BibRecord model instance you want to add locations to.
+    `locations` is a list of Location instances to attach to the bib.
+
+    If `overwrite_existing` is True, then any preexisting locations
+    attached to the bib will be overwritten (then restored after the
+    test runs). Otherwise, new locations will be added to the existing
+    ones.
+    """
+    def _add_locations_to_bib(bib, locations, overwrite_existing=False):
+        if overwrite_existing:
+            for bibloc in bib.bibrecordlocation_set.all():
+                setattr_model_instance(bibloc, 'bib_record_id', None)
+            bib.refresh_from_db()
+        bibloc_objs = m.BibRecordLocation.objects.all()
+        bibloc_id = bibloc_objs.order_by('-id')[0].id + 1
+        for loc in locations:
+            bibloc_attrs = {
+                'id': bibloc_id, 'bib_record_id': bib.id,
+                'location_id': loc.code, 'display_order': 0
+            }
+            model_instance(m.BibRecordLocation, **bibloc_attrs)
+            bibloc_id += 1
+        bib.refresh_from_db()
+        return bib
+    return _add_locations_to_bib
+

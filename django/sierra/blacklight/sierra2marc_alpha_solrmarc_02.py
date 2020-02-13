@@ -9,7 +9,7 @@ import re
 import ujson
 from datetime import datetime
 
-from base import models
+from base import models, local_rulesets
 from export.sierra2marc import S2MarcBatch, S2MarcError
 from blacklight import parsers as p
 from utils import helpers
@@ -116,9 +116,22 @@ class BlacklightASMPipeline(object):
     """
     fields = [
         'id', 'suppressed', 'item_info', 'urls_json', 'thumbnail_url',
-        'pub_info',
+        'pub_info', 'access_info',
     ]
     prefix = 'get_'
+    access_online_label = 'Online'
+    access_physical_label = 'At the Library'
+    item_rules = local_rulesets.ITEM_RULES
+
+    @property
+    def sierra_location_labels(self):
+        if not hasattr(self, '_sierra_location_labels'):
+            self._sierra_location_labels = {}
+            pf = 'locationname_set'
+            for loc in models.Location.objects.prefetch_related(pf).all():
+                loc_name = loc.locationname_set.all()[0].name
+                self._sierra_location_labels[loc.code] = loc_name
+        return self._sierra_location_labels
 
     def do(self, r, marc_record):
         """
@@ -221,45 +234,14 @@ class BlacklightASMPipeline(object):
         Sub-method used by `get_item_info` to return a requestability
         string based on established request rules.
         """
-        nr_ruleset = [
-            {'location_id': (
-                'czmrf', 'czmrs', 'czwww', 'd', 'dcare', 'dfic', 'djuv',
-                'dmed', 'dref', 'dresv', 'fip', 'frsco', 'gwww', 'hscfw',
-                'ill', 'jlf', 'kmatt', 'kpacs', 'kpeb', 'law', 'lawcl', 'lawh',
-                'lawrf', 'lawrs', 'lawtx', 'lawww', 'libr', 'lwww', 'mwww',
-                'rzzrf', 'rzzrs', 'sdai', 'sdbi', 'sdmp', 'sdov', 'sdtov',
-                'sdvf', 'sdzmr', 'sdzrf', 'sdzrs', 'sdzsd', 'spe', 'spec',
-                'swr', 'szmp', 'szzov', 'szzrf', 'szzrs', 'szzsd', 'tamc',
-                'test', 'twu', 'txsha', 'unt', 'w1grs', 'w1gwt', 'w1ia',
-                'w1ind', 'w2awt', 'w2lan', 'w3dai', 'w3lab', 'w3mfa', 'w3per',
-                'w433a', 'w4422', 'w4438', 'w4fil', 'w4mai', 'w4mav', 'w4mbg',
-                'w4mfb', 'w4mla', 'w4moc', 'w4mr1', 'w4mr2', 'w4mr3', 'w4mrb',
-                'w4mrf', 'w4mrs', 'w4mrx', 'w4mts', 'w4mwf', 'w4mwr', 'w4spe',
-                'w4srf', 'wgrc', 'wlmic', 'wlper', 'xprsv', 'xspe', 'xts'
-            )},
-            {'item_status_id': tuple('efijmnopwyz')},
-            {'itype_id': (20, 29, 69, 74, 112)},
-            {'itype_id': (7,), '-location_id': ('xmus',) }
-        ]
-        aeon_ruleset = [
-            {'location_id': ('w4mr1', 'w4mr2', 'w4mr3', 'w4mrb', 'w4mrx',
-                             'w4spe')}
-        ]
-
-        def _item_matches_rule(rule, item):
-            for field, valset in rule.items():
-                if field[0] == '-':
-                    if getattr(item, field[1:]) in valset:
-                        return False
-                elif getattr(item, field) not in valset:
-                    return False
-            return True
-
-        if any([_item_matches_rule(rule, item) for rule in aeon_ruleset]):
+        item_rules = self.item_rules
+        if item_rules['is_at_jlf'].evaluate(item):
+            return 'jlf'
+        if item_rules['is_requestable_through_aeon'].evaluate(item):
             return 'aeon'
-        if any([_item_matches_rule(rule, item) for rule in nr_ruleset]):
-            return None
-        return 'catalog'
+        if item_rules['is_requestable_through_catalog'].evaluate(item):
+            return 'catalog'
+        return None
 
     def get_urls_json(self, r, marc_record):
         """
@@ -619,6 +601,38 @@ class BlacklightASMPipeline(object):
         })
         return ret_val
 
+    def get_access_info(self, r, marc_record):
+        accessf, buildingf, shelff, collectionf = set(), set(), set(), set()
+
+        # Note: For now we're just ignoring Bib Locations
+
+        item_rules = self.item_rules
+        for link in r.bibrecorditemrecordlink_set.all():
+            item = link.item_record
+            if item_rules['is_online'].evaluate(item):
+                accessf.add(self.access_online_label)
+            else:
+                shelf = self.sierra_location_labels[item.location_id]
+                building_lcode = item_rules['building_location'].evaluate(item)
+                building = None
+                if building_lcode is not None:
+                    building = self.sierra_location_labels[building_lcode]
+                    buildingf.add(building)
+                    accessf.add(self.access_physical_label)
+                if shelf != building:
+                    if item_rules['is_at_public_location'].evaluate(item):
+                        shelff.add(shelf)
+            in_collections = item_rules['in_collections'].evaluate(item)
+            if in_collections is not None:
+                collectionf |= set(in_collections)
+
+        return {
+            'access_facet': list(accessf),
+            'building_facet': list(buildingf),
+            'shelf_facet': list(shelff),
+            'collection_facet': list(collectionf),
+        }
+
 
 class PipelineBundleConverter(object):
     """
@@ -671,9 +685,10 @@ class PipelineBundleConverter(object):
     mapping = (
         ( '907', ('id',) ),
         ( '908', ('suppressed', 'date_added_sort', 'access_facet',
-                  'location_facet', 'type_of_item_facet',
-                  'game_duration_facet', 'game_players_facet',
-                  'game_age_facet', 'recently_added_facet') ),
+                  'library_facet', 'location_facet', 'collection_facet',
+                  'type_of_item_facet', 'game_duration_facet',
+                  'game_players_facet', 'game_age_facet',
+                  'recently_added_facet') ),
         ( '909', ('items_json',) ),
         ( '909', ('has_more_items',) ),
         ( '909', ('more_items_json',) ),
