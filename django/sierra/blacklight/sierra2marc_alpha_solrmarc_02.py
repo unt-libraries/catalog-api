@@ -612,14 +612,14 @@ class BlacklightASMPipeline(object):
             if item_rules['is_online'].evaluate(item):
                 accessf.add(self.access_online_label)
             else:
-                shelf = self.sierra_location_labels[item.location_id]
+                shelf = self.sierra_location_labels.get(item.location_id, None)
                 building_lcode = item_rules['building_location'].evaluate(item)
                 building = None
                 if building_lcode is not None:
                     building = self.sierra_location_labels[building_lcode]
                     buildingf.add(building)
                     accessf.add(self.access_physical_label)
-                if shelf != building:
+                if (shelf is not None) and (shelf != building):
                     if item_rules['is_at_public_location'].evaluate(item):
                         shelff.add(shelf)
             in_collections = item_rules['in_collections'].evaluate(item)
@@ -685,7 +685,7 @@ class PipelineBundleConverter(object):
     mapping = (
         ( '907', ('id',) ),
         ( '908', ('suppressed', 'date_added_sort', 'access_facet',
-                  'library_facet', 'location_facet', 'collection_facet',
+                  'building_facet', 'shelf_facet', 'collection_facet',
                   'type_of_item_facet', 'game_duration_facet',
                   'game_players_facet', 'game_age_facet',
                   'recently_added_facet') ),
