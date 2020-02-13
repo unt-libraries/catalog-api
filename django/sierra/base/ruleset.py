@@ -65,37 +65,53 @@ class Ruleset(object):
         return result
 
 
-def reverse_set_mapping(forward_mapping):
+def reverse_mapping(forward_mapping, multi=True):
     """
     Generate the reverse of the provided `forward_mapping`.
     This is a utility function for helping define mappings to use in
-    rulesets more concisely.
+    Rulesets to make them more concise.
 
     Values in `forward_mapping` can be any iterable: sets, lists,
     tuples, etc. During the reversal they will be converted to dict key
-    values and will be made unique. Values in the return dict will be
-    sets.
+    values (and will thus be made unique).
+
+    Use `multi` to control whether or not you want values in the return
+    dict to be sets (if True) or not (if False); if True, then a value
+    from the original dict that appears in multiple entries will have
+    all entries preserved.
 
     For example:
 
     >>> forward_mapping = {
-    >>>     'Collection1': set(['code1', 'code2', 'code3']),
-    >>>     'Collection2': set(['code2', 'code4', 'code5'])
+    >>>     'Collection1': set(['code1', 'code2']),
+    >>>     'Collection2': set(['code2', 'code3'])
     >>> }
-    >>> reverse_mapping(forward_mapping)
+    >>> reverse_mapping(forward_mapping, multi=True)
     {
         'code1': set(['Collection1']),
         'code2': set(['Collection1', 'Collection2']),
-        'code3': set(['Collection1']),
-        'code4': set(['Collection2']),
-        'code5': set(['Collection2']),
+        'code3': set(['Collection2']),
     }
+    >>> reverse_mapping(forward_mapping, multi=False)
+    {
+        'code1': 'Collection1',
+        'code2': 'Collection2',
+        'code3': 'Collection2'
+    }
+
+    Be careful when using multi=False, if you have overlapping values
+    (such as 'code2' in the above example). There's no way to gaurantee
+    the order `forward_mapping` will be evaluated in, so it could get
+    either value. You can use an OrderedDict to work around this.
     """
     reverse_mapping = {}
     for key, vals in forward_mapping.items():
         for val in list(vals):
-            reverse_mapping[val] = reverse_mapping.get(val, set())
-            reverse_mapping[val].add(key)
+            if multi:
+                reverse_mapping[val] = reverse_mapping.get(val, set())
+                reverse_mapping[val].add(key)
+            else:
+                reverse_mapping[val] = key
     return reverse_mapping
 
 

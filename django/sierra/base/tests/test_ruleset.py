@@ -109,23 +109,26 @@ def test_ruleset_evaluate_works_for_nondict_ruleset(obj_attrs, expected,
     assert nondict_ruleset.evaluate(obj) == expected
 
 
-@pytest.mark.parametrize('forward_mapping, expected', [
-    ({'a1': ['b1', 'b2'], 'a2': ['b3', 'b4']},
+@pytest.mark.parametrize('forward_mapping, multi, expected', [
+    ({'a1': ['b1', 'b2'], 'a2': ['b3', 'b4']}, True,
      {'b1': set(['a1']), 'b2': set(['a1']), 'b3': set(['a2']),
       'b4': set(['a2'])}),
-    ({'a1': set(['b1', 'b2']), 'a2': set(['b3', 'b4'])},
+    ({'a1': set(['b1', 'b2']), 'a2': set(['b3', 'b4'])}, True,
      {'b1': set(['a1']), 'b2': set(['a1']), 'b3': set(['a2']),
       'b4': set(['a2'])}),
-    ({'a1': ['b1', 'b2', 'b3'], 'a2': ['b1', 'b3', 'b4']},
+    ({'a1': ['b1', 'b2', 'b3'], 'a2': ['b1', 'b3', 'b4']}, True,
      {'b1': set(['a1', 'a2']), 'b2': set(['a1']), 'b3': set(['a1', 'a2']),
       'b4': set(['a2'])}),
+    ({'a1': ['b1', 'b2'], 'a2': ['b3', 'b4']}, False,
+     {'b1': 'a1', 'b2': 'a1', 'b3': 'a2', 'b4': 'a2'}),
 ])
-def test_reversesetmapping(forward_mapping, expected):
+def test_reversemapping(forward_mapping, multi, expected):
     """
     The reverse_set_mapping helper function should take the given
-    `forward_mapping` dict and return the `expected` dict.
+    `forward_mapping` dict and `multi` value, and return the `expected`
+    dict.
     """
-    assert r.reverse_set_mapping(forward_mapping) == expected
+    assert r.reverse_mapping(forward_mapping, multi=multi) == expected
 
 
 @pytest.mark.parametrize('args, expected', [
