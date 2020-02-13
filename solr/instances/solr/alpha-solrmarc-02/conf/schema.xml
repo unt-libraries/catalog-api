@@ -123,25 +123,22 @@
          For now bl-suggest tests have been disabled. Once schema updates are complete, we'll go back and
          revise how we're deriving bl-suggest headings.
     -->
-
-    <!-- default, catch-all search field -->
-    <field name="text" type="text" indexed="true" stored="false" multiValued="true"/>
     
     <!-- META-INFORMATION ================================================================================= -->
-    <field name="id" type="string" indexed="true" stored="true" required="true" multiValued="false" />
+    <field name="id" type="string" indexed="true" stored="true" required="true" multiValued="false"/>
     <field name="timestamp_of_last_solr_update" type="date" indexed="true" stored="true" default="NOW" multiValued="false"/>
-    <field name="suppressed" type="boolean" indexed="true" stored="true" multiValued="false" />
+    <field name="suppressed" type="boolean" indexed="true" stored="true" multiValued="false"/>
     <field name="_version_" type="long" indexed="true" stored="true"/>
 
     <!-- DISPLAY-ONLY FIELDS ============================================================================== -->
     <!-- Attached Items -->
-    <field name="items_json" type="string" indexed="false" stored="true" multiValued="true" />
-    <field name="has_more_items" type="boolean" indexed="true" stored="true" multiValued="false" />
-    <field name="more_items_json" type="string" indexed="false" stored="true" multiValued="true" />
+    <field name="items_json" type="string" indexed="false" stored="true" multiValued="true"/>
+    <field name="has_more_items" type="boolean" indexed="true" stored="true" multiValued="false"/>
+    <field name="more_items_json" type="string" indexed="false" stored="true" multiValued="true"/>
     <!-- Thumbnails -->
     <field name="thumbnail_url" type="string" indexed="false" stored="true" multiValued="false"/>
     <!-- URLs -->
-    <field name="urls_json" type="string" indexed="false" stored="true" multiValued="true" />
+    <field name="urls_json" type="string" indexed="false" stored="true" multiValued="true"/>
     <!-- Publication -->
     <field name="publication_year_display" type="string" indexed="false" stored="true" multiValued="false"/>
     <field name="creation_display" type="string" indexed="false" stored="true" multiValued="true"/>
@@ -154,14 +151,24 @@
     <field name="publication_sort" type="string" indexed="false" stored="false" multiValued="false" docValues="true"/>
 
     <!-- FACET FIELDS ===================================================================================== -->
-    <field name="publication_decade_facet" type="reverse_number" indexed="true" stored="true" multiValued="true" />
-    <field name="publication_year_facet" type="reverse_number" indexed="true" stored="true" multiValued="true" />
-    <field name="access_facet" type="string" indexed="false" stored="true" multiValued="true" docValues="true" />
-    <field name="building_facet" type="string" indexed="false" stored="true" multiValued="true" docValues="true" />
-    <field name="shelf_facet" type="string" indexed="false" stored="true" multiValued="true" docValues="true" />
-    <field name="collection_facet" type="string" indexed="false" stored="true" multiValued="true" docValues="true" />
+    <field name="publication_decade_facet" type="reverse_number" indexed="true" stored="true" multiValued="true"/>
+    <field name="publication_year_facet" type="reverse_number" indexed="true" stored="true" multiValued="true"/>
+    <field name="access_facet" type="string" indexed="false" stored="true" multiValued="true" docValues="true"/>
+    <field name="building_facet" type="string" indexed="false" stored="true" multiValued="true" docValues="true"/>
+    <field name="shelf_facet" type="string" indexed="false" stored="true" multiValued="true" docValues="true"/>
+    <field name="collection_facet" type="string" indexed="false" stored="true" multiValued="true" docValues="true"/>
+    <field name="resource_type_facet" type="string" indexed="false" stored="true" multiValued="false" docValues="true"/>
 
     <!-- GENERAL SEARCH OR SEARCH/DISPLAY FIELDS ========================================================== -->
+    <field name="text" type="text" indexed="true" stored="false" multiValued="true"/>
+    <field name="metadata_facets_search" indexed="true" stored="false" multiValued="true"/>
+    <copyField source="publication_decade_facet" dest="metadata_facets_search"/>
+    <copyField source="publication_year_facet" dest="metadata_facets_search"/>
+    <copyField source="building_facet" dest="metadata_facets_search"/>
+    <copyField source="shelf_facet" dest="metadata_facets_search"/>
+    <copyField source="collection_facet" dest="metadata_facets_search"/>
+    <copyField source="resource_type_facet" dest="metadata_facets_search"/>
+
     <!-- Publication -->
     <field name="publication_places_search" type="text" indexed="true" stored="false" multiValued="true"/>
     <field name="publishers_search" type="text" indexed="true" stored="false" multiValued="true"/>
@@ -196,6 +203,7 @@
     <field name="publication_dates" type="text" indexed="true" stored="true" multiValued="true"/>
     <field name="bib_location_codes" type="string" indexed="true" stored="true" multiValued="true"/>
     <field name="item_location_codes" type="string" indexed="true" stored="true" multiValued="true"/>
+    <field name="material_type" type="string" indexed="true" stored="true" multiValued="false" />
 
 
     <!-- OLD FIELDS: TO-DO ################################################################################
@@ -204,7 +212,6 @@
     
     <!-- Language Field -->
     <field name="languages" type="string" indexed="true" stored="true" multiValued="true" />
-    <field name="material_type" type="string" indexed="true" stored="true" multiValued="false" />
     <!-- Standard Number Fields -->
     <field name="isbn_numbers" type="string" indexed="true" stored="true" multiValued="true" />
     <field name="issn_numbers" type="string" indexed="true" stored="true" multiValued="true" />

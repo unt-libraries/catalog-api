@@ -1808,6 +1808,7 @@
          genre_facet^750
          geographic_facet^750
          era_facet^750
+         metadata_facet_text^500
          topic_terms^500
          genre_terms^300
          geographic_terms^300
@@ -1834,6 +1835,7 @@
          genre_facet^7500
          geographic_facet^7500
          era_facet^7500
+         metadata_facet_text^5000
          topic_terms^5000
          genre_terms^3000
          geographic_terms^3000
