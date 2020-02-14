@@ -116,12 +116,13 @@ class BlacklightASMPipeline(object):
     """
     fields = [
         'id', 'suppressed', 'item_info', 'urls_json', 'thumbnail_url',
-        'pub_info', 'access_info',
+        'pub_info', 'access_info', 'resource_type'
     ]
     prefix = 'get_'
     access_online_label = 'Online'
     access_physical_label = 'At the Library'
     item_rules = local_rulesets.ITEM_RULES
+    bib_rules = local_rulesets.BIB_RULES
 
     @property
     def sierra_location_labels(self):
@@ -633,6 +634,16 @@ class BlacklightASMPipeline(object):
             'collection_facet': list(collectionf),
         }
 
+    def get_resource_type(self, r, marc_record):
+        resource_type, resource_type_facet = '', set()
+
+        return {
+            'resource_type': resource_type,
+            'resource_type_facet': list(resource_type_facet)
+        }
+
+
+
 
 class PipelineBundleConverter(object):
     """
@@ -686,9 +697,9 @@ class PipelineBundleConverter(object):
         ( '907', ('id',) ),
         ( '908', ('suppressed', 'date_added_sort', 'access_facet',
                   'building_facet', 'shelf_facet', 'collection_facet',
-                  'type_of_item_facet', 'game_duration_facet',
-                  'game_players_facet', 'game_age_facet',
-                  'recently_added_facet') ),
+                  'resource_type', 'resource_type_facet',
+                  'game_duration_facet', 'game_players_facet',
+                  'game_age_facet', 'recently_added_facet') ),
         ( '909', ('items_json',) ),
         ( '909', ('has_more_items',) ),
         ( '909', ('more_items_json',) ),
@@ -874,14 +885,6 @@ class S2MarcBatchBlacklightSolrMarc(S2MarcBatch):
                 subfields=['d', material_type]
         )
         marc_record.add_ordered_field(metadata_field)
-        # Add bib locations to the 911a.
-        for loc in r.locations.all():
-            loc_field = pymarc.field.Field(
-                tag='961',
-                indicators=[' ', ' '],
-                subfields=['a', loc.code]
-            )
-            marc_record.add_ordered_field(loc_field)
 
         # For each call number in the record, add a 909 field.
         i = 0

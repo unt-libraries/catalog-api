@@ -129,6 +129,7 @@
     <field name="timestamp_of_last_solr_update" type="date" indexed="true" stored="true" default="NOW" multiValued="false"/>
     <field name="suppressed" type="boolean" indexed="true" stored="true" multiValued="false"/>
     <field name="_version_" type="long" indexed="true" stored="true"/>
+    <field name="resource_type" type="string" indexed="true" stored="true" required="true" multiValued="false"/>
 
     <!-- DISPLAY-ONLY FIELDS ============================================================================== -->
     <!-- Attached Items -->
@@ -167,7 +168,6 @@
     <copyField source="building_facet" dest="metadata_facets_search"/>
     <copyField source="shelf_facet" dest="metadata_facets_search"/>
     <copyField source="collection_facet" dest="metadata_facets_search"/>
-    <copyField source="resource_type_facet" dest="metadata_facets_search"/>
 
     <!-- Publication -->
     <field name="publication_places_search" type="text" indexed="true" stored="false" multiValued="true"/>
