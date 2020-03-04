@@ -14,6 +14,11 @@ def item_rules():
     return lr.ITEM_RULES
 
 
+@pytest.fixture
+def bib_rules():
+    return lr.BIB_RULES
+
+
 # TESTS
 
 @pytest.mark.parametrize('loc_code, expected', [
@@ -234,3 +239,52 @@ def test_itemrules_isatjlf(loc_code, expected, item_rules, mocker):
     item = mocker.Mock(location_id=loc_code)
     assert item_rules['is_at_jlf'].evaluate(item) == expected
 
+
+@pytest.mark.parametrize('bcode2, cns, f008_26, bib_locations, expected', [
+    ('a', None, None, None, 'book'),
+    ('b', None, None, None, 'database'),
+    ('c', None, None, None, 'score'),
+    ('e', None, None, None, 'map'),
+    ('g', None, None, None, 'video'),
+    ('i', None, None, None, 'audiobook'),
+    ('j', None, None, None, 'recording'),
+    ('k', None, None, None, 'graphic'),
+    ('m', [], ' ', [''], 'computer_file'),
+    ('m', ['CD-ROM 1234'], 'b', ['czm'], 'computer_file'),
+    ('m', ['Game 1234'], 'g', ['czm'], 'video_game'),
+    ('m', ['Game 1234'], ' ', ['czm'], 'video_game'),
+    ('m', ['CD-ROM 1234'], 'g', ['sd'], 'video_game'),
+    ('m', ['CD-ROM 1234'], 'd', ['sd'], 'eresource'),
+    ('m', ['MT 1234 S32'], 'h', ['sd'], 'recording'),
+    ('n', None, None, None, 'ebook'),
+    ('o', None, None, None, 'kit'),
+    ('p', None, None, None, 'archival_collection'),
+    ('q', None, None, None, 'print_journal'),
+    ('r', [], ' ', [''], 'equipment'),
+    ('r', ['MT 1234 S32'], ' ', ['w4spe'], 'object'),
+    ('r', ['Boardgame 1234'], ' ', ['czm'], 'board_game'),
+    ('s', None, None, None, 'score_thesis'),
+    ('t', None, None, None, 'manuscript'),
+    ('y', None, None, None, 'ejournal'),
+    ('z', None, None, None, 'thesis'),
+])
+def test_bibrules_resourcetype(bcode2, cns, f008_26, bib_locations, expected,
+                               bib_rules, mocker):
+    """
+    Our local BIB_RULES['resource_type'] and
+    BIB_RULES['resource_type_label'] rules should return the expected
+    type and label.
+    """
+    bib = mocker.Mock(bcode2=bcode2)
+    if cns is not None:
+        rval = [mocker.Mock(**{'display_field_content.return_value': cn})
+                for cn in cns]
+        bib.record_metadata.varfield_set.filter.return_value = rval
+    if f008_26 is not None:
+        f008 = '{}{}'.format(' ' * 26, f008_26)
+        rval = [mocker.Mock(**{'get_data.return_value': f008})]
+        bib.record_metadata.controlfield_set.filter.return_value = rval
+    if bib_locations is not None:
+        rval = [mocker.Mock(code=bl) for bl in bib_locations]
+        bib.locations.all.return_value = rval
+    assert bib_rules['resource_type'].evaluate(bib) == expected

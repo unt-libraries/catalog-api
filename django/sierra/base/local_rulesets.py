@@ -111,3 +111,83 @@ ITEM_RULES = {
     # (JLF) and must be requested through ILLiad.
     'is_at_jlf': r.Ruleset([('location_id', {'jlf': True})], default=False)
 }
+
+
+class ResourceTypeDeterminer(object):
+    """
+    This is a one-off, custom class to let us easily/simply implement
+    logic (for use with r.Ruleset objects) that is a little more
+    complex. This class should never be instantiated/used directly,
+    only through the `BIB_RULES` rule constant.
+    """
+
+    rtype_def = {
+        'book': 'a',
+        'database': 'b',
+        'score': 'c',
+        'map': 'e',
+        'video': 'g',
+        'audiobook': 'i',
+        'recording': 'j',
+        'graphic': 'k',
+        'computer_file': 'm',
+        'video_game': None,
+        'eresource': None,
+        'ebook': 'n',
+        'kit': 'o',
+        'archival_collection': 'p',
+        'print_journal': 'q',
+        'object': 'r',
+        'board_game': None,
+        'equipment': None,
+        'score_thesis': 's',
+        'manuscript': 't',
+        'ejournal': 'y',
+        'thesis': 'z',
+    }
+    from_bcode2 = {v: k for k, v in rtype_def.items() if v is not None}
+
+    def __call__(self, obj):
+        rtype = self.from_bcode2[obj.bcode2]
+        do = getattr(self, 'process_{}_rtype'.format(rtype), lambda x: None)
+        return do(obj) or rtype
+
+    def process_computer_file_rtype(self, obj):
+        norm_cns = (cn.lower() for cn in self.get_callnums_from_obj(obj))
+        if any([cn.startswith('game') for cn in norm_cns]):
+            return 'video_game'
+        f008 = self.get_008_from_obj(obj)
+        if f008 and len(f008) >= 27:
+            if f008[26] in ('a', 'c', 'd', 'e'):
+                return 'eresource'
+            if f008[26] == 'g':
+                return 'video_game'
+            if f008[26] == 'h':
+                return 'recording'
+
+    def process_object_rtype(self, obj):
+        norm_cns = (cn.lower() for cn in self.get_callnums_from_obj(obj))
+        if any([cn.startswith('boardgame') for cn in norm_cns]):
+            return 'board_game'
+        if 'w4spe' in self.get_bib_location_codes_from_obj(obj):
+            return 'object'
+        return 'equipment'
+
+    def get_callnums_from_obj(self, obj):
+        cns = obj.record_metadata.varfield_set.filter(varfield_type_code='c')
+        return (cn.display_field_content() for cn in cns)
+
+    def get_008_from_obj(self, obj):
+        f008 = obj.record_metadata.controlfield_set.filter(control_num=8)
+        return f008[0].get_data() if len(f008) else None
+
+    def get_bib_location_codes_from_obj(self, obj):
+        return (l.code for l in obj.locations.all())
+
+
+BIB_RULES = {
+    'resource_type': r.Ruleset([
+        (ResourceTypeDeterminer(),
+         {k: k for k in ResourceTypeDeterminer.rtype_def.keys()})
+    ])
+}
