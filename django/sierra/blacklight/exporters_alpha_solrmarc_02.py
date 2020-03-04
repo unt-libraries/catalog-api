@@ -92,6 +92,7 @@ class BibsToAlphaSolrmarc02(ToSolrExporter):
     ]
     max_rec_chunk = 2000
     prefetch_related = [
+        'record_metadata__controlfield_set',
         'record_metadata__varfield_set',
         'bibrecorditemrecordlink_set',
         'bibrecorditemrecordlink_set__item_record',

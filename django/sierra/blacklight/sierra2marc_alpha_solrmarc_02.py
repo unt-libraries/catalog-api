@@ -116,7 +116,7 @@ class BlacklightASMPipeline(object):
     """
     fields = [
         'id', 'suppressed', 'item_info', 'urls_json', 'thumbnail_url',
-        'pub_info', 'access_info', 'resource_type'
+        'pub_info', 'access_info', 'resource_type_info'
     ]
     prefix = 'get_'
     access_online_label = 'Online'
@@ -634,15 +634,37 @@ class BlacklightASMPipeline(object):
             'collection_facet': list(collectionf),
         }
 
-    def get_resource_type(self, r, marc_record):
-        resource_type, resource_type_facet = '', set()
+    def get_resource_type_info(self, r, marc_record):
+        resource_type = self.bib_rules['resource_type'].evaluate(r)
+        rt_categories = {
+            'book': ['Books'],
+            'database': ['Online Databases'],
+            'score': ['Music Scores'],
+            'map': ['Maps'],
+            'video': ['Videos/Films'],
+            'audiobook': ['Books'],
+            'recording': ['Music Recordings'],
+            'graphic': ['Print Graphics'],
+            'computer_file': ['Software'],
+            'video_game': ['Games', 'Software'],
+            'eresource': ['Software'],
+            'ebook': ['Books'],
+            'kit': ['Educational Kits'],
+            'archival_collection': ['Archives/Manuscripts'],
+            'print_journal': ['Journals/Periodicals'],
+            'object': ['Objects/Artifacts'],
+            'board_game': ['Games', 'Objects/Artifacts'],
+            'equipment': ['Equipment', 'Objects/Artifacts'],
+            'score_thesis': ['Music Scores', 'Theses/Dissertations'],
+            'manuscript': ['Books', 'Archives/Manuscripts'],
+            'ejournal': ['Journals/Periodicals'],
+            'thesis': ['Theses/Dissertations'],
+        }
 
         return {
             'resource_type': resource_type,
-            'resource_type_facet': list(resource_type_facet)
+            'resource_type_facet': rt_categories[resource_type]
         }
-
-
 
 
 class PipelineBundleConverter(object):

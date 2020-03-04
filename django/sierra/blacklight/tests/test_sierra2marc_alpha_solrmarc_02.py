@@ -1362,10 +1362,11 @@ def test_blasmpipeline_getaccessinfo(bib_locations, item_locations, expected,
                                      bl_sierra_test_record,
                                      blasm_pipeline_class,
                                      update_test_bib_inst,
-                                     get_or_make_location_instances,
-                                     assert_json_matches_expected):
+                                     get_or_make_location_instances):
     """
-    BlacklightASMPipeline.get_access_info should ...
+    BlacklightASMPipeline.get_access_info should return the expected
+    access, collection, building, and shelf facet values based on the
+    configured bib_ and item_locations.
     """
     pipeline = blasm_pipeline_class()
     bib = bl_sierra_test_record('bib_no_items')
@@ -1378,6 +1379,33 @@ def test_blasmpipeline_getaccessinfo(bib_locations, item_locations, expected,
     val = pipeline.get_access_info(bib, None)
     for k, v in expected.items():
         assert set(v) == set(val[k])
+
+
+@pytest.mark.parametrize('bcode2, expected', [
+    ('a', {'resource_type': 'book',
+           'resource_type_facet': ['Books']}),
+    ('b', {'resource_type': 'database',
+           'resource_type_facet': ['Online Databases']}),
+    ('c', {'resource_type': 'score',
+           'resource_type_facet': ['Music Scores']}),
+])
+def test_blasmpipeline_getresourcetypeinfo(bcode2,
+                                           expected, bl_sierra_test_record,
+                                           blasm_pipeline_class,
+                                           setattr_model_instance):
+    """
+    BlacklightASMPipeline.get_resource_type_info should return the
+    expected resource_type and resource_type_facet values based on the
+    given bcode2. Note that this doesn't thoroughly and exhaustively
+    test resource type determination; for that, see base.local_rulesets
+    (and associated tests).
+    """
+    pipeline = blasm_pipeline_class()
+    bib = bl_sierra_test_record('bib_no_items')
+    setattr_model_instance(bib, 'bcode2', bcode2)
+    val = pipeline.get_resource_type_info(bib, None)
+    for k, v in expected.items():
+        assert v == val[k]
 
 
 @pytest.mark.parametrize('mapping, bundle, expected', [
