@@ -23,11 +23,14 @@ class Ruleset(object):
     Map one or more of an object's attribute values to an output value.
 
     Initialize a Ruleset by providing a list of `rules` and an optional
-    `default` value. Each rule is a 2-length tuple, where the first
-    item is an attribute name or tuple of attribute names, and the
-    second item is an object that maps the values from the object to
-    result values. The mapping object may or may not be a dict; it only
-    must implement a dict-like `get` method to be used in a Ruleset.
+    `default` value. Each rule is a 2-length tuple. The first item
+    defines how to get the comparison value from the object. It can be
+    a string (attr name or dict key), a tuple of strings, or a callable
+    or function. If it's callable, it should take the object as the arg
+    and return the comparison value. The second tuple item is an object
+    that maps the values from the object to result values. The mapping
+    object may or may not be a dict; it only must implement a dict-like
+    `get` method to be used in a Ruleset.
 
     Trigger the Ruleset by calling the `evaluate` method, providing an
     object instance of the intended type (`obj`). It evaluates rules in
@@ -50,17 +53,32 @@ class Ruleset(object):
     Objects with `itype_id` 8 or 22 would return False. Everything else
     would return the default value of True.
     """
+
     def __init__(self, rules, default=None):
         self.rules = rules
         self.default = default
 
+    def get_val_from_obj(self, field_def, obj):
+        try:
+            return getattr(obj, field_def)
+        except TypeError:
+            try:
+                return field_def(obj)
+            except TypeError:
+                try:
+                    return tuple(getattr(obj, f, None) for f in field_def)
+                except AttributeError:
+                    return tuple(obj.get(f, None) for f in field_def)
+        except AttributeError:
+            try:
+                return obj.get(field_def, None)
+            except AttributeError:
+                return None
+
     def evaluate(self, obj):
         result = self.default
-        for fields, mapping in self.rules:
-            if isinstance(fields, (tuple, list)):
-                val_from_obj = tuple(getattr(obj, f, None) for f in fields)
-            else:
-                val_from_obj = getattr(obj, fields, None)
+        for field_def, mapping in self.rules:
+            val_from_obj = self.get_val_from_obj(field_def, obj)
             result = mapping.get(val_from_obj, result)
         return result
 
