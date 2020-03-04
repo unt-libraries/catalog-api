@@ -8,9 +8,6 @@ import pytest
 from base import ruleset as r
 
 # FIXTURES / TEST DATA
-# Note that, in addition to the fixtures below, we're using these
-# fixtures from base.tests.conftest:
-#   - ruleset_test_obj_class
 
 @pytest.fixture
 def ex_nondict_map_class():
@@ -78,14 +75,13 @@ def example_str_pattern_map_obj(str_pattern_map_class):
     ({'location_id': 'xmus'}, True),
 ])
 def test_ruleset_evaluate_works_for_dict_ruleset(obj_attrs, expected,
-                                                 dict_ruleset,
-                                                 ruleset_test_obj_class):
+                                                 dict_ruleset, mocker):
     """
     The `Ruleset.evaluate` method should return the expected value, for
     Ruleset objects configured using standard dictionaries (i.e. the
     `dict_ruleset` fixture).
     """
-    obj = ruleset_test_obj_class(**obj_attrs)
+    obj = mocker.Mock(**obj_attrs)
     assert dict_ruleset.evaluate(obj) == expected
 
 
@@ -93,19 +89,17 @@ def test_ruleset_evaluate_works_for_dict_ruleset(obj_attrs, expected,
     ({'location_id': 'czm'}, 'Chilton Hall Media Library'),
     ({'location_id': 'czmrf'}, 'Chilton Hall Media Library'),
     ({'location_id': 'c'}, None),
-    ({'location_id': 'w1'}, 'Willis Library'),
-    ({}, None),
+    ({'location_id': 'w1'}, 'Willis Library')
 ])
 def test_ruleset_evaluate_works_for_nondict_ruleset(obj_attrs, expected,
-                                                    nondict_ruleset,
-                                                    ruleset_test_obj_class):
+                                                    nondict_ruleset, mocker):
     """
     The `Ruleset.evaluate` method should return the expected value, for
     Ruleset objects configured using custom, non-dict map objects, if
     the custom object implements an appropriate `get` method (i.e.
     the `nondict_ruleset` fixture).
     """
-    obj = ruleset_test_obj_class(**obj_attrs)
+    obj = mocker.Mock(**obj_attrs)
     assert nondict_ruleset.evaluate(obj) == expected
 
 

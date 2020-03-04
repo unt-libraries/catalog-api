@@ -8,9 +8,6 @@ import pytest
 from base import local_rulesets as lr
 
 # FIXTURES / TEST DATA
-# Note that, in addition to the fixtures below, we're using these
-# fixtures from base.tests.conftest:
-#   - ruleset_test_obj_class
 
 @pytest.fixture
 def item_rules():
@@ -32,14 +29,13 @@ def item_rules():
     ('czm', False),
     ('law', False),
 ])
-def test_itemrules_isonline(loc_code, expected, ruleset_test_obj_class,
-                            item_rules):
+def test_itemrules_isonline(loc_code, expected, item_rules, mocker):
     """
     Our local ITEM_RULES['is_online'] rule should return the expected
     boolean for items with the given location code, indicating whether
     or not that item is an online copy.
     """
-    item = ruleset_test_obj_class(location_id=loc_code)
+    item = mocker.Mock(location_id=loc_code)
     assert item_rules['is_online'].evaluate(item) == expected
 
 
@@ -69,15 +65,14 @@ def test_itemrules_isonline(loc_code, expected, ruleset_test_obj_class,
     ('xmus', False),
     ('xdoc', False),
 ])
-def test_itemrules_isatpubliclocation(loc_code, expected,
-                                      ruleset_test_obj_class, item_rules):
+def test_itemrules_isatpubliclocation(loc_code, expected, item_rules, mocker):
     """
     Our local ITEM_RULES['is_at_public_location'] rule should return
     the expected boolean for items with the given location code,
     indicating whether or not that item exists at a (physical) location
     that can be accessed by the public.
     """
-    item = ruleset_test_obj_class(location_id=loc_code)
+    item = mocker.Mock(location_id=loc_code)
     assert item_rules['is_at_public_location'].evaluate(item) == expected
 
 
@@ -110,14 +105,13 @@ def test_itemrules_isatpubliclocation(loc_code, expected,
     ('lwww', None),
     ('mwww', None),
 ])
-def test_itemrules_buildinglocation(loc_code, expected,
-                                    ruleset_test_obj_class, item_rules):
+def test_itemrules_buildinglocation(loc_code, expected, item_rules, mocker):
     """
     Our local ITEM_RULES['building_location'] rule should return
     the location code value of the physical building an item belongs
     in, if any.
     """
-    item = ruleset_test_obj_class(location_id=loc_code)
+    item = mocker.Mock(location_id=loc_code)
     assert item_rules['building_location'].evaluate(item) == expected
 
 
@@ -147,13 +141,12 @@ def test_itemrules_buildinglocation(loc_code, expected,
     ('rfbks', ['Discovery Park Library']),
     ('rst', ['Discovery Park Library']),
 ])
-def test_itemrules_incollections(loc_code, expected, ruleset_test_obj_class,
-                                 item_rules):
+def test_itemrules_incollections(loc_code, expected, item_rules, mocker):
     """
     Our local ITEM_RULES['in_collections'] rule should return a set of
     names/labels of the collections an item belongs to.
     """
-    item = ruleset_test_obj_class(location_id=loc_code)
+    item = mocker.Mock(location_id=loc_code)
     assert item_rules['in_collections'].evaluate(item) == set(expected)
 
 
@@ -189,15 +182,14 @@ def test_itemrules_incollections(loc_code, expected, ruleset_test_obj_class,
 ])
 def test_itemrules_isrequestablethroughcatalog(loc_code, itype_id,
                                                item_status_id, expected,
-                                               ruleset_test_obj_class,
-                                               item_rules):
+                                               item_rules, mocker):
     """
     Our local ITEM_RULES['is_requestable_through_catalog'] rule should
     return True if an item is available to be requested via the online
     catalog; False if not.
     """
-    item = ruleset_test_obj_class(location_id=loc_code, itype_id=itype_id,
-                                  item_status_id=item_status_id)
+    item = mocker.Mock(location_id=loc_code, itype_id=itype_id,
+                       item_status_id=item_status_id)
     result = item_rules['is_requestable_through_catalog'].evaluate(item)
     assert result == expected
 
@@ -212,15 +204,14 @@ def test_itemrules_isrequestablethroughcatalog(loc_code, itype_id,
     ('w4mrx', True),
     ('w4spe', True),
 ])
-def test_itemrules_isrequestablethroughaeon(loc_code, expected,
-                                            ruleset_test_obj_class,
-                                            item_rules):
+def test_itemrules_isrequestablethroughaeon(loc_code, expected, item_rules,
+                                            mocker):
     """
     Our local ITEM_RULES['is_requestable_through_aeon'] rule should
     return True if an item is available to be requested via Aeon; False
     if not.
     """
-    item = ruleset_test_obj_class(location_id=loc_code)
+    item = mocker.Mock(location_id=loc_code)
     result = item_rules['is_requestable_through_aeon'].evaluate(item)
     assert result == expected
 
@@ -235,11 +226,11 @@ def test_itemrules_isrequestablethroughaeon(loc_code, expected,
     ('w4mrx', False),
     ('w4spe', False),
 ])
-def test_itemrules_isatjlf(loc_code, expected, ruleset_test_obj_class,
-                           item_rules):
+def test_itemrules_isatjlf(loc_code, expected, item_rules, mocker):
     """
     Our local ITEM_RULES['is_at_jlf'] rule should return True if an
     item is available to be requested via ILLiad from the JLF.
     """
-    item = ruleset_test_obj_class(location_id=loc_code)
+    item = mocker.Mock(location_id=loc_code)
     assert item_rules['is_at_jlf'].evaluate(item) == expected
+
