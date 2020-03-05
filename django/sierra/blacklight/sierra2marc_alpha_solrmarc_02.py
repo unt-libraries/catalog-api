@@ -592,7 +592,7 @@ class BlacklightASMPipeline(object):
                 if display_date != 'dates unknown':
                     new_stext = '{}{}'.format(label, display_date)
                     pub_info[pub_field] = pub_info.get(pub_field, [])
-                    pub_info[pub_field].append(new_stext.capitalize())
+                    pub_info[pub_field].append(new_stext)
                     described_years.add(date1)
 
         if not coded_dates and described_years:
