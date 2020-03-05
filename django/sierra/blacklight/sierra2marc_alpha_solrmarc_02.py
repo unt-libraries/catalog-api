@@ -188,14 +188,22 @@ class BlacklightASMPipeline(object):
         for link in sorted(item_links, key=lambda l: l.items_display_order):
             item = link.item_record
             item_id, callnum, barcode, notes, rqbility = '', '', '', [], ''
-            callnum = self.calculate_item_display_call_number(item, r)
+            callnum, vol = self.calculate_item_display_call_number(r, item)
             item_id = str(item.record_metadata.record_num)
             barcode = self.fetch_varfields(item, 'b', only_first=True)
             notes = self.fetch_varfields(item, 'p')
             rqbility = self.calculate_item_requestability(item)
 
-            items.append({'i': item_id, 'c': callnum, 'b': barcode, 'n': notes,
-                          'r': rqbility})
+            items.append({'i': item_id, 'c': callnum, 'v': vol, 'b': barcode,
+                          'n': notes, 'r': rqbility})
+
+        if len(items) == 0:
+            bib_locations = r.locations.all()
+            bib_callnum, _ = self.calculate_item_display_call_number(r)
+            for location in bib_locations:
+                items.append({'i': None, 'c': bib_callnum, 'l': location.code})
+            if len(bib_locations) == 0:
+                items.append({'i': None, 'c': bib_callnum, 'l': 'none'})
 
         items_json, has_more_items, more_items_json = [], False, []
         items_json = [ujson.dumps(i) for i in items[0:3]]
@@ -208,27 +216,30 @@ class BlacklightASMPipeline(object):
             'more_items_json': more_items_json or None
         }
 
-    def calculate_item_display_call_number(self, item, bib):
+    def calculate_item_display_call_number(self, bib, item=None):
         """
         Sub-method used by `get_item_info` to return the display call
         number for the given `item`.
         """
-        cn_string = ''
-        item_cn_tuples = item.get_call_numbers()
-        bib_cn_tuples = bib.get_call_numbers()
+        cn_string, vol = '', None
+        item_cn_tuples = [] if item is None else item.get_call_numbers()
 
         if len(item_cn_tuples) > 0:
             cn_string = item_cn_tuples[0][0]
-        elif len(bib_cn_tuples) > 0:
-            cn_string = bib_cn_tuples[0][0]
+        else:
+            bib_cn_tuples = bib.get_call_numbers()
+            if len(bib_cn_tuples) > 0:
+                cn_string = bib_cn_tuples[0][0]
 
-        vol = self.fetch_varfields(item, 'v', only_first=True)
-        if vol is not None:
-            cn_string = '{} {}'.format(cn_string, vol)
+        if item is not None:
+            vol = self.fetch_varfields(item, 'v', only_first=True)
+            if item.copy_num > 1:
+                if vol is None:
+                    cn_string = '{} c.{}'.format(cn_string, item.copy_num)
+                else:
+                    vol = '{} c.{}'.format(vol, item.copy_num)
 
-        if item.copy_num > 1:
-            cn_string = '{} c.{}'.format(cn_string, item.copy_num)
-        return cn_string or None
+        return (cn_string or None, vol)
 
     def calculate_item_requestability(self, item):
         """

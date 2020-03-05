@@ -101,8 +101,8 @@ def update_test_bib_inst(add_varfields_to_record, add_items_to_bib,
     Returns the updated bib instance. Underneath, fixture factories are
     used that ensure the changes are reverted after the test runs.
     """
-    def _update_test_bib_inst(bib, varfields=[], items=[], locations=[]):
-        if locations:
+    def _update_test_bib_inst(bib, varfields=[], items=[], locations=None):
+        if locations is not None:
             bib = add_locations_to_bib(bib, locations, overwrite_existing=True)
 
         for field_tag, marc_tag, vals in varfields:
@@ -345,56 +345,56 @@ def test_blasmpipeline_getiteminfo_ids(bl_sierra_test_record,
     assert_json_matches_expected(val['items_json'], expected)
 
 
-@pytest.mark.parametrize('bib_cn_info, items_info, expected_cns', [
+@pytest.mark.parametrize('bib_cn_info, items_info, expected', [
     ([('c', '050', ['|aTEST BIB CN'])],
      [({'copy_num': 1}, [])],
-     ['TEST BIB CN']),
+     [('TEST BIB CN', None)]),
     ([('c', '090', ['|aTEST BIB CN'])],
      [({'copy_num': 1}, [])],
-     ['TEST BIB CN']),
+     [('TEST BIB CN', None)]),
     ([('c', '092', ['|aTEST BIB CN'])],
      [({'copy_num': 1}, [])],
-     ['TEST BIB CN']),
+     [('TEST BIB CN', None)]),
     ([('c', '099', ['|aTEST BIB CN'])],
      [({'copy_num': 1}, [])],
-     ['TEST BIB CN']),
+     [('TEST BIB CN', None)]),
     ([],
      [({'copy_num': 1}, [('c', '050', ['|aTEST ITEM CN'])])],
-     ['TEST ITEM CN']),
+     [('TEST ITEM CN', None)]),
     ([],
      [({'copy_num': 1}, [('c', '090', ['|aTEST ITEM CN'])])],
-     ['TEST ITEM CN']),
+     [('TEST ITEM CN', None)]),
     ([],
      [({'copy_num': 1}, [('c', '092', ['|aTEST ITEM CN'])])],
-     ['TEST ITEM CN']),
+     [('TEST ITEM CN', None)]),
     ([],
      [({'copy_num': 1}, [('c', '099', ['|aTEST ITEM CN'])])],
-     ['TEST ITEM CN']),
+     [('TEST ITEM CN', None)]),
     ([],
      [({'copy_num': 1}, [('c', None, ['TEST ITEM CN'])])],
-     ['TEST ITEM CN']),
+     [('TEST ITEM CN', None)]),
     ([('c', '050', ['TEST BIB CN'])],
      [({'copy_num': 1}, [('c', None, ['TEST ITEM CN'])]),
       ({'copy_num': 1}, [])],
-     ['TEST ITEM CN',
-      'TEST BIB CN']),
+     [('TEST ITEM CN', None),
+      ('TEST BIB CN', None)]),
     ([('c', '050', ['TEST BIB CN'])],
      [({'copy_num': 2}, [('c', None, ['TEST ITEM CN'])]),
       ({'copy_num': 3}, [])],
-     ['TEST ITEM CN c.2',
-      'TEST BIB CN c.3']),
+     [('TEST ITEM CN c.2', None),
+      ('TEST BIB CN c.3', None)]),
     ([('c', '050', ['TEST BIB CN'])],
      [({'copy_num': 1}, [('v', None, ['volume 1'])])],
-     ['TEST BIB CN volume 1']),
+     [('TEST BIB CN', 'volume 1')]),
     ([('c', '050', ['TEST BIB CN'])],
      [({'copy_num': 1}, [('v', None, ['volume 2', 'volume 1'])])],
-     ['TEST BIB CN volume 2']),
+     [('TEST BIB CN', 'volume 2')]),
     ([('c', '050', ['TEST BIB CN'])],
      [({'copy_num': 2}, [('v', None, ['volume 1'])])],
-     ['TEST BIB CN volume 1 c.2']),
+     [('TEST BIB CN', 'volume 1 c.2')]),
     ([],
      [({'copy_num': 1}, [])],
-     [None]),
+     [(None, None)]),
 ], ids=[
     'bib cn (c050), no item cn => bib cn',
     'bib cn (c090), no item cn => bib cn',
@@ -412,9 +412,8 @@ def test_blasmpipeline_getiteminfo_ids(bl_sierra_test_record,
     'both copy_num AND volume may appear (volume first, then copy)',
     'if NO cn, copy, or volume, cn defaults to None/null'
 ])
-def test_blasmpipeline_getiteminfo_callnumbers(bib_cn_info, items_info,
-                                               expected_cns,
-                                               bl_sierra_test_record,
+def test_blasmpipeline_getiteminfo_callnum_vol(bib_cn_info, items_info,
+                                               expected, bl_sierra_test_record,
                                                blasm_pipeline_class,
                                                update_test_bib_inst,
                                                assert_json_matches_expected):
@@ -422,14 +421,15 @@ def test_blasmpipeline_getiteminfo_callnumbers(bib_cn_info, items_info,
     The `items_json` key of the value returned by
     BlacklightASMPipeline.get_item_info should be a list of JSON
     objects, each one corresponding to an item. The 'c' key for each
-    JSON object contains the call number. Various parameters test how
-    the item call number is generated.
+    JSON object contains the call number, and the 'v' key contains the
+    volume. Various parameters test how the item call numbers and
+    volumes are generated.
     """
     pipeline = blasm_pipeline_class()
     bib = bl_sierra_test_record('bib_no_items')
     bib = update_test_bib_inst(bib, varfields=bib_cn_info, items=items_info)
     val = pipeline.get_item_info(bib, None)
-    expected = [{'c': cn} for cn in expected_cns]
+    expected = [{'c': cn, 'v': vol} for cn, vol in expected]
     assert_json_matches_expected(val['items_json'], expected)
 
 
@@ -588,6 +588,37 @@ def test_blasmpipeline_getiteminfo_requesting(items_info, expected_r,
     assert_json_matches_expected(val['items_json'], exp_items[0:3])
     if val['more_items_json'] is not None:
         assert_json_matches_expected(val['more_items_json'], exp_items[3:])
+
+
+@pytest.mark.parametrize('bib_locations, bib_cn_info, expected', [
+    ([('w', 'Willis Library'), ('czm', 'Chilton Media Library')],
+     [('c', '090', ['|aTEST BIB CN'])],
+     [{'i': None, 'c': 'TEST BIB CN', 'l': 'w'},
+      {'i': None, 'c': 'TEST BIB CN', 'l': 'czm'}]),
+    ([],
+     [('c', '090', ['|aTEST BIB CN'])],
+     [{'i': None, 'c': 'TEST BIB CN', 'l': 'none'}]),
+])
+def test_blasmpipeline_getiteminfo_pseudo_items(bib_locations, bib_cn_info,
+                                                expected,
+                                                bl_sierra_test_record,
+                                                blasm_pipeline_class,
+                                                get_or_make_location_instances,
+                                                update_test_bib_inst,
+                                                assert_json_matches_expected):
+    """
+    When a bib record has no attached items, the `items_json` key of
+    the value returned by BlacklightASMPipeline.get_item_info should
+    contain "pseudo-item" entries generated based off the bib locations
+    and bib call numbers.
+    """
+    pipeline = blasm_pipeline_class()
+    bib = bl_sierra_test_record('bib_no_items')
+    loc_info = [{'code': code, 'name': name} for code, name in bib_locations]
+    locations = get_or_make_location_instances(loc_info)
+    bib = update_test_bib_inst(bib, varfields=bib_cn_info, locations=locations)
+    val = pipeline.get_item_info(bib, None)
+    assert_json_matches_expected(val['items_json'], expected)
 
 
 @pytest.mark.parametrize('marcfields, items_info, expected', [
