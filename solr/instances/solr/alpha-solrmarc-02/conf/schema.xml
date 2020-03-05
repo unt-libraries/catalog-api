@@ -168,6 +168,7 @@
     <copyField source="building_facet" dest="metadata_facets_search"/>
     <copyField source="shelf_facet" dest="metadata_facets_search"/>
     <copyField source="collection_facet" dest="metadata_facets_search"/>
+    <copyField source="resource_type_facet" dest="metadata_facets_search"/>
 
     <!-- Publication -->
     <field name="publication_places_search" type="text" indexed="true" stored="false" multiValued="true"/>
