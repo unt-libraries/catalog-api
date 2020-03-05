@@ -1922,6 +1922,7 @@
          languages,
          main_call_number,
          material_type,
+         resource_type,
          publication_year_display,
          publication_display,
          creation_display,
@@ -1943,7 +1944,7 @@
          has_more_items
        </str>
  
-       <str name="facet">true</str>
+       <!-- <str name="facet">true</str>
        <str name="facet.mincount">1</str>
        <str name="facet.field">material_type</str>
        <str name="facet.field">formats</str>
@@ -1957,7 +1958,7 @@
        <str name="facet.field">form_terms_facet</str>
        <str name="facet.field">people_facet</str>
        <str name="facet.field">corporations_facet</str>
-       <str name="facet.field">meetings_facet</str>
+       <str name="facet.field">meetings_facet</str> -->
         
        <str name="spellcheck">true</str>
        <str name="spellcheck.dictionary">default</str>

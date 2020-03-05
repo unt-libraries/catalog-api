@@ -162,7 +162,7 @@
 
     <!-- GENERAL SEARCH OR SEARCH/DISPLAY FIELDS ========================================================== -->
     <field name="text" type="text" indexed="true" stored="false" multiValued="true"/>
-    <field name="metadata_facets_search" indexed="true" stored="false" multiValued="true"/>
+    <field name="metadata_facets_search" type="text" indexed="true" stored="false" multiValued="true"/>
     <copyField source="publication_decade_facet" dest="metadata_facets_search"/>
     <copyField source="publication_year_facet" dest="metadata_facets_search"/>
     <copyField source="building_facet" dest="metadata_facets_search"/>
@@ -174,7 +174,6 @@
     <field name="publication_places_search" type="text" indexed="true" stored="false" multiValued="true"/>
     <field name="publishers_search" type="text" indexed="true" stored="false" multiValued="true"/>
     <field name="publication_dates_search" type="text" indexed="true" stored="false" multiValued="true"/>
-
 
 
     <!-- OLD FIELDS: DONE #################################################################################
@@ -194,16 +193,16 @@
 	<!-- <field name="text" type="text" indexed="true" stored="false" multiValued="true"/> -->
     <!-- <field name="suppressed" type="boolean" indexed="true" stored="true" multiValued="false" /> -->
     <!-- <field name="_version_" type="long" indexed="true" stored="true"/> -->
-    <field name="urls" type="string" indexed="false" stored="true" multiValued="true"/>
-    <field name="url_labels" type="string" indexed="false" stored="true" multiValued="true"/>
-    <field name="publication_dates_facet" type="string" indexed="true" stored="true" multiValued="true" />
-    <field name="imprints" type="text" indexed="true" stored="true" multiValued="true"/>
-    <field name="publication_country" type="text" indexed="true" stored="true" multiValued="false"/>
-    <field name="publication_places" type="text" indexed="true" stored="true" multiValued="true"/>
-    <field name="publishers" type="text" indexed="true" stored="true" multiValued="true"/>
-    <field name="publication_dates" type="text" indexed="true" stored="true" multiValued="true"/>
-    <field name="bib_location_codes" type="string" indexed="true" stored="true" multiValued="true"/>
-    <field name="item_location_codes" type="string" indexed="true" stored="true" multiValued="true"/>
+    <!-- <field name="urls" type="string" indexed="false" stored="true" multiValued="true"/> -->
+    <!-- <field name="url_labels" type="string" indexed="false" stored="true" multiValued="true"/> -->
+    <!-- <field name="publication_dates_facet" type="string" indexed="true" stored="true" multiValued="true" /> -->
+    <!-- <field name="imprints" type="text" indexed="true" stored="true" multiValued="true"/> -->
+    <!-- <field name="publication_country" type="text" indexed="true" stored="true" multiValued="false"/> -->
+    <!-- <field name="publication_places" type="text" indexed="true" stored="true" multiValued="true"/> -->
+    <!-- <field name="publishers" type="text" indexed="true" stored="true" multiValued="true"/> -->
+    <!-- <field name="publication_dates" type="text" indexed="true" stored="true" multiValued="true"/> -->
+    <!-- <field name="bib_location_codes" type="string" indexed="true" stored="true" multiValued="true"/> -->
+    <!-- <field name="item_location_codes" type="string" indexed="true" stored="true" multiValued="true"/> -->
     <field name="material_type" type="string" indexed="true" stored="true" multiValued="false" />
 
 
