@@ -648,6 +648,7 @@ class BlacklightASMPipeline(object):
     def get_resource_type_info(self, r, marc_record):
         resource_type = self.bib_rules['resource_type'].evaluate(r)
         rt_categories = {
+            'unknown': [],
             'book': ['Books'],
             'database': ['Online Databases'],
             'score': ['Music Scores'],

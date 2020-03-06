@@ -122,6 +122,7 @@ class ResourceTypeDeterminer(object):
     """
 
     rtype_def = {
+        'unknown': '-',
         'book': 'a',
         'database': 'b',
         'score': 'c',
@@ -148,7 +149,7 @@ class ResourceTypeDeterminer(object):
     from_bcode2 = {v: k for k, v in rtype_def.items() if v is not None}
 
     def __call__(self, obj):
-        rtype = self.from_bcode2[obj.bcode2]
+        rtype = self.from_bcode2.get(obj.bcode2, 'unknown')
         do = getattr(self, 'process_{}_rtype'.format(rtype), lambda x: None)
         return do(obj) or rtype
 

@@ -241,6 +241,7 @@ def test_itemrules_isatjlf(loc_code, expected, item_rules, mocker):
 
 
 @pytest.mark.parametrize('bcode2, cns, f008_26, bib_locations, expected', [
+    ('-', None, None, None, 'unknown'),
     ('a', None, None, None, 'book'),
     ('b', None, None, None, 'database'),
     ('c', None, None, None, 'score'),

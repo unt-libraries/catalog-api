@@ -158,7 +158,7 @@
     <field name="building_facet" type="string" indexed="false" stored="true" multiValued="true" docValues="true"/>
     <field name="shelf_facet" type="string" indexed="false" stored="true" multiValued="true" docValues="true"/>
     <field name="collection_facet" type="string" indexed="false" stored="true" multiValued="true" docValues="true"/>
-    <field name="resource_type_facet" type="string" indexed="false" stored="true" multiValued="false" docValues="true"/>
+    <field name="resource_type_facet" type="string" indexed="false" stored="true" multiValued="true" docValues="true"/>
 
     <!-- GENERAL SEARCH OR SEARCH/DISPLAY FIELDS ========================================================== -->
     <field name="text" type="text" indexed="true" stored="false" multiValued="true"/>
