@@ -655,7 +655,7 @@ class BlacklightASMPipeline(object):
             'map': ['Maps'],
             'video': ['Video/Film'],
             'audiobook': ['Books', 'Audio'],
-            'recording': ['Music Recording', 'Audio'],
+            'recording': ['Music Recordings', 'Audio'],
             'graphic': ['Images'],
             'computer_file': ['Software'],
             'video_game': ['Games', 'Software'],
