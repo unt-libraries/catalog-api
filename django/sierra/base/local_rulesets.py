@@ -124,27 +124,27 @@ class ResourceTypeDeterminer(object):
     rtype_def = {
         'unknown': '-',
         'book': 'a',
-        'database': 'b',
-        'score': 'c',
+        'online_database': 'b',
+        'music_score': 'c',
         'map': 'e',
-        'video': 'g',
+        'video_film': 'g',
         'audiobook': 'i',
-        'recording': 'j',
-        'graphic': 'k',
-        'computer_file': 'm',
+        'music_recording': 'j',
+        'print_graphic': 'k',
+        'software': 'm',
         'video_game': None,
         'eresource': None,
         'ebook': 'n',
-        'kit': 'o',
+        'educational_kit': 'o',
         'archival_collection': 'p',
         'print_journal': 'q',
-        'object': 'r',
-        'board_game': None,
+        'object_artifact': 'r',
+        'tabletop_game': None,
         'equipment': None,
         'score_thesis': 's',
         'manuscript': 't',
         'ejournal': 'y',
-        'thesis': 'z',
+        'thesis_dissertation': 'z',
     }
     from_bcode2 = {v: k for k, v in rtype_def.items() if v is not None}
 
@@ -153,7 +153,7 @@ class ResourceTypeDeterminer(object):
         do = getattr(self, 'process_{}_rtype'.format(rtype), lambda x: None)
         return do(obj) or rtype
 
-    def process_computer_file_rtype(self, obj):
+    def process_software_rtype(self, obj):
         norm_cns = (cn.lower() for cn in self.get_callnums_from_obj(obj))
         if any([cn.startswith('game') for cn in norm_cns]):
             return 'video_game'
@@ -164,14 +164,14 @@ class ResourceTypeDeterminer(object):
             if f008[26] == 'g':
                 return 'video_game'
             if f008[26] == 'h':
-                return 'recording'
+                return 'music_recording'
 
-    def process_object_rtype(self, obj):
+    def process_object_artifact_rtype(self, obj):
         norm_cns = (cn.lower() for cn in self.get_callnums_from_obj(obj))
         if any([cn.startswith('boardgame') for cn in norm_cns]):
-            return 'board_game'
+            return 'tabletop_game'
         if 'w4spe' in self.get_bib_location_codes_from_obj(obj):
-            return 'object'
+            return 'object_artifact'
         return 'equipment'
 
     def get_callnums_from_obj(self, obj):

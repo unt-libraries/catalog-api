@@ -1414,11 +1414,11 @@ def test_blasmpipeline_getaccessinfo(bib_locations, item_locations, expected,
 
 @pytest.mark.parametrize('bcode2, expected', [
     ('a', {'resource_type': 'book',
-           'resource_type_facet': ['Books']}),
-    ('b', {'resource_type': 'database',
-           'resource_type_facet': ['Online Databases']}),
-    ('c', {'resource_type': 'score',
-           'resource_type_facet': ['Music Scores']}),
+           'resource_type_facet': ['books']}),
+    ('b', {'resource_type': 'online_database',
+           'resource_type_facet': ['online_databases']}),
+    ('c', {'resource_type': 'music_score',
+           'resource_type_facet': ['music_scores']}),
 ])
 def test_blasmpipeline_getresourcetypeinfo(bcode2,
                                            expected, bl_sierra_test_record,
