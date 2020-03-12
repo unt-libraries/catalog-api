@@ -1943,9 +1943,10 @@
          items_json,
          has_more_items
        </str>
+
+       <str name="facet.mincount">1</str>
  
        <!-- <str name="facet">true</str>
-       <str name="facet.mincount">1</str>
        <str name="facet.field">material_type</str>
        <str name="facet.field">formats</str>
        <str name="facet.field">main_call_number</str>

@@ -154,11 +154,11 @@
     <!-- FACET FIELDS ===================================================================================== -->
     <field name="publication_decade_facet" type="reverse_number" indexed="true" stored="true" multiValued="true"/>
     <field name="publication_year_facet" type="reverse_number" indexed="true" stored="true" multiValued="true"/>
-    <field name="access_facet" type="string" indexed="false" stored="true" multiValued="true" docValues="true"/>
-    <field name="building_facet" type="string" indexed="false" stored="true" multiValued="true" docValues="true"/>
-    <field name="shelf_facet" type="string" indexed="false" stored="true" multiValued="true" docValues="true"/>
-    <field name="collection_facet" type="string" indexed="false" stored="true" multiValued="true" docValues="true"/>
-    <field name="resource_type_facet" type="string" indexed="false" stored="true" multiValued="true" docValues="true"/>
+    <field name="access_facet" type="string" indexed="true" stored="true" multiValued="true" docValues="true"/>
+    <field name="building_facet" type="string" indexed="true" stored="true" multiValued="true" docValues="true"/>
+    <field name="shelf_facet" type="string" indexed="true" stored="true" multiValued="true" docValues="true"/>
+    <field name="collection_facet" type="string" indexed="true" stored="true" multiValued="true" docValues="true"/>
+    <field name="resource_type_facet" type="string" indexed="true" stored="true" multiValued="true" docValues="true"/>
 
     <!-- GENERAL SEARCH OR SEARCH/DISPLAY FIELDS ========================================================== -->
     <field name="text" type="text" indexed="true" stored="false" multiValued="true"/>
