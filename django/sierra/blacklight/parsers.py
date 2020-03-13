@@ -239,7 +239,7 @@ def strip_ends(data, end_punctuation_re=settings.MARCDATA.ENDING_PUNCTUATION_REG
     abbreviation.
     """
     def strip_punctuation(data):
-        return re.sub(r'^(\s*{0}*\s*)*(.+?)(\s*{0}*\s*)*$'.format(end_punctuation_re), r'\2', data)
+        return re.sub(r'^({0}|\s)*(.+?)({0}|\s)*$'.format(end_punctuation_re), r'\2', data)
     return protect_periods_and_do(data, strip_punctuation)
 
 

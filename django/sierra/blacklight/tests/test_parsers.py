@@ -250,6 +250,7 @@ def test_reconstruct_bracketed(data, brackets, stripchars, expected):
     ('. ;./ strip punctuation marks and whitespace at beginning', 'strip punctuation marks and whitespace at beginning'),
     (' . . . strip punctuation and whitespace from both ends . /; ', 'strip punctuation and whitespace from both ends'),
     ('(do not strip parentheses or punct inside parentheses...);', '(do not strip parentheses or punct inside parentheses...)'),
+    ('weirdness with,                             whitespace.', 'weirdness with,                             whitespace')
 ])
 def test_strip_ends(data, expected):
     """
