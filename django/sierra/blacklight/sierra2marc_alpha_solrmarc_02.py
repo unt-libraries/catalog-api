@@ -187,15 +187,16 @@ class BlacklightASMPipeline(object):
         item_links = [l for l in r.bibrecorditemrecordlink_set.all()]
         for link in sorted(item_links, key=lambda l: l.items_display_order):
             item = link.item_record
-            item_id, callnum, barcode, notes, rqbility = '', '', '', [], ''
-            callnum, vol = self.calculate_item_display_call_number(r, item)
-            item_id = str(item.record_metadata.record_num)
-            barcode = self.fetch_varfields(item, 'b', only_first=True)
-            notes = self.fetch_varfields(item, 'p')
-            rqbility = self.calculate_item_requestability(item)
+            if not item.is_suppressed:
+                item_id, callnum, barcode, notes, rqbility = '', '', '', [], ''
+                callnum, vol = self.calculate_item_display_call_number(r, item)
+                item_id = str(item.record_metadata.record_num)
+                barcode = self.fetch_varfields(item, 'b', only_first=True)
+                notes = self.fetch_varfields(item, 'p')
+                requestability = self.calculate_item_requestability(item)
 
-            items.append({'i': item_id, 'c': callnum, 'v': vol, 'b': barcode,
-                          'n': notes, 'r': rqbility})
+                items.append({'i': item_id, 'c': callnum, 'v': vol,
+                              'b': barcode, 'n': notes, 'r': requestability})
 
         if len(items) == 0:
             bib_locations = r.locations.all()

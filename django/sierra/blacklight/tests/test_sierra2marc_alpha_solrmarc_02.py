@@ -337,11 +337,12 @@ def test_blasmpipeline_getiteminfo_ids(bl_sierra_test_record,
     """
     pipeline = blasm_pipeline_class()
     bib = bl_sierra_test_record('bib_no_items')
-    bib = update_test_bib_inst(bib, items=[{}, {}])
+    bib = update_test_bib_inst(bib, items=[{}, {'is_suppressed': True}, {}])
     val = pipeline.get_item_info(bib, None)
     
     items = [l.item_record for l in bib.bibrecorditemrecordlink_set.all()]
-    expected = [{'i': str(item.record_metadata.record_num)} for item in items]
+    expected = [{'i': str(item.record_metadata.record_num)} for item in items
+                if not item.is_suppressed]
     assert_json_matches_expected(val['items_json'], expected)
 
 
