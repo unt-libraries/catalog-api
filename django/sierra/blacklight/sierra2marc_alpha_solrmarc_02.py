@@ -835,14 +835,14 @@ class S2MarcBatchBlacklightSolrMarc(S2MarcBatch):
 
     def _record_get_media_game_facet_tokens(self, r, marc_record):
         """
-        If this is a Media Library item and has a 590 field with a
+        If this is a Media Library item and has a 592 field with a
         Media Game Facet token string ("p1;p2t4;d30t59"), it returns
         the list of tokens. Returns None if no game facet string is
         found or tokens can't be extracted.
         """
         tokens = []
         if any([loc.code.startswith('czm') for loc in r.locations.all()]):
-            for f in marc_record.get_fields('590'):
+            for f in marc_record.get_fields('592'):
                 for sub_a in f.get_subfields('a'):
                     if re.match(r'^(([adp]\d+(t|to)\d+)|p1)(;|\s|$)', sub_a,
                                 re.IGNORECASE):
