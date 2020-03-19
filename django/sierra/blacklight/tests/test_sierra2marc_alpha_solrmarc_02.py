@@ -8,6 +8,8 @@ from __future__ import unicode_literals
 import pytest
 import pymarc
 import ujson
+import datetime
+import pytz
 
 from blacklight import sierra2marc_alpha_solrmarc_02 as s2m
 
@@ -322,6 +324,20 @@ def test_blasmpipeline_getsuppressed(in_val, expected, bl_sierra_test_record,
     setattr_model_instance(bib, 'is_suppressed', in_val)
     val = pipeline.get_suppressed(bib, None)
     assert val == {'suppressed': expected}
+
+
+def test_blasmpipeline_getdateadded(bl_sierra_test_record, blasm_pipeline_class,
+                                    setattr_model_instance):
+    """
+    BlacklightASMPipeline.get_date_added should return the correct date
+    (bib CAT DATE) in the datetime format Solr requires.
+    """
+    pipeline = blasm_pipeline_class()
+    bib = bl_sierra_test_record('bib_no_items')
+    test_date = datetime.datetime(2019, 3, 23, 6, tzinfo=pytz.utc)
+    setattr_model_instance(bib, 'cataloging_date_gmt', test_date)
+    val = pipeline.get_date_added(bib, None)
+    assert val == {'date_added': '2019-03-23T06:00:00Z'}
 
 
 def test_blasmpipeline_getiteminfo_ids(bl_sierra_test_record,

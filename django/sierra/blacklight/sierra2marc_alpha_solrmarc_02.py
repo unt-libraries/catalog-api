@@ -115,8 +115,8 @@ class BlacklightASMPipeline(object):
     fully-populated dict.
     """
     fields = [
-        'id', 'suppressed', 'item_info', 'urls_json', 'thumbnail_url',
-        'pub_info', 'access_info', 'resource_type_info'
+        'id', 'suppressed', 'date_added', 'item_info', 'urls_json',
+        'thumbnail_url', 'pub_info', 'access_info', 'resource_type_info'
     ]
     prefix = 'get_'
     access_online_label = 'Online'
@@ -177,6 +177,14 @@ class BlacklightASMPipeline(object):
         Return 'true' if the record is suppressed, else 'false'.
         """
         return { 'suppressed': 'true' if r.is_suppressed else 'false' }
+
+    def get_date_added(self, r, marc_record):
+        """
+        Return the CAT DATE (cataloged date) of the Bib record, in Solr
+        date format, as the date the record was added to the catalog.
+        """
+        date_added = r.cataloging_date_gmt
+        return { 'date_added': date_added.strftime('%Y-%m-%dT%H:%M:%SZ') }
 
     def get_item_info(self, r, marc_record):
         """
@@ -730,11 +738,10 @@ class PipelineBundleConverter(object):
     """
     mapping = (
         ( '907', ('id',) ),
-        ( '970', ('suppressed', 'date_added_sort', 'access_facet',
-                  'building_facet', 'shelf_facet', 'collection_facet',
-                  'resource_type', 'resource_type_facet',
-                  'game_duration_facet', 'game_players_facet',
-                  'game_age_facet', 'recently_added_facet') ),
+        ( '970', ('suppressed', 'date_added', 'access_facet', 'building_facet',
+                  'shelf_facet', 'collection_facet', 'resource_type',
+                  'resource_type_facet', 'game_duration_facet',
+                  'game_players_facet', 'game_age_facet') ),
         ( '971', ('items_json',) ),
         ( '971', ('has_more_items',) ),
         ( '971', ('more_items_json',) ),

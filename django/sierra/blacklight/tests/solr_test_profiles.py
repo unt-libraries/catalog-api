@@ -35,14 +35,14 @@ ALPHASOLRMARC_FIELDS = (
 )
 
 ALPHASOLRMARC02_FIELDS = (
-    'id', 'timestamp_of_last_solr_update', 'suppressed', 'resource_type',
-    'items_json', 'has_more_items', 'more_items_json', 'thumbnail_url',
-    'urls_json', 'publication_year_display', 'creation_display',
-    'publication_display', 'distribution_display', 'manufacture_display',
-    'copyright_display', 'publication_sort', 'publication_decade_facet',
-    'publication_year_facet', 'access_facet', 'building_facet', 'shelf_facet',
-    'collection_facet', 'resource_type_facet', 'metadata_facets_search',
-    'publication_places_search', 'publishers_search',
+    'id', 'timestamp_of_last_solr_update', 'suppressed', 'date_added',
+    'resource_type', 'items_json', 'has_more_items', 'more_items_json',
+    'thumbnail_url', 'urls_json', 'publication_year_display',
+    'creation_display', 'publication_display', 'distribution_display',
+    'manufacture_display', 'copyright_display', 'publication_sort',
+    'publication_decade_facet', 'publication_year_facet', 'access_facet',
+    'building_facet', 'shelf_facet', 'collection_facet', 'resource_type_facet',
+    'metadata_facets_search', 'publication_places_search', 'publishers_search',
     'publication_dates_search',
     # OLD FIELDS ARE BELOW
     'game_facet', 'formats', 'languages', 'isbn_numbers',
