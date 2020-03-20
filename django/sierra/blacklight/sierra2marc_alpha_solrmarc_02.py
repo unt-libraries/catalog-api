@@ -183,8 +183,9 @@ class BlacklightASMPipeline(object):
         Return the CAT DATE (cataloged date) of the Bib record, in Solr
         date format, as the date the record was added to the catalog.
         """
-        date_added = r.cataloging_date_gmt
-        return { 'date_added': date_added.strftime('%Y-%m-%dT%H:%M:%SZ') }
+        cdate = r.cataloging_date_gmt
+        rval = None if cdate is None else cdate.strftime('%Y-%m-%dT%H:%M:%SZ')
+        return { 'date_added': rval }
 
     def get_item_info(self, r, marc_record):
         """

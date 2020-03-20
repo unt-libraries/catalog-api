@@ -326,7 +326,12 @@ def test_blasmpipeline_getsuppressed(in_val, expected, bl_sierra_test_record,
     assert val == {'suppressed': expected}
 
 
-def test_blasmpipeline_getdateadded(bl_sierra_test_record, blasm_pipeline_class,
+@pytest.mark.parametrize('test_date, expected', [
+    (None, None),
+    (datetime.datetime(2019, 3, 23, tzinfo=pytz.utc), '2019-03-23T00:00:00Z')
+])
+def test_blasmpipeline_getdateadded(test_date, expected, bl_sierra_test_record,
+                                    blasm_pipeline_class,
                                     setattr_model_instance):
     """
     BlacklightASMPipeline.get_date_added should return the correct date
@@ -334,10 +339,9 @@ def test_blasmpipeline_getdateadded(bl_sierra_test_record, blasm_pipeline_class,
     """
     pipeline = blasm_pipeline_class()
     bib = bl_sierra_test_record('bib_no_items')
-    test_date = datetime.datetime(2019, 3, 23, 6, tzinfo=pytz.utc)
     setattr_model_instance(bib, 'cataloging_date_gmt', test_date)
     val = pipeline.get_date_added(bib, None)
-    assert val == {'date_added': '2019-03-23T06:00:00Z'}
+    assert val == {'date_added': expected}
 
 
 def test_blasmpipeline_getiteminfo_ids(bl_sierra_test_record,
