@@ -1918,7 +1918,8 @@
          creator,
          contributors,
          formats,
-         isbn_numbers, 
+         isbn_numbers,
+         oclc_numbers,
          languages,
          main_call_number,
          material_type,
@@ -1939,7 +1940,6 @@
          genre_terms_facet,
          thumbnail_url,
          urls_json,
-         isbn_numbers,
          items_json,
          has_more_items
        </str>
