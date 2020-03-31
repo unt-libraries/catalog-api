@@ -11,7 +11,7 @@ import ujson
 import datetime
 import pytz
 
-from blacklight import sierra2marc_alpha_solrmarc_02 as s2m
+from blacklight import sierra2marc as s2m
 
 
 # FIXTURES AND TEST DATA
