@@ -9,28 +9,37 @@ from utils.test_helpers import solr_test_profiles as tp
 
 
 SOLR_TYPES = tp.SOLR_TYPES
+SOLR_TYPES['reverse_number'] = {'pytype': unicode, 'emtype': 'string'}
 GLOBAL_UNIQUE_FIELDS = ('code', 'id', 'record_number')
 GENS = tp.GENS
 
 
 ALPHASOLRMARC_FIELDS = (
-    'id', 'suppressed', 'bib_location_codes', 'item_location_codes',
-    'game_facet', 'material_type', 'formats', 'languages', 'isbn_numbers',
+    'id', 'timestamp_of_last_solr_update', 'suppressed', 'date_added',
+    'resource_type', 'items_json', 'has_more_items', 'more_items_json',
+    'thumbnail_url', 'urls_json', 'publication_year_display',
+    'creation_display', 'publication_display', 'distribution_display',
+    'manufacture_display', 'copyright_display', 'publication_sort',
+    'publication_decade_facet', 'publication_year_facet', 'access_facet',
+    'building_facet', 'shelf_facet', 'collection_facet', 'resource_type_facet',
+    'metadata_facets_search', 'publication_places_search', 'publishers_search',
+    'publication_dates_search',
+    # OLD FIELDS ARE BELOW
+    'game_facet', 'formats', 'languages', 'isbn_numbers',
     'issn_numbers', 'lccn_number', 'oclc_numbers', 'dewey_call_numbers',
     'loc_call_numbers', 'sudoc_numbers', 'other_call_numbers',
     'main_call_number', 'main_call_number_sort', 'main_title', 'subtitle',
     'statement_of_responsibility', 'full_title', 'title_sort',
     'alternate_titles', 'uniform_title', 'related_titles', 'corporations',
     'meetings', 'people', 'creator', 'creator_sort', 'contributors',
-    'author_title_search', 'imprints', 'publishers', 'publication_country',
-    'publication_dates', 'publication_places', 'physical_characteristics',
+    'author_title_search', 'physical_characteristics',
     'context_notes', 'summary_notes', 'toc_notes', 'era_terms', 'form_terms',
     'general_terms', 'genre_terms', 'geographic_terms', 'other_terms',
     'topic_terms', 'full_subjects', 'series', 'series_exact',
-    'series_creators', 'urls', 'url_labels', 'timestamp', 'public_title_facet',
-    'public_author_facet', 'public_series_facet', 'meetings_facet',
-    'public_subject_facet', 'geographic_terms_facet', 'era_terms_facet',
-    'public_genre_facet', 'publication_dates_facet', 'text'
+    'series_creators',
+    'public_title_facet', 'public_author_facet', 'public_series_facet',
+    'meetings_facet', 'public_subject_facet', 'geographic_terms_facet',
+    'era_terms_facet', 'public_genre_facet', 'text'
 )
 
 # AlphaSolrmarc field specific gen functions
@@ -75,17 +84,12 @@ def author_title_search(record):
 
 ALPHASOLRMARC_GENS = (
     ('id', GENS(tp.auto_increment('b', 10000001))),
-    ('bib_location_codes', GENS(tp.multi(GENS.type('string', mn=1, mx=5,
-                                                   alphabet=tp.LETTERS_LOWER),
-                                         1, 3))),
-    ('item_location_codes', GENS(tp.multi(GENS.type('string', mn=1, mx=5,
-                                                    alphabet=tp.LETTERS_LOWER),
-                                          1, 3))),
+    ('items_json', None),
+    ('has_more_items', None),
+    ('more_items_json', None),
     ('game_facet', GENS(tp.multi(GENS.type('string', mn=6, mx=10,
                                            alphabet=tp.LETTERS_LOWER + 
                                                     tp.NUMBERS), 1, 3))),
-    ('material_type', GENS.type('string', mn=5, mx=15,
-                                alphabet=tp.LETTERS_UPPER)),
     ('formats', 'auto'),
     ('languages', 'auto'),
     ('isbn_numbers', GENS(tp.chance(tp.multi(tp.isbn_number, 1, 5), 66))),
@@ -115,11 +119,6 @@ ALPHASOLRMARC_GENS = (
                                     75))),
     ('statement_of_responsibility', GENS(tp.chance(tp.statement_of_resp, 80))),
     ('author_title_search', GENS(author_title_search)),
-    ('publishers', GENS(tp.chance(tp.multi(tp.org_name_like, 1, 3), 70))),
-    ('publication_dates', GENS(tp.chance(tp.multi(tp.year_like, 1, 3), 90))),
-    ('publication_places', GENS(tp.chance(tp.multi(tp.place_like, 1, 3), 60))),
-    ('publication_country', GENS(tp.chance(tp.place_like), 60)),
-    ('imprints', GENS(tp.imprints)),
     ('physical_characteristics', GENS(tp.multi(tp.sentence_like, 1, 4))),
     ('context_notes', GENS(tp.chance(tp.multi(tp.sentence_like, 1, 4), 50))),
     ('summary_notes', GENS(tp.chance(tp.multi(tp.sentence_like, 1, 4), 50))),
@@ -136,11 +135,7 @@ ALPHASOLRMARC_GENS = (
     ('series_exact', GENS(tp.copy_field('series'))),
     ('series_creators', GENS(tp.chance(tp.multi(tp.person_name_heading_like,
                                                 1, 3), 50))),
-    ('urls', GENS(tp.chance(tp.multi(tp.url_like, 1, 3), 75))),
-    ('url_labels', None),
-    ('timestamp', 'auto'),
-    ('item_ids', None),
-    ('item_record_numbers', None),
+    ('timestamp_of_last_solr_update', 'auto'),
     ('public_title_facet', GENS(public_title_facet)),
     ('public_author_facet', GENS(public_author_facet)),
     ('public_series_facet', GENS(tp.copy_field('series'))),
@@ -149,19 +144,16 @@ ALPHASOLRMARC_GENS = (
     ('geographic_terms_facet', GENS(tp.copy_field('geographic_terms'))),
     ('era_terms_facet', GENS(tp.copy_field('era_terms'))),
     ('public_genre_facet', GENS(tp.copy_field('genre_terms'))),
-    ('publication_dates_facet', GENS(tp.copy_field('publication_dates'))),
     ('suppressed', GENS.static(False)),
     ('text', GENS(tp.join_fields([
-        'id', 'material_type', 'bib_location_codes', 'item_location_codes',
-        'formats', 'languages', 'isbn_numbers', 'issn_numbers', 'lccn_number',
-        'oclc_numbers', 'dewey_call_numbers', 'loc_call_numbers',
-        'sudoc_numbers', 'other_call_numbers', 'main_call_number',
-        'statement_of_responsibility', 'full_title', 'alternate_titles',
-        'uniform_title', 'related_titles', 'corporations', 'meetings',
-        'people', 'imprints', 'publishers', 'publication_country',
-        'publication_dates', 'publication_places', 'physical_characteristics',
-        'context_notes', 'summary_notes', 'toc_notes', 'full_subjects',
-        'series', 'series_creators', 'url_labels'
+        'id', 'formats', 'languages', 'isbn_numbers', 'issn_numbers',
+        'lccn_number', 'oclc_numbers', 'dewey_call_numbers',
+        'loc_call_numbers', 'sudoc_numbers', 'other_call_numbers',
+        'main_call_number', 'statement_of_responsibility', 'full_title',
+        'alternate_titles', 'uniform_title', 'related_titles', 'corporations',
+        'meetings', 'people', 'physical_characteristics', 'context_notes',
+        'summary_notes', 'toc_notes', 'full_subjects', 'series',
+        'series_creators'
     ])))
 )
 

@@ -7,6 +7,7 @@ import dotenv
 
 from django.core.exceptions import ImproperlyConfigured
 from celery.concurrency import asynpool
+from . import marcdata
 
 
 asynpool.PROC_ALIVE_TIMEOUT = 60.0
@@ -286,6 +287,8 @@ solr_bibdata_url = get_env_variable('SOLR_BIBDATA_URL',
 solr_marc_url = get_env_variable('SOLR_MARC_URL', 
                     'http://{}:{}/solr/marc'.format(SOLR_HOST, SOLR_PORT))
 solr_asm_url =  'http://{}:{}/solr/alpha-solrmarc'.format(SOLR_HOST, SOLR_PORT)
+solr_asm02_url =  'http://{}:{}/solr/alpha-solrmarc-02'.format(SOLR_HOST,
+                                                               SOLR_PORT)
 solr_bls_url =  'http://{}:{}/solr/bl-suggest'.format(SOLR_HOST, SOLR_PORT)
 
 # HAYSTACK_CONNECTIONS, a required setting for Haystack
@@ -317,12 +320,24 @@ HAYSTACK_CONNECTIONS = {
         'URL': solr_asm_url,
         'TIMEOUT': 60 * 20,
     },
+    'alpha-solrmarc-02': {
+        'ENGINE': 'sierra.solr_backend.SolrmarcEngine',
+        'URL': solr_asm02_url,
+        'TIMEOUT': 60 * 20,
+    },
     'bl-suggest': {
         'ENGINE': 'sierra.solr_backend.CustomSolrEngine',
         'URL': solr_bls_url,
         'TIMEOUT': 60 * 20,
     }
 }
+
+# BL_CONN_NAME: the name of the connection / Solr core you're using for
+# the current Blacklight deployment.
+BL_CONN_NAME = 'alpha-solrmarc-02'
+# BL_SUGGEST_CONN_NAME: the name of the connection / Solr core you're
+# using for the current Blacklight auto-suggest index.
+BL_SUGGEST_CONN_NAME = 'bl-suggest'
 
 # HAYSTACK_LIMIT_TO_REGISTERED_MODELS, set to False to allow Haystack
 # to search our SolrMarc indexes, which are not model-based
@@ -481,3 +496,5 @@ ADMIN_ACCESS = get_env_variable('ADMIN_ACCESS', True)
 
 # Is this settings file for testing?
 TESTING = False
+
+MARCDATA = marcdata

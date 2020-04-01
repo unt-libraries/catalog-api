@@ -5,13 +5,14 @@ Exporters module for catalog-api `blacklight` app, alpha-solrmarc.
 from __future__ import unicode_literals
 import re
 
+from django.conf import settings
 from base import models as sm
 from base.search_indexes import BibIndex
 from export.exporter import ToSolrExporter
 from export.tasks import export_dispatch, RecordSetBundler
 from export.models import ExportInstance
 from blacklight.exporters import SameRecSetMultiExporter, FromSolrMixin
-from blacklight.sierra2marc import S2MarcBatchBlacklightSolrMarc
+from blacklight import sierra2marc as s2m
 from blacklight import bl_suggest_alpha_solrmarc as suggest
 from utils import solr
 
@@ -34,7 +35,7 @@ class BibsToAlphaSolrmarc(ToSolrExporter):
             'django_ct': None,
             'django_id': None
         }
-        s2marc_class = S2MarcBatchBlacklightSolrMarc
+        s2marc_class = s2m.S2MarcBatchBlacklightSolrMarc
 
         def get_qualified_id(self, record):
             try:
@@ -69,18 +70,18 @@ class BibsToAlphaSolrmarc(ToSolrExporter):
                 self.get_backend().conn.add(saved, commit=False)
 
         def update(self, using=None, commit=True, queryset=None):
-            self.save_and_suppress_records(using, queryset)
+            # self.save_and_suppress_records(using, queryset)
             super(BibsToAlphaSolrmarc.AlphaSmIndex, self).update(using, commit,
                                                                  queryset)
 
         def delete(self, using=None, commit=True, queryset=None):
-            self.save_and_suppress_records(using, queryset)
+            # self.save_and_suppress_records(using, queryset)
             super(BibsToAlphaSolrmarc.AlphaSmIndex, self).delete(using, commit,
                                                                  queryset)
 
     app_name = 'blacklight'
     IndexCfgEntry = ToSolrExporter.Index
-    index_config = (IndexCfgEntry('Bibs', AlphaSmIndex, 'alpha-solrmarc'),)
+    index_config = (IndexCfgEntry('Bibs', AlphaSmIndex, settings.BL_CONN_NAME),)
     model = sm.BibRecord
     deletion_filter = [
         {
@@ -90,18 +91,23 @@ class BibsToAlphaSolrmarc(ToSolrExporter):
     ]
     max_rec_chunk = 2000
     prefetch_related = [
+        'record_metadata__controlfield_set',
         'record_metadata__varfield_set',
         'bibrecorditemrecordlink_set',
         'bibrecorditemrecordlink_set__item_record',
         'bibrecorditemrecordlink_set__item_record__location',
+        'bibrecorditemrecordlink_set__item_record__location__locationname_set',
         'bibrecorditemrecordlink_set__item_record__record_metadata',
         'bibrecorditemrecordlink_set__item_record__record_metadata'
             '__record_type',
+        'bibrecorditemrecordlink_set__item_record__record_metadata'
+            '__varfield_set',
         'bibrecordproperty_set',
         'bibrecordproperty_set__material__materialpropertyname_set',
         'bibrecordproperty_set__material__materialpropertyname_set'
             '__iii_language',
         'locations',
+        'locations__locationname_set',
     ]
     select_related = ['record_metadata', 'record_metadata__record_type']
 
@@ -111,7 +117,8 @@ class BibsToAlphaSolrmarc(ToSolrExporter):
         new job to build the bl-suggest index.
         """
         super(BibsToAlphaSolrmarc, self).final_callback(vals, status)
-        if status in ('success', 'done_with_errors', 'errors'):
+        if False:
+        # if status in ('success', 'done_with_errors', 'errors'):
             self.log('Info', 'Triggering bl-suggest build.')
             if self.export_filter == 'full_export':
                 suggest_ftype = 'full_export'
@@ -280,9 +287,10 @@ class BuildAlphaSolrmarcSuggest(FromSolrMixin, ToSolrExporter):
             self.conn().commit()
 
     app_name = 'blacklight'
-    source_solr_conn = 'alpha-solrmarc'
+    source_solr_conn = settings.BL_CONN_NAME
     IndexCfgEntry = ToSolrExporter.Index
-    index_config = (IndexCfgEntry('suggest', SuggestIndex, 'bl-suggest'),)
+    index_config = (IndexCfgEntry('suggest', SuggestIndex,
+                                  settings.BL_SUGGEST_CONN_NAME),)
     solr_id_field = SuggestIndex.id_field
     max_rec_chunk = 10000
 
@@ -304,7 +312,7 @@ class BuildAlphaSolrmarcSuggest(FromSolrMixin, ToSolrExporter):
                        'before. Defaulting to `full_export`.')
                 self.log('Warning', msg)
             else:
-                return solr_qs.filter(timestamp__gte=latest.timestamp)
+                return solr_qs.filter(timestamp_of_last_solr_update__gte=latest.timestamp)
         return solr_qs
 
     def get_records(self, prefetch=True):
