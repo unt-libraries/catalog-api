@@ -1171,7 +1171,7 @@
       <!-- maximum threshold of documents a query term can appear to be considered for correction -->
       <float name="maxQueryFrequency">0.01</float>
       <!-- uncomment this to require suggestions to occur in 1% of the documents
-      	<float name="thresholdTokenFrequency">.01</float>
+        <float name="thresholdTokenFrequency">.01</float>
       -->
     </lst>
     
@@ -1799,6 +1799,7 @@
          main_title^100000
          subtitle^50000
          full_title^25000
+         publication_dates_search^5000
          uniform_title^5000
          alternate_titles^1500
          series^1500
@@ -1807,6 +1808,8 @@
          genre_facet^750
          geographic_facet^750
          era_facet^750
+         resource_type^500
+         metadata_facet_text^500
          topic_terms^500
          genre_terms^300
          geographic_terms^300
@@ -1816,6 +1819,8 @@
          statement_of_responsibility^250
          contributors^250
          series_creator^250
+         publishers_search^250
+         publication_places_search^100
          toc_notes^100
          text
        </str>
@@ -1831,6 +1836,8 @@
          genre_facet^7500
          geographic_facet^7500
          era_facet^7500
+         resource_type^5000
+         metadata_facet_text^5000
          topic_terms^5000
          genre_terms^3000
          geographic_terms^3000
@@ -1839,6 +1846,8 @@
          creator^2500
          contributors^2500
          series_creator^2500
+         publishers_search^2500
+         publication_places_search^2500
          toc_notes^1000
          text^10
        </str>
@@ -1909,13 +1918,18 @@
          creator,
          contributors,
          formats,
-         isbn_numbers, 
+         isbn_numbers,
+         oclc_numbers,
          languages,
          main_call_number,
          material_type,
-         publishers,
-         publication_place,
-         publication_dates,
+         resource_type,
+         publication_year_display,
+         publication_display,
+         creation_display,
+         distribution_display,
+         manufacture_display,
+         copyright_display,
          full_title,
          main_title,
          subtitle,
@@ -1924,13 +1938,15 @@
          era_terms_facet,
          form_terms_facet,
          genre_terms_facet,
-         urls,
-         url_labels,
-         isbn_numbers
+         thumbnail_url,
+         urls_json,
+         items_json,
+         has_more_items
        </str>
- 
-       <str name="facet">true</str>
+
        <str name="facet.mincount">1</str>
+ 
+       <!-- <str name="facet">true</str>
        <str name="facet.field">material_type</str>
        <str name="facet.field">formats</str>
        <str name="facet.field">main_call_number</str>
@@ -1943,7 +1959,7 @@
        <str name="facet.field">form_terms_facet</str>
        <str name="facet.field">people_facet</str>
        <str name="facet.field">corporations_facet</str>
-       <str name="facet.field">meetings_facet</str>
+       <str name="facet.field">meetings_facet</str> -->
         
        <str name="spellcheck">true</str>
        <str name="spellcheck.dictionary">default</str>
