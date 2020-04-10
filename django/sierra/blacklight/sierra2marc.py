@@ -626,15 +626,22 @@ class BlacklightASMPipeline(object):
     def get_access_info(self, r, marc_record):
         accessf, buildingf, shelff, collectionf = set(), set(), set(), set()
 
-        # Note: For now we're just ignoring Bib Locations
+        # Note: We only consider bib locations if the bib record has no
+        # attached items, in which case bib locations stand in for item
+        # locations.
 
         item_rules = self.item_rules
-        for link in r.bibrecorditemrecordlink_set.all():
-            item = link.item_record
+        item_info = [{'location_id': l.item_record.location_id} 
+                        for l in r.bibrecorditemrecordlink_set.all()]
+        if len(item_info) == 0:
+            item_info = [{'location_id': l.code} for l in r.locations.all()]
+
+        for item in item_info:
             if item_rules['is_online'].evaluate(item):
                 accessf.add(self.access_online_label)
             else:
-                shelf = self.sierra_location_labels.get(item.location_id, None)
+                shelf = self.sierra_location_labels.get(item['location_id'],
+                                                        None)
                 building_lcode = item_rules['building_location'].evaluate(item)
                 building = None
                 if building_lcode is not None:
