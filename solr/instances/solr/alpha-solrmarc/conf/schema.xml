@@ -16,7 +16,7 @@
     <fieldType name="slong" class="solr.SortableLongField" sortMissingLast="true" omitNorms="true"/>
     <fieldType name="sfloat" class="solr.SortableFloatField" sortMissingLast="true" omitNorms="true"/>
     <fieldType name="sdouble" class="solr.SortableDoubleField" sortMissingLast="true" omitNorms="true"/>
-    <fieldType name="date" class="solr.DateField" sortMissingLast="true" omitNorms="true"/>
+    <fieldType name="date" class="solr.TrieDateField" sortMissingLast="true" omitNorms="true"/>
     <fieldType name="random" class="solr.RandomSortField" indexed="true" />
 
     <fieldType name="text" class="solr.TextField" positionIncrementGap="100">
@@ -153,13 +153,13 @@
     <field name="publication_sort" type="string" indexed="false" stored="false" multiValued="false" docValues="true"/>
 
     <!-- FACET FIELDS ===================================================================================== -->
-    <field name="publication_decade_facet" type="reverse_number" indexed="true" stored="true" multiValued="true"/>
-    <field name="publication_year_facet" type="reverse_number" indexed="true" stored="true" multiValued="true"/>
-    <field name="access_facet" type="string" indexed="true" stored="true" multiValued="true" docValues="true"/>
-    <field name="building_facet" type="string" indexed="true" stored="true" multiValued="true" docValues="true"/>
-    <field name="shelf_facet" type="string" indexed="true" stored="true" multiValued="true" docValues="true"/>
-    <field name="collection_facet" type="string" indexed="true" stored="true" multiValued="true" docValues="true"/>
-    <field name="resource_type_facet" type="string" indexed="true" stored="true" multiValued="true" docValues="true"/>
+    <field name="publication_decade_facet" type="reverse_number" indexed="true" stored="false" multiValued="true"/>
+    <field name="publication_year_facet" type="reverse_number" indexed="true" stored="false" multiValued="true"/>
+    <field name="access_facet" type="string" indexed="true" stored="false" multiValued="true"/>
+    <field name="building_facet" type="string" indexed="true" stored="false" multiValued="true"/>
+    <field name="shelf_facet" type="string" indexed="true" stored="false" multiValued="true"/>
+    <field name="collection_facet" type="string" indexed="true" stored="false" multiValued="true"/>
+    <field name="resource_type_facet" type="string" indexed="true" stored="false" multiValued="true"/>
 
     <!-- GENERAL SEARCH OR SEARCH/DISPLAY FIELDS ========================================================== -->
     <field name="text" type="text" indexed="true" stored="false" multiValued="true"/>
@@ -204,7 +204,16 @@
     <!-- <field name="publication_dates" type="text" indexed="true" stored="true" multiValued="true"/> -->
     <!-- <field name="bib_location_codes" type="string" indexed="true" stored="true" multiValued="true"/> -->
     <!-- <field name="item_location_codes" type="string" indexed="true" stored="true" multiValued="true"/> -->
-    <field name="material_type" type="string" indexed="true" stored="true" multiValued="false" />
+    <!-- <field name="material_type" type="string" indexed="true" stored="true" multiValued="false" /> -->
+
+    <!-- These fields aren't being used anyway so I am removing them. -->
+    <!-- <field name="people_facet" type="string" indexed="true" stored="true" multiValued="true" docValues="true" /> -->
+    <!-- <field name="corporations_facet" type="string" indexed="true" stored="true" multiValued="true" docValues="true" /> -->
+    <!-- <field name="topic_terms_facet" type="string" indexed="true" stored="true" multiValued="true" docValues="true" /> -->
+    <!-- <field name="general_terms_facet" type="string" indexed="true" stored="true" multiValued="true" docValues="true" /> -->
+    <!-- <field name="genre_terms_facet" type="string" indexed="true" stored="true" multiValued="true" docValues="true" /> -->
+    <!-- <field name="form_terms_facet" type="string" indexed="true" stored="true" multiValued="true" docValues="true" /> -->
+    <!-- <field name="formats" type="string" indexed="true" stored="true" multiValued="true"/> -->
 
 
     <!-- OLD FIELDS: TO-DO ################################################################################
@@ -275,25 +284,17 @@
 
     <!-- Summary -->
     <field name="summary_notes" type="text" indexed="true" stored="true" multiValued="true" />
-    
-    <field name="formats" type="string" indexed="true" stored="true" multiValued="true"/>
 
     <!-- Temporary Fields to remove later: these were dynamic fields, but we want to start making
          sure all our fields are defined explicitly. -->
-    <field name="public_title_facet" type="string" indexed="true" stored="true" multiValued="true" />
-    <field name="public_author_facet" type="string" indexed="true" stored="true" multiValued="true" />
-    <field name="public_series_facet" type="string" indexed="true" stored="true" multiValued="true" />
-    <field name="people_facet" type="string" indexed="true" stored="true" multiValued="true" />
-    <field name="corporations_facet" type="string" indexed="true" stored="true" multiValued="true" />
-    <field name="meetings_facet" type="string" indexed="true" stored="true" multiValued="true" />
-    <field name="public_subject_facet" type="string" indexed="true" stored="true" multiValued="true" />
-    <field name="topic_terms_facet" type="string" indexed="true" stored="true" multiValued="true" />
-    <field name="general_terms_facet" type="string" indexed="true" stored="true" multiValued="true" />
-    <field name="geographic_terms_facet" type="string" indexed="true" stored="true" multiValued="true" />
-    <field name="genre_terms_facet" type="string" indexed="true" stored="true" multiValued="true" />
-    <field name="form_terms_facet" type="string" indexed="true" stored="true" multiValued="true" />
-    <field name="era_terms_facet" type="string" indexed="true" stored="true" multiValued="true" />
-    <field name="public_genre_facet" type="string" indexed="true" stored="true" multiValued="true" />
+    <field name="public_title_facet" type="string" indexed="true" stored="false" multiValued="true" docValues="true" />
+    <field name="public_author_facet" type="string" indexed="true" stored="false" multiValued="true" docValues="true" />
+    <field name="public_series_facet" type="string" indexed="true" stored="false" multiValued="true" docValues="true" />
+    <field name="meetings_facet" type="string" indexed="true" stored="false" multiValued="true" docValues="true" />
+    <field name="public_subject_facet" type="string" indexed="true" stored="false" multiValued="true" docValues="true" />
+    <field name="geographic_terms_facet" type="string" indexed="true" stored="false" multiValued="true" docValues="true" />
+    <field name="era_terms_facet" type="string" indexed="true" stored="false" multiValued="true" docValues="true" />
+    <field name="public_genre_facet" type="string" indexed="true" stored="false" multiValued="true" docValues="true" />
     <field name="call_numbers_search" type="string" indexed="true" stored="false" multiValued="true" />
 
     <!-- Commenting out other/default dynamic fields, just to simplify things.

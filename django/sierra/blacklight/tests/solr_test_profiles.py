@@ -25,7 +25,7 @@ ALPHASOLRMARC_FIELDS = (
     'metadata_facets_search', 'publication_places_search', 'publishers_search',
     'publication_dates_search',
     # OLD FIELDS ARE BELOW
-    'game_facet', 'formats', 'languages', 'isbn_numbers',
+    'game_facet', 'languages', 'isbn_numbers',
     'issn_numbers', 'lccn_number', 'oclc_numbers', 'dewey_call_numbers',
     'loc_call_numbers', 'sudoc_numbers', 'other_call_numbers',
     'main_call_number', 'main_call_number_sort', 'main_title', 'subtitle',
@@ -90,7 +90,6 @@ ALPHASOLRMARC_GENS = (
     ('game_facet', GENS(tp.multi(GENS.type('string', mn=6, mx=10,
                                            alphabet=tp.LETTERS_LOWER + 
                                                     tp.NUMBERS), 1, 3))),
-    ('formats', 'auto'),
     ('languages', 'auto'),
     ('isbn_numbers', GENS(tp.chance(tp.multi(tp.isbn_number, 1, 5), 66))),
     ('issn_numbers', GENS(tp.chance(tp.multi(tp.issn_number, 1, 5), 33))),
@@ -146,7 +145,7 @@ ALPHASOLRMARC_GENS = (
     ('public_genre_facet', GENS(tp.copy_field('genre_terms'))),
     ('suppressed', GENS.static(False)),
     ('text', GENS(tp.join_fields([
-        'id', 'formats', 'languages', 'isbn_numbers', 'issn_numbers',
+        'id', 'languages', 'isbn_numbers', 'issn_numbers',
         'lccn_number', 'oclc_numbers', 'dewey_call_numbers',
         'loc_call_numbers', 'sudoc_numbers', 'other_call_numbers',
         'main_call_number', 'statement_of_responsibility', 'full_title',

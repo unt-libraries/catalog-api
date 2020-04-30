@@ -1804,21 +1804,18 @@
          alternate_titles^1500
          series^1500
          related_titles^500
-         topic_facet^1000
-         genre_facet^750
-         geographic_facet^750
-         era_facet^750
          resource_type^500
          metadata_facet_text^500
          topic_terms^500
          genre_terms^300
+         form_terms^300
          geographic_terms^300
          era_terms^300
          full_subjects^200
          creator^250
          statement_of_responsibility^250
          contributors^250
-         series_creator^250
+         series_creators^250
          publishers_search^250
          publication_places_search^100
          toc_notes^100
@@ -1832,20 +1829,17 @@
          alternate_titles^15000
          series^15000
          related_titles^5000
-         topic_facet^10000
-         genre_facet^7500
-         geographic_facet^7500
-         era_facet^7500
          resource_type^5000
          metadata_facet_text^5000
          topic_terms^5000
          genre_terms^3000
+         form_terms^3000
          geographic_terms^3000
          era_terms^3000
          full_subjects^2000
          creator^2500
          contributors^2500
-         series_creator^2500
+         series_creators^2500
          publishers_search^2500
          publication_places_search^2500
          toc_notes^1000
@@ -1853,13 +1847,13 @@
        </str>
        <str name="creator_qf">
          creator^200
-         series_creator^200
+         series_creators^200
          statement_of_responsibility^200
          contributors^50
        </str>
        <str name="creator_pf">
          creator^2000
-         series_creator^2000
+         series_creators^2000
          statement_of_responsibility^2000
          contributors^500
        </str>
@@ -1882,30 +1876,24 @@
          related_titles^5000
        </str>
        <str name="subject_qf">
-         topic_facet^1000
-         geographic_facet^750
-         era_facet^750
          topic_terms^500
          geographic_terms^300
          era_terms^300
          full_subjects^200
        </str>
        <str name="subject_pf">
-         topic_facet^10000
-         geographic_facet^7500
-         era_facet^7500
          topic_terms^5000
          geographic_terms^3000
          era_terms^3000
          full_subjects^2000
        </str>
        <str name="genre_qf">
-         genre_facet^1000
          genre_terms^500
+         form_terms^250
        </str>
        <str name="genre_pf">
-         genre_facet^10000
          genre_terms^5000
+         form_terms^2500
        </str>
         
        <int name="ps">3</int>
@@ -1917,7 +1905,6 @@
          score,
          creator,
          contributors,
-         formats,
          isbn_numbers,
          oclc_numbers,
          languages,
@@ -1933,11 +1920,6 @@
          full_title,
          main_title,
          subtitle,
-         topic_terms_facet,
-         geographic_terms_facet,
-         era_terms_facet,
-         form_terms_facet,
-         genre_terms_facet,
          thumbnail_url,
          urls_json,
          items_json,
