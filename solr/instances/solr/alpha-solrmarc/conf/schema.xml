@@ -33,6 +33,7 @@
         <filter class="solr.ICUNormalizer2FilterFactory" name="nfkc" mode="compose" />
         <filter class="solr.ASCIIFoldingFilterFactory" />
         <filter class="solr.SynonymFilterFactory" synonyms="synonyms.txt" ignoreCase="true" expand="true"/>
+        <filter class="solr.WordDelimiterFilterFactory" generateWordParts="1" generateNumberParts="1" catenateWords="1" catenateNumbers="0" catenateAll="1" splitOnCaseChange="1" preserveOriginal="1"/>
         <filter class="solr.LowerCaseFilterFactory"/>
         <filter class="solr.RemoveDuplicatesTokenFilterFactory"/>
       </analyzer>
