@@ -776,6 +776,12 @@ def test_blasmpipeline_geturlsjson(marcfields, items_info, expected,
                'e', 'http://www.library.unt.edu/media/covers/thumb.jpg'])],
      'https://library.unt.edu/media/covers/cover.jpg'),
     ([('962', ['t', 'Cover Image',
+               'u', 'http://www.library.unt.edu/media/covers/cover.jpg" '
+                    'target="_blank',
+               'e', 'http://www.library.unt.edu/media/covers/thumb.jpg" '
+                    'target="_blank'])],
+     'https://library.unt.edu/media/covers/cover.jpg'),
+    ([('962', ['t', 'Cover Image',
                'u', 'http://example.com/media/covers/cover.jpg',
                'e', 'http://example.com/media/covers/thumb.jpg'])],
      None),
@@ -788,14 +794,24 @@ def test_blasmpipeline_geturlsjson(marcfields, items_info, expected,
     ([('856', ['u', 'http://digital.library.unt.edu/ark:/1/md/?utm_source=cat',
                'z', 'Connect to online resource'])],
      'https://digital.library.unt.edu/ark:/1/md/small/'),
+    ([('856', ['u', 'http://digital.library.unt.edu/ark:/1/md/" target="_blank',
+               'z', 'Connect to online resource'])],
+     'https://digital.library.unt.edu/ark:/1/md/small/'),
+    ([('856', ['u', 'http://digital.library.unt.edu/ark:/1/md/?utm_source=cat"'
+                    ' target="_blank',
+               'z', 'Connect to online resource'])],
+     'https://digital.library.unt.edu/ark:/1/md/small/'),
     ([('856', ['u', 'http://example.com/whatever', 'z', 'Resource'])],
-     None),
+     None)
 ], ids=[
     'standard media library cover',
+    'media cover with hacked attribute additions on URLs',
     'other 962 image(s): ignore non-UNTL media images',
     'standard Digital Library cover',
     'standard Portal cover',
     'strip querystrings when formulating DL/Portal URLs',
+    'DL/Portal cover with hacked attribute additions on URLs',
+    'DL/Portal cover with hacked attribute additions on URLs AND querystring',
     'other 856 link(s): ignore non-DL/Portal URLs'
 ])
 def test_blasmpipeline_getthumbnailurl(marcfields, expected_url,

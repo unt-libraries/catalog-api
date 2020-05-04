@@ -265,6 +265,9 @@ class BlacklightASMPipeline(object):
             return 'catalog'
         return None
 
+    def _sanitize_url(self, url):
+        return re.sub(r'^([^"]+).*$', r'\1', url)
+
     def get_urls_json(self, r, marc_record):
         """
         Return a JSON string representing URLs associated with the
@@ -274,7 +277,7 @@ class BlacklightASMPipeline(object):
         for f856 in marc_record.get_fields('856'):
             url = f856.get_subfields('u')
             if url:
-                url = re.sub(r'^([^"]+).*$', r'\1', url[0])
+                url = self._sanitize_url(url[0])
                 note = ' '.join(f856.get_subfields('3', 'z')) or None
                 label = ' '.join(f856.get_subfields('y')) or None
                 utype = 'fulltext' if f856.indicator2 in ('0', '1') else 'link'
@@ -367,16 +370,17 @@ class BlacklightASMPipeline(object):
         """
         def _try_media_cover_image(f962s):
             for f962 in f962s:
-                url = f962.get_subfields('u')
-                if url and self._url_is_media_cover_image(url[0]):
-                    return re.sub(r'^(https?):\/\/(www\.)?', 'https://',
-                                  url[0])
+                urls = f962.get_subfields('u')
+                url = self._sanitize_url(urls[0]) if urls else None
+                if url and self._url_is_media_cover_image(url):
+                    return re.sub(r'^(https?):\/\/(www\.)?', 'https://', url)
 
         def _try_digital_library_image(f856s):
             for f856 in f856s:
-                url = f856.get_subfields('u')
-                if url and self._url_is_from_digital_library(url[0]):
-                    url = url[0].split('?')[0].rstrip('/')
+                urls = f856.get_subfields('u')
+                url = self._sanitize_url(urls[0]) if urls else None
+                if url and self._url_is_from_digital_library(url):
+                    url = url.split('?')[0].rstrip('/')
                     url = re.sub(r'^http:', 'https:', url)
                     return '{}/small/'.format(url)
 
