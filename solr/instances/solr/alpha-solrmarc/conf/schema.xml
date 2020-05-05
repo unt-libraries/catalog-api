@@ -149,9 +149,14 @@
     <field name="distribution_display" type="string" indexed="false" stored="true" multiValued="true"/>
     <field name="manufacture_display" type="string" indexed="false" stored="true" multiValued="true"/>
     <field name="copyright_display" type="string" indexed="false" stored="true" multiValued="true"/>
+    <!-- Authors / Contributors -->
+    <field name="author_json" type="string" indexed="false" stored="true" multiValued="false"/>
+    <field name="contributors_json" type="string" indexed="false" stored="true" multiValued="true"/>
+    <field name="meetings_json" type="string" indexed="false" stored="true" multiValued="true"/>
 
     <!-- SORT FIELDS ====================================================================================== -->
     <field name="publication_sort" type="string" indexed="false" stored="false" multiValued="false" docValues="true"/>
+    <field name="author_sort" type="norm_string" indexed="true" stored="false" multiValued="false"/>
 
     <!-- FACET FIELDS ===================================================================================== -->
     <field name="publication_decade_facet" type="reverse_number" indexed="true" stored="false" multiValued="true"/>
@@ -161,6 +166,8 @@
     <field name="shelf_facet" type="string" indexed="true" stored="false" multiValued="true"/>
     <field name="collection_facet" type="string" indexed="true" stored="false" multiValued="true"/>
     <field name="resource_type_facet" type="string" indexed="true" stored="false" multiValued="true"/>
+    <field name="author_contributor_facet" type="string" indexed="true" stored="false" multiValued="true" docValues="true"/>
+    <field name="meeting_facet" type="string" indexed="true" stored="false" multiValued="true" docValues="true"/>
 
     <!-- GENERAL SEARCH OR SEARCH/DISPLAY FIELDS ========================================================== -->
     <field name="text" type="text" indexed="true" stored="false" multiValued="true"/>
@@ -176,6 +183,11 @@
     <field name="publication_places_search" type="text" indexed="true" stored="false" multiValued="true"/>
     <field name="publishers_search" type="text" indexed="true" stored="false" multiValued="true"/>
     <field name="publication_dates_search" type="text" indexed="true" stored="false" multiValued="true"/>
+
+    <!-- Authors / Contributors -->
+    <field name="author_search" type="text" indexed="true" stored="false" multiValued="true"/>
+    <field name="contributors_search" type="text" indexed="true" stored="false" multiValued="true"/>
+    <field name="meetings_search" type="text" indexed="true" stored="false" multiValued="true"/>
 
 
     <!-- OLD FIELDS: DONE #################################################################################
@@ -206,6 +218,16 @@
     <!-- <field name="bib_location_codes" type="string" indexed="true" stored="true" multiValued="true"/> -->
     <!-- <field name="item_location_codes" type="string" indexed="true" stored="true" multiValued="true"/> -->
     <!-- <field name="material_type" type="string" indexed="true" stored="true" multiValued="false" /> -->
+    <field name="author_title_search" type="text" indexed="true" stored="true" multiValued="true"/>
+    <field name="creator" type="text" indexed="true" stored="true" multiValued="false"/>
+    <field name="contributors" type="text" indexed="true" stored="true" multiValued="true"/>
+    <field name="series_creators" type="text" indexed="true" stored="true" multiValued="true"/>
+    <field name="people" type="text" indexed="true" stored="true" multiValued="true"/>
+    <field name="corporations" type="text" indexed="true" stored="true" multiValued="true"/>
+    <field name="meetings" type="text" indexed="true" stored="true" multiValued="true"/>
+    <field name="creator_sort" type="norm_string" indexed="true" stored="true"/>
+    <field name="public_author_facet" type="string" indexed="true" stored="false" multiValued="true" docValues="true" />
+    <field name="meetings_facet" type="string" indexed="true" stored="false" multiValued="true" docValues="true" />
 
     <!-- These fields aren't being used anyway so I am removing them. -->
     <!-- <field name="people_facet" type="string" indexed="true" stored="true" multiValued="true" docValues="true" /> -->
@@ -215,7 +237,6 @@
     <!-- <field name="genre_terms_facet" type="string" indexed="true" stored="true" multiValued="true" docValues="true" /> -->
     <!-- <field name="form_terms_facet" type="string" indexed="true" stored="true" multiValued="true" docValues="true" /> -->
     <!-- <field name="formats" type="string" indexed="true" stored="true" multiValued="true"/> -->
-
 
     <!-- OLD FIELDS: TO-DO ################################################################################
          Everything below has yet to be looked at and added to the schema revisions.
@@ -241,17 +262,6 @@
     <!-- Series Fields -->
     <field name="series" type="text" indexed="true" stored="true" multiValued="true"/>
     <field name="series_exact" type="text" indexed="true" stored="true" multiValued="true"/>
-    <!-- Author/Title Search Fields -->
-    <field name="author_title_search" type="text" indexed="true" stored="true" multiValued="true"/>
-    <!-- Creator/Contributor Fields -->
-    <field name="creator" type="text" indexed="true" stored="true" multiValued="false"/>
-    <field name="contributors" type="text" indexed="true" stored="true" multiValued="true"/>
-    <field name="series_creators" type="text" indexed="true" stored="true" multiValued="true"/>
-    <field name="people" type="text" indexed="true" stored="true" multiValued="true"/>
-    <field name="corporations" type="text" indexed="true" stored="true" multiValued="true"/>
-    <field name="meetings" type="text" indexed="true" stored="true" multiValued="true"/>
-    <!-- Creator Sort Field -->
-    <field name="creator_sort" type="norm_string" indexed="true" stored="true"/>
 
     <!-- Subject Search Fields -->
     <field name="full_subjects" type="text" indexed="true" stored="true" multiValued="true"/>
@@ -289,9 +299,7 @@
     <!-- Temporary Fields to remove later: these were dynamic fields, but we want to start making
          sure all our fields are defined explicitly. -->
     <field name="public_title_facet" type="string" indexed="true" stored="false" multiValued="true" docValues="true" />
-    <field name="public_author_facet" type="string" indexed="true" stored="false" multiValued="true" docValues="true" />
     <field name="public_series_facet" type="string" indexed="true" stored="false" multiValued="true" docValues="true" />
-    <field name="meetings_facet" type="string" indexed="true" stored="false" multiValued="true" docValues="true" />
     <field name="public_subject_facet" type="string" indexed="true" stored="false" multiValued="true" docValues="true" />
     <field name="geographic_terms_facet" type="string" indexed="true" stored="false" multiValued="true" docValues="true" />
     <field name="era_terms_facet" type="string" indexed="true" stored="false" multiValued="true" docValues="true" />

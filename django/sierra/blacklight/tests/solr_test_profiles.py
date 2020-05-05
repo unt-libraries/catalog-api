@@ -4,6 +4,7 @@ Contains structures needed to make Solr test data for `blacklight` app.
 
 import hashlib
 import base64
+import random
 
 from utils.test_helpers import solr_test_profiles as tp
 
@@ -23,23 +24,22 @@ ALPHASOLRMARC_FIELDS = (
     'publication_decade_facet', 'publication_year_facet', 'access_facet',
     'building_facet', 'shelf_facet', 'collection_facet', 'resource_type_facet',
     'metadata_facets_search', 'publication_places_search', 'publishers_search',
-    'publication_dates_search',
+    'publication_dates_search', 'author_json', 'contributors_json',
+    'meetings_json', 'author_sort', 'author_contributor_facet', 'meeting_facet',
+    'author_search', 'contributors_search', 'meetings_search',
     # OLD FIELDS ARE BELOW
     'game_facet', 'languages', 'isbn_numbers',
     'issn_numbers', 'lccn_number', 'oclc_numbers', 'dewey_call_numbers',
     'loc_call_numbers', 'sudoc_numbers', 'other_call_numbers',
     'main_call_number', 'main_call_number_sort', 'main_title', 'subtitle',
     'statement_of_responsibility', 'full_title', 'title_sort',
-    'alternate_titles', 'uniform_title', 'related_titles', 'corporations',
-    'meetings', 'people', 'creator', 'creator_sort', 'contributors',
-    'author_title_search', 'physical_characteristics',
+    'alternate_titles', 'uniform_title', 'related_titles',
+    'physical_characteristics',
     'context_notes', 'summary_notes', 'toc_notes', 'era_terms', 'form_terms',
     'general_terms', 'genre_terms', 'geographic_terms', 'other_terms',
     'topic_terms', 'full_subjects', 'series', 'series_exact',
-    'series_creators',
-    'public_title_facet', 'public_author_facet', 'public_series_facet',
-    'meetings_facet', 'public_subject_facet', 'geographic_terms_facet',
-    'era_terms_facet', 'public_genre_facet', 'text'
+    'public_title_facet', 'public_series_facet', 'public_subject_facet',
+    'geographic_terms_facet', 'era_terms_facet', 'public_genre_facet', 'text'
 )
 
 # AlphaSolrmarc field specific gen functions
@@ -66,20 +66,24 @@ def public_title_facet(record):
     return _combine_fields(record, fields)
 
 
-def public_author_facet(record):
-    fields = ('creator', 'contributors', 'series_creators')
+def author_contributor_facet(record):
+    fields = ('author_search', 'contributors_search')
     return _combine_fields(record, fields)
 
 
-def author_title_search(record):
-    author_titles = []
-    titles = record.get('related_titles', [])
-    for i, author in enumerate(record.get('contributors', [])):
-        try:
-            author_titles.append('{}. {}'.format(author, titles[i]))
-        except IndexError:
-            break
-    return author_titles or None
+def random_agent(person_weight=8, corp_weight=1, meeting_weight=1):
+    def gen(record):
+        rval = ''
+        nametype = random.choice(['person'] * person_weight +
+                                 ['corporation'] * corp_weight +
+                                 ['meeting'] * meeting_weight)
+        if nametype == 'person':
+            rval = tp.person_name_heading_like(record)
+        else:
+            rval = tp.org_name_like(record)
+        print rval
+        return rval
+    return gen
 
 
 ALPHASOLRMARC_GENS = (
@@ -109,15 +113,15 @@ ALPHASOLRMARC_GENS = (
     ('alternate_titles', GENS(tp.chance(tp.multi(tp.title_like, 1, 3), 20))),
     ('uniform_title', GENS(tp.chance(tp.title_like), 30)),
     ('related_titles', GENS(tp.chance(tp.multi(tp.title_like, 1, 5), 50))),
-    ('corporations', None),
-    ('meetings', None),
-    ('people', None),
-    ('creator', GENS(tp.random_agent(8, 1, 1))),
-    ('creator_sort', GENS(tp.sortable_text_field('creator'))),
-    ('contributors', GENS(tp.chance(tp.multi(tp.random_agent(6, 3, 1), 1, 5),
-                                    75))),
+    ('author_json', None),
+    ('contributors_json', None),
+    ('meetings_json', None),
+    ('author_search', GENS(random_agent(8, 1, 1))),
+    ('author_sort', GENS(lambda r: r['author_search'][0].lower())),
+    ('contributors_search', GENS(tp.chance(tp.multi(random_agent(6, 3, 1),
+                                                    1, 5), 75))),
+    ('meetings_search', GENS(tp.chance(tp.multi(tp.org_name_like, 1, 3), 25))),
     ('statement_of_responsibility', GENS(tp.chance(tp.statement_of_resp, 80))),
-    ('author_title_search', GENS(author_title_search)),
     ('physical_characteristics', GENS(tp.multi(tp.sentence_like, 1, 4))),
     ('context_notes', GENS(tp.chance(tp.multi(tp.sentence_like, 1, 4), 50))),
     ('summary_notes', GENS(tp.chance(tp.multi(tp.sentence_like, 1, 4), 50))),
@@ -132,13 +136,11 @@ ALPHASOLRMARC_GENS = (
     ('full_subjects', GENS(tp.subjects)),
     ('series', GENS(tp.chance(tp.multi(tp.title_like, 1, 3), 50))),
     ('series_exact', GENS(tp.copy_field('series'))),
-    ('series_creators', GENS(tp.chance(tp.multi(tp.person_name_heading_like,
-                                                1, 3), 50))),
     ('timestamp_of_last_solr_update', 'auto'),
     ('public_title_facet', GENS(public_title_facet)),
-    ('public_author_facet', GENS(public_author_facet)),
+    ('author_contributor_facet', GENS(author_contributor_facet)),
     ('public_series_facet', GENS(tp.copy_field('series'))),
-    ('meetings_facet', GENS(tp.copy_field('meetings'))),
+    ('meeting_facet', GENS(tp.copy_field('meetings_search'))),
     ('public_subject_facet', GENS(tp.copy_field('full_subjects'))),
     ('geographic_terms_facet', GENS(tp.copy_field('geographic_terms'))),
     ('era_terms_facet', GENS(tp.copy_field('era_terms'))),
@@ -149,10 +151,9 @@ ALPHASOLRMARC_GENS = (
         'lccn_number', 'oclc_numbers', 'dewey_call_numbers',
         'loc_call_numbers', 'sudoc_numbers', 'other_call_numbers',
         'main_call_number', 'statement_of_responsibility', 'full_title',
-        'alternate_titles', 'uniform_title', 'related_titles', 'corporations',
-        'meetings', 'people', 'physical_characteristics', 'context_notes',
-        'summary_notes', 'toc_notes', 'full_subjects', 'series',
-        'series_creators'
+        'alternate_titles', 'uniform_title', 'related_titles',
+        'physical_characteristics', 'context_notes',
+        'summary_notes', 'toc_notes', 'full_subjects', 'series'
     ])))
 )
 

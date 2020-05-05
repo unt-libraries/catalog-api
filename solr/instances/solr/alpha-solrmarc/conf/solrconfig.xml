@@ -1812,10 +1812,10 @@
          geographic_terms^300
          era_terms^300
          full_subjects^200
-         creator^250
-         statement_of_responsibility^250
-         contributors^250
-         series_creators^250
+         author_search^300
+         statement_of_responsibility^275
+         contributors_search^250
+         meetings_search^150
          publishers_search^250
          publication_places_search^100
          toc_notes^100
@@ -1837,25 +1837,24 @@
          geographic_terms^3000
          era_terms^3000
          full_subjects^2000
-         creator^2500
-         contributors^2500
-         series_creators^2500
+         author_search^3000
+         statement_of_responsibility^2750
+         contributors_search^2500
+         meetings_search^1500
          publishers_search^2500
          publication_places_search^2500
          toc_notes^1000
          text^10
        </str>
        <str name="creator_qf">
-         creator^200
-         series_creators^200
-         statement_of_responsibility^200
-         contributors^50
+         author_search^1000
+         statement_of_responsibility^750
+         contributors_search^500
        </str>
        <str name="creator_pf">
-         creator^2000
-         series_creators^2000
-         statement_of_responsibility^2000
-         contributors^500
+         author_search^10000
+         statement_of_responsibility^7500
+         contributors_search^5000
        </str>
        <str name="title_qf">
          main_title^100000
@@ -1903,13 +1902,12 @@
        <str name="fl">
          id, 
          score,
-         creator,
-         contributors,
+         author_json,
+         contributors_json,
          isbn_numbers,
          oclc_numbers,
          languages,
          main_call_number,
-         material_type,
          resource_type,
          publication_year_display,
          publication_display,

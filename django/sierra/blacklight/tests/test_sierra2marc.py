@@ -1498,6 +1498,43 @@ def test_blasmpipeline_getresourcetypeinfo(bcode2,
         assert v == val[k]
 
 
+@pytest.mark.parametrize('marcfields, expected', [
+    ([('100', ['a', 'Churchill, Winston,', 'c', 'Sir,', 'd', '1874-1965.'],
+       '1 ')],
+     {'author_search': ['Churchill, Winston, Sir, 1874-1965',
+                        'Sir Winston Churchill',
+                        'Winston Churchill, Sir'],
+      'author_contributor_facet': ['Churchill, Winston, Sir, 1874-1965'],
+      'author_sort': 'Churchill, Winston, Sir, 1874-1965',
+      'author_json': [{'d': 'Churchill, Winston, Sir, 1874-1965'}]
+     }),
+])
+def test_blasmpipeline_getcontributorinfo(marcfields, expected,
+                                          bl_sierra_test_record,
+                                          blasm_pipeline_class,
+                                          bibrecord_to_pymarc,
+                                          add_marc_fields,
+                                          assert_json_matches_expected):
+    """
+    BlacklightASMPipeline.get_contributor_info should return fields
+    matching the expected parameters.
+    """
+    pipeline = blasm_pipeline_class()
+    bib = bl_sierra_test_record('bib_no_items')
+    bibmarc = bibrecord_to_pymarc(bib)
+    bibmarc.remove_fields('100', '110', '111', '700', '710', '711')
+    bibmarc = add_marc_fields(bibmarc, marcfields)
+    val = pipeline.get_contributor_info(bib, bibmarc)
+    for k, v in val.items():
+        if k in expected:
+            if k.endswith('_json'):
+                assert_json_matches_expected(v, expected[k])
+            else:
+                assert v == expected[k]
+        else:
+            assert v is None
+
+
 @pytest.mark.parametrize('mapping, bundle, expected', [
     ( (('900', ('name', 'title')),),
       {'name': 'N1', 'title': 'T1'},

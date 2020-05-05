@@ -116,7 +116,8 @@ class BlacklightASMPipeline(object):
     """
     fields = [
         'id', 'suppressed', 'date_added', 'item_info', 'urls_json',
-        'thumbnail_url', 'pub_info', 'access_info', 'resource_type_info'
+        'thumbnail_url', 'pub_info', 'access_info', 'resource_type_info',
+        'contributor_info'
     ]
     prefix = 'get_'
     access_online_label = 'Online'
@@ -699,6 +700,24 @@ class BlacklightASMPipeline(object):
             'resource_type_facet': rt_categories[resource_type]
         }
 
+    def get_contributor_info(self, r, marc_record):
+        """
+        This massive method is responsible for using the 100, 110, 111,
+        700, 710, and 711 to determine the entirety of author,
+        contributor, and meeting fields.
+        """
+        return {
+            'author_json': None,
+            'contributors_json': None,
+            'meetings_json': None,
+            'author_search': None,
+            'contributors_search': None,
+            'meetings_search': None,
+            'author_contributor_facet': None,
+            'meeting_facet': None,
+            'author_sort': None
+        }
+
 
 class PipelineBundleConverter(object):
     """
@@ -759,8 +778,15 @@ class PipelineBundleConverter(object):
         ( '971', ('more_items_json',) ),
         ( '971', ('thumbnail_url', 'urls_json') ),
         ( '971', ('serial_holdings',) ),
-        ( '972', ('author_display_json',) ),
-        ( '972', ('contributors_display_json',) ),
+        ( '972', ('author_json',) ),
+        ( '972', ('contributors_json',) ),
+        ( '972', ('meetings_json',) ),
+        ( '972', ('author_search',) ),
+        ( '972', ('contributors_search',) ),
+        ( '972', ('meetings_search',) ),
+        ( '972', ('author_contributor_facet',) ),
+        ( '972', ('meeting_facet',) ),
+        ( '972', ('author_sort',) ),
         ( '973', ('full_title', 'responsibility', 'parallel_titles') ),
         ( '973', ('included_work_titles', 'related_work_titles') ),
         ( '973', ('included_work_titles_display_json',) ),
