@@ -981,15 +981,21 @@ class BlacklightASMPipeline(object):
             else:
                 heading = sep.join((heading, part['name']))
                 json_entry['v'] = heading
-            if not this_is_last_part:
-                json_entry['s'] = sep
             json['p'].append(json_entry)
             facet_vals.append(heading)
             if 'event_info' in part:
-                heading = ' '.join((heading, part['event_info']))
-                json_entry = {'d': part['event_info'], 'v': heading}
+                ev_info = part['event_info']
+                need_punct_before_ev_info = bool(re.match(r'^\w', ev_info))
+                if need_punct_before_ev_info:
+                    heading = ', '.join((heading, ev_info))
+                    json['p'][-1]['s'] = ', '
+                else:
+                    heading = ' '.join((heading, ev_info))
+                json_entry = {'d': ev_info, 'v': heading}
                 json['p'].append(json_entry)
                 facet_vals.append(heading)
+            if not this_is_last_part:
+                json['p'][-1]['s'] = sep
         return {'heading': heading, 'json': json, 'search_vals': [heading],
                 'facet_vals': facet_vals}
 

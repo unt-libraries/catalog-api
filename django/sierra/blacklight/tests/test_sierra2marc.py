@@ -1806,14 +1806,14 @@ def test_blasmpipeline_getresourcetypeinfo(bcode2,
              'v': 'United States Congress (97th, 2nd session : 1982)'}]}
      }),
     ([('111', ['a', 'Paris.', 'q', 'Peace Conference,', 'd', '1919.'], '1 ')],
-     {'meetings_search': ['Paris Peace Conference 1919'],
+     {'meetings_search': ['Paris Peace Conference, 1919'],
       'meeting_facet': ['Paris Peace Conference',
-                        'Paris Peace Conference 1919'],
+                        'Paris Peace Conference, 1919'],
       'meetings_json': {
         'p': [
-            {'d': 'Paris Peace Conference'},
+            {'d': 'Paris Peace Conference', 's': ', '},
             {'d': '1919',
-             'v': 'Paris Peace Conference 1919'}]}
+             'v': 'Paris Peace Conference, 1919'}]}
      }),
     ([('710', ['i', 'Container of (work):',
                'a', 'Some Organization,',
