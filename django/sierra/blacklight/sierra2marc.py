@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*- 
+
 """
 Sierra2Marc module for catalog-api `blacklight` app.
 """
@@ -8,7 +10,9 @@ import logging
 import re
 import ujson
 from datetime import datetime
+from collections import OrderedDict
 
+from django.conf import settings
 from base import models, local_rulesets
 from export.sierra2marc import S2MarcBatch, S2MarcError
 from blacklight import parsers as p
@@ -48,32 +52,53 @@ def explode_subfields(pmfield, sftags):
     return (pmfield.get_subfields(tag) for tag in sftags)
 
 
-def group_subfields(pmfield, sftags, uniquetags=None, breaktags=None):
+def group_subfields(pmfield, include='', exclude='', unique='', start='',
+                    end='', limit=None):
     """
     Put subfields from the given `pmfield` pymarc Field object into
-    groupings based on the given `sftags` string. Returns a list of new
-    pymarc Field objects, where each represents a grouping.
+    groupings based on the given args. (Subfields in each group remain
+    in the order in which they appear in the field.)
+
+    Define which subfield tags to group using `include` or `exclude`.
+    These are mutually exclusive; if both are specified, the first
+    overrides the second. If neither is specified, all tags are
+    included.
+
+    `unique` lists tags that must be unique in each group. A new group
+    starts upon encountering a second instance of a unique tag.
+
+    `start` lists tags that immediately signal the start of a new
+    group. As soon as one is encountered, it becomes the first tag of
+    the next group.
+
+    `end` lists tags that signal the end of a grouping. When one is
+    encountered, it becomes the end of that group, and a new group is
+    started.
     """
+    def _include_tag(tag, include, exclude):
+        return (not include and not exclude) or (include and tag in include) or\
+               (exclude and tag not in exclude)
+
+    def _finish_group(pmfield, grouped, group, limit=None):
+        if not limit or (len(grouped) < limit - 1):
+            grouped.append(make_pmfield(pmfield.tag, subfields=group,
+                                        indicators=pmfield.indicators))
+            group = []
+        return grouped, group
+
+    def _is_repeated_unique(tag, unique, group):
+        return tag in unique and tag in [gi[0] for gi in group]
+
     grouped, group = [], []
-    uniquetags = uniquetags or ''
-    breaktags = breaktags or ''
     for tag, value in pmfield:
-        if tag in sftags:
-            if group and tag in uniquetags and tag in [gi[0] for gi in group]:
-                nfield = make_pmfield(pmfield.tag, subfields=group,
-                                      indicators=pmfield.indicators)
-                grouped.append(nfield)
-                group = []
+        if _include_tag(tag, include, exclude):
+            if tag in start or _is_repeated_unique(tag, unique, group):
+                grouped, group = _finish_group(pmfield, grouped, group, limit)
             group.extend([tag, value])
-            if tag in breaktags:
-                nfield = make_pmfield(pmfield.tag, subfields=group,
-                                      indicators=pmfield.indicators)
-                grouped.append(nfield)
-                group = []
+            if tag in end:
+                grouped, group = _finish_group(pmfield, grouped, group, limit)
     if group:
-        nfield = make_pmfield(pmfield.tag, subfields=group,
-                              indicators=pmfield.indicators)
-        grouped.append(nfield)
+        grouped, group = _finish_group(pmfield, grouped, group)
     return grouped
 
 
@@ -90,6 +115,235 @@ def pull_from_subfields(pmfield, sftags=None, pull_func=None):
     if pull_func is None:
         return vals
     return [v2 for v1 in vals for v2 in pull_func(v1)]
+
+
+class MarcParseUtils(object):
+    marc_relatorcode_map = settings.MARCDATA.RELATOR_CODES
+    control_sftags = 'w012356789'
+    title_sftags_7xx = 'fhklmoprstvx'
+
+    def compile_relator_terms(self, tag, val):
+        if tag == '4':
+            term = self.marc_relatorcode_map.get(val, None)
+            return [term] if term else []
+        return [p.strip_wemi(v) for v in p.strip_ends(val).split(', ')]
+
+    def split7xx_name_title(self, field):
+        exclude_sftags = ''.join((self.control_sftags, 'i'))
+        return group_subfields(field, exclude=exclude_sftags,
+                               start=self.title_sftags_7xx, limit=2)
+
+
+class SequentialMarcFieldParser(object):
+    """
+    Parse a pymarc Field obj by parsing subfields sequentially.
+
+    This is a skeletal base class; subclass to create parser classes
+    for looping through all subfields in a MARC field (in the order
+    they appear) and returning a result.
+
+    The `parse` method is the active method; it calls `parse_subfield`
+    on each subfield tag/val pair in the field, in order. When done, it
+    calls `do_post_parse`, and then returns results via
+    `compile_results`. Define these methods in your subclass in order
+    to parse a field. (See PersonalNameParser and OrgEventParser for
+    sample implementations.)
+    """
+    def __init__(self, field):
+        self.field = field
+        self.utils = MarcParseUtils()
+
+    def __call__(self):
+        return self.parse()
+
+    def parse_subfield(self, tag, val):
+        pass
+
+    def do_post_parse(self):
+        pass
+
+    def compile_results(self):
+        """
+        After a field has been completely parsed, this is called last
+        to compile and return results.
+        """
+        return None
+
+    def parse(self):
+        """
+        This is the "main" method for objects of this type. This is
+        what should be called in order to parse a field.
+        """
+        for tag, val in self.field:
+            self.parse_subfield(tag, val)
+        self.do_post_parse()
+        return self.compile_results()
+
+
+class PersonalNameParser(SequentialMarcFieldParser):
+    relator_sftags = 'e4'
+
+    def __init__(self, field):
+        super(PersonalNameParser, self).__init__(field)
+        self.heading_parts = []
+        self.relator_terms = OrderedDict()
+        self.parsed_name = {}
+        self.titles = []
+
+    def do_relators(self, tag, val):
+        for relator_term in self.utils.compile_relator_terms(tag, val):
+            self.relator_terms[relator_term] = None
+
+    def do_name(self, tag, val):
+        self.parsed_name = p.person_name(val, self.field.indicators)
+
+    def do_titles(self, tag, val):
+        self.titles.extend([v for v in p.strip_ends(val).split(', ')])
+
+    def parse_subfield(self, tag, val):
+        if tag in self.relator_sftags:
+            self.do_relators(tag, val)
+        else:
+            self.heading_parts.append(val)
+            if tag == 'a':
+                self.do_name(tag, val)
+            elif tag == 'c':
+                self.do_titles(tag, val)
+
+    def compile_results(self):
+        heading = p.normalize_punctuation(' '.join(self.heading_parts))
+        return {
+            'heading': p.strip_ends(heading) or None,
+            'relations': self.relator_terms.keys() or None,
+            'forename': self.parsed_name.get('forename', None),
+            'surname': self.parsed_name.get('surname', None),
+            'person_titles': self.titles or None,
+            'type': 'person'
+        }
+
+
+class OrgEventNameParser(SequentialMarcFieldParser):
+    event_info_sftags = 'cdgn'
+
+    def __init__(self, field):
+        super(OrgEventNameParser, self).__init__(field)
+        self.relator_terms = OrderedDict()
+        if field.tag.endswith('10'):
+            self.subunit_sftag = 'b'
+            self.relator_sftags = 'e4'
+            self.field_type = 'X10'
+        else:
+            self.subunit_sftag = 'e'
+            self.relator_sftags = 'j4'
+            self.field_type = 'X11'
+        self.parts = {'org': [], 'event': []}
+        self._stacks = {'org': [], 'event': []}
+        self._event_info, self._prev_part_name, self._prev_tag = [], '', ''
+
+    def do_relators(self, tag, val):
+        for relator_term in self.utils.compile_relator_terms(tag, val):
+            self.relator_terms[relator_term] = None
+
+    def sf_is_first_subunit_of_jd_field(self, tag):
+        ind1 = self.field.indicator1
+        is_jurisdiction = tag == self.subunit_sftag and ind1 == '1'
+        return (tag == 'q' or is_jurisdiction) and self._prev_tag == 'a'
+
+    def _build_unit_name(self, part_type):
+        unit_name = self._prev_part_name
+        other_part_type = 'org' if part_type == 'event' else 'event'
+        if self._stacks[part_type]:
+            context = ' '.join(self._stacks[part_type])
+            unit_name = '{}, {}'.format(context, unit_name)
+            self._stacks['org'], self._stacks['event'] = [], []
+        self._stacks[other_part_type].append(self._prev_part_name)
+        return unit_name
+
+    def _build_event_info(self):
+        return p.strip_ends(' '.join(self._event_info))
+
+    def do_unit(self):
+        org_parts, event_parts = [], []
+        if self._event_info:
+            event_parts.append({'name': self._build_unit_name('event'),
+                                'event_info': self._build_event_info()})
+            # Even if this is clearly an event, if it's the first thing
+            # in an X10 field, record it as an org as well.
+            if self.field_type == 'X10' and not self.parts['org']:
+                org_parts.append({'name': self._prev_part_name})
+                if self._stacks['org']:
+                    self._stacks['org'].pop()
+        elif self.field_type == 'X11' and not self.parts['event']:
+            event_parts.append({'name': self._build_unit_name('event')})
+        else:
+            org_parts.append({'name': self._build_unit_name('org')})
+        return org_parts, event_parts
+
+    def parse_subfield(self, tag, val):
+        if tag in (self.relator_sftags):
+            for relator_term in self.utils.compile_relator_terms(tag, val):
+                self.relator_terms[relator_term] = None
+        elif tag in self.event_info_sftags:
+            self._event_info.append(val)
+        elif tag == 'a':
+            self._prev_part_name = p.strip_ends(val)
+        elif self.sf_is_first_subunit_of_jd_field(tag):
+            self._prev_part_name = '{} {}'.format(self._prev_part_name,
+                                                  p.strip_ends(val))
+        elif tag == self.subunit_sftag:
+            new_org_parts, new_event_parts = self.do_unit()
+            self.parts['org'].extend(new_org_parts)
+            self.parts['event'].extend(new_event_parts)
+            self._event_info = []
+            self._prev_part_name = p.strip_ends(val)
+        self._prev_tag = tag
+
+    def do_post_parse(self):
+        new_org_parts, new_event_parts = self.do_unit()
+        self.parts['org'].extend(new_org_parts)
+        self.parts['event'].extend(new_event_parts)
+
+    def compile_results(self):
+        ret_val = []
+        relators = self.relator_terms.keys() or None
+        for part_type in ('org', 'event'):
+            if self.parts[part_type]:
+                ret_val.append({
+                    'relations': relators,
+                    'heading_parts': self.parts[part_type],
+                    'type': 'organization' if part_type == 'org' else 'event'
+                })
+                relators = None
+        return ret_val
+
+
+def extract_name_structs_from_heading_field(field, utils):
+    split_name_title = utils.split7xx_name_title(field)
+    if len(split_name_title):
+        nfield = split_name_title[0]
+        if nfield.tag.endswith('00'):
+            return [PersonalNameParser(nfield).parse()]
+        return OrgEventNameParser(nfield).parse()
+    return []
+
+
+def make_personal_name_variations(forename, surname, ptitles):
+    alts = []
+    if forename and surname:
+        alts.append('{} {}'.format(forename, surname))
+    if ptitles:
+        if alts:
+            namestr = alts.pop()
+            alts.append('{}, {}'.format(namestr, ', '.join(ptitles)))
+        else:
+            namestr = surname or forename
+        for i, title in enumerate(ptitles):
+            altstr = '{} {}'.format(title, namestr)
+            if len(ptitles) > 1:
+                other_titles = ', '.join(ptitles[0:i] + ptitles[i+1:])
+                altstr = '{}, {}'.format(altstr, other_titles)
+            alts.append(altstr)
+    return alts
 
 
 class BlacklightASMPipeline(object):
@@ -124,6 +378,9 @@ class BlacklightASMPipeline(object):
     access_physical_label = 'At the Library'
     item_rules = local_rulesets.ITEM_RULES
     bib_rules = local_rulesets.BIB_RULES
+    hierarchical_name_separator = ' > '
+    hierarchical_subject_separator = ' — '
+    utils = MarcParseUtils()
 
     @property
     def sierra_location_labels(self):
@@ -404,7 +661,7 @@ class BlacklightASMPipeline(object):
                          '4': 'copyright'}
         ptype = ind2_type_map.get(f26x.indicator2, 'publication')
         statements = []
-        for gr in group_subfields(f26x, 'abc', breaktags='c'):
+        for gr in group_subfields(f26x, 'abc', end='c'):
             if f26x.tag == '260':                
                 d = pull_from_subfields(gr, 'c', p.split_pdate_and_cdate)
                 pdate, cdate = tuple(d[0:2]) if len(d) > 1 else ('', '')
@@ -578,7 +835,7 @@ class BlacklightASMPipeline(object):
             coded_dates.extend(entries)
 
         for field in marc_record.get_fields('046'):
-            coded_group = group_subfields(field, 'abcde', uniquetags='abcde')
+            coded_group = group_subfields(field, 'abcde', unique='abcde')
             if coded_group:
                 dtype = (coded_group[0].get_subfields('a') or [''])[0]
                 date1 = (coded_group[0].get_subfields('c') or [''])[0]
@@ -586,7 +843,7 @@ class BlacklightASMPipeline(object):
                 entries = self._interpret_coded_date(dtype, date1, date2)
                 coded_dates.extend(entries)
 
-            other_group = group_subfields(field, 'klop', uniquetags='klop')
+            other_group = group_subfields(field, 'klop', unique='klop')
             if other_group:
                 _k = (other_group[0].get_subfields('k') or [''])[0]
                 _l = (other_group[0].get_subfields('l') or [''])[0]
@@ -700,22 +957,102 @@ class BlacklightASMPipeline(object):
             'resource_type_facet': rt_categories[resource_type]
         }
 
+    def compile_person_info(self, name_struct):
+        heading, relations = name_struct['heading'], name_struct['relations']
+        json = {'r': relations} if relations else {}
+        json['p'] = [{'d': heading}]
+        fn, sn, pt = [name_struct[k] for k in ('forename', 'surname', 
+                                               'person_titles')]
+        search_vals = [heading] + make_personal_name_variations(fn, sn, pt)
+        return {'heading': heading, 'json': json, 'search_vals': search_vals,
+                'facet_vals': [heading]}
+
+    def compile_org_or_event_info(self, name_struct):
+        sep = self.hierarchical_name_separator
+        heading, relations = '', name_struct['relations']
+        json = {'r': relations} if relations else {}
+        json['p'], facet_vals = [], []
+        for i, part in enumerate(name_struct['heading_parts']):
+            this_is_first_part = i == 0
+            this_is_last_part = i == len(name_struct['heading_parts']) - 1
+            json_entry = {'d': part['name']}
+            if this_is_first_part:
+                heading = part['name']
+            else:
+                heading = sep.join((heading, part['name']))
+                json_entry['v'] = heading
+            if not this_is_last_part:
+                json_entry['s'] = sep
+            json['p'].append(json_entry)
+            facet_vals.append(heading)
+            if 'event_info' in part:
+                heading = ' '.join((heading, part['event_info']))
+                json_entry = {'d': part['event_info'], 'v': heading}
+                json['p'].append(json_entry)
+                facet_vals.append(heading)
+        return {'heading': heading, 'json': json, 'search_vals': [heading],
+                'facet_vals': facet_vals}
+
+    def parse_contributor_fields(self, fields):
+        for f in fields:
+            for name in extract_name_structs_from_heading_field(f, self.utils):
+                if name['type'] == 'person':
+                    info = self.compile_person_info(name)
+                else:
+                    info = self.compile_org_or_event_info(name)
+                info['tag'] = f.tag
+                info['name_type'] = name['type']
+                yield info
+
     def get_contributor_info(self, r, marc_record):
         """
-        This massive method is responsible for using the 100, 110, 111,
-        700, 710, and 711 to determine the entirety of author,
+        This is responsible for using the 100, 110, 111, 700, 710, 711,
+        800, 810, and 811 to determine the entirety of author,
         contributor, and meeting fields.
         """
+        author_json, contributors_json, meetings_json = {}, [], []
+        author_search, contributors_search, meetings_search = [], [], []
+        author_contributor_facet, meeting_facet = [], []
+        author_sort = None
+
+        fields = marc_record.get_fields('100', '110', '111', '700', '710',
+                                        '711', '800', '810', '811')
+        for parsed in self.parse_contributor_fields(fields):
+            this_is_event = parsed['name_type'] == 'event'
+            this_is_1XX = parsed['tag'].startswith('1')
+            this_is_7XX = parsed['tag'].startswith('7')
+            this_is_8XX = parsed['tag'].startswith('8')
+            if this_is_event:
+                meetings_search.extend(parsed['search_vals'])
+                meeting_facet.extend(parsed['facet_vals'])
+                if not this_is_8XX:
+                    meetings_json.append(parsed['json'])
+            else:
+                have_seen_author = bool(author_contributor_facet)
+                if not have_seen_author:
+                    if this_is_1XX or this_is_7XX:
+                        author_sort = parsed['heading'].lower()
+                    if this_is_1XX:
+                        author_json = parsed['json']
+                        author_search.extend(parsed['search_vals'])
+                if have_seen_author or this_is_7XX or this_is_8XX:
+                    contributors_search.extend(parsed['search_vals'])
+                if have_seen_author or this_is_7XX:
+                    contributors_json.append(parsed['json'])
+                author_contributor_facet.extend(parsed['facet_vals'])
+
         return {
-            'author_json': None,
-            'contributors_json': None,
-            'meetings_json': None,
-            'author_search': None,
-            'contributors_search': None,
-            'meetings_search': None,
-            'author_contributor_facet': None,
-            'meeting_facet': None,
-            'author_sort': None
+            'author_json': ujson.dumps(author_json) if author_json else None,
+            'contributors_json': [ujson.dumps(v) for v in contributors_json]
+                                  or None,
+            'meetings_json': [ujson.dumps(v) for v in meetings_json]
+                             or None,
+            'author_search': author_search or None,
+            'contributors_search': contributors_search or None,
+            'meetings_search': meetings_search or None,
+            'author_contributor_facet': author_contributor_facet or None,
+            'meeting_facet': meeting_facet or None,
+            'author_sort': author_sort
         }
 
 

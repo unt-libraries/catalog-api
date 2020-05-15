@@ -85,12 +85,18 @@ def assert_json_matches_expected():
     in each of exp_dicts is found in the corresponding `json_strs`
     obj.
     """
-    def _assert_json_matches_expected(json_strs, exp_dicts):
+    def _assert_json_matches_expected(json_strs, exp_dicts, exact=False):
+        if not isinstance(json_strs, (list, tuple)):
+            json_strs = [json_strs]
+        if not isinstance(exp_dicts, (list, tuple)):
+            exp_dicts = [exp_dicts]
         assert len(json_strs) == len(exp_dicts)
         for json, exp_dict in zip(json_strs, exp_dicts):
             cmp_dict = ujson.loads(json)
             for key in exp_dict.keys():
                 assert cmp_dict[key] == exp_dict[key]
+            if exact:
+                assert set(cmp_dict.keys()) == set(exp_dict.keys())
     return _assert_json_matches_expected
 
 
@@ -180,48 +186,107 @@ def test_explodesubfields_returns_expected_results():
     assert dates == ['1960;', '1992.']
 
 
-@pytest.mark.parametrize('field_info, sftags, unqtags, brktags, expected', [
+@pytest.mark.parametrize('field, inc, exc, unq, start, end, limit, expected', [
     (('260', ['a', 'a1', 'b', 'b1', 'c', 'c1',
               'a', 'a2', 'b', 'b2', 'c', 'c2']),
-     'abc', 'abc', None,
+     'abc', '', 'abc', '', '', None,
      ('a1 b1 c1', 'a2 b2 c2')),
     (('260', ['a', 'a1', 'b', 'b1', 'c', 'c1',
               'a', 'a2', 'b', 'b2', 'c', 'c2']),
-     'ac', 'ac', None,
+     'ac', '', 'ac', '', '', None,
      ('a1 c1', 'a2 c2')),
     (('260', ['a', 'a1', 'b', 'b1', 'c', 'c1',
               'a', 'a2', 'b', 'b2', 'c', 'c2']),
-     'acd', 'acd', None,
+     'acd', '', 'acd', '', '', None,
      ('a1 c1', 'a2 c2')),
     (('260', ['a', 'a1', 'b', 'b1', 'c', 'c1',
               'a', 'a2', 'b', 'b2', 'c', 'c2']),
-     'cba', 'cba', None,
+     'cba', '', 'cba', '', '', None,
      ('a1 b1 c1', 'a2 b2 c2')),
     (('260', ['a', 'a1', 'b', 'b1', 'c', 'c1']),
-     'abc', 'abc', None,
+     'abc', '', 'abc', '', '', None,
      ('a1 b1 c1',)),
     (('260', ['a', 'a1', 'b', 'b1',
               'a', 'a2', 'c', 'c2']),
-     'abc', 'abc', None,
+     'abc', '', 'abc', '', '', None,
      ('a1 b1', 'a2 c2')),
     (('260', ['b', 'b1',
               'b', 'b2', 'a', 'a1', 'c', 'c1']),
-     'abc', 'abc', None,
+     'abc', '', 'abc', '', '', None,
      ('b1', 'b2 a1 c1')),
+    (('260', ['a', 'a1', 'b', 'b1', 'c', 'c1',
+              'a', 'a2', 'b', 'b2', 'c', 'c2']),
+     '', 'abc', 'abc', '', '', None,
+     ('')),
+    (('260', ['a', 'a1', 'b', 'b1', 'c', 'c1',
+              'a', 'a2', 'b', 'b2', 'c', 'c2']),
+     '', 'ac', 'abc', '', '', None,
+     ('b1', 'b2')),
+    (('260', ['a', 'a1', 'b', 'b1', 'c', 'c1',
+              'a', 'a2', 'b', 'b2', 'c', 'c2']),
+     'abc', '', 'abc', '', '', 1,
+     ('a1 b1 c1 a2 b2 c2',)),
+    (('260', ['a', 'a1', 'b', 'b1', 'c', 'c1',
+              'a', 'a2', 'b', 'b2', 'c', 'c2']),
+     'abc', '', 'abc', '', '', 2,
+     ('a1 b1 c1', 'a2 b2 c2',)),
+    (('260', ['a', 'a1', 'b', 'b1', 'c', 'c1',
+              'a', 'a2', 'b', 'b2', 'c', 'c2']),
+     'abc', '', 'abc', '', '', 3,
+     ('a1 b1 c1', 'a2 b2 c2',)),
+    (('260', ['a', 'a1', 'b', 'b1', 'c', 'c1',
+              'a', 'a2', 'b', 'b2', 'c', 'c2']),
+     '', '', '', '', '', None,
+     ('a1 b1 c1 a2 b2 c2',)),
+    (('260', ['a', 'a1', 'b', 'b1', 'c', 'c1',
+              'a', 'a2', 'b', 'b2', 'c', 'c2']),
+     '', '', '', 'ac', '', None,
+     ('', 'a1 b1', 'c1', 'a2 b2', 'c2')),
+    (('260', ['a', 'a1', 'b', 'b1', 'c', 'c1',
+              'a', 'a2', 'b', 'b2', 'c', 'c2']),
+     '', '', '', 'ac', '', 1,
+     ('a1 b1 c1 a2 b2 c2',)),
+    (('260', ['a', 'a1', 'b', 'b1', 'c', 'c1',
+              'a', 'a2', 'b', 'b2', 'c', 'c2']),
+     '', '', '', 'ac', '', 2,
+     ('', 'a1 b1 c1 a2 b2 c2',)),
+    (('260', ['a', 'a1', 'b', 'b1', 'c', 'c1',
+              'a', 'a2', 'b', 'b2', 'c', 'c2']),
+     '', '', '', 'ac', '', 3,
+     ('', 'a1 b1', 'c1 a2 b2 c2',)),
+    (('260', ['a', 'a1', 'b', 'b1', 'c', 'c1',
+              'a', 'a2', 'b', 'b2', 'c', 'c2']),
+     '', '', '', '', 'ac', None,
+     ('a1', 'b1 c1', 'a2', 'b2 c2')),
+    (('260', ['a', 'a1', 'b', 'b1', 'c', 'c1',
+              'a', 'a2', 'b', 'b2', 'c', 'c2']),
+     '', '', '', '', 'ac', 1,
+     ('a1 b1 c1 a2 b2 c2',)),
+    (('260', ['a', 'a1', 'b', 'b1', 'c', 'c1',
+              'a', 'a2', 'b', 'b2', 'c', 'c2']),
+     '', '', '', '', 'ac', 2,
+     ('a1', 'b1 c1 a2 b2 c2',)),
+    (('260', ['a', 'a1', 'b', 'b1', 'c', 'c1',
+              'a', 'a2', 'b', 'b2', 'c', 'c2']),
+     '', '', '', '', 'ac', 3,
+     ('a1', 'b1 c1', 'a2 b2 c2',)),
     (('260', ['a', 'a1.1', 'a', 'a1.2', 'b', 'b1.1',
               'a', 'a2.1', 'b', 'b2.1',
               'b', 'b3.1']),
-     'ab', None, 'b',
+     'ab', '', '', '', 'b', None,
      ('a1.1 a1.2 b1.1', 'a2.1 b2.1', 'b3.1')),
+    (('700', ['a', 'Name', 'd', 'Dates', 't', 'Title', 'p', 'Part']),
+     '', '', '', 'tp', '', 2,
+     ('Name Dates', 'Title Part')),
 ])
-def test_groupsubfields_groups_correctly(field_info, sftags, unqtags, brktags,
-                                         expected):
+def test_groupsubfields_groups_correctly(field, inc, exc, unq, start, end,
+                                         limit, expected):
     """
     `group_subfields` should put subfields from a pymarc Field object
-    into groupings based on the provided sftags and uniquetags strings.
+    into groupings based on the provided parameters.
     """
-    field = s2m.make_pmfield(field_info[0], subfields=field_info[1])
-    result = s2m.group_subfields(field, sftags, unqtags, brktags)
+    pmfield = s2m.make_pmfield(field[0], subfields=field[1])
+    result = s2m.group_subfields(pmfield, inc, exc, unq, start, end, limit)
     assert len(result) == len(expected)
     for group, exp in zip(result, expected):
         assert group.value() == exp
@@ -1499,15 +1564,453 @@ def test_blasmpipeline_getresourcetypeinfo(bcode2,
 
 
 @pytest.mark.parametrize('marcfields, expected', [
+    ([('600', ['a', 'Churchill, Winston,', 'c', 'Sir,', 'd', '1874-1965.'],
+       '1 ')], {}),
     ([('100', ['a', 'Churchill, Winston,', 'c', 'Sir,', 'd', '1874-1965.'],
        '1 ')],
      {'author_search': ['Churchill, Winston, Sir, 1874-1965',
-                        'Sir Winston Churchill',
-                        'Winston Churchill, Sir'],
+                        'Winston Churchill, Sir',
+                        'Sir Winston Churchill'],
       'author_contributor_facet': ['Churchill, Winston, Sir, 1874-1965'],
-      'author_sort': 'Churchill, Winston, Sir, 1874-1965',
-      'author_json': [{'d': 'Churchill, Winston, Sir, 1874-1965'}]
+      'author_sort': 'churchill, winston, sir, 1874-1965',
+      'author_json': {'p': [{'d': 'Churchill, Winston, Sir, 1874-1965'}]}
      }),
+    ([('100', ['a', 'Thomas,', 'c', 'Aquinas, Saint,', 'd', '1225?-1274.'],
+        '0 ')],
+     {'author_search': ['Thomas, Aquinas, Saint, 1225?-1274',
+                        'Aquinas Thomas, Saint',
+                        'Saint Thomas, Aquinas'],
+      'author_contributor_facet': ['Thomas, Aquinas, Saint, 1225?-1274'],
+      'author_sort': 'thomas, aquinas, saint, 1225?-1274',
+      'author_json': {'p': [{'d': 'Thomas, Aquinas, Saint, 1225?-1274'}]}
+     }),
+    ([('100', ['a', 'Hecht, Ben,', 'd', '1893-1964,', 'e', 'writing,',
+               'e', 'direction,', 'e', 'production.'], '1 ')],
+     {'author_search': ['Hecht, Ben, 1893-1964', 'Ben Hecht'],
+      'author_contributor_facet': ['Hecht, Ben, 1893-1964'],
+      'author_sort': 'hecht, ben, 1893-1964',
+      'author_json': {'p': [{'d': 'Hecht, Ben, 1893-1964'}],
+                      'r': ['writing', 'direction', 'production']}
+     }),
+    ([('100', ['a', 'Hecht, Ben,', 'd', '1893-1964,',
+               'e', 'writing, direction, production.'], '1 ')],
+     {'author_search': ['Hecht, Ben, 1893-1964', 'Ben Hecht'],
+      'author_contributor_facet': ['Hecht, Ben, 1893-1964'],
+      'author_sort': 'hecht, ben, 1893-1964',
+      'author_json': {'p': [{'d': 'Hecht, Ben, 1893-1964'}],
+                      'r': ['writing', 'direction', 'production']}
+     }),
+    ([('100', ['a', 'Hecht, Ben,', 'd', '1893-1964.', '4', 'drt', '4', 'pro'],
+       '1 ')],
+     {'author_search': ['Hecht, Ben, 1893-1964', 'Ben Hecht'],
+      'author_contributor_facet': ['Hecht, Ben, 1893-1964'],
+      'author_sort': 'hecht, ben, 1893-1964',
+      'author_json': {'p': [{'d': 'Hecht, Ben, 1893-1964'}],
+                      'r': ['director', 'producer']}
+     }),
+    ([('100', ['a', 'Hecht, Ben,', 'd', '1893-1964,', 'e', 'writer,',
+               'e', 'director.', '4', 'drt', '4', 'pro'], '1 ')],
+     {'author_search': ['Hecht, Ben, 1893-1964', 'Ben Hecht'],
+      'author_contributor_facet': ['Hecht, Ben, 1893-1964'],
+      'author_sort': 'hecht, ben, 1893-1964',
+      'author_json': {'p': [{'d': 'Hecht, Ben, 1893-1964'}],
+                      'r': ['writer', 'director', 'producer']}
+     }),
+    ([('700', ['i', 'Container of (work):',
+               '4', 'http://rdaregistry.info/Elements/w/P10147',
+               'a', 'Dicks, Terrance.',
+               't', 'Doctor Who and the Dalek invasion of Earth.'], '12')],
+     {'contributors_search': ['Dicks, Terrance', 'Terrance Dicks'],
+      'author_contributor_facet': ['Dicks, Terrance'],
+      'author_sort': 'dicks, terrance',
+      'contributors_json': {'p': [{'d': 'Dicks, Terrance'}]}
+     }),
+    ([('710', ['a', 'Some Organization,', 't', 'Some Work Title.'], '22')],
+     {'contributors_search': ['Some Organization'],
+      'author_contributor_facet': ['Some Organization'],
+      'author_sort': 'some organization',
+      'contributors_json': {'p': [{'d': 'Some Organization'}]}
+     }),
+    ([('711', ['a', 'Some Festival.'], '2 ')],
+     {'meeting_facet': ['Some Festival'],
+      'meetings_search': ['Some Festival'],
+      'meetings_json': [{'p': [{'d': 'Some Festival'}]}]
+     }),
+    ([('711', ['a', 'Some Festival.', 'e', 'Orchestra.'], '2 ')],
+     {'meeting_facet': ['Some Festival'],
+      'meetings_search': ['Some Festival'],
+      'meetings_json': [{'p': [{'d': 'Some Festival'}]}],
+      'contributors_search': ['Some Festival, Orchestra'],
+      'author_contributor_facet': ['Some Festival, Orchestra'],
+      'author_sort': 'some festival, orchestra',
+      'contributors_json': {'p': [{'d': 'Some Festival, Orchestra'}]}
+     }),
+    ([('111', ['a', 'White House Conference on Lib and Info Services',
+               'd', '(1979 :', 'c', 'Washington, D.C.).',
+               'e', 'Ohio Delegation.'], '2 ')],
+     {'author_search': [
+        'White House Conference on Lib and Info Services, Ohio Delegation'],
+      'author_contributor_facet': [
+        'White House Conference on Lib and Info Services, Ohio Delegation'],
+      'author_sort': 'white house conference on lib and info services, ohio '
+                     'delegation',
+      'author_json': {
+        'p': [{'d': 'White House Conference on Lib and Info Services, Ohio '
+                    'Delegation'}]},
+      'meetings_search': [
+        'White House Conference on Lib and Info Services (1979 : Washington, '
+        'D.C.)'],
+      'meeting_facet': [
+        'White House Conference on Lib and Info Services',
+        'White House Conference on Lib and Info Services (1979 : Washington, '
+        'D.C.)'],
+      'meetings_json': {
+        'p': [
+            {'d': 'White House Conference on Lib and Info Services'},
+            {'d': '(1979 : Washington, D.C.)',
+             'v': 'White House Conference on Lib and Info Services (1979 : '
+                  'Washington, D.C.)'}]}
+     }),
+    ([('711', ['a', 'Olympic Games',
+               'n', '(21st :', 'd', '1976 :', 'c', 'Montréal, Québec).',
+               'e', 'Organizing Committee.', 'e', 'Arts and Culture Program.',
+               'e', 'Visual Arts Section.'], '2 ')],
+     {'contributors_search': [
+        'Olympic Games, Organizing Committee > Arts and Culture Program > '
+        'Visual Arts Section'],
+      'author_contributor_facet': [
+        'Olympic Games, Organizing Committee',
+        'Olympic Games, Organizing Committee > Arts and Culture Program',
+        'Olympic Games, Organizing Committee > Arts and Culture Program > '
+        'Visual Arts Section'],
+      'author_sort': 'olympic games, organizing committee > arts and culture '
+                     'program > visual arts section',
+      'contributors_json': {
+        'p': [{'d': 'Olympic Games, Organizing Committee', 's': ' > '},
+              {'d': 'Arts and Culture Program',
+               'v': 'Olympic Games, Organizing Committee > Arts and Culture '
+                    'Program', 's': ' > '},
+              {'d': 'Visual Arts Section',
+               'v': 'Olympic Games, Organizing Committee > Arts and Culture '
+                    'Program > Visual Arts Section'}]},
+      'meetings_search': [
+        'Olympic Games (21st : 1976 : Montréal, Québec)'],
+      'meeting_facet': [
+        'Olympic Games',
+        'Olympic Games (21st : 1976 : Montréal, Québec)'],
+      'meetings_json': {
+        'p': [
+            {'d': 'Olympic Games'},
+            {'d': '(21st : 1976 : Montréal, Québec)',
+             'v': 'Olympic Games (21st : 1976 : Montréal, Québec)'}]}
+     }),
+    ([('111', ['a', 'International Congress of Gerontology.',
+               'e', 'Satellite Conference',
+               'd', '(1978 :', 'c', 'Sydney, N.S.W.)',
+               'e', 'Organizing Committee.'], '2 ')],
+     {'author_search': [
+        'International Congress of Gerontology Satellite Conference, '
+        'Organizing Committee'],
+      'author_contributor_facet': [
+        'International Congress of Gerontology Satellite Conference, '
+        'Organizing Committee'],
+      'author_sort': 'international congress of gerontology satellite '
+                     'conference, organizing committee',
+      'author_json': {
+        'p': [{'d': 'International Congress of Gerontology Satellite '
+                    'Conference, Organizing Committee'}]},
+      'meetings_search': [
+        'International Congress of Gerontology > Satellite Conference '
+        '(1978 : Sydney, N.S.W.)'],
+      'meeting_facet': [
+        'International Congress of Gerontology',
+        'International Congress of Gerontology > Satellite Conference',
+        'International Congress of Gerontology > Satellite Conference '
+        '(1978 : Sydney, N.S.W.)'],
+      'meetings_json': {
+        'p': [
+            {'d': 'International Congress of Gerontology', 's': ' > '},
+            {'d': 'Satellite Conference',
+             'v': 'International Congress of Gerontology > Satellite '
+                  'Conference'},
+            {'d': '(1978 : Sydney, N.S.W.)',
+             'v': 'International Congress of Gerontology > Satellite '
+                  'Conference (1978 : Sydney, N.S.W.)'}]}
+     }),
+    ([('110', ['a', 'Democratic Party (Tex.).',
+               'b', 'State Convention', 'd', '(1857 :', 'c', 'Waco, Tex.).',
+               'b', 'Houston Delegation.'], '2 ')],
+     {'author_search': [
+        'Democratic Party (Tex.) > State Convention, Houston Delegation'],
+      'author_contributor_facet': [
+        'Democratic Party (Tex.)',
+        'Democratic Party (Tex.) > State Convention, Houston Delegation'],
+      'author_sort': 'democratic party (tex.) > state convention, houston '
+                     'delegation',
+      'author_json': {
+        'p': [
+            {'d': 'Democratic Party (Tex.)', 's': ' > '},
+            {'d': 'State Convention, Houston Delegation',
+             'v': 'Democratic Party (Tex.) > State Convention, Houston '
+                  'Delegation'}]},
+      'meetings_search': [
+        'Democratic Party (Tex.), State Convention (1857 : Waco, Tex.)'],
+      'meeting_facet': [
+        'Democratic Party (Tex.), State Convention',
+        'Democratic Party (Tex.), State Convention (1857 : Waco, Tex.)'],
+      'meetings_json': {
+        'p': [
+            {'d': 'Democratic Party (Tex.), State Convention'},
+            {'d': '(1857 : Waco, Tex.)',
+             'v': 'Democratic Party (Tex.), State Convention '
+                  '(1857 : Waco, Tex.)'}]}
+     }),
+    ([('110', ['a', 'Democratic Party (Tex.).', 'b', 'State Convention',
+               'd', '(1857 :', 'c', 'Waco, Tex.).'], '2 ')],
+     {'author_search': ['Democratic Party (Tex.)'],
+      'author_contributor_facet': ['Democratic Party (Tex.)'],
+      'author_sort': 'democratic party (tex.)',
+      'author_json': {'p': [{'d': 'Democratic Party (Tex.)'}]},
+      'meetings_search': [
+        'Democratic Party (Tex.), State Convention (1857 : Waco, Tex.)'],
+      'meeting_facet': [
+        'Democratic Party (Tex.), State Convention',
+        'Democratic Party (Tex.), State Convention (1857 : Waco, Tex.)'],
+      'meetings_json': {
+        'p': [
+            {'d': 'Democratic Party (Tex.), State Convention'},
+            {'d': '(1857 : Waco, Tex.)',
+             'v': 'Democratic Party (Tex.), State Convention '
+                  '(1857 : Waco, Tex.)'}]}
+     }),
+    ([('110', ['a', 'United States.', 'b', 'Congress', 
+               'n', '(97th, 2nd session :', 'd', '1982).',
+               'b', 'House.'], '1 ')],
+     {'author_search': ['United States Congress > House'],
+      'author_contributor_facet': [
+        'United States Congress',
+        'United States Congress > House'],
+      'author_sort': 'united states congress > house',
+      'author_json': {
+        'p': [
+            {'d': 'United States Congress', 's': ' > '},
+            {'d': 'House', 'v': 'United States Congress > House'}]},
+      'meetings_search': ['United States Congress (97th, 2nd session : 1982)'],
+      'meeting_facet': [
+        'United States Congress',
+        'United States Congress (97th, 2nd session : 1982)'],
+      'meetings_json': {
+        'p': [
+            {'d': 'United States Congress'},
+            {'d': '(97th, 2nd session : 1982)',
+             'v': 'United States Congress (97th, 2nd session : 1982)'}]}
+     }),
+    ([('111', ['a', 'Paris.', 'q', 'Peace Conference,', 'd', '1919.'], '1 ')],
+     {'meetings_search': ['Paris Peace Conference 1919'],
+      'meeting_facet': ['Paris Peace Conference',
+                        'Paris Peace Conference 1919'],
+      'meetings_json': {
+        'p': [
+            {'d': 'Paris Peace Conference'},
+            {'d': '1919',
+             'v': 'Paris Peace Conference 1919'}]}
+     }),
+    ([('710', ['i', 'Container of (work):',
+               'a', 'Some Organization,',
+               'e', 'author.',
+               't', 'Some Work Title.'], '22')],
+     {'contributors_search': ['Some Organization'],
+      'author_contributor_facet': ['Some Organization'],
+      'author_sort': 'some organization',
+      'contributors_json': {'p': [{'d': 'Some Organization'}],
+                            'r': ['author']}
+     }),
+    ([('711', ['a', 'Some Festival.', 'e', 'Orchestra,',
+               'j', 'instrumentalist.'], '2 ')],
+     {'meeting_facet': ['Some Festival'],
+      'meetings_search': ['Some Festival'],
+      'meetings_json': [{'p': [{'d': 'Some Festival'}]}],
+      'contributors_search': ['Some Festival, Orchestra'],
+      'author_contributor_facet': ['Some Festival, Orchestra'],
+      'author_sort': 'some festival, orchestra',
+      'contributors_json': {'p': [{'d': 'Some Festival, Orchestra'}],
+                            'r': ['instrumentalist']}
+     }),
+    ([('711', ['a', 'Some Conference', 'c', '(Rome),',
+               'j', 'jointly held conference.'], '2 ')],
+     {'meeting_facet': ['Some Conference', 'Some Conference (Rome)'],
+      'meetings_search': ['Some Conference (Rome)'],
+      'meetings_json': [{'p': [{'d': 'Some Conference'},
+                               {'d': '(Rome)', 'v': 'Some Conference (Rome)'}],
+                         'r': ['jointly held conference']}]
+     }),
+    ([('800', ['a', 'Berenholtz, Jim,', 'd', '1957-',
+               't', 'Teachings of the feathered serpent ;', 'v', 'bk. 1.'],
+       '1 ')],
+     {'author_contributor_facet': ['Berenholtz, Jim, 1957-'],
+      'contributors_search': ['Berenholtz, Jim, 1957-', 'Jim Berenholtz']
+     }),
+    ([('810', ['a', 'United States.', 'b', 'Army Map Service.',
+               't', 'Special Africa series,', 'v', 'no. 12.'], '1 ')],
+     {'author_contributor_facet': ['United States Army Map Service'],
+      'contributors_search': ['United States Army Map Service']
+     }),
+    ([('811', ['a', 'International Congress of Nutrition',
+               'n', '(11th :', 'd', '1978 :', 'c', 'Rio de Janeiro, Brazil).',
+               't', 'Nutrition and food science ;', 'v', 'v. 1.'], '2 ')],
+     {'meeting_facet': [
+        'International Congress of Nutrition',
+        'International Congress of Nutrition (11th : 1978 : Rio de Janeiro, '
+        'Brazil)'],
+      'meetings_search': ['International Congress of Nutrition (11th : 1978 : '
+                          'Rio de Janeiro, Brazil)']
+     }),
+    ([('100', ['a', 'Author, Main,', 'd', '1910-1990.'], '1 '),
+      ('700', ['a', 'Author, Second,', 'd', '1920-1999.'], '1 '),
+      ('710', ['a', 'Org Contributor.', 't', 'Title'], '22'),
+      ('711', ['a', 'Festival.', 'e', 'Orchestra.'], '2 ')],
+     {'author_search': ['Author, Main, 1910-1990', 'Main Author'],
+      'author_sort': 'author, main, 1910-1990',
+      'author_json': {'p': [{'d': 'Author, Main, 1910-1990'}]},
+      'author_contributor_facet': [
+        'Author, Main, 1910-1990', 'Author, Second, 1920-1999',
+        'Org Contributor', 'Festival, Orchestra'],
+      'contributors_search': [
+        'Author, Second, 1920-1999', 'Second Author', 'Org Contributor',
+        'Festival, Orchestra'],
+      'contributors_json': [
+        {'p': [{'d': 'Author, Second, 1920-1999'}]},
+        {'p': [{'d': 'Org Contributor'}]},
+        {'p': [{'d': 'Festival, Orchestra'}]}],
+      'meeting_facet': ['Festival'],
+      'meetings_search': ['Festival'],
+      'meetings_json': [{'p': [{'d': 'Festival'}]}]
+     }),
+    ([('110', ['a', 'Some Organization'], '2 '),
+      ('700', ['a', 'Author, Second,', 'd', '1920-1999.'], '1 '),
+      ('710', ['a', 'Org Contributor.', 't', 'Title'], '22'),
+      ('711', ['a', 'Festival.', 'e', 'Orchestra.'], '2 ')],
+     {'author_search': ['Some Organization'],
+      'author_sort': 'some organization',
+      'author_json': {'p': [{'d': 'Some Organization'}]},
+      'author_contributor_facet': [
+        'Some Organization', 'Author, Second, 1920-1999',
+        'Org Contributor', 'Festival, Orchestra'],
+      'contributors_search': [
+        'Author, Second, 1920-1999', 'Second Author', 'Org Contributor',
+        'Festival, Orchestra'],
+      'contributors_json': [
+        {'p': [{'d': 'Author, Second, 1920-1999'}]},
+        {'p': [{'d': 'Org Contributor'}]},
+        {'p': [{'d': 'Festival, Orchestra'}]}],
+      'meeting_facet': ['Festival'],
+      'meetings_search': ['Festival'],
+      'meetings_json': [{'p': [{'d': 'Festival'}]}]
+     }),
+    ([('110', ['a', 'Some Org.', 'b', 'Meeting', 'd', '(1999).'], '2 '),
+      ('700', ['a', 'Author, Second,', 'd', '1920-1999.'], '1 '),
+      ('710', ['a', 'Org Contributor.', 't', 'Title'], '22'),
+      ('711', ['a', 'Festival.', 'e', 'Orchestra.'], '2 ')],
+     {'author_search': ['Some Org'],
+      'author_sort': 'some org',
+      'author_json': {'p': [{'d': 'Some Org'}]},
+      'author_contributor_facet': [
+        'Some Org', 'Author, Second, 1920-1999',
+        'Org Contributor', 'Festival, Orchestra'],
+      'contributors_search': [
+        'Author, Second, 1920-1999', 'Second Author', 'Org Contributor',
+        'Festival, Orchestra'],
+      'contributors_json': [
+        {'p': [{'d': 'Author, Second, 1920-1999'}]},
+        {'p': [{'d': 'Org Contributor'}]},
+        {'p': [{'d': 'Festival, Orchestra'}]}],
+      'meeting_facet': ['Some Org, Meeting', 'Some Org, Meeting (1999)',
+                        'Festival'],
+      'meetings_search': ['Some Org, Meeting (1999)', 'Festival'],
+      'meetings_json': [
+        {'p': [{'d': 'Some Org, Meeting'},
+               {'d': '(1999)', 'v': 'Some Org, Meeting (1999)'}]},
+        {'p': [{'d': 'Festival'}]}]
+     }),
+    ([('111', ['a', 'Meeting', 'd', '(1999).'], '2 '),
+      ('700', ['a', 'Author, Second,', 'd', '1920-1999.'], '1 '),
+      ('710', ['a', 'Org Contributor.', 't', 'Title'], '22'),
+      ('711', ['a', 'Festival.', 'e', 'Orchestra.'], '2 ')],
+     {'author_sort': 'author, second, 1920-1999',
+      'author_contributor_facet': [
+        'Author, Second, 1920-1999', 'Org Contributor', 'Festival, Orchestra'],
+      'contributors_search': [
+        'Author, Second, 1920-1999', 'Second Author', 'Org Contributor',
+        'Festival, Orchestra'],
+      'contributors_json': [
+        {'p': [{'d': 'Author, Second, 1920-1999'}]},
+        {'p': [{'d': 'Org Contributor'}]},
+        {'p': [{'d': 'Festival, Orchestra'}]}],
+      'meeting_facet': ['Meeting', 'Meeting (1999)', 'Festival'],
+      'meetings_search': ['Meeting (1999)', 'Festival'],
+      'meetings_json': [
+        {'p': [{'d': 'Meeting'},
+               {'d': '(1999)', 'v': 'Meeting (1999)'}]},
+        {'p': [{'d': 'Festival'}]}]
+     }),
+    ([('111', ['a', 'Conference.', 'e', 'Subcommittee.'], '2 '),
+      ('700', ['a', 'Author, Second,', 'd', '1920-1999.'], '1 '),
+      ('710', ['a', 'Org Contributor.', 't', 'Title'], '22'),
+      ('711', ['a', 'Festival.', 'e', 'Orchestra.'], '2 ')],
+     {'author_search': ['Conference, Subcommittee'],
+      'author_sort': 'conference, subcommittee',
+      'author_json': {'p': [{'d': 'Conference, Subcommittee'}]},
+      'author_contributor_facet': [
+        'Conference, Subcommittee', 'Author, Second, 1920-1999',
+        'Org Contributor', 'Festival, Orchestra'],
+      'contributors_search': [
+        'Author, Second, 1920-1999', 'Second Author', 'Org Contributor',
+        'Festival, Orchestra'],
+      'contributors_json': [
+        {'p': [{'d': 'Author, Second, 1920-1999'}]},
+        {'p': [{'d': 'Org Contributor'}]},
+        {'p': [{'d': 'Festival, Orchestra'}]}],
+      'meeting_facet': ['Conference', 'Festival'],
+      'meetings_search': ['Conference', 'Festival'],
+      'meetings_json': [
+        {'p': [{'d': 'Conference'}]},
+        {'p': [{'d': 'Festival'}]}]
+     })
+], ids=[
+    # Edge cases
+    'Nothing: no 1XX, 7XX, or 8XX fields',
+    # Personal Names (X00) and Relators
+    '100, plain personal name',
+    '100, name, forename only, with multiple titles',
+    '100, name with $e relators, multiple $e instances',
+    '100, name with $e relators, multiple vals listed in $e',
+    '100, name with $4 relators',
+    '100, name with $e and $4 relators',
+    '700, name with $i (ignore!), $4 URI (ignore!), and title info (ignore!)',
+    # Org and Meeting Names (X10, X11)
+    '710, plain org name',
+    '711, plain meeting name',
+    '711, meeting name w/organization subsection and no event info',
+    '111, meeting name w/organization subsection, with event info',
+    '711, meeting name w/muti-org subsection',
+    '111, multi-structured meeting w/organization subsection',
+    '110, org with meeting and sub-org',
+    '110, org with meeting (no sub-org)',
+    '110, jurisdication w/meeting and sub-org',
+    '111, jurisdiction-based meeting',
+    '710, organization with $i and relators',
+    '711, meeting w/org subsection and $j relators',
+    '711, meeting with $j relators applied to meeting',
+    # Series Authors etc. (8XX)
+    '800, personal name',
+    '810, org name, jurisdiction',
+    '811, meeting name',
+    # Multiple 1XX, 7XX, 8XX fields
+    '100 author, 7XX contributors',
+    '110 author, 7XX contributors',
+    '110 author w/meeting component, 7XX contributors',
+    '111 meeting, w/no org component, 7XX contributors',
+    '111 meeting, w/org component, 7XX contributors',
 ])
 def test_blasmpipeline_getcontributorinfo(marcfields, expected,
                                           bl_sierra_test_record,
@@ -1522,13 +2025,15 @@ def test_blasmpipeline_getcontributorinfo(marcfields, expected,
     pipeline = blasm_pipeline_class()
     bib = bl_sierra_test_record('bib_no_items')
     bibmarc = bibrecord_to_pymarc(bib)
-    bibmarc.remove_fields('100', '110', '111', '700', '710', '711')
+    bibmarc.remove_fields('100', '110', '111', '700', '710', '711', '800',
+                          '810', '811')
     bibmarc = add_marc_fields(bibmarc, marcfields)
     val = pipeline.get_contributor_info(bib, bibmarc)
     for k, v in val.items():
+        print k, v
         if k in expected:
             if k.endswith('_json'):
-                assert_json_matches_expected(v, expected[k])
+                assert_json_matches_expected(v, expected[k], exact=True)
             else:
                 assert v == expected[k]
         else:
