@@ -332,6 +332,26 @@ def test_strip_ellipses(data, expected):
 
 
 @pytest.mark.parametrize('data, expected', [
+    ('Container of (work):', 'Container of:'),
+    ('Container of (Work):', 'Container of:'),
+    ('Container of (item):', 'Container of:'),
+    ('Container of (expression):', 'Container of:'),
+    ('Container of (manifestation):', 'Container of:'),
+    ('Container of (salad dressing):', 'Container of (salad dressing):'),
+    ('Container of:', 'Container of:'),
+    ('composer (expression)', 'composer'),
+    ('(Work) blah', ' blah'),
+    ('Contains work:', 'Contains work:'),
+])
+def test_strip_wemi(data, expected):
+    """
+    `strip_wemi` should correctly strip any WEMI entities contained in
+    parentheses in the given data string.
+    """
+    assert parsers.strip_wemi(data) == expected
+
+
+@pytest.mark.parametrize('data, expected', [
     ('This is an example of a title : subtitle / ed. by John Doe.', 'This is an example of a title : subtitle / ed. by John Doe'),
     ('Some test data ... that we have (whatever [whatever]).', 'Some test data that we have (whatever whatever)'),
 ])
@@ -435,16 +455,17 @@ def test_normalize_cr_symbol(data, expected):
 
 
 @pytest.mark.parametrize('data, first_indicator, exp_forename, exp_surname, exp_family_name', [
-    ('Thomale, Jason,', '0', 'Jason', 'Thomale', ''),
-    ('Thomale, Jason,', '1', 'Jason', 'Thomale', ''),
-    ('Thomale, Jason,', '3', 'Jason', 'Thomale', ''),
-    ('John,', '0', 'John', '', ''),
-    ('John II Comnenus,', '0', 'John II Comnenus', '', ''),
-    ('Byron, George Gordon Byron,', '1', 'George Gordon Byron', 'Byron', ''),
-    ('Joannes Aegidius, Zamorensis,', '1', 'Zamorensis', 'Joannes Aegidius', ''),
-    ('Morton family.', '3', '', 'Morton', 'Morton family'),
-    ('Morton family.', '2', '', 'Morton', 'Morton family'),
-    ('Morton family.', '2', '', 'Morton', 'Morton family'),
+    ('Thomale, Jason,', '0', 'Jason', 'Thomale', None),
+    ('Thomale, Jason,', '1', 'Jason', 'Thomale', None),
+    ('Thomale, Jason,', '3', 'Jason', 'Thomale', None),
+    ('John,', '0', 'John', None, None),
+    ('John II Comnenus,', '0', 'John II Comnenus', None, None),
+    ('Byron, George Gordon Byron,', '1', 'George Gordon Byron', 'Byron', None),
+    ('Joannes Aegidius, Zamorensis,', '1', 'Zamorensis', 'Joannes Aegidius',
+        None),
+    ('Morton family.', '3', None, 'Morton', 'Morton family'),
+    ('Morton family.', '2', None, 'Morton', 'Morton family'),
+    ('Morton family.', '2', None, 'Morton', 'Morton family'),
 ])
 def test_person_name(data, first_indicator, exp_forename, exp_surname, exp_family_name):
     """

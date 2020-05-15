@@ -315,6 +315,15 @@ def strip_ellipses(data):
     return re.sub(r'(^\.{3}|\s*(?<=[^\.])\.{3})\s*(\.?)', r'\2 ', data).strip()
 
 
+def strip_wemi(data):
+    """
+    Strip any FRBR WEMI entity terms (work, expression, manifestation,
+    or item) in the given string data.
+    """
+    return re.sub(r'\s*\((work|expression|manifestation|item)\)', r'', data,
+                  flags=re.IGNORECASE)
+
+
 def clean(data):
     """
     Perform common clean-up operations on a string of MARC field data.
@@ -442,6 +451,6 @@ def person_name(data, indicators):
             if is_family_name or re.search(r'\s*family\b', surname, flags=re.I):
                 family_name = surname
                 surname = re.sub(r'\s*family\b', '', surname, flags=re.I)
-    return {'forename': strip_ends(forename),
-            'surname': strip_ends(surname),
-            'family_name': strip_ends(family_name)}
+    return {'forename': strip_ends(forename) or None,
+            'surname': strip_ends(surname) or None,
+            'family_name': strip_ends(family_name) or None}
