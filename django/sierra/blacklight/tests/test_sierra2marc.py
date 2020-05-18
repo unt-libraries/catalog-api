@@ -19,13 +19,22 @@ pytestmark = pytest.mark.django_db
 
 
 @pytest.fixture
-def bibrecord_to_pymarc():
+def s2mbatch_class():
+    """
+    Pytest fixture; returns the s2m.S2MarcBatchBlacklightSolrMarc
+    class.
+    """
+    return s2m.S2MarcBatchBlacklightSolrMarc
+
+
+@pytest.fixture
+def bibrecord_to_pymarc(s2mbatch_class):
     """
     Pytest fixture for converting a `bib` from the Sierra DB (i.e. a
     base.models.BibRecord instance) to a pymarc MARC record object.
     """
     def _bibrecord_to_pymarc(bib):
-        s2m_obj = s2m.S2MarcBatchBlacklightSolrMarc(bib)
+        s2m_obj = s2mbatch_class(bib)
         return s2m_obj.compile_original_marc(bib)
     return _bibrecord_to_pymarc
 
@@ -2198,3 +2207,27 @@ def test_plbundleconverter_do_maps_correctly(mapping, bundle, expected,
     for field, exp in zip(fields, expected):
         assert field.tag == exp['tag']
         assert list(field) == exp['data']
+
+
+def test_s2mmarcbatch_compileoriginalmarc_vf_order(s2mbatch_class,
+                                                   bl_sierra_test_record,
+                                                   add_varfields_to_record):
+    """
+    S2MarcBatchBlacklightSolrMarc `compile_original_marc` method should
+    put variable-length field into the correct order, based on field
+    tag groupings and the vf.occ_num values. This should mirror the
+    order catalogers put record fields into in Sierra.
+    """
+    b = bl_sierra_test_record('bib_no_items')
+    add_varfields_to_record(b, 'y', '036', ['|a1'], '  ', 0, True)
+    add_varfields_to_record(b, 'y', '036', ['|a2'], '  ', 1, False)
+    add_varfields_to_record(b, 'a', '100', ['|a3'], '  ', 0, True)
+    add_varfields_to_record(b, 'n', '520', ['|a4'], '  ', 0, True)
+    add_varfields_to_record(b, 'n', '520', ['|a5'], '  ', 1, False)
+    add_varfields_to_record(b, 'n', '500', ['|a6'], '  ', 2, True)
+    add_varfields_to_record(b, 'n', '530', ['|a7'], '  ', 3, True)
+    add_varfields_to_record(b, 'y', '856', ['|a8'], '  ', 2, True)
+    add_varfields_to_record(b, 'y', '856', ['|a9'], '  ', 3, False)
+    rec = s2mbatch_class(b).compile_original_marc(b)
+    fields = rec.get_fields('036', '100', '500', '520', '530', '856')
+    assert fields == sorted(fields, key=lambda l: l.value())

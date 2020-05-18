@@ -210,7 +210,7 @@ def add_varfields_to_record(model_instance, setattr_model_instance):
             filt = {'marc_tag': marc_tag, 'varfield_type_code': field_tag}
             for existing_vf in r.record_metadata.varfield_set.filter(**filt):
                 setattr_model_instance(existing_vf, 'marc_tag', None)
-                setattr_model_instance(existing_vf, 'varfield_type_code', None)
+                setattr_model_instance(existing_vf, 'varfield_type_code', '!')
         if start_occ_num is None:
             filt = {'varfield_type_code': field_tag}
             vf_set = r.record_metadata.varfield_set.filter(**filt)

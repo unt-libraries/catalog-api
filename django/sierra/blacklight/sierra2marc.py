@@ -1273,17 +1273,26 @@ class S2MarcBatchBlacklightSolrMarc(S2MarcBatch):
             mfields.append(field)
         return mfields
 
+    def order_varfields(self, varfields):
+        groups = []
+        vfgroup_ordernum, last_vftag = 0, None
+        for vf in sorted(varfields, key=lambda vf: vf.marc_tag):
+            if vf.marc_tag:
+                if last_vftag and last_vftag != vf.varfield_type_code:
+                    vfgroup_ordernum += 1
+                sort_key = (vfgroup_ordernum * 1000) + vf.occ_num
+                groups.append((sort_key, vf))
+                last_vftag = vf.varfield_type_code
+        return [vf for _, vf in sorted(groups, key=lambda r: r[0])]
+
     def compile_varfields(self, r):
         mfields = []
         try:
-            varfields = r.record_metadata.varfield_set\
-                        .exclude(marc_tag=None)\
-                        .exclude(marc_tag='')\
-                        .order_by('marc_tag')
+            varfields = r.record_metadata.varfield_set.all()
         except Exception as e:
             raise S2MarcError('Skipped. Couldn\'t retrieve varfields. '
                               '({})'.format(e), str(r))
-        for vf in varfields:
+        for vf in self.order_varfields(varfields):
             tag, ind1, ind2 = vf.marc_tag, vf.marc_ind1, vf.marc_ind2
             content, field = vf.field_content, None
             try:
@@ -1303,8 +1312,8 @@ class S2MarcBatchBlacklightSolrMarc(S2MarcBatch):
 
     def compile_original_marc(self, r):
         marc_record = pymarc.record.Record(force_utf8=True)
-        marc_record.add_ordered_field(*self.compile_control_fields(r))
-        marc_record.add_ordered_field(*self.compile_varfields(r))
+        marc_record.add_field(*self.compile_control_fields(r))
+        marc_record.add_field(*self.compile_varfields(r))
         return marc_record
 
     def _one_to_marc(self, r):
@@ -1313,7 +1322,7 @@ class S2MarcBatchBlacklightSolrMarc(S2MarcBatch):
             raise S2MarcError('Skipped. No MARC fields on Bib record.', str(r))
 
         bundle = self.custom_data_pipeline.do(r, marc_record)
-        marc_record.add_ordered_field(*self.to_9xx_converter.do(bundle))
+        marc_record.add_field(*self.to_9xx_converter.do(bundle))
 
         marc_record.remove_fields('001')
         hacked_id = 'a{}'.format(bundle['id'])
@@ -1325,7 +1334,7 @@ class S2MarcBatchBlacklightSolrMarc(S2MarcBatch):
                 indicators=[' ', ' '],
                 subfields=['d', material_type]
         )
-        marc_record.add_ordered_field(metadata_field)
+        marc_record.add_field(metadata_field)
 
         # For each call number in the record, add a 909 field.
         i = 0
@@ -1346,7 +1355,7 @@ class S2MarcBatchBlacklightSolrMarc(S2MarcBatch):
                 indicators=[' ', ' '],
                 subfields=subfield_data
             )
-            marc_record.add_ordered_field(cn_field)
+            marc_record.add_field(cn_field)
             i += 1
 
         # If this record has a media game facet field: clean it up,
@@ -1362,7 +1371,7 @@ class S2MarcBatchBlacklightSolrMarc(S2MarcBatch):
                 indicators=[' ', ' '],
                 subfields = mf_subfield_data
             )
-            marc_record.add_ordered_field(mf_field)
+            marc_record.add_field(mf_field)
 
         if re.match(r'[0-9]', marc_record.as_marc()[5]):
             raise S2MarcError('Skipped. MARC record exceeds 99,999 bytes.', 
