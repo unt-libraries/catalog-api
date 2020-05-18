@@ -1813,6 +1813,7 @@
          era_terms^300
          full_subjects^200
          author_search^300
+         responsibility_search^275
          statement_of_responsibility^275
          contributors_search^250
          meetings_search^150
@@ -1838,6 +1839,7 @@
          era_terms^3000
          full_subjects^2000
          author_search^3000
+         responsibility_search^2750
          statement_of_responsibility^2750
          contributors_search^2500
          meetings_search^1500
@@ -1848,11 +1850,13 @@
        </str>
        <str name="creator_qf">
          author_search^1000
+         responsibility_search^750
          statement_of_responsibility^750
          contributors_search^500
        </str>
        <str name="creator_pf">
          author_search^10000
+         responsibility_search^7500
          statement_of_responsibility^7500
          contributors_search^5000
        </str>

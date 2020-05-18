@@ -27,6 +27,7 @@ ALPHASOLRMARC_FIELDS = (
     'publication_dates_search', 'author_json', 'contributors_json',
     'meetings_json', 'author_sort', 'author_contributor_facet', 'meeting_facet',
     'author_search', 'contributors_search', 'meetings_search',
+    'responsibility_search',
     # OLD FIELDS ARE BELOW
     'game_facet', 'languages', 'isbn_numbers',
     'issn_numbers', 'lccn_number', 'oclc_numbers', 'dewey_call_numbers',
@@ -121,7 +122,7 @@ ALPHASOLRMARC_GENS = (
     ('contributors_search', GENS(tp.chance(tp.multi(random_agent(6, 3, 1),
                                                     1, 5), 75))),
     ('meetings_search', GENS(tp.chance(tp.multi(tp.org_name_like, 1, 3), 25))),
-    ('statement_of_responsibility', GENS(tp.chance(tp.statement_of_resp, 80))),
+    ('responsibility_search', GENS(tp.chance(tp.statement_of_resp, 80))),
     ('physical_characteristics', GENS(tp.multi(tp.sentence_like, 1, 4))),
     ('context_notes', GENS(tp.chance(tp.multi(tp.sentence_like, 1, 4), 50))),
     ('summary_notes', GENS(tp.chance(tp.multi(tp.sentence_like, 1, 4), 50))),

@@ -342,9 +342,11 @@ def test_blasmpipeline_do_creates_compiled_dict(blasm_pipeline_class):
     The `do` method of BlacklightASMPipeline should return a dict
     compiled from the return value of each of the `get` methods--each
     key/value pair from each return value added to the finished value.
+    If the same dict key is returned by multiple methods and the vals
+    are lists, the lists are concatenated.
     """
     class DummyPipeline(blasm_pipeline_class):
-        fields = ['dummy1', 'dummy2', 'dummy3']
+        fields = ['dummy1', 'dummy2', 'dummy3', 'dummy4']
         prefix = 'get_'
 
         def get_dummy1(self, r, marc_record):
@@ -356,10 +358,13 @@ def test_blasmpipeline_do_creates_compiled_dict(blasm_pipeline_class):
         def get_dummy3(self, r, marc_record):
             return { 'stuff': ['thing'] }
 
+        def get_dummy4(self, r, marc_record):
+            return { 'stuff': ['other thing']}
+
     dummy_pipeline = DummyPipeline()
     bundle = dummy_pipeline.do('test', 'test')
     assert bundle == { 'd1': 'd1v', 'd2a': 'd2av', 'd2b': 'd2bv',
-                       'stuff': ['thing'] }
+                       'stuff': ['thing', 'other thing'] }
 
 
 def test_blasmpipeline_getid(bl_sierra_test_record, blasm_pipeline_class):
@@ -1587,6 +1592,8 @@ def test_blasmpipeline_getresourcetypeinfo(bcode2,
     ([('100', ['a', 'Hecht, Ben,', 'd', '1893-1964,', 'e', 'writing,',
                'e', 'direction,', 'e', 'production.'], '1 ')],
      {'author_search': ['Hecht, Ben, 1893-1964', 'Ben Hecht'],
+      'responsibility_search': ['Ben Hecht writing', 'Ben Hecht direction',
+                                'Ben Hecht production'],
       'author_contributor_facet': ['Hecht, Ben, 1893-1964'],
       'author_sort': 'hecht, ben, 1893-1964',
       'author_json': {'p': [{'d': 'Hecht, Ben, 1893-1964'}],
@@ -1595,6 +1602,8 @@ def test_blasmpipeline_getresourcetypeinfo(bcode2,
     ([('100', ['a', 'Hecht, Ben,', 'd', '1893-1964,',
                'e', 'writing, direction, production.'], '1 ')],
      {'author_search': ['Hecht, Ben, 1893-1964', 'Ben Hecht'],
+      'responsibility_search': ['Ben Hecht writing', 'Ben Hecht direction',
+                                'Ben Hecht production'],
       'author_contributor_facet': ['Hecht, Ben, 1893-1964'],
       'author_sort': 'hecht, ben, 1893-1964',
       'author_json': {'p': [{'d': 'Hecht, Ben, 1893-1964'}],
@@ -1603,6 +1612,7 @@ def test_blasmpipeline_getresourcetypeinfo(bcode2,
     ([('100', ['a', 'Hecht, Ben,', 'd', '1893-1964.', '4', 'drt', '4', 'pro'],
        '1 ')],
      {'author_search': ['Hecht, Ben, 1893-1964', 'Ben Hecht'],
+      'responsibility_search': ['Ben Hecht director', 'Ben Hecht producer'],
       'author_contributor_facet': ['Hecht, Ben, 1893-1964'],
       'author_sort': 'hecht, ben, 1893-1964',
       'author_json': {'p': [{'d': 'Hecht, Ben, 1893-1964'}],
@@ -1611,6 +1621,8 @@ def test_blasmpipeline_getresourcetypeinfo(bcode2,
     ([('100', ['a', 'Hecht, Ben,', 'd', '1893-1964,', 'e', 'writer,',
                'e', 'director.', '4', 'drt', '4', 'pro'], '1 ')],
      {'author_search': ['Hecht, Ben, 1893-1964', 'Ben Hecht'],
+      'responsibility_search': ['Ben Hecht writer', 'Ben Hecht director',
+                                'Ben Hecht producer'],
       'author_contributor_facet': ['Hecht, Ben, 1893-1964'],
       'author_sort': 'hecht, ben, 1893-1964',
       'author_json': {'p': [{'d': 'Hecht, Ben, 1893-1964'}],
@@ -1820,6 +1832,7 @@ def test_blasmpipeline_getresourcetypeinfo(bcode2,
                'e', 'author.',
                't', 'Some Work Title.'], '22')],
      {'contributors_search': ['Some Organization'],
+      'responsibility_search': ['Some Organization author'],
       'author_contributor_facet': ['Some Organization'],
       'author_sort': 'some organization',
       'contributors_json': {'p': [{'d': 'Some Organization'}],
@@ -1831,6 +1844,7 @@ def test_blasmpipeline_getresourcetypeinfo(bcode2,
       'meetings_search': ['Some Festival'],
       'meetings_json': [{'p': [{'d': 'Some Festival'}]}],
       'contributors_search': ['Some Festival, Orchestra'],
+      'responsibility_search': ['Some Festival, Orchestra instrumentalist'],
       'author_contributor_facet': ['Some Festival, Orchestra'],
       'author_sort': 'some festival, orchestra',
       'contributors_json': {'p': [{'d': 'Some Festival, Orchestra'}],
@@ -1840,6 +1854,7 @@ def test_blasmpipeline_getresourcetypeinfo(bcode2,
                'j', 'jointly held conference.'], '2 ')],
      {'meeting_facet': ['Some Conference', 'Some Conference (Rome)'],
       'meetings_search': ['Some Conference (Rome)'],
+      'responsibility_search': ['Some Conference jointly held conference'],
       'meetings_json': [{'p': [{'d': 'Some Conference'},
                                {'d': '(Rome)', 'v': 'Some Conference (Rome)'}],
                          'r': ['jointly held conference']}]

@@ -346,6 +346,11 @@ def make_personal_name_variations(forename, surname, ptitles):
     return alts
 
 
+def make_relator_search_variations(base_name, relators):
+    relators = relators or []
+    return ['{} {}'.format(base_name, r) for r in relators]
+
+
 class BlacklightASMPipeline(object):
     """
     This is a one-off class to hold functions/methods for creating the
@@ -400,13 +405,16 @@ class BlacklightASMPipeline(object):
         in the `fields` class attribute and returns a dict composed of
         all keys returned by the individual methods.
         """
-        bundle = {}
+        self.bundle = {}
         for fname in self.fields:
             method_name = '{}{}'.format(self.prefix, fname)
             result = getattr(self, method_name)(r, marc_record)
             for k, v in result.items():
-                bundle[k] = v
-        return bundle
+                if k in self.bundle and self.bundle[k] and v:
+                    self.bundle[k].extend(v)
+                else:
+                    self.bundle[k] = v
+        return self.bundle
 
     def fetch_varfields(self, record, vf_code, only_first=False):
         """
@@ -964,7 +972,10 @@ class BlacklightASMPipeline(object):
         fn, sn, pt = [name_struct[k] for k in ('forename', 'surname', 
                                                'person_titles')]
         search_vals = [heading] + make_personal_name_variations(fn, sn, pt)
+        base_name = '{} {}'.format(fn, sn) if (fn and sn) else (sn or fn)
+        rel_search_vals = make_relator_search_variations(base_name, relations)
         return {'heading': heading, 'json': json, 'search_vals': search_vals,
+                'relator_search_vals': rel_search_vals,
                 'facet_vals': [heading]}
 
     def compile_org_or_event_info(self, name_struct):
@@ -996,7 +1007,10 @@ class BlacklightASMPipeline(object):
                 facet_vals.append(heading)
             if not this_is_last_part:
                 json['p'][-1]['s'] = sep
+        base_name = ' '.join([h['name'] for h in name_struct['heading_parts']])
+        rel_search_vals = make_relator_search_variations(base_name, relations)
         return {'heading': heading, 'json': json, 'search_vals': [heading],
+                'relator_search_vals': rel_search_vals,
                 'facet_vals': facet_vals}
 
     def parse_contributor_fields(self, fields):
@@ -1019,6 +1033,7 @@ class BlacklightASMPipeline(object):
         author_json, contributors_json, meetings_json = {}, [], []
         author_search, contributors_search, meetings_search = [], [], []
         author_contributor_facet, meeting_facet = [], []
+        responsibility_search = []
         author_sort = None
 
         fields = marc_record.get_fields('100', '110', '111', '700', '710',
@@ -1046,6 +1061,7 @@ class BlacklightASMPipeline(object):
                 if have_seen_author or this_is_7XX:
                     contributors_json.append(parsed['json'])
                 author_contributor_facet.extend(parsed['facet_vals'])
+            responsibility_search.extend(parsed['relator_search_vals'])
 
         return {
             'author_json': ujson.dumps(author_json) if author_json else None,
@@ -1058,7 +1074,8 @@ class BlacklightASMPipeline(object):
             'meetings_search': meetings_search or None,
             'author_contributor_facet': author_contributor_facet or None,
             'meeting_facet': meeting_facet or None,
-            'author_sort': author_sort
+            'author_sort': author_sort,
+            'responsibility_search': responsibility_search or None
         }
 
 
@@ -1130,6 +1147,7 @@ class PipelineBundleConverter(object):
         ( '972', ('author_contributor_facet',) ),
         ( '972', ('meeting_facet',) ),
         ( '972', ('author_sort',) ),
+        ( '972', ('responsibility_search',) ),
         ( '973', ('full_title', 'responsibility', 'parallel_titles') ),
         ( '973', ('included_work_titles', 'related_work_titles') ),
         ( '973', ('included_work_titles_display_json',) ),
