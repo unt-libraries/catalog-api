@@ -1073,6 +1073,14 @@ def test_blasmpipeline_getthumbnailurl(marcfields, expected_url,
     ([('008', 's0301    '),
       ('260', ['a', 'Place1 :', 'b', 'Publisher,', 'c', '[ca. 300?]'])],
      '0301', '301', ['0300', '0301'], ['0300-0309'], ['300', '301', '300s']),
+    ([('008', 's2014    '),
+      ('362', ['a', 'Vol. 1, no. 1 (Apr. 1981)-'], '0 ')],
+     '2014', '2014', ['2014', '1981'], ['2010-2019', '1980-1989'],
+     ['2014', '2010s', '1981', '1980s']),
+    ([('008', 's2014    '),
+      ('362', ['a', 'Began with vol. 4, published in 1947.'], '1 ')],
+     '2014', '2014', ['2014', '1947'], ['2010-2019', '1940-1949'],
+     ['2014', '2010s', '1947', '1940s']),
 ], ids=[
     'standard, single date in 008 repeated in 260',
     'standard, single date in 008 repeated in 264',
@@ -1115,6 +1123,8 @@ def test_blasmpipeline_getthumbnailurl(marcfields, expected_url,
     'partial date in square brackets is recognizable',
     'three-digit year in 008 and 260c work',
     'three-digit year only 260c works',
+    'formatted date in 362 works',
+    'non-formatted date in 362 works'
 ])
 def test_blasmpipeline_getpubinfo_dates(marcfields, exp_pub_sort,
                                         exp_pub_year_display,
@@ -1131,7 +1141,7 @@ def test_blasmpipeline_getpubinfo_dates(marcfields, exp_pub_sort,
     pipeline = blasm_pipeline_class()
     bib = bl_sierra_test_record('bib_no_items')
     bibmarc = bibrecord_to_pymarc(bib)
-    bibmarc.remove_fields('260', '264')
+    bibmarc.remove_fields('260', '264', '362')
     if len(marcfields) and marcfields[0][0] == '008':
         data = bibmarc.get_fields('008')[0].data
         data = '{}{}{}'.format(data[0:6], marcfields[0][1], data[15:])
@@ -1267,6 +1277,13 @@ def test_blasmpipeline_getpubinfo_dates(marcfields, exp_pub_sort,
                'g', '(2010 printing)'])],
      {'publication_display': ['P Place : Publisher, 2004'],
       'manufacture_display': ['2010 printing']}),
+    ([('008', 's2014    '),
+      ('362', ['a', 'Vol. 1, no. 1 (Apr. 1981)-'], '0 ')],
+     {'publication_display': ['Vol. 1, no. 1 (Apr. 1981)-', '2014']}),
+    ([('008', 's2014    '),
+      ('362', ['a', 'Began with vol. 4, published in 1947.'], '1 ')],
+     {'publication_display': ['2014'],
+      'publication_date_notes': ['Began with vol. 4, published in 1947.']}),
 ], ids=[
     'Plain 260 => publication_display',
     '264 _1 => publication_display',
@@ -1308,6 +1325,8 @@ def test_blasmpipeline_getpubinfo_dates(marcfields, exp_pub_sort,
     '260 with manufacturer information (no mf date)',
     '260 with manufacturer information (has mf date)',
     '260 with manufacturer information (ONLY mf date)',
+    '362 with formatted date',
+    '362 with non-formatted date'
 ])
 def test_blasmpipeline_getpubinfo_statements(marcfields, expected,
                                              bl_sierra_test_record,
@@ -1321,7 +1340,7 @@ def test_blasmpipeline_getpubinfo_statements(marcfields, expected,
     pipeline = blasm_pipeline_class()
     bib = bl_sierra_test_record('bib_no_items')
     bibmarc = bibrecord_to_pymarc(bib)
-    bibmarc.remove_fields('260', '264')
+    bibmarc.remove_fields('260', '264', '362')
     if len(marcfields) and marcfields[0][0] == '008':
         data = bibmarc.get_fields('008')[0].data
         data = '{}{}{}'.format(data[0:6], marcfields[0][1], data[15:])

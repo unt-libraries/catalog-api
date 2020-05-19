@@ -819,6 +819,7 @@ class BlacklightASMPipeline(object):
             return []
 
         pub_info, described_years, places, publishers = {}, set(), set(), set()
+        publication_date_notes = []
         for f26x in marc_record.get_fields('260', '264'):
             years = pull_from_subfields(f26x, 'cg', p.extract_years)
             described_years |= set(years)
@@ -833,6 +834,16 @@ class BlacklightASMPipeline(object):
             for pub in pull_from_subfields(f26x, 'bf', _strip_unknown_pub):
                 pub = p.strip_ends(pub)
                 publishers.add(p.strip_outer_parentheses(pub, True))
+
+        for f362 in marc_record.get_fields('362'):
+            formatted_date = ' '.join(f362.get_subfields('a'))
+            years = p.extract_years(formatted_date)
+            described_years |= set(years)
+            if f362.indicator1 == '0':
+                pub_info['publication'] = pub_info.get('publication', [])
+                pub_info['publication'].append(formatted_date)
+            else:
+                publication_date_notes.append(f362.format_field())
 
         coded_dates = []
         f008 = (marc_record.get_fields('008') or [None])[0]
@@ -889,7 +900,8 @@ class BlacklightASMPipeline(object):
             'publication_year_display': year_display,
             'publication_places_search': list(places),
             'publishers_search': list(publishers),
-            'publication_dates_search': sdates
+            'publication_dates_search': sdates,
+            'publication_date_notes': publication_date_notes
         })
         return ret_val
 
@@ -1170,7 +1182,7 @@ class PipelineBundleConverter(object):
                   'distribution_display', 'manufacture_display',
                   'copyright_display') ),
         ( '976', ('publication_places_search', 'publishers_search',
-                  'publication_dates_search') ),
+                  'publication_dates_search', 'publication_date_notes') ),
     )
 
     def __init__(self, mapping=None):
