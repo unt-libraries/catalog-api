@@ -19,21 +19,92 @@ from blacklight import parsers as p
 from utils import helpers
 
 
-def make_pmfield(tag, data=None, indicators=None, subfields=None):
+class SierraMarcField(pymarc.field.Field):
     """
-    Create a new pymarc Field object with the given parameters.
+    Subclass of pymarc field.Field; adds `group_tag` (III field group tag)
+    to the Field object.
+    """
+    def __init__(self, tag, indicators=None, subfields=None, data=None,
+                 group_tag=None):
+        kwargs = {'tag': tag}
+        if data is None:
+            kwargs['indicators'] = indicators or [' ', ' ']
+            kwargs['subfields'] = subfields or []
+        else:
+            kwargs['data'] = data
+        super(SierraMarcField, self).__init__(**kwargs)
+        self.group_tag = group_tag or ' '
+        self.full_tag = ''.join((self.group_tag, tag))
+
+    def matches_tag(self, tag):
+        return tag in (self.tag, self.group_tag, self.full_tag)
+
+
+class SierraMarcRecord(pymarc.record.Record):
+    """
+    Subclass of pymarc record.Record. Changes `get_fields` method to
+    enable getting fields by field group tag, for SierraMarcField
+    instances.
+    """
+
+    def _field_matches_tag(self, field, tag):
+        try:
+            return field.matches_tag(tag)
+        except AttributeError:
+            return field.tag == tag
+
+    def get_fields_gen(self, *args):
+        """
+        Same as `get_fields`, but it's a generator.
+        """
+        no_args = len(args) == 0
+        for f in self.fields:
+            if no_args:
+                yield f
+            else:
+                for arg in args:
+                    if self._field_matches_tag(f, arg):
+                        yield f
+                        break
+
+    def get_fields(self, *args):
+        """
+        Return a list of fields (in the order they appear on the
+        record) that match the given list of args. Args may include
+        MARC tags ('100'), III field group tags ('a'), or both
+        ('a100'). 'a100' would get all a-tagged 100 fields; separate
+        'a' and '100' args would get all a-tagged fields and all 100
+        fields.
+
+        This returns a list to maintain compatibility with the parent
+        class `get_fields` method. Use `get_fields_gen` if you want a
+        generator instead.
+        """
+        return list(self.get_fields_gen(*args))
+
+    def filter_fields(self, include, exclude):
+        """
+        Like `get_fields_gen` but lets you provide a list of tags to
+        include and a list to exclude. All tags should be ones such as
+        what's defined in the `get_fields` docstring.
+        """
+        for f in self.get_fields_gen(*include):
+            if all([not self._field_matches_tag(f, ex) for ex in exclude]):
+                yield f
+
+
+def make_mfield(tag, data=None, indicators=None, subfields=None,
+                group_tag=None):
+    """
+    Create a new SierraMarcField object with the given parameters.
 
     `tag` is required. Creates a control field if `data` is not None,
-    otherwise creates a variable-length field. `subfields` and
-    `indicators` default to blank values.
+    otherwise creates a variable-length field. `group_tag` is the
+    III variable field group tag character. `subfields`, `indicators`,
+    and `group_tag` default to blank values.
     """
-    kwargs = {'tag': tag}
-    if data is None:
-        kwargs['indicators'] = indicators or [' ', ' ']
-        kwargs['subfields'] = subfields or []
-    else:
-        kwargs['data'] = data
-    return pymarc.field.Field(**kwargs)
+    return SierraMarcField(tag, indicators=indicators, subfields=subfields,
+                           data=data, group_tag=group_tag)
 
 
 def explode_subfields(pmfield, sftags):
@@ -81,7 +152,7 @@ def group_subfields(pmfield, include='', exclude='', unique='', start='',
 
     def _finish_group(pmfield, grouped, group, limit=None):
         if not limit or (len(grouped) < limit - 1):
-            grouped.append(make_pmfield(pmfield.tag, subfields=group,
+            grouped.append(make_mfield(pmfield.tag, subfields=group,
                                         indicators=pmfield.indicators))
             group = []
         return grouped, group
@@ -1204,13 +1275,13 @@ class PipelineBundleConverter(object):
             for v in vals:
                 if v is not None:
                     if repeat_field:
-                        field = make_pmfield(tag, subfields=[sftag, v])
+                        field = make_mfield(tag, subfields=[sftag, v])
                         fields.append(field)
                     else:
                         subfields.extend([sftag, v])
             sftag = self._increment_sftag(sftag)
         if len(subfields):
-            fields.append(make_pmfield(tag, subfields=subfields))
+            fields.append(make_mfield(tag, subfields=subfields))
         return sftag, fields
 
     def do(self, bundle):
@@ -1278,7 +1349,7 @@ class S2MarcBatchBlacklightSolrMarc(S2MarcBatch):
         for cf in control_fields:
             try:
                 data = cf.get_data()
-                field = make_pmfield(cf.get_tag(), data=data)
+                field = make_mfield(cf.get_tag(), data=data)
             except Exception as e:
                 raise S2MarcError('Skipped. Couldn\'t create MARC field '
                     'for {}. ({})'.format(cf.get_tag(), e), str(r))
@@ -1309,12 +1380,13 @@ class S2MarcBatchBlacklightSolrMarc(S2MarcBatch):
             content, field = vf.field_content, None
             try:
                 if tag in ['{:03}'.format(num) for num in range(1,10)]:
-                    field = make_pmfield(tag, data=content)
+                    field = make_mfield(tag, data=content)
                 elif tag[0] != '9' or tag in ('962',):
                     # Ignore most existing 9XX fields from Sierra.
                     ind = [ind1, ind2]
                     sf = re.split(r'\|([a-z0-9])', content)[1:]
-                    field = make_pmfield(tag, indicators=ind, subfields=sf)
+                    field = make_mfield(tag, indicators=ind, subfields=sf,
+                                              group_tag=vf.varfield_type_code)
             except Exception as e:
                 raise S2MarcError('Skipped. Couldn\'t create MARC field '
                         'for {}. ({})'.format(vf.marc_tag, e), str(r))
@@ -1323,7 +1395,7 @@ class S2MarcBatchBlacklightSolrMarc(S2MarcBatch):
         return mfields
 
     def compile_original_marc(self, r):
-        marc_record = pymarc.record.Record(force_utf8=True)
+        marc_record = SierraMarcRecord(force_utf8=True)
         marc_record.add_field(*self.compile_control_fields(r))
         marc_record.add_field(*self.compile_varfields(r))
         return marc_record
@@ -1338,7 +1410,7 @@ class S2MarcBatchBlacklightSolrMarc(S2MarcBatch):
 
         marc_record.remove_fields('001')
         hacked_id = 'a{}'.format(bundle['id'])
-        marc_record.add_grouped_field(make_pmfield('001', data=hacked_id))
+        marc_record.add_grouped_field(make_mfield('001', data=hacked_id))
         
         material_type = r.bibrecordproperty_set.all()[0].material.code
         metadata_field = pymarc.field.Field(

@@ -6,7 +6,6 @@ Tests the blacklight.parsers functions.
 
 from __future__ import unicode_literals
 import pytest
-import pymarc
 import ujson
 import datetime
 import pytz
@@ -49,23 +48,31 @@ def add_marc_fields():
     One or more `fields` may be passed. Each field is a tuple of:
         (tag, contents, indicators)
 
+    `tag` can be a 3-digit numeric MARC tag ('245') or a 4-digit tag,
+    where the III field group tag is prepended ('t245' is a t-tagged
+    245 field).
+
     Indicators is optional. If the MARC tag is 001 to 009, then a data
     field is created from `contents`. Otherwise `contents` is treated
     as a list of subfields, and `indicators` defaults to blank, blank.
     """
     def _add_marc_fields(bib, fields, overwrite_existing=True):
-        pm_fields = []
+        fieldobjs = []
         for f in fields:
             tag, contents = f[0:2]
+            group_tag = ''
+            if len(tag) == 4:
+                group_tag, tag = tag[0], tag[1:]
             if overwrite_existing:
                 bib.remove_fields(tag)
             if int(tag) < 10:
-                pm_fields.append(s2m.make_pmfield(tag, data=contents))
+                fieldobjs.append(s2m.make_mfield(tag, data=contents))
             else:
                 ind = tuple(f[2]) if len(f) > 2 else tuple('  ')
-                pm_fields.append(s2m.make_pmfield(tag, subfields=contents,
-                                                  indicators=ind))
-        bib.add_grouped_field(*pm_fields)
+                fieldobjs.append(s2m.make_mfield(tag, subfields=contents,
+                                                 indicators=ind,
+                                                 group_tag=group_tag))
+        bib.add_field(*fieldobjs)
         return bib
     return _add_marc_fields
 
@@ -144,13 +151,13 @@ def update_test_bib_inst(add_varfields_to_record, add_items_to_bib,
     {'data': 'abcdefg', 'subfields': ['a', 'Test']},
     {'data': 'abcdefg', 'indicators': '12', 'subfields': ['a', 'Test']}
 ])
-def test_makepmfield_creates_control_field(kwargs):
+def test_makemfield_creates_control_field(kwargs):
     """
-    When passed a `data` parameter, `make_pmfield` should create a
+    When passed a `data` parameter, `make_mfield` should create a
     pymarc control field, even if a `subfields` and/or `indicators`
     value is also passed.
     """
-    field = s2m.make_pmfield('008', **kwargs)
+    field = s2m.make_mfield('008', **kwargs)
     assert field.tag == '008'
     assert field.data == kwargs['data']
     assert not hasattr(field, 'indicators')
@@ -160,22 +167,128 @@ def test_makepmfield_creates_control_field(kwargs):
 @pytest.mark.parametrize('kwargs', [
     {},
     {'indicators': '12'},
-    {'subfields': ['a', 'Test1', 'b', 'Test2']}
+    {'subfields': ['a', 'Test1', 'b', 'Test2']},
+    {'subfields': ['a', 'Test'], 'group_tag': 'a'}
 ])
-def test_makepmfield_creates_varfield(kwargs):
+def test_makemfield_creates_varfield(kwargs):
     """
-    When NOT passed a `data` parameters, `make_pmfield` should create a
+    When NOT passed a `data` parameters, `make_mfield` should create a
     pymarc variable-length field. If indicators are not provided,
     defaults should be blank ([' ', ' ']). If subfields are not
     provided, default should be an empty list.
     """
-    field = s2m.make_pmfield('100', **kwargs)
+    field = s2m.make_mfield('100', **kwargs)
     expected_ind = kwargs.get('indicators', '  ')
     expected_sf = kwargs.get('subfields', [])
+    expected_gt = kwargs.get('group_tag', ' ')
     assert field.tag == '100'
     assert field.indicator1 == expected_ind[0]
     assert field.indicator2 == expected_ind[1]
     assert field.subfields == expected_sf
+    assert field.group_tag == expected_gt
+
+
+@pytest.mark.parametrize('grouptag, fieldtag, matchtag, expected', [
+    ('', '100', '100', True),
+    ('', '100', '200', False),
+    ('', '100', 'a', False),
+    ('', '100', 'a100', False),
+    ('a', '100', '100', True),
+    ('a', '100', 'a100', True),
+    ('a', '100', 'a', True),
+    ('a', '100', 'b', False),
+    ('a', '100', 'b100', False)
+])
+def test_sierramarcfield_matchestag(grouptag, fieldtag, matchtag, expected):
+    """
+    SierraMarcField `matches_tag` method should return True if the
+    provided `matchtag` matches a field with the given `grouptag` and
+    `fieldtag`, otherwise False.
+    """
+    f = s2m.SierraMarcField(fieldtag, subfields=['a', 'Test'],
+                            group_tag=grouptag)
+    assert f.matches_tag(matchtag) == expected
+
+
+@pytest.mark.parametrize('fields, args, expected', [
+    ([('a100', ['a', 'a100_1']),
+      ('a100', ['a', 'a100_2']),
+      ('b100', ['a', 'b100_1']),
+      ('a245', ['a', 'a245_1'])], (), ['a100_1', 'a100_2', 'b100_1', 'a245_1']),
+    ([('a100', ['a', 'a100_1']),
+      ('a100', ['a', 'a100_2']),
+      ('b100', ['a', 'b100_1']),
+      ('a245', ['a', 'a245_1'])], ('c', '110'), []),
+    ([('a100', ['a', 'a100_1']),
+      ('a100', ['a', 'a100_2']),
+      ('b100', ['a', 'b100_1']),
+      ('a245', ['a', 'a245_1'])], ('a',), ['a100_1', 'a100_2', 'a245_1']),
+    ([('a100', ['a', 'a100_1']),
+      ('a100', ['a', 'a100_2']),
+      ('b100', ['a', 'b100_1']),
+      ('a245', ['a', 'a245_1'])], ('a', '110'), ['a100_1', 'a100_2', 'a245_1']),
+    ([('a100', ['a', 'a100_1']),
+      ('a100', ['a', 'a100_2']),
+      ('b100', ['a', 'b100_1']),
+      ('a245', ['a', 'a245_1'])], ('100',), ['a100_1', 'a100_2', 'b100_1']),
+    ([('a100', ['a', 'a100_1']),
+      ('a100', ['a', 'a100_2']),
+      ('b100', ['a', 'b100_1']),
+      ('a245', ['a', 'a245_1'])], ('245',), ['a245_1']),
+    ([('a100', ['a', 'a100_1']),
+      ('a100', ['a', 'a100_2']),
+      ('b100', ['a', 'b100_1']),
+      ('a245', ['a', 'a245_1'])], ('a100',), ['a100_1', 'a100_2']),
+    ([('a100', ['a', 'a100_1']),
+      ('a100', ['a', 'a100_2']),
+      ('b100', ['a', 'b100_1']),
+      ('a245', ['a', 'a245_1'])], ('100', 'a', '245'), ['a100_1', 'a100_2',
+                                                        'b100_1', 'a245_1']),
+])
+def test_sierramarcrecord_getfields(fields, args, expected, add_marc_fields):
+    """
+    SierraMarcRecord `get_fields` method should return the expected
+    fields, given the provided `fields` definitions, when passed the
+    given `args`.
+    """
+    r = add_marc_fields(s2m.SierraMarcRecord(), fields)
+    filtered = r.get_fields(*args)
+    assert len(filtered) == len(expected)
+    for f in filtered:
+        assert f.format_field() in expected
+
+
+@pytest.mark.parametrize('fields, include, exclude, expected', [
+    ([('a100', ['a', 'a100_1']),
+      ('a100', ['a', 'a100_2']),
+      ('b100', ['a', 'b100_1']),
+      ('a245', ['a', 'a245_1'])], ('a',), ('100',), ['a245_1']),
+    ([('a100', ['a', 'a100_1']),
+      ('a100', ['a', 'a100_2']),
+      ('b100', ['a', 'b100_1']),
+      ('a245', ['a', 'a245_1'])], ('a',), (), ['a100_1', 'a100_2', 'a245_1']),
+    ([('a100', ['a', 'a100_1']),
+      ('a100', ['a', 'a100_2']),
+      ('b100', ['a', 'b100_1']),
+      ('a245', ['a', 'a245_1'])], (), ('100',), ['a245_1']),
+    ([('a100', ['a', 'a100_1']),
+      ('a100', ['a', 'a100_2']),
+      ('b100', ['a', 'b100_1']),
+      ('a245', ['a', 'a245_1'])], (), (), ['a100_1', 'a100_2', 'b100_1',
+                                           'a245_1']),
+])
+def test_sierramarcrecord_filterfields(fields, include, exclude, expected,
+                                       add_marc_fields):
+    """
+    SierraMarcRecord `filter_fields` method should return the expected
+    fields, given the provided `fields` definitions, when passed the
+    given `include` and `exclude` args.
+    """
+    r = add_marc_fields(s2m.SierraMarcRecord(), fields)
+    filtered = list(r.filter_fields(include, exclude))
+    assert len(filtered) == len(expected)
+    for f in filtered:
+        assert f.format_field() in expected
 
 
 def test_explodesubfields_returns_expected_results():
@@ -183,7 +296,7 @@ def test_explodesubfields_returns_expected_results():
     `explode_subfields` should return lists of subfield values for a
     pymarc Field object based on the provided sftags string.
     """
-    field = s2m.make_pmfield('260', subfields=['a', 'Place :',
+    field = s2m.make_mfield('260', subfields=['a', 'Place :',
                                                'b', 'Publisher,',
                                                'c', '1960;',
                                                'a', 'Another place :',
@@ -294,8 +407,8 @@ def test_groupsubfields_groups_correctly(field, inc, exc, unq, start, end,
     `group_subfields` should put subfields from a pymarc Field object
     into groupings based on the provided parameters.
     """
-    pmfield = s2m.make_pmfield(field[0], subfields=field[1])
-    result = s2m.group_subfields(pmfield, inc, exc, unq, start, end, limit)
+    mfield = s2m.make_mfield(field[0], subfields=field[1])
+    result = s2m.group_subfields(mfield, inc, exc, unq, start, end, limit)
     assert len(result) == len(expected)
     for group, exp in zip(result, expected):
         assert group.value() == exp
@@ -321,7 +434,7 @@ def test_pullfromsubfields_and_no_pullfunc(field_info, sftags, expected):
     return values from the given pymarc Field object and the specified
     sftags, as a list.
     """
-    field = s2m.make_pmfield(field_info[0], subfields=field_info[1])
+    field = s2m.make_mfield(field_info[0], subfields=field_info[1])
     for val, exp in zip(s2m.pull_from_subfields(field, sftags), expected):
         assert  val == exp
 
@@ -334,7 +447,7 @@ def test_pullfromsubfields_with_pullfunc():
     """
     subfields = ['a', 'a1.1 a1.2', 'b', 'b1.1 b1.2', 'c', 'c1',
                  'a', 'a2', 'b', 'b2', 'c', 'c2.1 c2.2']
-    field = s2m.make_pmfield('260', subfields=subfields)
+    field = s2m.make_mfield('260', subfields=subfields)
 
     def pf(val):
         return val.split(' ')
