@@ -191,6 +191,12 @@
     <field name="meetings_search" type="text" indexed="true" stored="false" multiValued="true"/>
     <field name="responsibility_search" type="stem_text" indexed="true" stored="false" multiValued="true"/>
 
+    <!-- Description and Notes -->
+    <field name="toc_notes" type="stem_text" indexed="true" stored="true" multiValued="true"/>
+    <field name="summary_notes" type="stem_text" indexed="true" stored="true" multiValued="true"/>
+    <field name="current_publication_frequency" type="text" indexed="false" stored="true" multiValued="true"/>
+    <field name="former_publication_frequency" type="text" indexed="false" stored="true" multiValued="true"/>
+
 
     <!-- OLD FIELDS: DONE #################################################################################
          Fields in this section have been re-implemented in the new schema and have one or more

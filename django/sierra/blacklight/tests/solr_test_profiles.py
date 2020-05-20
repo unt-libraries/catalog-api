@@ -28,6 +28,8 @@ ALPHASOLRMARC_FIELDS = (
     'contributors_json', 'meetings_json', 'author_sort',
     'author_contributor_facet', 'meeting_facet', 'author_search',
     'contributors_search', 'meetings_search', 'responsibility_search',
+    'summary_notes', 'toc_notes', 'current_publication_frequency',
+    'former_publication_frequency',
     # OLD FIELDS ARE BELOW
     'game_facet', 'languages', 'isbn_numbers',
     'issn_numbers', 'lccn_number', 'oclc_numbers', 'dewey_call_numbers',
@@ -36,7 +38,7 @@ ALPHASOLRMARC_FIELDS = (
     'statement_of_responsibility', 'full_title', 'title_sort',
     'alternate_titles', 'uniform_title', 'related_titles',
     'physical_characteristics',
-    'context_notes', 'summary_notes', 'toc_notes', 'era_terms', 'form_terms',
+    'context_notes', 'era_terms', 'form_terms',
     'general_terms', 'genre_terms', 'geographic_terms', 'other_terms',
     'topic_terms', 'full_subjects', 'series', 'series_exact',
     'public_title_facet', 'public_series_facet', 'public_subject_facet',
