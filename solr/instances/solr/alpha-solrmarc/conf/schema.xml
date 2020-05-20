@@ -194,8 +194,17 @@
     <!-- Description and Notes -->
     <field name="toc_notes" type="stem_text" indexed="true" stored="true" multiValued="true"/>
     <field name="summary_notes" type="stem_text" indexed="true" stored="true" multiValued="true"/>
+
     <field name="current_publication_frequency" type="text" indexed="false" stored="true" multiValued="true"/>
     <field name="former_publication_frequency" type="text" indexed="false" stored="true" multiValued="true"/>
+    <field name="physical_description" type="text" indexed="false" stored="true" multiValued="true"/>
+    <field name="physical_medium" type="text" indexed="false" stored="true" multiValued="true"/>
+    <field name="geospatial_data" type="text" indexed="false" stored="true" multiValued="true"/>
+    <field name="audio_characteristics" type="text" indexed="false" stored="true" multiValued="true"/>
+    <field name="projection_characteristics" type="text" indexed="false" stored="true" multiValued="true"/>
+    <field name="video_characteristics" type="text" indexed="false" stored="true" multiValued="true"/>
+    <field name="digital_file_characteristics" type="text" indexed="false" stored="true" multiValued="true"/>
+    <field name="graphic_representation" type="text" indexed="false" stored="true" multiValued="true"/>
 
 
     <!-- OLD FIELDS: DONE #################################################################################
@@ -236,6 +245,7 @@
     <field name="creator_sort" type="norm_string" indexed="true" stored="true"/>
     <field name="public_author_facet" type="string" indexed="true" stored="false" multiValued="true" docValues="true" />
     <field name="meetings_facet" type="string" indexed="true" stored="false" multiValued="true" docValues="true" />
+    <field name="physical_characteristics" type="text" indexed="true" stored="true" multiValued="true" />
 
     <!-- These fields aren't being used anyway so I am removing them. -->
     <!-- <field name="people_facet" type="string" indexed="true" stored="true" multiValued="true" docValues="true" /> -->
@@ -289,20 +299,11 @@
     <field name="sudoc_numbers" type="string" indexed="true" stored="true" multiValued="true" />
     <field name="other_call_numbers" type="string" indexed="true" stored="true" multiValued="true" />
 
-    <!-- Physical Fields -->
-    <field name="physical_characteristics" type="text" indexed="true" stored="true" multiValued="true" />
-
     <!-- Media Game Facet Fields -->
     <field name="game_facet" type="string" indexed="true" stored="true" multiValued="true" />
 
-    <!-- Table of Contents -->
-    <field name="toc_notes" type="text" indexed="true" stored="true" multiValued="true" />
-
     <!-- Context -->
     <field name="context_notes" type="text" indexed="true" stored="true" multiValued="true" />
-
-    <!-- Summary -->
-    <field name="summary_notes" type="text" indexed="true" stored="true" multiValued="true" />
 
     <!-- Temporary Fields to remove later: these were dynamic fields, but we want to start making
          sure all our fields are defined explicitly. -->

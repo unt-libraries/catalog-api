@@ -19,6 +19,14 @@ from blacklight import parsers as p
 from utils import helpers
 
 
+# These are MARC fields that we are currently not including in public
+# catalog records, listed by III field group tag.
+IGNORED_MARC_FIELDS_BY_GROUP_TAG = {
+    'r': ('306', '307', '336', '337', '338', '341', '348', '351', '355', '357',
+          '377', '380', '381', '383', '384', '385', '386', '387', '388', '389'),
+}
+
+
 class SierraMarcField(pymarc.field.Field):
     """
     Subclass of pymarc field.Field; adds `group_tag` (III field group tag)
@@ -465,7 +473,7 @@ class BlacklightASMPipeline(object):
     fields = [
         'id', 'suppressed', 'date_added', 'item_info', 'urls_json',
         'thumbnail_url', 'pub_info', 'access_info', 'resource_type_info',
-        'contributor_info'
+        'contributor_info', 'general_3xx_info',
     ]
     prefix = 'get_'
     access_online_label = 'Online'
@@ -1179,6 +1187,65 @@ class BlacklightASMPipeline(object):
             'responsibility_search': responsibility_search or None
         }
 
+    def get_general_3xx_info(self, r, marc_record):
+        def make_subfield_joiner(join_val):
+            def joiner(field, filter_, exclusionary):
+                filtered = f.filter_subfields(filter_, exclusionary)
+                joined = join_val.join([sfval for sftag, sfval in filtered])
+                return p.normalize_punctuation(joined)
+            return joiner
+
+        semicolon_joiner = make_subfield_joiner('; ')
+        space_joiner = make_subfield_joiner(' ')
+        mapping = {
+            'physical_medium': {
+                'include': ('340',),
+                'parse_func': semicolon_joiner
+            },
+            'geospatial_data': {
+                'include': ('342', '343'),
+                'parse_func': semicolon_joiner
+            },
+            'audio_characteristics': {
+                'include': ('344',),
+                'parse_func': semicolon_joiner
+            },
+            'projection_characteristics': {
+                'include': ('345',),
+                'parse_func': semicolon_joiner
+            },
+            'video_characteristics': {
+                'include': ('346',),
+                'parse_func': semicolon_joiner
+            },
+            'digital_file_characteristics': {
+                'include': ('347',),
+                'parse_func': semicolon_joiner
+            },
+            'graphic_representation': {
+                'include': ('352',)
+            },
+            'physical_description': {
+                'include': ('r', '370'),
+                'exclude': IGNORED_MARC_FIELDS_BY_GROUP_TAG['r'] +
+                           ('340', '342', '343', '344', '345', '346', '347',
+                            '352', '382')
+            }
+        }
+        ret_val = {}
+        for fname, fdef in mapping.items():
+            include = fdef.get('include', ())
+            exclude = fdef.get('exclude', ())
+            parse_func = fdef.get('parse_func', space_joiner)
+            sf_filter = fdef.get('sf_filter', self.utils.control_sftags)
+            sf_filter_excl = fdef.get('sf_filter_excl', True)
+            ret_val[fname] = []
+            for f in marc_record.filter_fields(include, exclude):
+                field_val = parse_func(f, sf_filter, sf_filter_excl)
+                if field_val:
+                    ret_val[fname].append(field_val)
+        return ret_val
+
 
 class PipelineBundleConverter(object):
     """
@@ -1272,6 +1339,10 @@ class PipelineBundleConverter(object):
                   'copyright_display') ),
         ( '976', ('publication_places_search', 'publishers_search',
                   'publication_dates_search', 'publication_date_notes') ),
+        ( '977', ('physical_description', 'physical_medium', 'geospatial_data',
+                  'audio_characteristics', 'projection_characteristics',
+                  'video_characteristics', 'digital_file_characteristics',
+                  'graphic_representation') ),
     )
 
     def __init__(self, mapping=None):

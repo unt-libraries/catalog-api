@@ -2227,6 +2227,53 @@ def test_blasmpipeline_getcontributorinfo(marcfields, expected,
             assert v is None
 
 
+def test_blasmpipeline_getgeneral3xxinfo(add_marc_fields, blasm_pipeline_class):
+    """
+    BlacklightASMPipeline.get_general_3xx_info should return fields
+    matching the expected parameters.
+    """
+    exclude = s2m.IGNORED_MARC_FIELDS_BY_GROUP_TAG['r']
+    handled = ('382',)
+    exc_fields = [(''.join(('r', t)), ['a', 'No']) for t in (exclude + handled)]
+    inc_fields = [
+        ('r300', ['a', '300 desc 1', '0', 'exclude']),
+        ('r300', ['a', '300 desc 2', '1', 'exclude']),
+        ('r340', ['3', 'self-portrait', 'a', 'rice paper', 'b', '7" x 9"']),
+        ('r342', ['a', 'Polyconic', 'g', '0.9996', 'h', '0', 'i', '500,000']),
+        ('r343', ['a', 'Coordinate pair;', 'b', 'meters;', 'c', '22;',
+                  'd', '22.']),
+        ('r344', ['a', 'analog', '2', 'rdatr']),
+        ('r344', ['h', 'Dolby-B encoded', '2', 'rdaspc']),
+        ('r345', ['a', 'Cinerama', '2', 'rdapf']),
+        ('r345', ['b', '24 fps']),
+        ('r346', ['a', 'VHS', '2', 'rdavf']),
+        ('r346', ['b', 'NTSC', '2', 'rdabs']),
+        ('r347', ['a', 'video file', '2', 'rdaft']),
+        ('r347', ['b', 'DVD video']),
+        ('r347', ['e', 'region 4', '2', 'rdare']),
+        ('r352', ['a', 'Raster :', 'b', 'pixel',
+                  'd', '(5,000 x', 'e', '5,000) ;', 'q', 'TIFF.']),
+        ('r370', ['a', '370 desc 1']),
+    ]
+    expected = {
+        'physical_medium': ['rice paper; 7" x 9"'],
+        'geospatial_data': ['Polyconic; 0.9996; 0; 500,000',
+                            'Coordinate pair; meters; 22; 22.'],
+        'audio_characteristics': ['analog', 'Dolby-B encoded'],
+        'projection_characteristics': ['Cinerama', '24 fps'],
+        'video_characteristics': ['VHS', 'NTSC'],
+        'digital_file_characteristics': ['video file', 'DVD video', 'region 4'],
+        'graphic_representation': ['Raster : pixel (5,000 x 5,000) ; TIFF.'],
+        'physical_description': ['300 desc 1', '300 desc 2', '370 desc 1']
+    }
+    marc = add_marc_fields(s2m.SierraMarcRecord(), (exc_fields + inc_fields))
+    pipeline = blasm_pipeline_class()
+    results = pipeline.get_general_3xx_info(None, marc)
+    assert set(results.keys()) == set(expected.keys())
+    for k, v in results.items():
+        assert v == expected[k]
+
+
 @pytest.mark.parametrize('mapping, bundle, expected', [
     ( (('900', ('name', 'title')),),
       {'name': 'N1', 'title': 'T1'},
