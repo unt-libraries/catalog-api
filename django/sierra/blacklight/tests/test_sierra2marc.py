@@ -210,6 +210,37 @@ def test_sierramarcfield_matchestag(grouptag, fieldtag, matchtag, expected):
     assert f.matches_tag(matchtag) == expected
 
 
+@pytest.mark.parametrize('subfields, tags, excl, expected', [
+    (['a', 'a1', 'a', 'a2', 'b', 'b', 'c', 'c'], 'abc', False,
+     [('a', 'a1'), ('a', 'a2'), ('b', 'b'), ('c', 'c')]),
+    (['a', 'a1', 'a', 'a2', 'b', 'b', 'c', 'c'], 'a', False,
+     [('a', 'a1'), ('a', 'a2')]),
+    (['a', 'a1', 'a', 'a2', 'b', 'b', 'c', 'c'], '', False,
+     [('a', 'a1'), ('a', 'a2'), ('b', 'b'), ('c', 'c')]),
+    (['a', 'a1', 'a', 'a2', 'b', 'b', 'c', 'c'], '', True,
+     [('a', 'a1'), ('a', 'a2'), ('b', 'b'), ('c', 'c')]),
+    (['a', 'a1', 'a', 'a2', 'b', 'b', 'c', 'c'], 'd', True,
+     [('a', 'a1'), ('a', 'a2'), ('b', 'b'), ('c', 'c')]),
+    (['a', 'a1', 'a', 'a2', 'b', 'b', 'c', 'c'], 'd', False,
+     []),
+    (['a', 'a1', 'a', 'a2', 'b', 'b', 'c', 'c'], 'a', True,
+     [('b', 'b'), ('c', 'c')]),
+    (['a', 'a1', 'a', 'a2', 'b', 'b', 'c', 'c'], 'bc', True,
+     [('a', 'a1'), ('a', 'a2')]),
+])
+def test_sierramarcfield_filtersubfields(subfields, tags, excl, expected):
+    """
+    SierraMarcField `filter_subfields` method should return the
+    expected tuples, given a field built using the given `subfields`
+    and the provided `tags` and `excl` args.
+    """
+    field = s2m.SierraMarcField('100', subfields=subfields)
+    filtered = list(field.filter_subfields(tags, excl))
+    assert len(filtered) == len(expected)
+    for i, tup in enumerate(filtered):
+        assert tup == expected[i]
+
+
 @pytest.mark.parametrize('fields, args, expected', [
     ([('a100', ['a', 'a100_1']),
       ('a100', ['a', 'a100_2']),

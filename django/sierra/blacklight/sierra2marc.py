@@ -37,7 +37,25 @@ class SierraMarcField(pymarc.field.Field):
         self.full_tag = ''.join((self.group_tag, tag))
 
     def matches_tag(self, tag):
+        """
+        Does this field match the provided `tag`? The `tag` may be the
+        MARC field tag ('100'), the group_field tag ('a'), or both
+        ('a100').
+        """
         return tag in (self.tag, self.group_tag, self.full_tag)
+
+    def filter_subfields(self, sftags, exclusionary=False):
+        """
+        Filter subfields on this field based on the provided `sftags`.
+        `sftags` is inclusionary when `exclusionary` is False (default)
+        or exclusionary when `exclusionary` is True. This is a
+        generator method that yields a (sftag, sfval) tuple.
+        """
+        incl, excl = not exclusionary, exclusionary
+        get_all = not sftags
+        for t, v in self:
+            if get_all or (incl and t in sftags) or (excl and t not in sftags):
+                yield (t, v)
 
 
 class SierraMarcRecord(pymarc.record.Record):
