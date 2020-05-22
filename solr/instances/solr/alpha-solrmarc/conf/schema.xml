@@ -205,6 +205,7 @@
     <field name="video_characteristics" type="text" indexed="false" stored="true" multiValued="true"/>
     <field name="digital_file_characteristics" type="text" indexed="false" stored="true" multiValued="true"/>
     <field name="graphic_representation" type="text" indexed="false" stored="true" multiValued="true"/>
+    <field name="performance_medium" type="text" indexed="false" stored="true" multiValued="true"/>
 
 
     <!-- OLD FIELDS: DONE #################################################################################

@@ -490,6 +490,129 @@ def test_pullfromsubfields_with_pullfunc():
         assert val == exp
 
 
+@pytest.mark.parametrize('subfields, expected', [
+    (['a', 'soprano voice', 'n', '2', 'a', 'mezzo-soprano voice', 'n', '1',
+      'a', 'tenor saxophone', 'n', '1', 'd', 'bass clarinet', 'n', '1',
+      'a', 'trumpet', 'n', '1', 'a', 'piano', 'n', '1', 'a', 'violin',
+      'n', '1', 'd', 'viola', 'n', '1', 'a', 'double bass', 'n', '1', 's', '8',
+      '2', 'lcmpt'],
+     {'total_performers': '8',
+      'total_ensembles': None,
+      'parts': [
+        [{'primary': [('soprano voice', '2')]}],
+        [{'primary': [('mezzo-soprano voice', '1')]}],
+        [{'primary': [('tenor saxophone', '1')]},
+         {'doubling': [('bass clarinet', '1')]}],
+        [{'primary': [('trumpet', '1')]}],
+        [{'primary': [('piano', '1')]}],
+        [{'primary': [('violin', '1')]}, {'doubling': [('viola', '1')]}],
+        [{'primary': [('double bass', '1')]}],
+     ]}),
+    (['b', 'flute', 'n', '1', 'a', 'orchestra', 'e', '1', 'r', '1', 't', '1',
+      '2', 'lcmpt'],
+     {'total_performers': '1',
+      'total_ensembles': '1',
+      'parts': [
+        [{'solo': [('flute', '1')]}],
+        [{'primary': [('orchestra', '1')]}],
+     ]}),
+    (['a', 'flute', 'n', '1', 'd', 'piccolo', 'n', '1', 'd', 'alto flute',
+      'n', '1', 'd', 'bass flute', 'n', '1', 's', '1', '2', 'lcmpt'],
+     {'total_performers': '1',
+      'total_ensembles': None,
+      'parts': [
+        [{'primary': [('flute', '1')]},
+         {'doubling': [('piccolo', '1'), ('alto flute', '1'),
+                       ('bass flute', '1')]}],
+     ]}),
+    (['a', 'violin', 'n', '1', 'd', 'flute', 'n', '1', 'p', 'piccolo', 'n', '1',
+      'a', 'cello', 'n', '1', 'a', 'piano', 'n', '1', 's', '3', '2', 'lcmpt'],
+     {'total_performers': '3',
+      'total_ensembles': None,
+      'parts': [
+        [{'primary': [('violin', '1')]}, {'doubling': [('flute', '1')]},
+         {'alt': [('piccolo', '1')]}],
+        [{'primary': [('cello', '1')]}],
+        [{'primary': [('piano', '1')]}],
+     ]}),
+    (['b', 'soprano voice', 'n', '3', 'b', 'alto voice', 'n', '2',
+      'b', 'tenor voice', 'n', '1', 'b', 'baritone voice', 'n', '1',
+      'b', 'bass voice', 'n', '1', 'a', 'mixed chorus', 'e', '2',
+      'v', 'SATB, SATB', 'a', 'children\'s chorus', 'e', '1', 'a',
+      'orchestra', 'e', '1', 'r', '8', 't', '4', '2', 'lcmpt'],
+     {'total_performers': '8',
+      'total_ensembles': '4',
+      'parts': [
+        [{'solo': [('soprano voice', '3')]}],
+        [{'solo': [('alto voice', '2')]}],
+        [{'solo': [('tenor voice', '1')]}],
+        [{'solo': [('baritone voice', '1')]}],
+        [{'solo': [('bass voice', '1')]}],
+        [{'primary': [('mixed chorus', '2', ['SATB, SATB'])]}],
+        [{'primary': [('children\'s chorus', '1')]}],
+        [{'primary': [('orchestra', '1')]}],
+     ]}),
+    (['a', 'violin', 'p', 'flute', 'd', 'viola', 'p', 'alto flute',
+      'd', 'cello', 'p', 'saxophone', 'd', 'double bass'],
+     {'total_performers': None,
+      'total_ensembles': None,
+      'parts': [
+        [{'primary': [('violin', '1')]}, {'alt': [('flute', '1')]},
+         {'doubling': [('viola', '1')]}, {'alt': [('alto flute', '1')]},
+         {'doubling': [('cello', '1')]}, {'alt': [('saxophone', '1')]},
+         {'doubling': [('double bass', '1')]}],
+     ]}),
+    (['a', 'violin', 'd', 'viola', 'd', 'cello', 'd', 'double bass', 
+      'p', 'flute', 'd', 'alto flute', 'd', 'saxophone'],
+     {'total_performers': None,
+      'total_ensembles': None,
+      'parts': [
+        [{'primary': [('violin', '1')]},
+         {'doubling': [('viola', '1'), ('cello', '1'), ('double bass', '1')]},
+         {'alt': [('flute', '1')]},
+         {'doubling': [('alto flute', '1'), ('saxophone', '1')]}],
+     ]}),
+    (['a', 'violin', 'v', 'Note1', 'v', 'Note2', 'd', 'viola', 'v', 'Note3',
+      'd', 'cello', 'n', '2', 'v', 'Note4', 'v', 'Note5'],
+     {'total_performers': None,
+      'total_ensembles': None,
+      'parts': [
+        [{'primary': [('violin', '1', ['Note1', 'Note2'])]},
+         {'doubling': [('viola', '1', ['Note3']),
+                       ('cello', '2', ['Note4', 'Note5'])]}]
+    ]}),
+    (['a', 'violin', 'd', 'viola', 'd', 'cello', 'd', 'double bass',
+      'p', 'flute', 'p', 'clarinet', 'd', 'alto flute', 'd', 'saxophone'],
+     {'total_performers': None,
+      'total_ensembles': None,
+      'parts': [
+        [{'primary': [('violin', '1')]},
+         {'doubling': [('viola', '1'), ('cello', '1'), ('double bass', '1')]},
+         {'alt': [('flute', '1'), ('clarinet', '1')]},
+         {'doubling': [('alto flute', '1'), ('saxophone', '1')]}],
+     ]}),
+    (['a', 'violin', 'p', 'flute', 'p', 'trumpet', 'p', 'clarinet',
+      'd', 'viola', 'p', 'alto flute', 'd', 'cello', 'p', 'saxophone',
+      'd', 'double bass'],
+     {'total_performers': None,
+      'total_ensembles': None,
+      'parts': [
+        [{'primary': [('violin', '1')]},
+         {'alt': [('flute', '1'), ('trumpet', '1'), ('clarinet', '1')]},
+         {'doubling': [('viola', '1')]}, {'alt': [('alto flute', '1')]},
+         {'doubling': [('cello', '1')]}, {'alt': [('saxophone', '1')]},
+         {'doubling': [('double bass', '1')]}],
+     ]}),
+])
+def test_performancemedparser_parse(subfields, expected):
+    """
+    PerformanceMedParser `parse` method should return a dict with the
+    expected structure, given the provided MARC 382 field.
+    """
+    field = s2m.make_mfield('382', subfields=subfields)
+    assert s2m.PerformanceMedParser(field).parse() == expected
+
+
 def test_blasmpipeline_do_creates_compiled_dict(blasm_pipeline_class):
     """
     The `do` method of BlacklightASMPipeline should return a dict
@@ -2227,14 +2350,121 @@ def test_blasmpipeline_getcontributorinfo(marcfields, expected,
             assert v is None
 
 
+@pytest.mark.parametrize('parsed_pm, expected', [
+    ({'total_performers': '8',
+      'total_ensembles': None,
+      'parts': [
+        [{'primary': [('soprano voice', '2')]}],
+        [{'primary': [('mezzo-soprano voice', '1')]}],
+        [{'primary': [('tenor saxophone', '1')]},
+         {'doubling': [('bass clarinet', '1')]}],
+        [{'primary': [('trumpet', '1')]}],
+        [{'primary': [('piano', '1')]}],
+        [{'primary': [('violin', '1')]}, {'doubling': [('viola', '1')]}],
+        [{'primary': [('double bass', '1')]}],
+     ]}, '8 performers: soprano voice (2); mezzo-soprano voice; tenor '
+         'saxophone doubling bass clarinet; trumpet; piano; violin doubling '
+         'viola; double bass'),
+    ({'total_performers': '1',
+      'total_ensembles': '1',
+      'parts': [
+        [{'solo': [('flute', '1')]}],
+        [{'primary': [('orchestra', '1')]}],
+     ]}, '1 performer and 1 ensemble: solo flute; orchestra'),
+    ({'total_performers': '1',
+      'total_ensembles': None,
+      'parts': [
+        [{'primary': [('flute', '1')]},
+         {'doubling': [('piccolo', '1'), ('alto flute', '1'),
+                       ('bass flute', '1')]}],
+     ]}, '1 performer: flute doubling piccolo, alto flute, and bass '
+         'flute'),
+    ({'total_performers': '3',
+      'total_ensembles': None,
+      'parts': [
+        [{'primary': [('violin', '1')]}, {'doubling': [('flute', '1')]},
+         {'alt': [('piccolo', '1')]}],
+        [{'primary': [('cello', '1')]}],
+        [{'primary': [('piano', '1')]}],
+     ]}, '3 performers: violin doubling flute or piccolo; cello; piano'),
+    ({'total_performers': '8',
+      'total_ensembles': '4',
+      'parts': [
+        [{'solo': [('soprano voice', '3')]}],
+        [{'solo': [('alto voice', '2')]}],
+        [{'solo': [('tenor voice', '1')]}],
+        [{'solo': [('baritone voice', '1')]}],
+        [{'solo': [('bass voice', '1')]}],
+        [{'primary': [('mixed chorus', '2', ['SATB, SATB'])]}],
+        [{'primary': [('children\'s chorus', '1')]}],
+        [{'primary': [('orchestra', '1')]}],
+     ]}, '8 performers and 4 ensembles: solo soprano voice (3); solo alto '
+         'voice (2); solo tenor voice; solo baritone voice; solo bass voice; '
+         'mixed chorus (2) [SATB, SATB]; children\'s chorus; orchestra'),
+    ({'total_performers': None,
+      'total_ensembles': None,
+      'parts': [
+        [{'primary': [('violin', '1')]}, {'alt': [('flute', '1')]},
+         {'doubling': [('viola', '1')]}, {'alt': [('alto flute', '1')]},
+         {'doubling': [('cello', '1')]}, {'alt': [('saxophone', '1')]},
+         {'doubling': [('double bass', '1')]}],
+     ]}, 'Violin or flute doubling viola or alto flute doubling cello or '
+         'saxophone doubling double bass'),
+    ({'total_performers': None,
+      'total_ensembles': None,
+      'parts': [
+        [{'primary': [('violin', '1')]},
+         {'doubling': [('viola', '1'), ('cello', '1'), ('double bass', '1')]},
+         {'alt': [('flute', '1')]},
+         {'doubling': [('alto flute', '1'), ('saxophone', '1')]}],
+     ]}, 'Violin doubling viola, cello, and double bass or flute doubling alto '
+         'flute and saxophone'),
+    ({'total_performers': None,
+      'total_ensembles': None,
+      'parts': [
+        [{'primary': [('violin', '1', ['Note1', 'Note2'])]},
+         {'doubling': [('viola', '1', ['Note3']),
+                       ('cello', '2', ['Note4', 'Note5'])]}]
+    ]}, 'Violin [Note1 / Note2] doubling viola [Note3] and cello (2) [Note4 / '
+        'Note5]'),
+    ({'total_performers': None,
+      'total_ensembles': None,
+      'parts': [
+        [{'primary': [('violin', '1')]},
+         {'doubling': [('viola', '1'), ('cello', '1'), ('double bass', '1')]},
+         {'alt': [('flute', '1'), ('clarinet', '1')]},
+         {'doubling': [('alto flute', '1'), ('saxophone', '1')]}],
+     ]}, 'Violin doubling viola, cello, and double bass, flute, or clarinet '
+         'doubling alto flute and saxophone'),
+    ({'total_performers': None,
+      'total_ensembles': None,
+      'parts': [
+        [{'primary': [('violin', '1')]},
+         {'alt': [('flute', '1'), ('trumpet', '1'), ('clarinet', '1')]},
+         {'doubling': [('viola', '1')]}, {'alt': [('alto flute', '1')]},
+         {'doubling': [('cello', '1')]}, {'alt': [('saxophone', '1')]},
+         {'doubling': [('double bass', '1')]}],
+     ]}, 'Violin, flute, trumpet, or clarinet doubling viola or alto flute '
+         'doubling cello or saxophone doubling double bass'),
+])
+def test_blasmpipeline_compileperformancemedium(parsed_pm, expected,
+                                                blasm_pipeline_class):
+    """
+    BlacklightASMPipeline.compile_performance_medium should return
+    a value matching `expected`, given the sample `parsed_pm` output
+    from parsing a 382 field.
+    """
+    pipeline = blasm_pipeline_class()
+    assert pipeline.compile_performance_medium(parsed_pm) == expected
+
+
 def test_blasmpipeline_getgeneral3xxinfo(add_marc_fields, blasm_pipeline_class):
     """
     BlacklightASMPipeline.get_general_3xx_info should return fields
     matching the expected parameters.
     """
     exclude = s2m.IGNORED_MARC_FIELDS_BY_GROUP_TAG['r']
-    handled = ('382',)
-    exc_fields = [(''.join(('r', t)), ['a', 'No']) for t in (exclude + handled)]
+    exc_fields = [(''.join(('r', t)), ['a', 'No']) for t in exclude]
     inc_fields = [
         ('r300', ['a', '300 desc 1', '0', 'exclude']),
         ('r300', ['a', '300 desc 2', '1', 'exclude']),
@@ -2254,6 +2484,12 @@ def test_blasmpipeline_getgeneral3xxinfo(add_marc_fields, blasm_pipeline_class):
         ('r352', ['a', 'Raster :', 'b', 'pixel',
                   'd', '(5,000 x', 'e', '5,000) ;', 'q', 'TIFF.']),
         ('r370', ['a', '370 desc 1']),
+        ('r382', ['a', 'soprano voice', 'n', '2', 'a', 'mezzo-soprano voice',
+                  'n', '1', 'a', 'tenor saxophone', 'n', '1',
+                  'd', 'bass clarinet', 'n', '1', 'a', 'trumpet',
+                  'n', '1', 'a', 'piano', 'n', '1', 'a', 'violin',
+                  'n', '1', 'd', 'viola', 'n', '1', 'a', 'double bass',
+                  'n', '1', 's', '8', '2', 'lcmpt'])
     ]
     expected = {
         'physical_medium': ['rice paper; 7" x 9"'],
@@ -2264,6 +2500,10 @@ def test_blasmpipeline_getgeneral3xxinfo(add_marc_fields, blasm_pipeline_class):
         'video_characteristics': ['VHS', 'NTSC'],
         'digital_file_characteristics': ['video file', 'DVD video', 'region 4'],
         'graphic_representation': ['Raster : pixel (5,000 x 5,000) ; TIFF.'],
+        'performance_medium': ['8 performers: soprano voice (2); mezzo-soprano '
+                               'voice; tenor saxophone doubling bass clarinet; '
+                               'trumpet; piano; violin doubling viola; double '
+                               'bass'],
         'physical_description': ['300 desc 1', '300 desc 2', '370 desc 1']
     }
     marc = add_marc_fields(s2m.SierraMarcRecord(), (exc_fields + inc_fields))

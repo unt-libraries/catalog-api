@@ -32,7 +32,7 @@ ALPHASOLRMARC_FIELDS = (
     'former_publication_frequency', 'physical_description', 'physical_medium',
     'geospatial_data', 'audio_characteristics', 'projection_characteristics',
     'video_characteristics', 'digital_file_characteristics',
-    'graphic_representation',
+    'graphic_representation', 'performance_medium',
     # OLD FIELDS ARE BELOW
     'game_facet', 'languages', 'isbn_numbers',
     'issn_numbers', 'lccn_number', 'oclc_numbers', 'dewey_call_numbers',

@@ -448,6 +448,77 @@ def make_relator_search_variations(base_name, relators):
     return ['{} {}'.format(base_name, r) for r in relators]
 
 
+class PerformanceMedParser(SequentialMarcFieldParser):
+    def __init__(self, field):
+        super(PerformanceMedParser, self).__init__(field)
+        self.parts = []
+        self.part_stack = []
+        self.instrument_stack = []
+        self.last_part_type = ''
+        self.total_performers = None
+        self.total_ensembles = None
+
+    def push_instrument(self, instrument, number=None, notes=None):
+        number = number or '1'
+        entry = (instrument, number, notes) if notes else (instrument, number)
+        self.instrument_stack.append(entry)
+
+    def push_instrument_stack(self):
+        if self.instrument_stack:
+            self.part_stack.append({self.last_part_type: self.instrument_stack})
+            self.instrument_stack = []
+
+    def push_part_stack(self):
+        self.push_instrument_stack()
+        if self.part_stack:
+            self.parts.append(self.part_stack)
+            self.part_stack = []
+
+    def update_last_instrument(self, number=None, notes=None):
+        try:
+            entry = self.instrument_stack.pop()
+        except IndexError:
+            pass
+        else:
+            instrument, old_num = entry[:2]
+            number = number or old_num
+            if len(entry) == 3:
+                old_notes = entry[2]
+                notes = old_notes + notes if notes else old_notes
+            self.push_instrument(instrument, number, notes)
+
+    def parse_subfield(self, tag, val):
+        if tag in 'abdp':
+            if tag in 'ab':
+                self.push_part_stack()
+                part_type = 'primary' if tag == 'a' else 'solo'
+            elif tag in 'dp':
+                part_type = 'doubling' if tag == 'd' else 'alt'
+                if part_type != self.last_part_type:
+                    self.push_instrument_stack()
+            self.push_instrument(val)
+            self.last_part_type = part_type
+        elif tag in 'en':
+            if val != '1':
+                self.update_last_instrument(number=val)
+        elif tag == 'v':
+            self.update_last_instrument(notes=[val])
+        elif tag in 'rs':
+            self.total_performers = val
+        elif tag == 't':
+            self.total_ensembles = val
+
+    def do_post_parse(self):
+        self.push_part_stack()
+
+    def compile_results(self):
+        return {
+            'parts': self.parts,
+            'total_performers': self.total_performers,
+            'total_ensembles': self.total_ensembles
+        }
+
+
 class BlacklightASMPipeline(object):
     """
     This is a one-off class to hold functions/methods for creating the
@@ -1187,6 +1258,63 @@ class BlacklightASMPipeline(object):
             'responsibility_search': responsibility_search or None
         }
 
+    def compile_performance_medium(self, parsed_pm): 
+        def _render_instrument(entry):
+            instrument, number = entry[:2]
+            render_stack = [instrument]
+            if number != '1':
+                render_stack.append('({})'.format(number))
+            if len(entry) == 3:
+                notes = entry[2]
+                render_stack.append('[{}]'.format(' / '.join(notes)))
+            return ' '.join(render_stack)
+
+        def _render_clause(rendered_insts, conjunction, prefix):
+            if prefix:
+                render_stack = [' '.join((prefix, rendered_insts[0]))]
+            else:
+                render_stack = [rendered_insts[0]]
+            num_insts = len(rendered_insts)
+            item_sep = ', ' if num_insts > 2 else ' '
+            if num_insts > 1:
+                last_inst = ' '.join((conjunction, rendered_insts[-1]))
+                render_stack.extend(rendered_insts[1:-1] + [last_inst])
+            return item_sep.join(render_stack)
+
+        def _render_totals(parsed_pm):
+            render_stack, nums = [], {}
+            nums['performer'] = parsed_pm['total_performers']
+            nums['ensemble'] = parsed_pm['total_ensembles']
+            for entity_type, num in nums.items():
+                if num:
+                    s = '' if num == '1' else 's'
+                    render_stack.append('{} {}{}'.format(num, entity_type, s))
+            return ' and '.join(render_stack)
+
+        totals = _render_totals(parsed_pm)
+        compiled_parts = []
+        for parsed_part in parsed_pm['parts']:
+            rendered_clauses = []
+            for clause in parsed_part:
+                part_type, instruments = clause.items()[0]
+                conjunction = 'or' if part_type == 'alt' else 'and'
+                prefix = part_type if part_type in ('doubling', 'solo') else ''
+                rendered_insts = [_render_instrument(i) for i in instruments]
+                if part_type == 'alt':
+                    if len(rendered_clauses):
+                        last_clause = rendered_clauses.pop()
+                        rendered_insts = [last_clause] + rendered_insts
+                rendered_clause = _render_clause(rendered_insts, conjunction,
+                                                 prefix)
+                rendered_clauses.append(rendered_clause)
+            compiled_parts.append(' '.join(rendered_clauses))
+        pstr = '; '.join(compiled_parts)
+        final_stack = ([totals] if totals else []) + ([pstr] if pstr else [])
+        if final_stack:
+            render = ': '.join(final_stack)
+            return ''.join([render[0].upper(), render[1:]])
+
+
     def get_general_3xx_info(self, r, marc_record):
         def make_subfield_joiner(join_val):
             def joiner(field, filter_, exclusionary):
@@ -1194,6 +1322,10 @@ class BlacklightASMPipeline(object):
                 joined = join_val.join([sfval for sftag, sfval in filtered])
                 return p.normalize_punctuation(joined)
             return joiner
+
+        def pm_parse_func(field, filter_, exclusionary):
+            parsed = PerformanceMedParser(field).parse()
+            return self.compile_performance_medium(parsed)
 
         semicolon_joiner = make_subfield_joiner('; ')
         space_joiner = make_subfield_joiner(' ')
@@ -1224,6 +1356,10 @@ class BlacklightASMPipeline(object):
             },
             'graphic_representation': {
                 'include': ('352',)
+            },
+            'performance_medium': {
+                'include': ('382',),
+                'parse_func': pm_parse_func
             },
             'physical_description': {
                 'include': ('r', '370'),
@@ -1342,7 +1478,7 @@ class PipelineBundleConverter(object):
         ( '977', ('physical_description', 'physical_medium', 'geospatial_data',
                   'audio_characteristics', 'projection_characteristics',
                   'video_characteristics', 'digital_file_characteristics',
-                  'graphic_representation') ),
+                  'graphic_representation', 'performance_medium') ),
     )
 
     def __init__(self, mapping=None):
