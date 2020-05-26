@@ -183,7 +183,7 @@
     <field name="publication_places_search" type="text" indexed="true" stored="false" multiValued="true"/>
     <field name="publishers_search" type="text" indexed="true" stored="false" multiValued="true"/>
     <field name="publication_dates_search" type="text" indexed="true" stored="false" multiValued="true"/>
-    <field name="publication_date_notes" type="text" indexed="false" stored="true" multiValued="true"/>
+    <field name="publication_date_notes" type="string" indexed="false" stored="true" multiValued="true"/>
 
     <!-- Authors / Contributors -->
     <field name="author_search" type="text" indexed="true" stored="false" multiValued="true"/>
@@ -195,17 +195,17 @@
     <field name="toc_notes" type="stem_text" indexed="true" stored="true" multiValued="true"/>
     <field name="summary_notes" type="stem_text" indexed="true" stored="true" multiValued="true"/>
 
-    <field name="current_publication_frequency" type="text" indexed="false" stored="true" multiValued="true"/>
-    <field name="former_publication_frequency" type="text" indexed="false" stored="true" multiValued="true"/>
-    <field name="physical_description" type="text" indexed="false" stored="true" multiValued="true"/>
-    <field name="physical_medium" type="text" indexed="false" stored="true" multiValued="true"/>
-    <field name="geospatial_data" type="text" indexed="false" stored="true" multiValued="true"/>
-    <field name="audio_characteristics" type="text" indexed="false" stored="true" multiValued="true"/>
-    <field name="projection_characteristics" type="text" indexed="false" stored="true" multiValued="true"/>
-    <field name="video_characteristics" type="text" indexed="false" stored="true" multiValued="true"/>
-    <field name="digital_file_characteristics" type="text" indexed="false" stored="true" multiValued="true"/>
-    <field name="graphic_representation" type="text" indexed="false" stored="true" multiValued="true"/>
-    <field name="performance_medium" type="text" indexed="false" stored="true" multiValued="true"/>
+    <field name="current_publication_frequency" type="string" indexed="false" stored="true" multiValued="true"/>
+    <field name="former_publication_frequency" type="string" indexed="false" stored="true" multiValued="true"/>
+    <field name="physical_description" type="string" indexed="false" stored="true" multiValued="true"/>
+    <field name="physical_medium" type="string" indexed="false" stored="true" multiValued="true"/>
+    <field name="geospatial_data" type="string" indexed="false" stored="true" multiValued="true"/>
+    <field name="audio_characteristics" type="string" indexed="false" stored="true" multiValued="true"/>
+    <field name="projection_characteristics" type="string" indexed="false" stored="true" multiValued="true"/>
+    <field name="video_characteristics" type="string" indexed="false" stored="true" multiValued="true"/>
+    <field name="digital_file_characteristics" type="string" indexed="false" stored="true" multiValued="true"/>
+    <field name="graphic_representation" type="string" indexed="false" stored="true" multiValued="true"/>
+    <field name="performance_medium" type="string" indexed="false" stored="true" multiValued="true"/>
 
 
     <!-- OLD FIELDS: DONE #################################################################################
