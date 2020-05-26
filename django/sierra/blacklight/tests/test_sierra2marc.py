@@ -2486,7 +2486,8 @@ def test_blasmpipeline_getgeneral3xxinfo(add_marc_fields, blasm_pipeline_class):
     matching the expected parameters.
     """
     exclude = s2m.IGNORED_MARC_FIELDS_BY_GROUP_TAG['r']
-    exc_fields = [(''.join(('r', t)), ['a', 'No']) for t in exclude]
+    handled = ('310', '321')
+    exc_fields = [(''.join(('r', t)), ['a', 'No']) for t in exclude + handled]
     inc_fields = [
         ('r300', ['a', '300 desc 1', '0', 'exclude']),
         ('r300', ['a', '300 desc 2', '1', 'exclude']),

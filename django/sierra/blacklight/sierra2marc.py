@@ -238,6 +238,11 @@ class MarcParseUtils(object):
         return group_subfields(field, exclude=exclude_sftags,
                                start=self.title_sftags_7xx, limit=2)
 
+    def join_subfields(self, join_val, field, sf_filter=None):
+        subfields = field.filter_subfields(**sf_filter) if sf_filter else field
+        joined = join_val.join((sfval for sftag, sfval in subfields))
+        return p.normalize_punctuation(joined)
+
 
 class SequentialMarcFieldParser(object):
     """
@@ -525,6 +530,77 @@ class PerformanceMedParser(SequentialMarcFieldParser):
             'total_performers': self.total_performers,
             'total_ensembles': self.total_ensembles
         }
+
+
+class MultiFieldMarcRecordParser(object):
+    """
+    General purpose class for parsing blocks of fields on a MARC
+    record. The `parse` method returns a dictionary mapping field names
+    to value lists that result from parsing the fields on the input
+    MARC `record`.
+
+    The `mapping` value (passed to __init__) controls how to translate
+    MARC to the output dictionary. It should be a tuple structured as
+    such:
+
+        mapping = (
+            ('author_search', {
+                'fields': {
+                    'include': ('a', '100', '700'),
+                    'exclude': ('111', '711')
+                },
+                'subfields': {
+                    'default': {'exclude': 'w01258'},
+                    '100': {'include': 'acd'},
+                }
+                'parse_func': lambda field: field.format_field()
+            }),
+        )
+
+    The first tuple value is the name of the output field (which
+    becomes a key in the output dictionary). The second is a dictionary
+    of options defining how to get field values from the MARC. These
+    options include:
+
+    `fields` -- a dict containing `include` and `exclude` values to
+    pass as kwargs to the `filter_fields` method on the record, to get
+    a list of fields to process. This is non-optional.
+
+    `subfields` -- a dict mapping MARC field tags to lists of subfield
+    filters to pass as kwargs to the `filter_subfields` method during
+    processing. A `default` key may be included.
+
+    `parse_func` -- a function or method that parses each individual
+    field. It should receive the MARC field object and applicable
+    subfield filter, and it should return a string.
+
+    A fallback default subfield filter may also be included, passed on
+    initialization (`default_df_filter`). If not included, it falls
+    back to the `utils.control_sftags` list.
+    """
+    def __init__(self, record, mapping, utils=None, default_sf_filter=None):
+        self.record = record
+        self.mapping = mapping
+        self.utils = utils or MarcParseUtils()
+        self.default_sf_filter = default_sf_filter or {'exclude':
+                                                       utils.control_sftags}
+
+    def default_parse_func(self, field, sf_filter):
+        return self.utils.join_subfields(' ', field, sf_filter)
+
+    def parse(self):
+        ret_val = {}
+        for fname, fdef in self.mapping:
+            parse_func = fdef.get('parse_func', self.default_parse_func)
+            sfdef = fdef.get('subfields', {})
+            default_sff = sfdef.get('default', self.default_sf_filter)
+            ret_val[fname] = ret_val.get(fname, [])
+            for field in self.record.filter_fields(**fdef['fields']):
+                sff = sfdef.get(field.tag, default_sff)
+                field_val = parse_func(field, sff)
+                if field_val:
+                    ret_val[fname].append(field_val)
+        return ret_val
 
 
 class BlacklightASMPipeline(object):
@@ -1323,71 +1399,55 @@ class BlacklightASMPipeline(object):
             return ''.join([render[0].upper(), render[1:]])
 
     def get_general_3xx_info(self, r, marc_record):
-        def make_subfield_joiner(join_val):
-            def joiner(field, filter_):
-                filtered = f.filter_subfields(**filter_)
-                joined = join_val.join([sfval for sftag, sfval in filtered])
-                return p.normalize_punctuation(joined)
-            return joiner
+        def join_subfields_with_semicolons(field, sf_filter):
+            return self.utils.join_subfields('; ', field, sf_filter)
 
-        def pm_parse_func(field, filter_):
+        def parse_performance_medium(field, sf_filter):
             parsed = PerformanceMedParser(field).parse()
             return self.compile_performance_medium(parsed)
 
-        semicolon_joiner = make_subfield_joiner('; ')
-        space_joiner = make_subfield_joiner(' ')
-        mapping = {
-            'physical_medium': {
-                'include': ('340',),
-                'parse_func': semicolon_joiner
-            },
-            'geospatial_data': {
-                'include': ('342', '343'),
-                'parse_func': semicolon_joiner
-            },
-            'audio_characteristics': {
-                'include': ('344',),
-                'parse_func': semicolon_joiner
-            },
-            'projection_characteristics': {
-                'include': ('345',),
-                'parse_func': semicolon_joiner
-            },
-            'video_characteristics': {
-                'include': ('346',),
-                'parse_func': semicolon_joiner
-            },
-            'digital_file_characteristics': {
-                'include': ('347',),
-                'parse_func': semicolon_joiner
-            },
-            'graphic_representation': {
-                'include': ('352',)
-            },
-            'performance_medium': {
-                'include': ('382',),
-                'parse_func': pm_parse_func
-            },
-            'physical_description': {
-                'include': ('r', '370'),
-                'exclude': IGNORED_MARC_FIELDS_BY_GROUP_TAG['r'] +
-                           ('340', '342', '343', '344', '345', '346', '347',
-                            '352', '382')
-            }
-        }
-        ret_val = {}
-        for fname, fdef in mapping.items():
-            include = fdef.get('include', ())
-            exclude = fdef.get('exclude', ())
-            parse_func = fdef.get('parse_func', space_joiner)
-            sf_filter = fdef.get('sf_filter', {'exclude':
-                                               self.utils.control_sftags})
-            ret_val[fname] = []
-            for f in marc_record.filter_fields(include, exclude):
-                field_val = parse_func(f, sf_filter)
-                if field_val:
-                    ret_val[fname].append(field_val)
-        return ret_val
+        record_parser = MultiFieldMarcRecordParser(marc_record, (
+            ('physical_medium', {
+                'fields': {'include': ('340',)},
+                'parse_func': join_subfields_with_semicolons
+            }),
+            ('geospatial_data', {
+                'fields': {'include': ('342', '343')},
+                'parse_func': join_subfields_with_semicolons
+            }),
+            ('audio_characteristics', {
+                'fields': {'include': ('344',)},
+                'parse_func': join_subfields_with_semicolons
+            }),
+            ('projection_characteristics', {
+                'fields': {'include': ('345',)},
+                'parse_func': join_subfields_with_semicolons
+            }),
+            ('video_characteristics', {
+                'fields': {'include': ('346',)},
+                'parse_func': join_subfields_with_semicolons
+            }),
+            ('digital_file_characteristics', {
+                'fields': {'include': ('347',)},
+                'parse_func': join_subfields_with_semicolons
+            }),
+            ('graphic_representation', {
+                'fields': {'include': ('352',)}
+            }),
+            ('performance_medium', {
+                'fields': {'include': ('382',)},
+                'parse_func': parse_performance_medium
+            }),
+            ('physical_description', {
+                'fields': {
+                    'include': ('r', '370'),
+                    'exclude': IGNORED_MARC_FIELDS_BY_GROUP_TAG['r'] +
+                               ('310', '321', '340', '342', '343', '344', '345',
+                                '346', '347', '352', '382')
+                }
+            })
+        ), utils=self.utils)
+        return record_parser.parse()
 
 
 class PipelineBundleConverter(object):
