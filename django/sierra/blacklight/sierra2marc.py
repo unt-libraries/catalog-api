@@ -52,18 +52,25 @@ class SierraMarcField(pymarc.field.Field):
         """
         return tag in (self.tag, self.group_tag, self.full_tag)
 
-    def filter_subfields(self, sftags, exclusionary=False):
+    def filter_subfields(self, include=None, exclude=None):
         """
-        Filter subfields on this field based on the provided `sftags`.
-        `sftags` is inclusionary when `exclusionary` is False (default)
-        or exclusionary when `exclusionary` is True. This is a
-        generator method that yields a (sftag, sfval) tuple.
+        Filter subfields on this field based on the provided subfields
+        to `include` or `exclude`. Both, either, or neither args may
+        be provided, and they may be strings ('abcde'), lists, or
+        tuples. Conceptually, the set of SFs to exclude is substracted
+        from the set of SFs to include; if `include` is None, then the
+        "include" set includes all SFs. A subfield listed in `exclude`
+        will always be excluded. Include='abcde', exclude='a' will only
+        include subfields b, c, d, and e. Include=None and exclude='a'
+        will include all subfields except a.
+
+        Produces a generator that yields a sftag, val tuple for each
+        matching subfield, in the order they appear on the field.
         """
-        incl, excl = not exclusionary, exclusionary
-        get_all = not sftags
-        for t, v in self:
-            if get_all or (incl and t in sftags) or (excl and t not in sftags):
-                yield (t, v)
+        incl, excl = include or '', exclude or ''
+        for tag, val in self:
+            if ((incl and tag in incl) or not incl) and tag not in excl:
+                yield (tag, val)
 
 
 class SierraMarcRecord(pymarc.record.Record):
@@ -108,12 +115,13 @@ class SierraMarcRecord(pymarc.record.Record):
         """
         return list(self.get_fields_gen(*args))
 
-    def filter_fields(self, include, exclude):
+    def filter_fields(self, include=None, exclude=None):
         """
         Like `get_fields_gen` but lets you provide a list of tags to
         include and a list to exclude. All tags should be ones such as
         what's defined in the `get_fields` docstring.
         """
+        include, exclude = include or tuple(), exclude or tuple()
         for f in self.get_fields_gen(*include):
             if all([not self._field_matches_tag(f, ex) for ex in exclude]):
                 yield f
@@ -1314,16 +1322,15 @@ class BlacklightASMPipeline(object):
             render = ': '.join(final_stack)
             return ''.join([render[0].upper(), render[1:]])
 
-
     def get_general_3xx_info(self, r, marc_record):
         def make_subfield_joiner(join_val):
-            def joiner(field, filter_, exclusionary):
-                filtered = f.filter_subfields(filter_, exclusionary)
+            def joiner(field, filter_):
+                filtered = f.filter_subfields(**filter_)
                 joined = join_val.join([sfval for sftag, sfval in filtered])
                 return p.normalize_punctuation(joined)
             return joiner
 
-        def pm_parse_func(field, filter_, exclusionary):
+        def pm_parse_func(field, filter_):
             parsed = PerformanceMedParser(field).parse()
             return self.compile_performance_medium(parsed)
 
@@ -1373,11 +1380,11 @@ class BlacklightASMPipeline(object):
             include = fdef.get('include', ())
             exclude = fdef.get('exclude', ())
             parse_func = fdef.get('parse_func', space_joiner)
-            sf_filter = fdef.get('sf_filter', self.utils.control_sftags)
-            sf_filter_excl = fdef.get('sf_filter_excl', True)
+            sf_filter = fdef.get('sf_filter', {'exclude':
+                                               self.utils.control_sftags})
             ret_val[fname] = []
             for f in marc_record.filter_fields(include, exclude):
-                field_val = parse_func(f, sf_filter, sf_filter_excl)
+                field_val = parse_func(f, sf_filter)
                 if field_val:
                     ret_val[fname].append(field_val)
         return ret_val

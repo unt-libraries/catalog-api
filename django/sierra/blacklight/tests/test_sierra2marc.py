@@ -210,32 +210,38 @@ def test_sierramarcfield_matchestag(grouptag, fieldtag, matchtag, expected):
     assert f.matches_tag(matchtag) == expected
 
 
-@pytest.mark.parametrize('subfields, tags, excl, expected', [
-    (['a', 'a1', 'a', 'a2', 'b', 'b', 'c', 'c'], 'abc', False,
+@pytest.mark.parametrize('subfields, incl, excl, expected', [
+    (['a', 'a1', 'a', 'a2', 'b', 'b', 'c', 'c'], 'abc', None,
      [('a', 'a1'), ('a', 'a2'), ('b', 'b'), ('c', 'c')]),
-    (['a', 'a1', 'a', 'a2', 'b', 'b', 'c', 'c'], 'a', False,
+    (['a', 'a1', 'a', 'a2', 'b', 'b', 'c', 'c'], 'a', None,
      [('a', 'a1'), ('a', 'a2')]),
-    (['a', 'a1', 'a', 'a2', 'b', 'b', 'c', 'c'], '', False,
+    (['a', 'a1', 'a', 'a2', 'b', 'b', 'c', 'c'], '', None,
      [('a', 'a1'), ('a', 'a2'), ('b', 'b'), ('c', 'c')]),
-    (['a', 'a1', 'a', 'a2', 'b', 'b', 'c', 'c'], '', True,
+    (['a', 'a1', 'a', 'a2', 'b', 'b', 'c', 'c'], None, '',
      [('a', 'a1'), ('a', 'a2'), ('b', 'b'), ('c', 'c')]),
-    (['a', 'a1', 'a', 'a2', 'b', 'b', 'c', 'c'], 'd', True,
+    (['a', 'a1', 'a', 'a2', 'b', 'b', 'c', 'c'], None, 'd',
      [('a', 'a1'), ('a', 'a2'), ('b', 'b'), ('c', 'c')]),
-    (['a', 'a1', 'a', 'a2', 'b', 'b', 'c', 'c'], 'd', False,
+    (['a', 'a1', 'a', 'a2', 'b', 'b', 'c', 'c'], 'd', None,
      []),
-    (['a', 'a1', 'a', 'a2', 'b', 'b', 'c', 'c'], 'a', True,
+    (['a', 'a1', 'a', 'a2', 'b', 'b', 'c', 'c'], None, 'a',
      [('b', 'b'), ('c', 'c')]),
-    (['a', 'a1', 'a', 'a2', 'b', 'b', 'c', 'c'], 'bc', True,
+    (['a', 'a1', 'a', 'a2', 'b', 'b', 'c', 'c'], None, 'bc',
+     [('a', 'a1'), ('a', 'a2')]),
+    (['a', 'a1', 'a', 'a2', 'b', 'b', 'c', 'c'], 'abc', 'bc',
+     [('a', 'a1'), ('a', 'a2')]),
+    (['a', 'a1', 'a', 'a2', 'b', 'b', 'c', 'c'], 'bc', 'bc',
+     []),
+    (['a', 'a1', 'a', 'a2', 'b', 'b', 'c', 'c'], 'a', 'bc',
      [('a', 'a1'), ('a', 'a2')]),
 ])
-def test_sierramarcfield_filtersubfields(subfields, tags, excl, expected):
+def test_sierramarcfield_filtersubfields(subfields, incl, excl, expected):
     """
     SierraMarcField `filter_subfields` method should return the
     expected tuples, given a field built using the given `subfields`
     and the provided `tags` and `excl` args.
     """
     field = s2m.SierraMarcField('100', subfields=subfields)
-    filtered = list(field.filter_subfields(tags, excl))
+    filtered = list(field.filter_subfields(incl, excl))
     assert len(filtered) == len(expected)
     for i, tup in enumerate(filtered):
         assert tup == expected[i]
@@ -297,16 +303,32 @@ def test_sierramarcrecord_getfields(fields, args, expected, add_marc_fields):
     ([('a100', ['a', 'a100_1']),
       ('a100', ['a', 'a100_2']),
       ('b100', ['a', 'b100_1']),
-      ('a245', ['a', 'a245_1'])], ('a',), (), ['a100_1', 'a100_2', 'a245_1']),
+      ('a245', ['a', 'a245_1'])], ('a',), None, ['a100_1', 'a100_2', 'a245_1']),
     ([('a100', ['a', 'a100_1']),
       ('a100', ['a', 'a100_2']),
       ('b100', ['a', 'b100_1']),
-      ('a245', ['a', 'a245_1'])], (), ('100',), ['a245_1']),
+      ('a245', ['a', 'a245_1'])], None, ('100',), ['a245_1']),
     ([('a100', ['a', 'a100_1']),
       ('a100', ['a', 'a100_2']),
       ('b100', ['a', 'b100_1']),
-      ('a245', ['a', 'a245_1'])], (), (), ['a100_1', 'a100_2', 'b100_1',
-                                           'a245_1']),
+      ('a245', ['a', 'a245_1'])], None, None, ['a100_1', 'a100_2', 'b100_1',
+                                               'a245_1']),
+    ([('a100', ['a', 'a100_1']),
+      ('a100', ['a', 'a100_2']),
+      ('b100', ['a', 'b100_1']),
+      ('a245', ['a', 'a245_1'])], ('a',), ('100', '245'), []),
+    ([('a100', ['a', 'a100_1']),
+      ('a100', ['a', 'a100_2']),
+      ('b100', ['a', 'b100_1']),
+      ('a245', ['a', 'a245_1'])], ('100',), ('100', '245'), []),
+    ([('a100', ['a', 'a100_1']),
+      ('a100', ['a', 'a100_2']),
+      ('b100', ['a', 'b100_1']),
+      ('a245', ['a', 'a245_1'])], ('a', 'c',), ('100',), ['a245_1']),
+    ([('a100', ['a', 'a100_1']),
+      ('a100', ['a', 'a100_2']),
+      ('b100', ['a', 'b100_1']),
+      ('a245', ['a', 'a245_1'])], ('a',), ('100', '300'), ['a245_1']),
 ])
 def test_sierramarcrecord_filterfields(fields, include, exclude, expected,
                                        add_marc_fields):
