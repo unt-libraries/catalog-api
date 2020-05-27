@@ -66,7 +66,7 @@ ITEM_RULES = {
                 'w4mrx', 'w4mwf', 'xmus'
             ),
             'Special Collections': ('w4spe', 'w4srf', 'xspe'),
-            'The Factory (Makerspace)': ('rmak', 'w1mak')
+            'The Spark (Makerspace)': ('rmak', 'w1mak')
         }))
     ]),
 
