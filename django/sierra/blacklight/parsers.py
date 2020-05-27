@@ -208,7 +208,8 @@ def protect_periods_and_do(data, do, repl_char='~',
     protect_all = r'\b(({}|{}|{})(?=\.\W)|({}|{}))\.'.format(ordinal_period_numeric, ordinal_period_alphabetic,
                                                              roman_numerals, initials, abbreviations_re)
     periods_in_words_protected = re.sub(r'\.(\w)', r'{}\1'.format(repl_char), data)
-    all_protected = re.sub(protect_all, r'\1{}'.format(repl_char), periods_in_words_protected)
+    ellipses_protected = re.sub(r'\.{3}', r'{0}{0}{0}'.format(repl_char), periods_in_words_protected)
+    all_protected = re.sub(protect_all, r'\1{}'.format(repl_char), ellipses_protected)
     processed_data = do(all_protected)
     periods_restored = re.sub(repl_char, r'.', processed_data)
     return periods_restored
@@ -227,9 +228,10 @@ def normalize_punctuation(data, punctuation_re=settings.MARCDATA.ENDING_PUNCTUAT
         bracket_end_punct_removed = re.sub(r'(\s*{}\s*)+([\]\}}\)])'.format(punctuation_re), r'\2', bracket_front_punct_removed)
         empty_brackets_removed = re.sub(r'(\[\s*\]|\(\s*\)|\{\s*\})', r'', bracket_end_punct_removed)
         multiples_removed = re.sub(r'(\s?)(\s*{0})+\s*({0})'.format(punctuation_re), r'\1\3', empty_brackets_removed)
-        front_punct_removed = re.sub(r'^(\s*{}\s*)+'.format(punctuation_re), r'', multiples_removed)
+        periods_after_abbrevs_removed = re.sub(r'~(\s*\.)(\s*[^.]|$)', r'~\2', multiples_removed)
+        front_punct_removed = re.sub(r'^(\s*{}\s*)+'.format(punctuation_re), r'', periods_after_abbrevs_removed)
         return front_punct_removed
-    return compress_punctuation(protect_periods_and_do(data.strip(), _normalize), left_space_re=r'[\.,]')
+    return compress_punctuation(protect_periods_and_do(data.strip(), _normalize, '~'), left_space_re=r'\.(?!\.\.)|,')
 
 
 def strip_ends(data, end_punctuation_re=settings.MARCDATA.ENDING_PUNCTUATION_REGEX):

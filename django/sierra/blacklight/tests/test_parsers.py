@@ -89,6 +89,9 @@ def test_compress_punctuation(data, expected):
     ('test : [.],', 'test,'),
     ('test ; [Test :]', 'test ; [Test]'),
     ('ed. : test', 'ed. : test'),
+    ('ed. . test', 'ed. test'),
+    ('ed.. test', 'ed. test'),
+    ('ed. ... test', 'ed. ... test')
 ])
 def test_normalize_punctuation(data, expected):
     """
@@ -153,6 +156,9 @@ def test_strip_brackets(data, keep_inner, to_keep_re, to_remove_re, to_protect_r
     ('Remove ending period from alphabetic ordinal 21st.', 'Remove ending period from alphabetic ordinal 21st'),
     ('Remove ending period from Roman Numeral XII.', 'Remove ending period from Roman Numeral XII'),
     ('Protect ending period from abbreviation eds.', 'Protect ending period from abbreviation eds.'),
+    ('Protect ... ellipses', 'Protect ... ellipses'),
+    ('Protect .... ellipses', 'Protect ... ellipses'),
+    ('Protect. ... Ellipses.', 'Protect ... Ellipses'),
     ('Protect ending period from initial J.', 'Protect ending period from initial J.'),
     ('Lowercase initials do not count, j.', 'Lowercase initials do not count, j'),
     ('Remove inner period. Dude', 'Remove inner period Dude'),
@@ -241,7 +247,7 @@ def test_reconstruct_bracketed(data, brackets, stripchars, expected):
     ('do not strip, inner punctuation', 'do not strip, inner punctuation'),
     (' strip whitespace at ends ', 'strip whitespace at ends'),
     ('strip one punctuation mark at end.', 'strip one punctuation mark at end'),
-    ('strip repeated punctuation marks at end...', 'strip repeated punctuation marks at end'),
+    ('strip repeated punctuation marks at end,,', 'strip repeated punctuation marks at end'),
     ('strip multiple different punctuation marks at end./', 'strip multiple different punctuation marks at end'),
     ('strip punctuation marks and whitespace at end . ;. / ', 'strip punctuation marks and whitespace at end'),
     (';strip one punctuation mark at beginning', 'strip one punctuation mark at beginning'),
@@ -250,6 +256,7 @@ def test_reconstruct_bracketed(data, brackets, stripchars, expected):
     ('. ;./ strip punctuation marks and whitespace at beginning', 'strip punctuation marks and whitespace at beginning'),
     (' . . . strip punctuation and whitespace from both ends . /; ', 'strip punctuation and whitespace from both ends'),
     ('(do not strip parentheses or punct inside parentheses...);', '(do not strip parentheses or punct inside parentheses...)'),
+    ('do not strip ellipses ...', 'do not strip ellipses ...'),
     ('weirdness with,                             whitespace.', 'weirdness with,                             whitespace')
 ])
 def test_strip_ends(data, expected):
