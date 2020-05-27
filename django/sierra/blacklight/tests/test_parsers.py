@@ -389,6 +389,10 @@ def test_clean(data, expected):
      ('1975', '17uu', '181u')),
     ('300 A.D.', ('0300',)),
     ('201[4]', ('2014',)),
+    ('1st semester 1976.', ('1976',)),
+    ('2nd semester 1976.', ('1976',)),
+    ('3rd semester 1976.', ('1976',)),
+    ('4th semester 1976.', ('1976',)),
 ])
 def test_extract_years(data, expected):
     """

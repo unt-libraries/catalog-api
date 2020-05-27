@@ -351,14 +351,14 @@ def extract_years(data):
     19uu => 20th century
     """
     dates = []
-    century_re = r'\d{1,2}st|\d{1,2}nd|\d{1,2}rd|\d{1,2}th(?=.+centur)'
+    century_re = r'(\d{1,2}st|\d{1,2}nd|\d{1,2}rd|\d{1,2}th)(?=.+centur)'
     decade_re = r'\d{2,3}0s'
     year_re = r'\d---|\d\d--|\d\d\d-|\d{3,4}(?![\ds])'
     combined_re = r'(?<!\d)({}|{}|{})'.format(century_re, decade_re, year_re)
 
     data = data.replace('[', '').replace(']', '')
     
-    for date in re.findall(combined_re, data, flags=re.IGNORECASE):
+    for date, _ in re.findall(combined_re, data, flags=re.IGNORECASE):
         if date.lower().endswith('0s'):
             new_date = '{}u'.format(date[:-2])
         elif date[-2:].lower() in ('st', 'nd', 'rd', 'th'):

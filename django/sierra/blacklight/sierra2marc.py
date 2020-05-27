@@ -1073,7 +1073,7 @@ class BlacklightASMPipeline(object):
                 if match.groups()[1] == 'u':
                     year = year.replace('u', '0s')
                 elif match.groups()[1] == 'uu':
-                    century = unicode(int(match.groups()[0]) + 1)
+                    century = unicode(int(match.groups()[0] or 0) + 1)
                     suffix = century_suffix_map.get(century[-1], 'th')
                     year = '{}{} century'.format(century, suffix)
                 else:
