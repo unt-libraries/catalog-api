@@ -549,7 +549,8 @@ def test_genericdisplayfieldparser_parse(subfields, sep, sff, expected):
       'a', 'trumpet', 'n', '1', 'a', 'piano', 'n', '1', 'a', 'violin',
       'n', '1', 'd', 'viola', 'n', '1', 'a', 'double bass', 'n', '1', 's', '8',
       '2', 'lcmpt'],
-     {'total_performers': '8',
+     {'materials_specified': [],
+      'total_performers': '8',
       'total_ensembles': None,
       'parts': [
         [{'primary': [('soprano voice', '2')]}],
@@ -563,7 +564,8 @@ def test_genericdisplayfieldparser_parse(subfields, sep, sff, expected):
      ]}),
     (['b', 'flute', 'n', '1', 'a', 'orchestra', 'e', '1', 'r', '1', 't', '1',
       '2', 'lcmpt'],
-     {'total_performers': '1',
+     {'materials_specified': [],
+      'total_performers': '1',
       'total_ensembles': '1',
       'parts': [
         [{'solo': [('flute', '1')]}],
@@ -571,7 +573,8 @@ def test_genericdisplayfieldparser_parse(subfields, sep, sff, expected):
      ]}),
     (['a', 'flute', 'n', '1', 'd', 'piccolo', 'n', '1', 'd', 'alto flute',
       'n', '1', 'd', 'bass flute', 'n', '1', 's', '1', '2', 'lcmpt'],
-     {'total_performers': '1',
+     {'materials_specified': [],
+      'total_performers': '1',
       'total_ensembles': None,
       'parts': [
         [{'primary': [('flute', '1')]},
@@ -580,7 +583,8 @@ def test_genericdisplayfieldparser_parse(subfields, sep, sff, expected):
      ]}),
     (['a', 'violin', 'n', '1', 'd', 'flute', 'n', '1', 'p', 'piccolo', 'n', '1',
       'a', 'cello', 'n', '1', 'a', 'piano', 'n', '1', 's', '3', '2', 'lcmpt'],
-     {'total_performers': '3',
+     {'materials_specified': [],
+      'total_performers': '3',
       'total_ensembles': None,
       'parts': [
         [{'primary': [('violin', '1')]}, {'doubling': [('flute', '1')]},
@@ -593,7 +597,8 @@ def test_genericdisplayfieldparser_parse(subfields, sep, sff, expected):
       'b', 'bass voice', 'n', '1', 'a', 'mixed chorus', 'e', '2',
       'v', 'SATB, SATB', 'a', 'children\'s chorus', 'e', '1', 'a',
       'orchestra', 'e', '1', 'r', '8', 't', '4', '2', 'lcmpt'],
-     {'total_performers': '8',
+     {'materials_specified': [],
+      'total_performers': '8',
       'total_ensembles': '4',
       'parts': [
         [{'solo': [('soprano voice', '3')]}],
@@ -607,7 +612,8 @@ def test_genericdisplayfieldparser_parse(subfields, sep, sff, expected):
      ]}),
     (['a', 'violin', 'p', 'flute', 'd', 'viola', 'p', 'alto flute',
       'd', 'cello', 'p', 'saxophone', 'd', 'double bass'],
-     {'total_performers': None,
+     {'materials_specified': [],
+      'total_performers': None,
       'total_ensembles': None,
       'parts': [
         [{'primary': [('violin', '1')]}, {'alt': [('flute', '1')]},
@@ -617,7 +623,8 @@ def test_genericdisplayfieldparser_parse(subfields, sep, sff, expected):
      ]}),
     (['a', 'violin', 'd', 'viola', 'd', 'cello', 'd', 'double bass', 
       'p', 'flute', 'd', 'alto flute', 'd', 'saxophone'],
-     {'total_performers': None,
+     {'materials_specified': [],
+      'total_performers': None,
       'total_ensembles': None,
       'parts': [
         [{'primary': [('violin', '1')]},
@@ -627,7 +634,8 @@ def test_genericdisplayfieldparser_parse(subfields, sep, sff, expected):
      ]}),
     (['a', 'violin', 'v', 'Note1', 'v', 'Note2', 'd', 'viola', 'v', 'Note3',
       'd', 'cello', 'n', '2', 'v', 'Note4', 'v', 'Note5'],
-     {'total_performers': None,
+     {'materials_specified': [],
+      'total_performers': None,
       'total_ensembles': None,
       'parts': [
         [{'primary': [('violin', '1', ['Note1', 'Note2'])]},
@@ -636,7 +644,8 @@ def test_genericdisplayfieldparser_parse(subfields, sep, sff, expected):
     ]}),
     (['a', 'violin', 'd', 'viola', 'd', 'cello', 'd', 'double bass',
       'p', 'flute', 'p', 'clarinet', 'd', 'alto flute', 'd', 'saxophone'],
-     {'total_performers': None,
+     {'materials_specified': [],
+      'total_performers': None,
       'total_ensembles': None,
       'parts': [
         [{'primary': [('violin', '1')]},
@@ -647,7 +656,8 @@ def test_genericdisplayfieldparser_parse(subfields, sep, sff, expected):
     (['a', 'violin', 'p', 'flute', 'p', 'trumpet', 'p', 'clarinet',
       'd', 'viola', 'p', 'alto flute', 'd', 'cello', 'p', 'saxophone',
       'd', 'double bass'],
-     {'total_performers': None,
+     {'materials_specified': [],
+      'total_performers': None,
       'total_ensembles': None,
       'parts': [
         [{'primary': [('violin', '1')]},
@@ -655,6 +665,15 @@ def test_genericdisplayfieldparser_parse(subfields, sep, sff, expected):
          {'doubling': [('viola', '1')]}, {'alt': [('alto flute', '1')]},
          {'doubling': [('cello', '1')]}, {'alt': [('saxophone', '1')]},
          {'doubling': [('double bass', '1')]}],
+     ]}),
+    (['3', 'Piece One', 'b', 'flute', 'n', '1', 'a', 'orchestra', 'e', '1',
+      'r', '1', 't', '1', '2', 'lcmpt'],
+     {'materials_specified': ['Piece One'],
+      'total_performers': '1',
+      'total_ensembles': '1',
+      'parts': [
+        [{'solo': [('flute', '1')]}],
+        [{'primary': [('orchestra', '1')]}],
      ]}),
 ])
 def test_performancemedparser_parse(subfields, expected):
@@ -2404,7 +2423,8 @@ def test_blasmpipeline_getcontributorinfo(marcfields, expected,
 
 
 @pytest.mark.parametrize('parsed_pm, expected', [
-    ({'total_performers': '8',
+    ({'materials_specified': [],
+      'total_performers': '8',
       'total_ensembles': None,
       'parts': [
         [{'primary': [('soprano voice', '2')]}],
@@ -2418,13 +2438,15 @@ def test_blasmpipeline_getcontributorinfo(marcfields, expected,
      ]}, '8 performers: soprano voice (2); mezzo-soprano voice; tenor '
          'saxophone doubling bass clarinet; trumpet; piano; violin doubling '
          'viola; double bass'),
-    ({'total_performers': '1',
+    ({'materials_specified': [],
+      'total_performers': '1',
       'total_ensembles': '1',
       'parts': [
         [{'solo': [('flute', '1')]}],
         [{'primary': [('orchestra', '1')]}],
      ]}, '1 performer and 1 ensemble: solo flute; orchestra'),
-    ({'total_performers': '1',
+    ({'materials_specified': [],
+      'total_performers': '1',
       'total_ensembles': None,
       'parts': [
         [{'primary': [('flute', '1')]},
@@ -2432,7 +2454,8 @@ def test_blasmpipeline_getcontributorinfo(marcfields, expected,
                        ('bass flute', '1')]}],
      ]}, '1 performer: flute doubling piccolo, alto flute, and bass '
          'flute'),
-    ({'total_performers': '3',
+    ({'materials_specified': [],
+      'total_performers': '3',
       'total_ensembles': None,
       'parts': [
         [{'primary': [('violin', '1')]}, {'doubling': [('flute', '1')]},
@@ -2440,7 +2463,8 @@ def test_blasmpipeline_getcontributorinfo(marcfields, expected,
         [{'primary': [('cello', '1')]}],
         [{'primary': [('piano', '1')]}],
      ]}, '3 performers: violin doubling flute or piccolo; cello; piano'),
-    ({'total_performers': '8',
+    ({'materials_specified': [],
+      'total_performers': '8',
       'total_ensembles': '4',
       'parts': [
         [{'solo': [('soprano voice', '3')]}],
@@ -2454,7 +2478,8 @@ def test_blasmpipeline_getcontributorinfo(marcfields, expected,
      ]}, '8 performers and 4 ensembles: solo soprano voice (3); solo alto '
          'voice (2); solo tenor voice; solo baritone voice; solo bass voice; '
          'mixed chorus (2) [SATB, SATB]; children\'s chorus; orchestra'),
-    ({'total_performers': None,
+    ({'materials_specified': [],
+      'total_performers': None,
       'total_ensembles': None,
       'parts': [
         [{'primary': [('violin', '1')]}, {'alt': [('flute', '1')]},
@@ -2463,7 +2488,8 @@ def test_blasmpipeline_getcontributorinfo(marcfields, expected,
          {'doubling': [('double bass', '1')]}],
      ]}, 'Violin or flute doubling viola or alto flute doubling cello or '
          'saxophone doubling double bass'),
-    ({'total_performers': None,
+    ({'materials_specified': [],
+      'total_performers': None,
       'total_ensembles': None,
       'parts': [
         [{'primary': [('violin', '1')]},
@@ -2472,7 +2498,8 @@ def test_blasmpipeline_getcontributorinfo(marcfields, expected,
          {'doubling': [('alto flute', '1'), ('saxophone', '1')]}],
      ]}, 'Violin doubling viola, cello, and double bass or flute doubling alto '
          'flute and saxophone'),
-    ({'total_performers': None,
+    ({'materials_specified': [],
+      'total_performers': None,
       'total_ensembles': None,
       'parts': [
         [{'primary': [('violin', '1', ['Note1', 'Note2'])]},
@@ -2480,7 +2507,8 @@ def test_blasmpipeline_getcontributorinfo(marcfields, expected,
                        ('cello', '2', ['Note4', 'Note5'])]}]
     ]}, 'Violin [Note1 / Note2] doubling viola [Note3] and cello (2) [Note4 / '
         'Note5]'),
-    ({'total_performers': None,
+    ({'materials_specified': [],
+      'total_performers': None,
       'total_ensembles': None,
       'parts': [
         [{'primary': [('violin', '1')]},
@@ -2489,7 +2517,8 @@ def test_blasmpipeline_getcontributorinfo(marcfields, expected,
          {'doubling': [('alto flute', '1'), ('saxophone', '1')]}],
      ]}, 'Violin doubling viola, cello, and double bass, flute, or clarinet '
          'doubling alto flute and saxophone'),
-    ({'total_performers': None,
+    ({'materials_specified': [],
+      'total_performers': None,
       'total_ensembles': None,
       'parts': [
         [{'primary': [('violin', '1')]},
@@ -2499,6 +2528,13 @@ def test_blasmpipeline_getcontributorinfo(marcfields, expected,
          {'doubling': [('double bass', '1')]}],
      ]}, 'Violin, flute, trumpet, or clarinet doubling viola or alto flute '
          'doubling cello or saxophone doubling double bass'),
+    ({'materials_specified': ['Piece One'],
+      'total_performers': '1',
+      'total_ensembles': '1',
+      'parts': [
+        [{'solo': [('flute', '1')]}],
+        [{'primary': [('orchestra', '1')]}],
+     ]}, '(Piece One) 1 performer and 1 ensemble: solo flute; orchestra')
 ])
 def test_blasmpipeline_compileperformancemedium(parsed_pm, expected,
                                                 blasm_pipeline_class):

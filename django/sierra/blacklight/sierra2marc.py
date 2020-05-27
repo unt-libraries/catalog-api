@@ -505,6 +505,7 @@ class PerformanceMedParser(SequentialMarcFieldParser):
         self.last_part_type = ''
         self.total_performers = None
         self.total_ensembles = None
+        self.materials_specified_stack = []
 
     def push_instrument(self, instrument, number=None, notes=None):
         number = number or '1'
@@ -536,7 +537,9 @@ class PerformanceMedParser(SequentialMarcFieldParser):
             self.push_instrument(instrument, number, notes)
 
     def parse_subfield(self, tag, val):
-        if tag in 'abdp':
+        if tag == '3':
+            self.materials_specified_stack.append(val)
+        elif tag in 'abdp':
             if tag in 'ab':
                 self.push_part_stack()
                 part_type = 'primary' if tag == 'a' else 'solo'
@@ -561,6 +564,7 @@ class PerformanceMedParser(SequentialMarcFieldParser):
 
     def compile_results(self):
         return {
+            'materials_specified': self.materials_specified_stack,
             'parts': self.parts,
             'total_performers': self.total_performers,
             'total_ensembles': self.total_ensembles
@@ -1430,8 +1434,11 @@ class BlacklightASMPipeline(object):
         pstr = '; '.join(compiled_parts)
         final_stack = ([totals] if totals else []) + ([pstr] if pstr else [])
         if final_stack:
-            render = ': '.join(final_stack)
-            return ''.join([render[0].upper(), render[1:]])
+            final_render = ': '.join(final_stack)
+            if parsed_pm['materials_specified']:
+                ms_render = ', '.join(parsed_pm['materials_specified'])
+                final_render = ' '.join(('({})'.format(ms_render), final_render))
+            return ''.join([final_render[0].upper(), final_render[1:]])
 
     def get_general_3xx_info(self, r, marc_record):
         def join_subfields_with_semicolons(field, sf_filter):
