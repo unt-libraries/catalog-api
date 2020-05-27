@@ -224,7 +224,7 @@ def pull_from_subfields(pmfield, sftags=None, pull_func=None):
 
 class MarcParseUtils(object):
     marc_relatorcode_map = settings.MARCDATA.RELATOR_CODES
-    control_sftags = 'w012356789'
+    control_sftags = 'w01256789'
     title_sftags_7xx = 'fhklmoprstvx'
 
     def compile_relator_terms(self, tag, val):
@@ -237,11 +237,6 @@ class MarcParseUtils(object):
         exclude_sftags = ''.join((self.control_sftags, 'i'))
         return group_subfields(field, exclude=exclude_sftags,
                                start=self.title_sftags_7xx, limit=2)
-
-    def join_subfields(self, join_val, field, sf_filter=None):
-        subfields = field.filter_subfields(**sf_filter) if sf_filter else field
-        joined = join_val.join((sfval for sftag, sfval in subfields))
-        return p.normalize_punctuation(joined)
 
 
 class SequentialMarcFieldParser(object):
@@ -461,6 +456,46 @@ def make_relator_search_variations(base_name, relators):
     return ['{} {}'.format(base_name, r) for r in relators]
 
 
+class GenericDisplayFieldParser(SequentialMarcFieldParser):
+    """
+    Parse/format a MARC field for display. This is conceptually similar
+    to using the `pymarc.field.Field.format_field` method, with the
+    following improvements: you can specify a custom `separator` (space
+    is the default); you can specify an optional `sf_filter` to include
+    or exclude certain subfields; subfield 3 (materials specified) is
+    handled automatically, wherever it occurs in the field.
+    """
+    def __init__(self, field, separator=' ', sf_filter=None):
+        filtered = field.filter_subfields(**sf_filter) if sf_filter else field
+        super(GenericDisplayFieldParser, self).__init__(filtered)
+        self.separator = separator
+        self.original_field = field
+        self.sf_filter = sf_filter
+        self.value_stack = []
+        self.materials_specified_stack = []
+
+    def format_materials_specified(self):
+        return '({})'.format(', '.join(self.materials_specified_stack))
+
+    def handle_other_subfields(self, val):
+        if len(self.materials_specified_stack):
+            val = ' '.join((self.format_materials_specified(), val))
+            self.materials_specified_stack = []
+        self.value_stack.append(val)
+
+    def parse_subfield(self, tag, val):
+        if tag == '3':
+            self.materials_specified_stack.append(val)
+        else:
+            self.handle_other_subfields(val)
+
+    def compile_results(self):
+        result = self.separator.join(self.value_stack)
+        if len(self.materials_specified_stack):
+            result = ' '.join((result, self.format_materials_specified()))
+        return p.normalize_punctuation(result)
+
+
 class PerformanceMedParser(SequentialMarcFieldParser):
     def __init__(self, field):
         super(PerformanceMedParser, self).__init__(field)
@@ -586,7 +621,7 @@ class MultiFieldMarcRecordParser(object):
                                                        utils.control_sftags}
 
     def default_parse_func(self, field, sf_filter):
-        return self.utils.join_subfields(' ', field, sf_filter)
+        return GenericDisplayFieldParser(field, ' ', sf_filter).parse()
 
     def parse(self):
         ret_val = {}
@@ -1400,7 +1435,7 @@ class BlacklightASMPipeline(object):
 
     def get_general_3xx_info(self, r, marc_record):
         def join_subfields_with_semicolons(field, sf_filter):
-            return self.utils.join_subfields('; ', field, sf_filter)
+            return GenericDisplayFieldParser(field, '; ', sf_filter).parse()
 
         def parse_performance_medium(field, sf_filter):
             parsed = PerformanceMedParser(field).parse()

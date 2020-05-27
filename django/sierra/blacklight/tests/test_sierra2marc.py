@@ -512,6 +512,37 @@ def test_pullfromsubfields_with_pullfunc():
         assert val == exp
 
 
+@pytest.mark.parametrize('subfields, sep, sff, expected', [
+    (['3', 'case files', 'a', 'aperture cards', 'b', '9 x 19 cm.',
+      'd', 'microfilm', 'f', '48x'], '; ', None,
+      '(case files) aperture cards; 9 x 19 cm.; microfilm; 48x'),
+    (['3', 'case files', 'a', 'aperture cards', 'b', '9 x 19 cm.',
+      'd', 'microfilm', 'f', '48x'], '; ', {'exclude': '3'},
+      'aperture cards; 9 x 19 cm.; microfilm; 48x'),
+    (['3', 'case files', 'a', 'aperture cards', 'b', '9 x 19 cm.',
+      '3', 'microfilm', 'f', '48x'], '; ', None,
+      '(case files) aperture cards; 9 x 19 cm.; (microfilm) 48x'),
+    (['a', 'aperture cards', 'b', '9 x 19 cm.', 'd', 'microfilm',
+      'f', '48x', '3', 'case files'], '; ', None,
+      'aperture cards; 9 x 19 cm.; microfilm; 48x (case files)'),
+    (['3', 'case files', '3', 'aperture cards', 'b', '9 x 19 cm.',
+      'd', 'microfilm', 'f', '48x'], '; ', None,
+      '(case files, aperture cards) 9 x 19 cm.; microfilm; 48x'),
+    (['3', 'case files', 'a', 'aperture cards', 'b', '9 x 19 cm.',
+      'd', 'microfilm', 'f', '48x'], '. ', None,
+      '(case files) aperture cards. 9 x 19 cm. microfilm. 48x'),
+])
+def test_genericdisplayfieldparser_parse(subfields, sep, sff, expected):
+    """
+    The GenericDisplayFieldParser `parse` method should return the
+    expected result when parsing a MARC field with the given
+    `subfields`, given the provided `sep` (separator) and `sff`
+    (subfield filter).
+    """
+    field = s2m.make_mfield('300', subfields=subfields)
+    assert s2m.GenericDisplayFieldParser(field, sep, sff).parse() == expected
+
+
 @pytest.mark.parametrize('subfields, expected', [
     (['a', 'soprano voice', 'n', '2', 'a', 'mezzo-soprano voice', 'n', '1',
       'a', 'tenor saxophone', 'n', '1', 'd', 'bass clarinet', 'n', '1',
@@ -2515,7 +2546,7 @@ def test_blasmpipeline_getgeneral3xxinfo(add_marc_fields, blasm_pipeline_class):
                   'n', '1', 's', '8', '2', 'lcmpt'])
     ]
     expected = {
-        'physical_medium': ['rice paper; 7" x 9"'],
+        'physical_medium': ['(self-portrait) rice paper; 7" x 9"'],
         'geospatial_data': ['Polyconic; 0.9996; 0; 500,000',
                             'Coordinate pair; meters; 22; 22.'],
         'audio_characteristics': ['analog', 'Dolby-B encoded'],
