@@ -22,6 +22,7 @@ from utils import helpers
 # These are MARC fields that we are currently not including in public
 # catalog records, listed by III field group tag.
 IGNORED_MARC_FIELDS_BY_GROUP_TAG = {
+    'n': ('539', '901', '959'),
     'r': ('306', '307', '336', '337', '338', '341', '348', '351', '355', '357',
           '377', '380', '381', '383', '384', '385', '386', '387', '388', '389'),
 }
@@ -568,6 +569,48 @@ class PerformanceMedParser(SequentialMarcFieldParser):
             'parts': self.parts,
             'total_performers': self.total_performers,
             'total_ensembles': self.total_ensembles
+        }
+
+
+class DissertationNotesFieldParser(SequentialMarcFieldParser):
+    def __init__(self, field):
+        super(DissertationNotesFieldParser, self).__init__(field)
+        self.degree = None
+        self.institution = None
+        self.date = None
+        self.note_parts = []
+        self.degree_statement_is_done = False
+
+    def format_degree_statement(self):
+        result = ', '.join([v for v in (self.institution, self.date) if v])
+        return ' ― '.join([v for v in (self.degree, result) if v])
+
+    def try_to_do_degree_statement(self):
+        if not self.degree_statement_is_done:
+            if self.degree or self.institution or self.date:
+                self.note_parts.append(self.format_degree_statement())
+                self.degree_statement_is_done = True
+
+    def parse_subfield(self, tag, val):
+        if tag == 'b':
+            self.degree = p.strip_ends(val)
+        elif tag == 'c':
+            self.institution = p.strip_ends(val)
+        elif tag == 'd':
+            self.date = p.strip_ends(val)
+        elif tag in 'go':
+            self.try_to_do_degree_statement()
+            self.note_parts.append(val)
+
+    def do_post_parse(self):
+        self.try_to_do_degree_statement()
+
+    def compile_results(self):
+        return {
+            'degree': self.degree,
+            'institution': self.institution,
+            'date': self.date,
+            'note_parts': self.note_parts
         }
 
 
@@ -1491,6 +1534,90 @@ class BlacklightASMPipeline(object):
         ), utils=self.utils)
         return record_parser.parse()
 
+    def get_general_5xx_info(self, r, marc_record):
+        def join_subfields_with_spaces(field, sf_filter):
+            return GenericDisplayFieldParser(field, ' ', sf_filter).parse()
+
+        def join_subfields_with_semicolons(field, sf_filter):
+            return GenericDisplayFieldParser(field, '; ', sf_filter).parse()
+
+        def _generate_display_constant(parse_func, test_val, mapping):
+            label = mapping.get(test_val, None)
+            if label:
+                return '{}: {}'.format(label, parse_func())
+            return parse_func()
+
+        def parse_502_dissertation_notes(field, sf_filter):
+            if field.get_subfields('a'):
+                return join_subfields_with_spaces(field, {'include': 'ago'})
+            parsed_dn = DissertationNotesFieldParser(field).parse()
+            diss_note = '{}.'.format('. '.join(parsed_dn['note_parts']))
+            return p.normalize_punctuation(diss_note)
+
+        def parse_511_performers(field, sf_filter):
+            return _generate_display_constant(
+                lambda: join_subfields_with_spaces(field, sf_filter),
+                field.indicator1,
+                {'1': 'Cast'}
+            )
+
+        def parse_all_other_notes(field, sf_filter):
+            if field.tag == '521':
+                val = _generate_display_constant(
+                    lambda: join_subfields_with_semicolons(field,
+                                                           {'include': '3a'}),
+                    field.indicator1,
+                    {' ': 'Audience',
+                     '0': 'Reading grade level',
+                     '1': 'Ages',
+                     '2': 'Grades',
+                     '3': 'Special audience characteristics',
+                     '4': 'Motivation/interest level'}
+                )
+                source = ', '.join(field.get_subfields('b'))
+                if source:
+                    val = '{} (source: {})'.format(val, p.strip_ends(source))
+                return val
+
+            if field.tag == '583':
+                if field.indicator1 == '1':
+                    return join_subfields_with_semicolons(field, sf_filter)
+                return None
+
+            if field.tag == '588':
+                return _generate_display_constant(
+                    lambda: join_subfields_with_spaces(field, sf_filter),
+                    field.indicator1,
+                    {'0': 'Description based on',
+                     '1': 'Latest issue consulted'}
+                )
+            return join_subfields_with_spaces(field, sf_filter)
+
+        record_parser = MultiFieldMarcRecordParser(marc_record, (
+            ('performers', {
+                'fields': {'include': ('511',)},
+                'parse_func': parse_511_performers
+            }),
+            ('language_notes', {
+                'fields': {'include': ('546',)},
+                'parse_func': join_subfields_with_spaces
+            }),
+            ('dissertation_notes', {
+                'fields': {'include': ('502',)},
+                'parse_func': parse_502_dissertation_notes
+            }),
+            ('notes', {
+                'fields': {
+                    'include': ('n', '583'),
+                    'exclude': IGNORED_MARC_FIELDS_BY_GROUP_TAG['n'] +
+                               ('502', '505', '508', '511', '520', '546',
+                                '592'),
+                },
+                'parse_func': parse_all_other_notes    
+            })
+        ), utils=self.utils)
+        return record_parser.parse()
+
 
 class PipelineBundleConverter(object):
     """
@@ -1587,7 +1714,8 @@ class PipelineBundleConverter(object):
         ( '977', ('physical_description', 'physical_medium', 'geospatial_data',
                   'audio_characteristics', 'projection_characteristics',
                   'video_characteristics', 'digital_file_characteristics',
-                  'graphic_representation', 'performance_medium') ),
+                  'graphic_representation', 'performance_medium', 'performers',
+                  'language_notes', 'dissertation_notes', 'notes') ),
     )
 
     def __init__(self, mapping=None):

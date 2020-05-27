@@ -685,6 +685,56 @@ def test_performancemedparser_parse(subfields, expected):
     assert s2m.PerformanceMedParser(field).parse() == expected
 
 
+@pytest.mark.parametrize('subfields, expected', [
+    (['b', 'Ph.D', 'c', 'University of Louisville', 'd', '1997.'],
+     {'degree': 'Ph.D',
+      'institution': 'University of Louisville',
+      'date': '1997',
+      'note_parts': ['Ph.D ― University of Louisville, 1997']
+     }),
+    (['b', 'Ph.D', 'c', 'University of Louisville.'],
+     {'degree': 'Ph.D',
+      'institution': 'University of Louisville',
+      'date': None,
+      'note_parts': ['Ph.D ― University of Louisville']
+     }),
+    (['b', 'Ph.D', 'd', '1997.'],
+     {'degree': 'Ph.D',
+      'institution': None,
+      'date': '1997',
+      'note_parts': ['Ph.D ― 1997']
+     }),
+    (['b', 'Ph.D'],
+     {'degree': 'Ph.D',
+      'institution': None,
+      'date': None,
+      'note_parts': ['Ph.D']
+     }),
+    (['g', 'Some thesis', 'b', 'Ph.D', 'c', 'University of Louisville',
+      'd', '1997.'],
+     {'degree': 'Ph.D',
+      'institution': 'University of Louisville',
+      'date': '1997',
+      'note_parts': ['Some thesis', 'Ph.D ― University of Louisville, 1997']
+     }),
+    (['g', 'Some thesis', 'b', 'Ph.D', 'c', 'University of Louisville',
+      'd', '1997.', 'g', 'Other info', 'o', 'identifier'],
+     {'degree': 'Ph.D',
+      'institution': 'University of Louisville',
+      'date': '1997',
+      'note_parts': ['Some thesis', 'Ph.D ― University of Louisville, 1997',
+                     'Other info', 'identifier']
+     }),
+])
+def test_dissertationnotesfieldparser_parse(subfields, expected):
+    """
+    DissertationNotesFieldParser `parse` method should return a dict
+    with the expected structure, given the provided MARC 502 subfields.
+    """
+    field = s2m.make_mfield('502', subfields=subfields)
+    assert s2m.DissertationNotesFieldParser(field).parse() == expected
+
+
 def test_blasmpipeline_do_creates_compiled_dict(blasm_pipeline_class):
     """
     The `do` method of BlacklightASMPipeline should return a dict
@@ -2599,6 +2649,81 @@ def test_blasmpipeline_getgeneral3xxinfo(add_marc_fields, blasm_pipeline_class):
     marc = add_marc_fields(s2m.SierraMarcRecord(), (exc_fields + inc_fields))
     pipeline = blasm_pipeline_class()
     results = pipeline.get_general_3xx_info(None, marc)
+    assert set(results.keys()) == set(expected.keys())
+    for k, v in results.items():
+        assert v == expected[k]
+
+
+def test_blasmpipeline_getgeneral5xxinfo(add_marc_fields, blasm_pipeline_class):
+    """
+    BlacklightASMPipeline.get_general_5xx_info should return fields
+    matching the expected parameters.
+    """
+    exclude = s2m.IGNORED_MARC_FIELDS_BY_GROUP_TAG['n']
+    handled = ('505', '508', '520', '592')
+    exc_fields = [(''.join(('r', t)), ['a', 'No']) for t in exclude + handled]
+    inc_fields = [
+        ('n500', ['a', 'General Note.', '0', 'exclude']),
+        ('n502', ['a', 'Karl Schmidt\'s thesis (doctoral), Munich, 1965.']),
+        ('n502', ['b', 'Ph. D.', 'c', 'University of North Texas',
+                  'd', 'August, 2012.']),
+        ('n502', ['g', 'Some diss', 'b', 'Ph. D.',
+                  'c', 'University of North Texas', 'd', 'August, 2012.']),
+        ('n511', ['a', 'Hosted by Hugh Downs.'], '0 '),
+        ('n511', ['a', 'Colin Blakely, Jane Lapotaire.'], '1 '),
+        ('n521', ['a', 'Clinical students, postgraduate house officers.'],
+         '  '),
+        ('n521', ['a', '3.1.'], '0 '),
+        ('n521', ['a', '7-10.'], '1 '),
+        ('n521', ['a', '7 & up.'], '2 '),
+        ('n521', ['a', 'Vision impaired', 'a', 'fine motor skills impaired',
+                  'a', 'audio learner', 'b', 'LENOCA.'], '3 '),
+        ('n521', ['a', 'Moderately motivated.'], '4 '),
+        ('n521', ['a', 'MPAA rating: R.'], '8 '),
+        ('n546', ['3', 'Marriage certificate', 'a', 'German;',
+                  'b', 'Fraktur.']),
+        ('n583', ['3', 'plates', 'a', 'condition reviewed', 'c', '20040915',
+                  'l', 'mutilated', '2', 'pda', '5', 'DLC'], '1 '),
+        ('n583', ['a', 'will microfilm', 'c', '2004', '2', 'pda', '5', 'ICU'],
+                  '0 '),
+        ('n588', ['a', 'Cannot determine the relationship to Bowling '
+                       'illustrated, also published in New York, 1952-58.',
+                       '5', 'DLC'], '  '),
+        ('n588', ['a', 'Vol. 2, no. 2 (Feb. 1984); title from cover.'], '0 '),
+        ('n588', ['a', '2001.'], '1 '),
+    ]
+    expected = {
+        'performers': [
+            'Hosted by Hugh Downs.',
+            'Cast: Colin Blakely, Jane Lapotaire.'
+        ],
+        'language_notes': ['(Marriage certificate) German; Fraktur.'],
+        'dissertation_notes': [
+            'Karl Schmidt\'s thesis (doctoral), Munich, 1965.',
+            'Ph. D. ― University of North Texas, August, 2012.',
+            'Some diss. Ph. D. ― University of North Texas, August, 2012.'
+        ],
+        'notes': [
+            'General Note.',
+            'Audience: Clinical students, postgraduate house officers.',
+            'Reading grade level: 3.1.',
+            'Ages: 7-10.',
+            'Grades: 7 & up.',
+            'Special audience characteristics: Vision impaired; fine motor '
+            'skills impaired; audio learner (source: LENOCA)',
+            'Motivation/interest level: Moderately motivated.',
+            'MPAA rating: R.',
+            '(plates) condition reviewed; 20040915; mutilated',
+            'Cannot determine the relationship to Bowling illustrated, also '
+            'published in New York, 1952-58.',
+            'Description based on: Vol. 2, no. 2 (Feb. 1984); title from '
+            'cover.',
+            'Latest issue consulted: 2001.'
+        ],
+    }
+    marc = add_marc_fields(s2m.SierraMarcRecord(), (exc_fields + inc_fields))
+    pipeline = blasm_pipeline_class()
+    results = pipeline.get_general_5xx_info(None, marc)
     assert set(results.keys()) == set(expected.keys())
     for k, v in results.items():
         assert v == expected[k]

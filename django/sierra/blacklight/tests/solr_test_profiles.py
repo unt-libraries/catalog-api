@@ -28,11 +28,11 @@ ALPHASOLRMARC_FIELDS = (
     'contributors_json', 'meetings_json', 'author_sort',
     'author_contributor_facet', 'meeting_facet', 'author_search',
     'contributors_search', 'meetings_search', 'responsibility_search',
-    'summary_notes', 'toc_notes', 'current_publication_frequency',
-    'former_publication_frequency', 'physical_description', 'physical_medium',
+    'summary_notes', 'toc_notes', 'physical_description', 'physical_medium',
     'geospatial_data', 'audio_characteristics', 'projection_characteristics',
     'video_characteristics', 'digital_file_characteristics',
-    'graphic_representation', 'performance_medium',
+    'graphic_representation', 'performance_medium', 'performers',
+    'language_notes', 'dissertation_notes', 'notes',
     # OLD FIELDS ARE BELOW
     'game_facet', 'languages', 'isbn_numbers',
     'issn_numbers', 'lccn_number', 'oclc_numbers', 'dewey_call_numbers',
@@ -40,7 +40,7 @@ ALPHASOLRMARC_FIELDS = (
     'main_call_number', 'main_call_number_sort', 'main_title', 'subtitle',
     'statement_of_responsibility', 'full_title', 'title_sort',
     'alternate_titles', 'uniform_title', 'related_titles',
-    'context_notes', 'era_terms', 'form_terms',
+    'era_terms', 'form_terms',
     'general_terms', 'genre_terms', 'geographic_terms', 'other_terms',
     'topic_terms', 'full_subjects', 'series', 'series_exact',
     'public_title_facet', 'public_series_facet', 'public_subject_facet',
@@ -127,10 +127,8 @@ ALPHASOLRMARC_GENS = (
                                                     1, 5), 75))),
     ('meetings_search', GENS(tp.chance(tp.multi(tp.org_name_like, 1, 3), 25))),
     ('responsibility_search', GENS(tp.chance(tp.statement_of_resp, 80))),
-    ('context_notes', GENS(tp.chance(tp.multi(tp.sentence_like, 1, 4), 50))),
     ('summary_notes', GENS(tp.chance(tp.multi(tp.sentence_like, 1, 4), 50))),
     ('toc_notes', GENS(tp.chance(tp.multi(tp.sentence_like, 1, 4), 50))),
-    ('physical_description', GENS(tp.multi(tp.sentence_like, 1, 4))),
     ('era_terms', GENS(tp.chance(tp.multi(tp.year_range_like, 1, 2), 25))),
     ('form_terms', GENS(tp.chance(tp.multi(tp.keyword_like, 1, 2), 25))),
     ('general_terms', GENS(tp.chance(tp.multi(tp.keyword_like, 1, 2), 25))),
@@ -157,7 +155,6 @@ ALPHASOLRMARC_GENS = (
         'loc_call_numbers', 'sudoc_numbers', 'other_call_numbers',
         'main_call_number', 'statement_of_responsibility', 'full_title',
         'alternate_titles', 'uniform_title', 'related_titles',
-        'physical_characteristics', 'context_notes',
         'summary_notes', 'toc_notes', 'full_subjects', 'series'
     ])))
 )

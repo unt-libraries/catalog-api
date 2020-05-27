@@ -206,6 +206,11 @@
     <field name="digital_file_characteristics" type="string" indexed="false" stored="true" multiValued="true"/>
     <field name="graphic_representation" type="string" indexed="false" stored="true" multiValued="true"/>
     <field name="performance_medium" type="string" indexed="false" stored="true" multiValued="true"/>
+    <field name="production_credits" type="string" indexed="false" stored="true" multiValued="true"/>
+    <field name="performers" type="string" indexed="false" stored="true" multiValued="true"/>
+    <field name="language_notes" type="string" indexed="false" stored="true" multiValued="true"/>
+    <field name="dissertation_notes" type="string" indexed="false" stored="true" multiValued="true"/>
+    <field name="notes" type="string" indexed="false" stored="true" multiValued="true"/>
 
 
     <!-- OLD FIELDS: DONE #################################################################################
@@ -247,6 +252,7 @@
     <field name="public_author_facet" type="string" indexed="true" stored="false" multiValued="true" docValues="true" />
     <field name="meetings_facet" type="string" indexed="true" stored="false" multiValued="true" docValues="true" />
     <field name="physical_characteristics" type="text" indexed="true" stored="true" multiValued="true" />
+    <field name="context_notes" type="text" indexed="true" stored="true" multiValued="true" />
 
     <!-- These fields aren't being used anyway so I am removing them. -->
     <!-- <field name="people_facet" type="string" indexed="true" stored="true" multiValued="true" docValues="true" /> -->
@@ -302,9 +308,6 @@
 
     <!-- Media Game Facet Fields -->
     <field name="game_facet" type="string" indexed="true" stored="true" multiValued="true" />
-
-    <!-- Context -->
-    <field name="context_notes" type="text" indexed="true" stored="true" multiValued="true" />
 
     <!-- Temporary Fields to remove later: these were dynamic fields, but we want to start making
          sure all our fields are defined explicitly. -->
