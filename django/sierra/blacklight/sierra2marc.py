@@ -710,7 +710,7 @@ class BlacklightASMPipeline(object):
     fields = [
         'id', 'suppressed', 'date_added', 'item_info', 'urls_json',
         'thumbnail_url', 'pub_info', 'access_info', 'resource_type_info',
-        'contributor_info', 'general_3xx_info',
+        'contributor_info', 'general_3xx_info', 'general_5xx_info'
     ]
     prefix = 'get_'
     access_online_label = 'Online'
@@ -1528,7 +1528,7 @@ class BlacklightASMPipeline(object):
                     'include': ('r', '370'),
                     'exclude': IGNORED_MARC_FIELDS_BY_GROUP_TAG['r'] +
                                ('310', '321', '340', '342', '343', '344', '345',
-                                '346', '347', '352', '382')
+                                '346', '347', '352', '362', '382')
                 }
             })
         ), utils=self.utils)
