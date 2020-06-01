@@ -76,11 +76,11 @@ class Ruleset(object):
                 return None
 
     def evaluate(self, obj):
-        result = self.default
+        res = self.default
         for field_def, mapping in self.rules:
             val_from_obj = self.get_val_from_obj(field_def, obj)
-            result = mapping.get(val_from_obj, result)
-        return result
+            res = mapping.get(val_from_obj, res) if mapping else val_from_obj
+        return res
 
 
 def reverse_mapping(forward_mapping, multi=True):
