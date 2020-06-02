@@ -161,7 +161,7 @@ class ResourceTypeDeterminer(object):
     f007_map = {
         'ss l': (None, 'cassette', None),
         'sd f': (None, 'cd', None),
-        'sd d': (None, 'record', '78_RPM'),
+        'sd d': (None, 'record', '78 RPM'),
         'sd **mc': (None, 'record', '7-inch'),
         'sd **md': (None, 'record', '10-inch'),
         'sd **me': (None, 'record', '12-inch'),
@@ -263,7 +263,6 @@ class ResourceTypeDeterminer(object):
         'Microfiche': ['Microforms', 'Microfiche'],
         'Microfilm': ['Microforms', 'Microfilm'],
         'Microopaque': ['Microforms', 'Microopaques'],
-        'Online': ['Digital Files'],
     }
 
     def __call__(self, obj):
@@ -296,6 +295,9 @@ class ResourceTypeDeterminer(object):
 
         if rtype_str in ('game_console', 'game_handheld') and fmt:
             mtype_cats.append('{} Games'.format(fmt))
+
+        if fmt == 'Online' and 'software' not in rtypes:
+            mtype_cats.append('Digital Files')
 
         return {
             'resource_type': list(set(rtype_cats)),
@@ -406,7 +408,7 @@ class ResourceTypeDeterminer(object):
                 if cn.lower().startswith('game'):
                     cn_parts = cn.split(' ', 2)
                     if len(cn_parts) == 3:
-                        return cn_parts[2].replace(' ', '_')
+                        return cn_parts[2]
 
         def try_game_007_info(obj, base_type):
             media, fmt = None, None
@@ -421,9 +423,9 @@ class ResourceTypeDeterminer(object):
 
         def try_specific_software_type(obj):
             for f008 in self.get_control_field_from_obj(obj, '008'):
-                if f008 and len(f008) >= 27 and f008[26] in 'acdefgh':
-                    if f008[26] in 'acdef':
-                        return 'document'
+                if f008 and len(f008) >= 27:
+                    if f008[26] in 'bi':
+                        return 'software'
                     if f008[26] == 'g':
                         return 'game'
                     if f008[26] == 'h':
@@ -433,7 +435,7 @@ class ResourceTypeDeterminer(object):
         if base_type == 'game':
             return (base_type, media, fmt)
 
-        base_type = try_specific_software_type(obj) or base_type
+        base_type = try_specific_software_type(obj) or 'document'
         return (base_type, 'computer', fmt)
 
     def process_ebook(self, obj, base_type):
