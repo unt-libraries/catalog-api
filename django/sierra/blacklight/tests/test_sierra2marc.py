@@ -1968,12 +1968,15 @@ def test_blasmpipeline_getaccessinfo(bib_locations, item_locations, expected,
 
 
 @pytest.mark.parametrize('bcode2, expected', [
-    ('a', {'resource_type': 'book',
-           'resource_type_facet': ['books']}),
-    ('b', {'resource_type': 'online_database',
-           'resource_type_facet': ['online_databases']}),
-    ('c', {'resource_type': 'music_score',
-           'resource_type_facet': ['music_scores']}),
+    ('a', {'resource_type': 'ebook',
+           'resource_type_facet': ['books'],
+           'media_type_facet': ['Digital Files']}),
+    ('b', {'resource_type': 'database',
+           'resource_type_facet': ['online_databases'],
+           'media_type_facet': ['Digital Files']}),
+    ('c', {'resource_type': 'score|Online',
+           'resource_type_facet': ['music_scores'],
+           'media_type_facet': ['Digital Files']}),
 ])
 def test_blasmpipeline_getresourcetypeinfo(bcode2,
                                            expected, bl_sierra_test_record,
@@ -1982,8 +1985,8 @@ def test_blasmpipeline_getresourcetypeinfo(bcode2,
     """
     BlacklightASMPipeline.get_resource_type_info should return the
     expected resource_type and resource_type_facet values based on the
-    given bcode2. Note that this doesn't thoroughly and exhaustively
-    test resource type determination; for that, see base.local_rulesets
+    given bcode2. Note that this doesn't test resource type nor
+    category (facet) determination. For that, see base.local_rulesets
     (and associated tests).
     """
     pipeline = blasm_pipeline_class()

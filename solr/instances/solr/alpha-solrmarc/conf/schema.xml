@@ -166,6 +166,7 @@
     <field name="shelf_facet" type="string" indexed="true" stored="false" multiValued="true"/>
     <field name="collection_facet" type="string" indexed="true" stored="false" multiValued="true"/>
     <field name="resource_type_facet" type="string" indexed="true" stored="false" multiValued="true"/>
+    <field name="media_type_facet" type="string" indexed="true" stored="false" multiValued="true"/>
     <field name="author_contributor_facet" type="string" indexed="true" stored="false" multiValued="true" docValues="true"/>
     <field name="meeting_facet" type="string" indexed="true" stored="false" multiValued="true" docValues="true"/>
 
@@ -178,6 +179,7 @@
     <copyField source="shelf_facet" dest="metadata_facets_search"/>
     <copyField source="collection_facet" dest="metadata_facets_search"/>
     <copyField source="resource_type_facet" dest="metadata_facets_search"/>
+    <copyField source="media_type_facet" dest="metadata_facets_search"/>
 
     <!-- Publication -->
     <field name="publication_places_search" type="text" indexed="true" stored="false" multiValued="true"/>

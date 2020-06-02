@@ -1279,36 +1279,11 @@ class BlacklightASMPipeline(object):
         }
 
     def get_resource_type_info(self, r, marc_record):
-        resource_type = self.bib_rules['resource_type'].evaluate(r)
-        rt_categories = {
-            'unknown': [],
-            'book': ['books'],
-            'online_database': ['online_databases'],
-            'music_score': ['music_scores'],
-            'map': ['maps'],
-            'video_film': ['video_film'],
-            'audiobook': ['books', 'audio'],
-            'music_recording': ['music_recordings', 'audio'],
-            'print_graphic': ['images'],
-            'software': ['software'],
-            'video_game': ['games', 'software'],
-            'eresource': ['software'],
-            'ebook': ['books'],
-            'educational_kit': ['educational_kits'],
-            'archival_collection': ['archives_manuscripts'],
-            'print_journal': ['journals_periodicals'],
-            'object_artifact': ['objects_artifacts'],
-            'tabletop_game': ['games', 'objects_artifacts'],
-            'equipment': ['equipment', 'objects_artifacts'],
-            'score_thesis': ['music_scores', 'theses_dissertations'],
-            'manuscript': ['books', 'archives_manuscripts'],
-            'ejournal': ['journals_periodicals'],
-            'thesis_dissertation': ['theses_dissertations'],
-        }
-
+        rtype_info = self.bib_rules['resource_type'].evaluate(r)
         return {
-            'resource_type': resource_type,
-            'resource_type_facet': rt_categories[resource_type]
+            'resource_type': rtype_info['resource_type'],
+            'resource_type_facet': rtype_info['resource_type_categories'],
+            'media_type_facet': rtype_info['media_type_categories']
         }
 
     def compile_person_info(self, name_struct):
@@ -1671,8 +1646,7 @@ class PipelineBundleConverter(object):
         ( '907', ('id',) ),
         ( '970', ('suppressed', 'date_added', 'access_facet', 'building_facet',
                   'shelf_facet', 'collection_facet', 'resource_type',
-                  'resource_type_facet', 'game_duration_facet',
-                  'game_players_facet', 'game_age_facet') ),
+                  'resource_type_facet', 'media_type_facet') ),
         ( '971', ('items_json',) ),
         ( '971', ('has_more_items',) ),
         ( '971', ('more_items_json',) ),
