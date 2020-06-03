@@ -895,25 +895,25 @@ class BibRecord(MainRecordTypeModel):
                 ['050', '055', '090', '091', '093', '094', '095', '096', '097',
                  '098'],
              'type': 'lc'},
-            {'vf_tag': 'c', 'marc_tags': '092', 'type': 'dewey'},
-            {'vf_tag': 'c', 'marc_tags': '099', 'type': 'other'},
-            {'vf_tag': 'c', 'marc_tags': '086', 'sf': '-z', 'type': 'sudoc'},
-            {'vf_tag': 'g', 'marc_tags': '086', 'sf': '-z', 'type': 'sudoc'}
+            {'vf_tag': 'c', 'marc_tags': ['092'], 'type': 'dewey'},
+            {'vf_tag': 'c', 'marc_tags': ['099'], 'type': 'other'},
+            {'vf_tag': 'c', 'marc_tags': ['086'], 'sf': '-z', 'type': 'sudoc'},
+            {'vf_tag': 'g', 'marc_tags': ['086'], 'sf': '-z', 'type': 'sudoc'}
         ]
 
         cn_tuples = []
-        varfields = self.record_metadata.varfield_set.all()
-        for spec in bib_cn_specs:
-            sf_param = {'subfields': spec.get('sf', '')}
-            cns = helpers.get_varfield_vals(varfields, spec['vf_tag'],
-                                            marc_tags=spec['marc_tags'],
-                                            cm_kw_params=sf_param,
-                                            content_method='display_field_content',
-                                            many=True)
-            if cns:
-                cns = [(cn, spec['type']) for cn in cns]
-                cn_tuples.extend(cns)
-
+        varfields = sorted([vf for vf in self.record_metadata.varfield_set.all()
+                            if vf.varfield_type_code in ('c', 'g')],
+                           key=lambda vf: (vf.varfield_type_code, vf.occ_num))
+        for vf in varfields:
+            for spec in bib_cn_specs:
+                if spec['vf_tag'] == vf.varfield_type_code:
+                    mtag_match = vf.marc_tag in spec['marc_tags']
+                    if (mtag_match or '*' in spec['marc_tags']):
+                        sf = spec.get('sf', '')
+                        cn = vf.display_field_content(subfields=sf)
+                        cn_tuples.append((cn, spec['type']))
+                        break
         return cn_tuples
 
     class Meta(ReadOnlyModel.Meta):
@@ -2023,29 +2023,25 @@ class ItemRecord(MainRecordTypeModel):
         """
         item_cn_specs = [
             {'vf_tag': 'c', 'marc_tags': ['050', '055', '090'], 'type': 'lc'},
-            {'vf_tag': 'c', 'marc_tags': '092', 'type': 'dewey'},
-            {'vf_tag': 'c', 'marc_tags':
-                ['091', '093', '094', '095', '096', '097', '098', '099'],
-             'type': 'other'},
-            {'vf_tag': 'c', 'marc_tags': None, 'type': 'other'},
-            {'vf_tag': 'c', 'marc_tags': '086', 'sf': '-z', 'type': 'sudoc'},
-            {'vf_tag': 'g', 'marc_tags': '*', 'sf': '-z', 'type': 'sudoc'},
+            {'vf_tag': 'c', 'marc_tags': ['092'], 'type': 'dewey'},
+            {'vf_tag': 'c', 'marc_tags': ['086'], 'sf': '-z', 'type': 'sudoc'},
+            {'vf_tag': 'c', 'marc_tags': ['*'], 'type': 'other'},
+            {'vf_tag': 'g', 'marc_tags': ['*'], 'sf': '-z', 'type': 'sudoc'},
         ]
-        call_number_tuples = []
-        varfields = self.record_metadata.varfield_set.all()
-        for spec in item_cn_specs:
-            call_numbers = []
-            sf_param = {'subfields': spec.get('sf', '')}
-            call_numbers = helpers.get_varfield_vals(varfields, spec['vf_tag'],
-                                                     marc_tags=spec[
-                                                         'marc_tags'],
-                                                     cm_kw_params=sf_param,
-                                                     content_method='display_field_content',
-                                                     many=True)
-            if call_numbers:
-                call_numbers = [(cn, spec['type']) for cn in call_numbers]
-                call_number_tuples.extend(call_numbers)
-        return call_number_tuples
+        cn_tuples = []
+        varfields = sorted([vf for vf in self.record_metadata.varfield_set.all()
+                            if vf.varfield_type_code in ('c', 'g')],
+                           key=lambda vf: (vf.varfield_type_code, vf.occ_num))
+        for vf in varfields:
+            for spec in item_cn_specs:
+                if spec['vf_tag'] == vf.varfield_type_code:
+                    mtag_match = vf.marc_tag in spec['marc_tags']
+                    if (mtag_match or '*' in spec['marc_tags']):
+                        sf = spec.get('sf', '')
+                        cn = vf.display_field_content(subfields=sf)
+                        cn_tuples.append((cn, spec['type']))
+                        break
+        return cn_tuples
 
     def _cn_is_sudoc(self, cn_string, bib_cn_tuples):
         """

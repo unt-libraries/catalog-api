@@ -6,7 +6,6 @@ Tests the blacklight.parsers functions.
 
 from __future__ import unicode_literals
 import pytest
-import pymarc
 import ujson
 import datetime
 import pytz
@@ -19,13 +18,22 @@ pytestmark = pytest.mark.django_db
 
 
 @pytest.fixture
-def bibrecord_to_pymarc():
+def s2mbatch_class():
+    """
+    Pytest fixture; returns the s2m.S2MarcBatchBlacklightSolrMarc
+    class.
+    """
+    return s2m.S2MarcBatchBlacklightSolrMarc
+
+
+@pytest.fixture
+def bibrecord_to_pymarc(s2mbatch_class):
     """
     Pytest fixture for converting a `bib` from the Sierra DB (i.e. a
     base.models.BibRecord instance) to a pymarc MARC record object.
     """
     def _bibrecord_to_pymarc(bib):
-        s2m_obj = s2m.S2MarcBatchBlacklightSolrMarc(bib)
+        s2m_obj = s2mbatch_class(bib)
         return s2m_obj.compile_original_marc(bib)
     return _bibrecord_to_pymarc
 
@@ -40,23 +48,31 @@ def add_marc_fields():
     One or more `fields` may be passed. Each field is a tuple of:
         (tag, contents, indicators)
 
+    `tag` can be a 3-digit numeric MARC tag ('245') or a 4-digit tag,
+    where the III field group tag is prepended ('t245' is a t-tagged
+    245 field).
+
     Indicators is optional. If the MARC tag is 001 to 009, then a data
     field is created from `contents`. Otherwise `contents` is treated
     as a list of subfields, and `indicators` defaults to blank, blank.
     """
     def _add_marc_fields(bib, fields, overwrite_existing=True):
-        pm_fields = []
+        fieldobjs = []
         for f in fields:
             tag, contents = f[0:2]
+            group_tag = ''
+            if len(tag) == 4:
+                group_tag, tag = tag[0], tag[1:]
             if overwrite_existing:
                 bib.remove_fields(tag)
             if int(tag) < 10:
-                pm_fields.append(s2m.make_pmfield(tag, data=contents))
+                fieldobjs.append(s2m.make_mfield(tag, data=contents))
             else:
                 ind = tuple(f[2]) if len(f) > 2 else tuple('  ')
-                pm_fields.append(s2m.make_pmfield(tag, subfields=contents,
-                                                  indicators=ind))
-        bib.add_grouped_field(*pm_fields)
+                fieldobjs.append(s2m.make_mfield(tag, subfields=contents,
+                                                 indicators=ind,
+                                                 group_tag=group_tag))
+        bib.add_field(*fieldobjs)
         return bib
     return _add_marc_fields
 
@@ -85,12 +101,18 @@ def assert_json_matches_expected():
     in each of exp_dicts is found in the corresponding `json_strs`
     obj.
     """
-    def _assert_json_matches_expected(json_strs, exp_dicts):
+    def _assert_json_matches_expected(json_strs, exp_dicts, exact=False):
+        if not isinstance(json_strs, (list, tuple)):
+            json_strs = [json_strs]
+        if not isinstance(exp_dicts, (list, tuple)):
+            exp_dicts = [exp_dicts]
         assert len(json_strs) == len(exp_dicts)
         for json, exp_dict in zip(json_strs, exp_dicts):
             cmp_dict = ujson.loads(json)
             for key in exp_dict.keys():
                 assert cmp_dict[key] == exp_dict[key]
+            if exact:
+                assert set(cmp_dict.keys()) == set(exp_dict.keys())
     return _assert_json_matches_expected
 
 
@@ -129,13 +151,13 @@ def update_test_bib_inst(add_varfields_to_record, add_items_to_bib,
     {'data': 'abcdefg', 'subfields': ['a', 'Test']},
     {'data': 'abcdefg', 'indicators': '12', 'subfields': ['a', 'Test']}
 ])
-def test_makepmfield_creates_control_field(kwargs):
+def test_makemfield_creates_control_field(kwargs):
     """
-    When passed a `data` parameter, `make_pmfield` should create a
+    When passed a `data` parameter, `make_mfield` should create a
     pymarc control field, even if a `subfields` and/or `indicators`
     value is also passed.
     """
-    field = s2m.make_pmfield('008', **kwargs)
+    field = s2m.make_mfield('008', **kwargs)
     assert field.tag == '008'
     assert field.data == kwargs['data']
     assert not hasattr(field, 'indicators')
@@ -145,22 +167,181 @@ def test_makepmfield_creates_control_field(kwargs):
 @pytest.mark.parametrize('kwargs', [
     {},
     {'indicators': '12'},
-    {'subfields': ['a', 'Test1', 'b', 'Test2']}
+    {'subfields': ['a', 'Test1', 'b', 'Test2']},
+    {'subfields': ['a', 'Test'], 'group_tag': 'a'}
 ])
-def test_makepmfield_creates_varfield(kwargs):
+def test_makemfield_creates_varfield(kwargs):
     """
-    When NOT passed a `data` parameters, `make_pmfield` should create a
+    When NOT passed a `data` parameters, `make_mfield` should create a
     pymarc variable-length field. If indicators are not provided,
     defaults should be blank ([' ', ' ']). If subfields are not
     provided, default should be an empty list.
     """
-    field = s2m.make_pmfield('100', **kwargs)
+    field = s2m.make_mfield('100', **kwargs)
     expected_ind = kwargs.get('indicators', '  ')
     expected_sf = kwargs.get('subfields', [])
+    expected_gt = kwargs.get('group_tag', ' ')
     assert field.tag == '100'
     assert field.indicator1 == expected_ind[0]
     assert field.indicator2 == expected_ind[1]
     assert field.subfields == expected_sf
+    assert field.group_tag == expected_gt
+
+
+@pytest.mark.parametrize('grouptag, fieldtag, matchtag, expected', [
+    ('', '100', '100', True),
+    ('', '100', '200', False),
+    ('', '100', 'a', False),
+    ('', '100', 'a100', False),
+    ('a', '100', '100', True),
+    ('a', '100', 'a100', True),
+    ('a', '100', 'a', True),
+    ('a', '100', 'b', False),
+    ('a', '100', 'b100', False)
+])
+def test_sierramarcfield_matchestag(grouptag, fieldtag, matchtag, expected):
+    """
+    SierraMarcField `matches_tag` method should return True if the
+    provided `matchtag` matches a field with the given `grouptag` and
+    `fieldtag`, otherwise False.
+    """
+    f = s2m.SierraMarcField(fieldtag, subfields=['a', 'Test'],
+                            group_tag=grouptag)
+    assert f.matches_tag(matchtag) == expected
+
+
+@pytest.mark.parametrize('subfields, incl, excl, expected', [
+    (['a', 'a1', 'a', 'a2', 'b', 'b', 'c', 'c'], 'abc', None,
+     [('a', 'a1'), ('a', 'a2'), ('b', 'b'), ('c', 'c')]),
+    (['a', 'a1', 'a', 'a2', 'b', 'b', 'c', 'c'], 'a', None,
+     [('a', 'a1'), ('a', 'a2')]),
+    (['a', 'a1', 'a', 'a2', 'b', 'b', 'c', 'c'], '', None,
+     [('a', 'a1'), ('a', 'a2'), ('b', 'b'), ('c', 'c')]),
+    (['a', 'a1', 'a', 'a2', 'b', 'b', 'c', 'c'], None, '',
+     [('a', 'a1'), ('a', 'a2'), ('b', 'b'), ('c', 'c')]),
+    (['a', 'a1', 'a', 'a2', 'b', 'b', 'c', 'c'], None, 'd',
+     [('a', 'a1'), ('a', 'a2'), ('b', 'b'), ('c', 'c')]),
+    (['a', 'a1', 'a', 'a2', 'b', 'b', 'c', 'c'], 'd', None,
+     []),
+    (['a', 'a1', 'a', 'a2', 'b', 'b', 'c', 'c'], None, 'a',
+     [('b', 'b'), ('c', 'c')]),
+    (['a', 'a1', 'a', 'a2', 'b', 'b', 'c', 'c'], None, 'bc',
+     [('a', 'a1'), ('a', 'a2')]),
+    (['a', 'a1', 'a', 'a2', 'b', 'b', 'c', 'c'], 'abc', 'bc',
+     [('a', 'a1'), ('a', 'a2')]),
+    (['a', 'a1', 'a', 'a2', 'b', 'b', 'c', 'c'], 'bc', 'bc',
+     []),
+    (['a', 'a1', 'a', 'a2', 'b', 'b', 'c', 'c'], 'a', 'bc',
+     [('a', 'a1'), ('a', 'a2')]),
+])
+def test_sierramarcfield_filtersubfields(subfields, incl, excl, expected):
+    """
+    SierraMarcField `filter_subfields` method should return the
+    expected tuples, given a field built using the given `subfields`
+    and the provided `tags` and `excl` args.
+    """
+    field = s2m.SierraMarcField('100', subfields=subfields)
+    filtered = list(field.filter_subfields(incl, excl))
+    assert len(filtered) == len(expected)
+    for i, tup in enumerate(filtered):
+        assert tup == expected[i]
+
+
+@pytest.mark.parametrize('fields, args, expected', [
+    ([('a100', ['a', 'a100_1']),
+      ('a100', ['a', 'a100_2']),
+      ('b100', ['a', 'b100_1']),
+      ('a245', ['a', 'a245_1'])], (), ['a100_1', 'a100_2', 'b100_1', 'a245_1']),
+    ([('a100', ['a', 'a100_1']),
+      ('a100', ['a', 'a100_2']),
+      ('b100', ['a', 'b100_1']),
+      ('a245', ['a', 'a245_1'])], ('c', '110'), []),
+    ([('a100', ['a', 'a100_1']),
+      ('a100', ['a', 'a100_2']),
+      ('b100', ['a', 'b100_1']),
+      ('a245', ['a', 'a245_1'])], ('a',), ['a100_1', 'a100_2', 'a245_1']),
+    ([('a100', ['a', 'a100_1']),
+      ('a100', ['a', 'a100_2']),
+      ('b100', ['a', 'b100_1']),
+      ('a245', ['a', 'a245_1'])], ('a', '110'), ['a100_1', 'a100_2', 'a245_1']),
+    ([('a100', ['a', 'a100_1']),
+      ('a100', ['a', 'a100_2']),
+      ('b100', ['a', 'b100_1']),
+      ('a245', ['a', 'a245_1'])], ('100',), ['a100_1', 'a100_2', 'b100_1']),
+    ([('a100', ['a', 'a100_1']),
+      ('a100', ['a', 'a100_2']),
+      ('b100', ['a', 'b100_1']),
+      ('a245', ['a', 'a245_1'])], ('245',), ['a245_1']),
+    ([('a100', ['a', 'a100_1']),
+      ('a100', ['a', 'a100_2']),
+      ('b100', ['a', 'b100_1']),
+      ('a245', ['a', 'a245_1'])], ('a100',), ['a100_1', 'a100_2']),
+    ([('a100', ['a', 'a100_1']),
+      ('a100', ['a', 'a100_2']),
+      ('b100', ['a', 'b100_1']),
+      ('a245', ['a', 'a245_1'])], ('100', 'a', '245'), ['a100_1', 'a100_2',
+                                                        'b100_1', 'a245_1']),
+])
+def test_sierramarcrecord_getfields(fields, args, expected, add_marc_fields):
+    """
+    SierraMarcRecord `get_fields` method should return the expected
+    fields, given the provided `fields` definitions, when passed the
+    given `args`.
+    """
+    r = add_marc_fields(s2m.SierraMarcRecord(), fields)
+    filtered = r.get_fields(*args)
+    assert len(filtered) == len(expected)
+    for f in filtered:
+        assert f.format_field() in expected
+
+
+@pytest.mark.parametrize('fields, include, exclude, expected', [
+    ([('a100', ['a', 'a100_1']),
+      ('a100', ['a', 'a100_2']),
+      ('b100', ['a', 'b100_1']),
+      ('a245', ['a', 'a245_1'])], ('a',), ('100',), ['a245_1']),
+    ([('a100', ['a', 'a100_1']),
+      ('a100', ['a', 'a100_2']),
+      ('b100', ['a', 'b100_1']),
+      ('a245', ['a', 'a245_1'])], ('a',), None, ['a100_1', 'a100_2', 'a245_1']),
+    ([('a100', ['a', 'a100_1']),
+      ('a100', ['a', 'a100_2']),
+      ('b100', ['a', 'b100_1']),
+      ('a245', ['a', 'a245_1'])], None, ('100',), ['a245_1']),
+    ([('a100', ['a', 'a100_1']),
+      ('a100', ['a', 'a100_2']),
+      ('b100', ['a', 'b100_1']),
+      ('a245', ['a', 'a245_1'])], None, None, ['a100_1', 'a100_2', 'b100_1',
+                                               'a245_1']),
+    ([('a100', ['a', 'a100_1']),
+      ('a100', ['a', 'a100_2']),
+      ('b100', ['a', 'b100_1']),
+      ('a245', ['a', 'a245_1'])], ('a',), ('100', '245'), []),
+    ([('a100', ['a', 'a100_1']),
+      ('a100', ['a', 'a100_2']),
+      ('b100', ['a', 'b100_1']),
+      ('a245', ['a', 'a245_1'])], ('100',), ('100', '245'), []),
+    ([('a100', ['a', 'a100_1']),
+      ('a100', ['a', 'a100_2']),
+      ('b100', ['a', 'b100_1']),
+      ('a245', ['a', 'a245_1'])], ('a', 'c',), ('100',), ['a245_1']),
+    ([('a100', ['a', 'a100_1']),
+      ('a100', ['a', 'a100_2']),
+      ('b100', ['a', 'b100_1']),
+      ('a245', ['a', 'a245_1'])], ('a',), ('100', '300'), ['a245_1']),
+])
+def test_sierramarcrecord_filterfields(fields, include, exclude, expected,
+                                       add_marc_fields):
+    """
+    SierraMarcRecord `filter_fields` method should return the expected
+    fields, given the provided `fields` definitions, when passed the
+    given `include` and `exclude` args.
+    """
+    r = add_marc_fields(s2m.SierraMarcRecord(), fields)
+    filtered = list(r.filter_fields(include, exclude))
+    assert len(filtered) == len(expected)
+    for f in filtered:
+        assert f.format_field() in expected
 
 
 def test_explodesubfields_returns_expected_results():
@@ -168,7 +349,7 @@ def test_explodesubfields_returns_expected_results():
     `explode_subfields` should return lists of subfield values for a
     pymarc Field object based on the provided sftags string.
     """
-    field = s2m.make_pmfield('260', subfields=['a', 'Place :',
+    field = s2m.make_mfield('260', subfields=['a', 'Place :',
                                                'b', 'Publisher,',
                                                'c', '1960;',
                                                'a', 'Another place :',
@@ -180,48 +361,107 @@ def test_explodesubfields_returns_expected_results():
     assert dates == ['1960;', '1992.']
 
 
-@pytest.mark.parametrize('field_info, sftags, unqtags, brktags, expected', [
+@pytest.mark.parametrize('field, inc, exc, unq, start, end, limit, expected', [
     (('260', ['a', 'a1', 'b', 'b1', 'c', 'c1',
               'a', 'a2', 'b', 'b2', 'c', 'c2']),
-     'abc', 'abc', None,
+     'abc', '', 'abc', '', '', None,
      ('a1 b1 c1', 'a2 b2 c2')),
     (('260', ['a', 'a1', 'b', 'b1', 'c', 'c1',
               'a', 'a2', 'b', 'b2', 'c', 'c2']),
-     'ac', 'ac', None,
+     'ac', '', 'ac', '', '', None,
      ('a1 c1', 'a2 c2')),
     (('260', ['a', 'a1', 'b', 'b1', 'c', 'c1',
               'a', 'a2', 'b', 'b2', 'c', 'c2']),
-     'acd', 'acd', None,
+     'acd', '', 'acd', '', '', None,
      ('a1 c1', 'a2 c2')),
     (('260', ['a', 'a1', 'b', 'b1', 'c', 'c1',
               'a', 'a2', 'b', 'b2', 'c', 'c2']),
-     'cba', 'cba', None,
+     'cba', '', 'cba', '', '', None,
      ('a1 b1 c1', 'a2 b2 c2')),
     (('260', ['a', 'a1', 'b', 'b1', 'c', 'c1']),
-     'abc', 'abc', None,
+     'abc', '', 'abc', '', '', None,
      ('a1 b1 c1',)),
     (('260', ['a', 'a1', 'b', 'b1',
               'a', 'a2', 'c', 'c2']),
-     'abc', 'abc', None,
+     'abc', '', 'abc', '', '', None,
      ('a1 b1', 'a2 c2')),
     (('260', ['b', 'b1',
               'b', 'b2', 'a', 'a1', 'c', 'c1']),
-     'abc', 'abc', None,
+     'abc', '', 'abc', '', '', None,
      ('b1', 'b2 a1 c1')),
+    (('260', ['a', 'a1', 'b', 'b1', 'c', 'c1',
+              'a', 'a2', 'b', 'b2', 'c', 'c2']),
+     '', 'abc', 'abc', '', '', None,
+     ('')),
+    (('260', ['a', 'a1', 'b', 'b1', 'c', 'c1',
+              'a', 'a2', 'b', 'b2', 'c', 'c2']),
+     '', 'ac', 'abc', '', '', None,
+     ('b1', 'b2')),
+    (('260', ['a', 'a1', 'b', 'b1', 'c', 'c1',
+              'a', 'a2', 'b', 'b2', 'c', 'c2']),
+     'abc', '', 'abc', '', '', 1,
+     ('a1 b1 c1 a2 b2 c2',)),
+    (('260', ['a', 'a1', 'b', 'b1', 'c', 'c1',
+              'a', 'a2', 'b', 'b2', 'c', 'c2']),
+     'abc', '', 'abc', '', '', 2,
+     ('a1 b1 c1', 'a2 b2 c2',)),
+    (('260', ['a', 'a1', 'b', 'b1', 'c', 'c1',
+              'a', 'a2', 'b', 'b2', 'c', 'c2']),
+     'abc', '', 'abc', '', '', 3,
+     ('a1 b1 c1', 'a2 b2 c2',)),
+    (('260', ['a', 'a1', 'b', 'b1', 'c', 'c1',
+              'a', 'a2', 'b', 'b2', 'c', 'c2']),
+     '', '', '', '', '', None,
+     ('a1 b1 c1 a2 b2 c2',)),
+    (('260', ['a', 'a1', 'b', 'b1', 'c', 'c1',
+              'a', 'a2', 'b', 'b2', 'c', 'c2']),
+     '', '', '', 'ac', '', None,
+     ('', 'a1 b1', 'c1', 'a2 b2', 'c2')),
+    (('260', ['a', 'a1', 'b', 'b1', 'c', 'c1',
+              'a', 'a2', 'b', 'b2', 'c', 'c2']),
+     '', '', '', 'ac', '', 1,
+     ('a1 b1 c1 a2 b2 c2',)),
+    (('260', ['a', 'a1', 'b', 'b1', 'c', 'c1',
+              'a', 'a2', 'b', 'b2', 'c', 'c2']),
+     '', '', '', 'ac', '', 2,
+     ('', 'a1 b1 c1 a2 b2 c2',)),
+    (('260', ['a', 'a1', 'b', 'b1', 'c', 'c1',
+              'a', 'a2', 'b', 'b2', 'c', 'c2']),
+     '', '', '', 'ac', '', 3,
+     ('', 'a1 b1', 'c1 a2 b2 c2',)),
+    (('260', ['a', 'a1', 'b', 'b1', 'c', 'c1',
+              'a', 'a2', 'b', 'b2', 'c', 'c2']),
+     '', '', '', '', 'ac', None,
+     ('a1', 'b1 c1', 'a2', 'b2 c2')),
+    (('260', ['a', 'a1', 'b', 'b1', 'c', 'c1',
+              'a', 'a2', 'b', 'b2', 'c', 'c2']),
+     '', '', '', '', 'ac', 1,
+     ('a1 b1 c1 a2 b2 c2',)),
+    (('260', ['a', 'a1', 'b', 'b1', 'c', 'c1',
+              'a', 'a2', 'b', 'b2', 'c', 'c2']),
+     '', '', '', '', 'ac', 2,
+     ('a1', 'b1 c1 a2 b2 c2',)),
+    (('260', ['a', 'a1', 'b', 'b1', 'c', 'c1',
+              'a', 'a2', 'b', 'b2', 'c', 'c2']),
+     '', '', '', '', 'ac', 3,
+     ('a1', 'b1 c1', 'a2 b2 c2',)),
     (('260', ['a', 'a1.1', 'a', 'a1.2', 'b', 'b1.1',
               'a', 'a2.1', 'b', 'b2.1',
               'b', 'b3.1']),
-     'ab', None, 'b',
+     'ab', '', '', '', 'b', None,
      ('a1.1 a1.2 b1.1', 'a2.1 b2.1', 'b3.1')),
+    (('700', ['a', 'Name', 'd', 'Dates', 't', 'Title', 'p', 'Part']),
+     '', '', '', 'tp', '', 2,
+     ('Name Dates', 'Title Part')),
 ])
-def test_groupsubfields_groups_correctly(field_info, sftags, unqtags, brktags,
-                                         expected):
+def test_groupsubfields_groups_correctly(field, inc, exc, unq, start, end,
+                                         limit, expected):
     """
     `group_subfields` should put subfields from a pymarc Field object
-    into groupings based on the provided sftags and uniquetags strings.
+    into groupings based on the provided parameters.
     """
-    field = s2m.make_pmfield(field_info[0], subfields=field_info[1])
-    result = s2m.group_subfields(field, sftags, unqtags, brktags)
+    mfield = s2m.make_mfield(field[0], subfields=field[1])
+    result = s2m.group_subfields(mfield, inc, exc, unq, start, end, limit)
     assert len(result) == len(expected)
     for group, exp in zip(result, expected):
         assert group.value() == exp
@@ -247,7 +487,7 @@ def test_pullfromsubfields_and_no_pullfunc(field_info, sftags, expected):
     return values from the given pymarc Field object and the specified
     sftags, as a list.
     """
-    field = s2m.make_pmfield(field_info[0], subfields=field_info[1])
+    field = s2m.make_mfield(field_info[0], subfields=field_info[1])
     for val, exp in zip(s2m.pull_from_subfields(field, sftags), expected):
         assert  val == exp
 
@@ -260,7 +500,7 @@ def test_pullfromsubfields_with_pullfunc():
     """
     subfields = ['a', 'a1.1 a1.2', 'b', 'b1.1 b1.2', 'c', 'c1',
                  'a', 'a2', 'b', 'b2', 'c', 'c2.1 c2.2']
-    field = s2m.make_pmfield('260', subfields=subfields)
+    field = s2m.make_mfield('260', subfields=subfields)
 
     def pf(val):
         return val.split(' ')
@@ -272,14 +512,239 @@ def test_pullfromsubfields_with_pullfunc():
         assert val == exp
 
 
+@pytest.mark.parametrize('subfields, sep, sff, expected', [
+    (['3', 'case files', 'a', 'aperture cards', 'b', '9 x 19 cm.',
+      'd', 'microfilm', 'f', '48x'], '; ', None,
+      '(case files) aperture cards; 9 x 19 cm.; microfilm; 48x'),
+    (['3', 'case files', 'a', 'aperture cards', 'b', '9 x 19 cm.',
+      'd', 'microfilm', 'f', '48x'], '; ', {'exclude': '3'},
+      'aperture cards; 9 x 19 cm.; microfilm; 48x'),
+    (['3', 'case files', 'a', 'aperture cards', 'b', '9 x 19 cm.',
+      '3', 'microfilm', 'f', '48x'], '; ', None,
+      '(case files) aperture cards; 9 x 19 cm.; (microfilm) 48x'),
+    (['a', 'aperture cards', 'b', '9 x 19 cm.', 'd', 'microfilm',
+      'f', '48x', '3', 'case files'], '; ', None,
+      'aperture cards; 9 x 19 cm.; microfilm; 48x (case files)'),
+    (['3', 'case files', '3', 'aperture cards', 'b', '9 x 19 cm.',
+      'd', 'microfilm', 'f', '48x'], '; ', None,
+      '(case files, aperture cards) 9 x 19 cm.; microfilm; 48x'),
+    (['3', 'case files', 'a', 'aperture cards', 'b', '9 x 19 cm.',
+      'd', 'microfilm', 'f', '48x'], '. ', None,
+      '(case files) aperture cards. 9 x 19 cm. microfilm. 48x'),
+])
+def test_genericdisplayfieldparser_parse(subfields, sep, sff, expected):
+    """
+    The GenericDisplayFieldParser `parse` method should return the
+    expected result when parsing a MARC field with the given
+    `subfields`, given the provided `sep` (separator) and `sff`
+    (subfield filter).
+    """
+    field = s2m.make_mfield('300', subfields=subfields)
+    assert s2m.GenericDisplayFieldParser(field, sep, sff).parse() == expected
+
+
+@pytest.mark.parametrize('subfields, expected', [
+    (['a', 'soprano voice', 'n', '2', 'a', 'mezzo-soprano voice', 'n', '1',
+      'a', 'tenor saxophone', 'n', '1', 'd', 'bass clarinet', 'n', '1',
+      'a', 'trumpet', 'n', '1', 'a', 'piano', 'n', '1', 'a', 'violin',
+      'n', '1', 'd', 'viola', 'n', '1', 'a', 'double bass', 'n', '1', 's', '8',
+      '2', 'lcmpt'],
+     {'materials_specified': [],
+      'total_performers': '8',
+      'total_ensembles': None,
+      'parts': [
+        [{'primary': [('soprano voice', '2')]}],
+        [{'primary': [('mezzo-soprano voice', '1')]}],
+        [{'primary': [('tenor saxophone', '1')]},
+         {'doubling': [('bass clarinet', '1')]}],
+        [{'primary': [('trumpet', '1')]}],
+        [{'primary': [('piano', '1')]}],
+        [{'primary': [('violin', '1')]}, {'doubling': [('viola', '1')]}],
+        [{'primary': [('double bass', '1')]}],
+     ]}),
+    (['b', 'flute', 'n', '1', 'a', 'orchestra', 'e', '1', 'r', '1', 't', '1',
+      '2', 'lcmpt'],
+     {'materials_specified': [],
+      'total_performers': '1',
+      'total_ensembles': '1',
+      'parts': [
+        [{'solo': [('flute', '1')]}],
+        [{'primary': [('orchestra', '1')]}],
+     ]}),
+    (['a', 'flute', 'n', '1', 'd', 'piccolo', 'n', '1', 'd', 'alto flute',
+      'n', '1', 'd', 'bass flute', 'n', '1', 's', '1', '2', 'lcmpt'],
+     {'materials_specified': [],
+      'total_performers': '1',
+      'total_ensembles': None,
+      'parts': [
+        [{'primary': [('flute', '1')]},
+         {'doubling': [('piccolo', '1'), ('alto flute', '1'),
+                       ('bass flute', '1')]}],
+     ]}),
+    (['a', 'violin', 'n', '1', 'd', 'flute', 'n', '1', 'p', 'piccolo', 'n', '1',
+      'a', 'cello', 'n', '1', 'a', 'piano', 'n', '1', 's', '3', '2', 'lcmpt'],
+     {'materials_specified': [],
+      'total_performers': '3',
+      'total_ensembles': None,
+      'parts': [
+        [{'primary': [('violin', '1')]}, {'doubling': [('flute', '1')]},
+         {'alt': [('piccolo', '1')]}],
+        [{'primary': [('cello', '1')]}],
+        [{'primary': [('piano', '1')]}],
+     ]}),
+    (['b', 'soprano voice', 'n', '3', 'b', 'alto voice', 'n', '2',
+      'b', 'tenor voice', 'n', '1', 'b', 'baritone voice', 'n', '1',
+      'b', 'bass voice', 'n', '1', 'a', 'mixed chorus', 'e', '2',
+      'v', 'SATB, SATB', 'a', 'children\'s chorus', 'e', '1', 'a',
+      'orchestra', 'e', '1', 'r', '8', 't', '4', '2', 'lcmpt'],
+     {'materials_specified': [],
+      'total_performers': '8',
+      'total_ensembles': '4',
+      'parts': [
+        [{'solo': [('soprano voice', '3')]}],
+        [{'solo': [('alto voice', '2')]}],
+        [{'solo': [('tenor voice', '1')]}],
+        [{'solo': [('baritone voice', '1')]}],
+        [{'solo': [('bass voice', '1')]}],
+        [{'primary': [('mixed chorus', '2', ['SATB, SATB'])]}],
+        [{'primary': [('children\'s chorus', '1')]}],
+        [{'primary': [('orchestra', '1')]}],
+     ]}),
+    (['a', 'violin', 'p', 'flute', 'd', 'viola', 'p', 'alto flute',
+      'd', 'cello', 'p', 'saxophone', 'd', 'double bass'],
+     {'materials_specified': [],
+      'total_performers': None,
+      'total_ensembles': None,
+      'parts': [
+        [{'primary': [('violin', '1')]}, {'alt': [('flute', '1')]},
+         {'doubling': [('viola', '1')]}, {'alt': [('alto flute', '1')]},
+         {'doubling': [('cello', '1')]}, {'alt': [('saxophone', '1')]},
+         {'doubling': [('double bass', '1')]}],
+     ]}),
+    (['a', 'violin', 'd', 'viola', 'd', 'cello', 'd', 'double bass', 
+      'p', 'flute', 'd', 'alto flute', 'd', 'saxophone'],
+     {'materials_specified': [],
+      'total_performers': None,
+      'total_ensembles': None,
+      'parts': [
+        [{'primary': [('violin', '1')]},
+         {'doubling': [('viola', '1'), ('cello', '1'), ('double bass', '1')]},
+         {'alt': [('flute', '1')]},
+         {'doubling': [('alto flute', '1'), ('saxophone', '1')]}],
+     ]}),
+    (['a', 'violin', 'v', 'Note1', 'v', 'Note2', 'd', 'viola', 'v', 'Note3',
+      'd', 'cello', 'n', '2', 'v', 'Note4', 'v', 'Note5'],
+     {'materials_specified': [],
+      'total_performers': None,
+      'total_ensembles': None,
+      'parts': [
+        [{'primary': [('violin', '1', ['Note1', 'Note2'])]},
+         {'doubling': [('viola', '1', ['Note3']),
+                       ('cello', '2', ['Note4', 'Note5'])]}]
+    ]}),
+    (['a', 'violin', 'd', 'viola', 'd', 'cello', 'd', 'double bass',
+      'p', 'flute', 'p', 'clarinet', 'd', 'alto flute', 'd', 'saxophone'],
+     {'materials_specified': [],
+      'total_performers': None,
+      'total_ensembles': None,
+      'parts': [
+        [{'primary': [('violin', '1')]},
+         {'doubling': [('viola', '1'), ('cello', '1'), ('double bass', '1')]},
+         {'alt': [('flute', '1'), ('clarinet', '1')]},
+         {'doubling': [('alto flute', '1'), ('saxophone', '1')]}],
+     ]}),
+    (['a', 'violin', 'p', 'flute', 'p', 'trumpet', 'p', 'clarinet',
+      'd', 'viola', 'p', 'alto flute', 'd', 'cello', 'p', 'saxophone',
+      'd', 'double bass'],
+     {'materials_specified': [],
+      'total_performers': None,
+      'total_ensembles': None,
+      'parts': [
+        [{'primary': [('violin', '1')]},
+         {'alt': [('flute', '1'), ('trumpet', '1'), ('clarinet', '1')]},
+         {'doubling': [('viola', '1')]}, {'alt': [('alto flute', '1')]},
+         {'doubling': [('cello', '1')]}, {'alt': [('saxophone', '1')]},
+         {'doubling': [('double bass', '1')]}],
+     ]}),
+    (['3', 'Piece One', 'b', 'flute', 'n', '1', 'a', 'orchestra', 'e', '1',
+      'r', '1', 't', '1', '2', 'lcmpt'],
+     {'materials_specified': ['Piece One'],
+      'total_performers': '1',
+      'total_ensembles': '1',
+      'parts': [
+        [{'solo': [('flute', '1')]}],
+        [{'primary': [('orchestra', '1')]}],
+     ]}),
+])
+def test_performancemedparser_parse(subfields, expected):
+    """
+    PerformanceMedParser `parse` method should return a dict with the
+    expected structure, given the provided MARC 382 field.
+    """
+    field = s2m.make_mfield('382', subfields=subfields)
+    assert s2m.PerformanceMedParser(field).parse() == expected
+
+
+@pytest.mark.parametrize('subfields, expected', [
+    (['b', 'Ph.D', 'c', 'University of Louisville', 'd', '1997.'],
+     {'degree': 'Ph.D',
+      'institution': 'University of Louisville',
+      'date': '1997',
+      'note_parts': ['Ph.D ― University of Louisville, 1997']
+     }),
+    (['b', 'Ph.D', 'c', 'University of Louisville.'],
+     {'degree': 'Ph.D',
+      'institution': 'University of Louisville',
+      'date': None,
+      'note_parts': ['Ph.D ― University of Louisville']
+     }),
+    (['b', 'Ph.D', 'd', '1997.'],
+     {'degree': 'Ph.D',
+      'institution': None,
+      'date': '1997',
+      'note_parts': ['Ph.D ― 1997']
+     }),
+    (['b', 'Ph.D'],
+     {'degree': 'Ph.D',
+      'institution': None,
+      'date': None,
+      'note_parts': ['Ph.D']
+     }),
+    (['g', 'Some thesis', 'b', 'Ph.D', 'c', 'University of Louisville',
+      'd', '1997.'],
+     {'degree': 'Ph.D',
+      'institution': 'University of Louisville',
+      'date': '1997',
+      'note_parts': ['Some thesis', 'Ph.D ― University of Louisville, 1997']
+     }),
+    (['g', 'Some thesis', 'b', 'Ph.D', 'c', 'University of Louisville',
+      'd', '1997.', 'g', 'Other info', 'o', 'identifier'],
+     {'degree': 'Ph.D',
+      'institution': 'University of Louisville',
+      'date': '1997',
+      'note_parts': ['Some thesis', 'Ph.D ― University of Louisville, 1997',
+                     'Other info', 'identifier']
+     }),
+])
+def test_dissertationnotesfieldparser_parse(subfields, expected):
+    """
+    DissertationNotesFieldParser `parse` method should return a dict
+    with the expected structure, given the provided MARC 502 subfields.
+    """
+    field = s2m.make_mfield('502', subfields=subfields)
+    assert s2m.DissertationNotesFieldParser(field).parse() == expected
+
+
 def test_blasmpipeline_do_creates_compiled_dict(blasm_pipeline_class):
     """
     The `do` method of BlacklightASMPipeline should return a dict
     compiled from the return value of each of the `get` methods--each
     key/value pair from each return value added to the finished value.
+    If the same dict key is returned by multiple methods and the vals
+    are lists, the lists are concatenated.
     """
     class DummyPipeline(blasm_pipeline_class):
-        fields = ['dummy1', 'dummy2', 'dummy3']
+        fields = ['dummy1', 'dummy2', 'dummy3', 'dummy4']
         prefix = 'get_'
 
         def get_dummy1(self, r, marc_record):
@@ -291,10 +756,13 @@ def test_blasmpipeline_do_creates_compiled_dict(blasm_pipeline_class):
         def get_dummy3(self, r, marc_record):
             return { 'stuff': ['thing'] }
 
+        def get_dummy4(self, r, marc_record):
+            return { 'stuff': ['other thing']}
+
     dummy_pipeline = DummyPipeline()
     bundle = dummy_pipeline.do('test', 'test')
     assert bundle == { 'd1': 'd1v', 'd2a': 'd2av', 'd2b': 'd2bv',
-                       'stuff': ['thing'] }
+                       'stuff': ['thing', 'other thing'] }
 
 
 def test_blasmpipeline_getid(bl_sierra_test_record, blasm_pipeline_class):
@@ -400,6 +868,11 @@ def test_blasmpipeline_getiteminfo_ids(bl_sierra_test_record,
      [('TEST ITEM CN', None),
       ('TEST BIB CN', None)]),
     ([('c', '050', ['TEST BIB CN'])],
+     [({'copy_num': 1}, [('c', '999', ['TEST ITEM CN'])]),
+      ({'copy_num': 1}, [])],
+     [('TEST ITEM CN', None),
+      ('TEST BIB CN', None)]),
+    ([('c', '050', ['TEST BIB CN'])],
      [({'copy_num': 2}, [('c', None, ['TEST ITEM CN'])]),
       ({'copy_num': 3}, [])],
      [('TEST ITEM CN c.2', None),
@@ -427,6 +900,7 @@ def test_blasmpipeline_getiteminfo_ids(bl_sierra_test_record,
     'no bib cn, item cn (c099) => item cn',
     'no bib cn, item cn (non-marc c-tagged field) => item cn',
     'item cn, if present, overrides bib cn',
+    'item cn w/MARC tag 999 counts as valid cn',
     'copy_num > 1 is appended to cn',
     'volume is appended to cn',
     'if >1 volumes, only the first is used',
@@ -770,6 +1244,12 @@ def test_blasmpipeline_geturlsjson(marcfields, items_info, expected,
                'e', 'http://www.library.unt.edu/media/covers/thumb.jpg'])],
      'https://library.unt.edu/media/covers/cover.jpg'),
     ([('962', ['t', 'Cover Image',
+               'u', 'http://www.library.unt.edu/media/covers/cover.jpg" '
+                    'target="_blank',
+               'e', 'http://www.library.unt.edu/media/covers/thumb.jpg" '
+                    'target="_blank'])],
+     'https://library.unt.edu/media/covers/cover.jpg'),
+    ([('962', ['t', 'Cover Image',
                'u', 'http://example.com/media/covers/cover.jpg',
                'e', 'http://example.com/media/covers/thumb.jpg'])],
      None),
@@ -782,14 +1262,24 @@ def test_blasmpipeline_geturlsjson(marcfields, items_info, expected,
     ([('856', ['u', 'http://digital.library.unt.edu/ark:/1/md/?utm_source=cat',
                'z', 'Connect to online resource'])],
      'https://digital.library.unt.edu/ark:/1/md/small/'),
+    ([('856', ['u', 'http://digital.library.unt.edu/ark:/1/md/" target="_blank',
+               'z', 'Connect to online resource'])],
+     'https://digital.library.unt.edu/ark:/1/md/small/'),
+    ([('856', ['u', 'http://digital.library.unt.edu/ark:/1/md/?utm_source=cat"'
+                    ' target="_blank',
+               'z', 'Connect to online resource'])],
+     'https://digital.library.unt.edu/ark:/1/md/small/'),
     ([('856', ['u', 'http://example.com/whatever', 'z', 'Resource'])],
-     None),
+     None)
 ], ids=[
     'standard media library cover',
+    'media cover with hacked attribute additions on URLs',
     'other 962 image(s): ignore non-UNTL media images',
     'standard Digital Library cover',
     'standard Portal cover',
     'strip querystrings when formulating DL/Portal URLs',
+    'DL/Portal cover with hacked attribute additions on URLs',
+    'DL/Portal cover with hacked attribute additions on URLs AND querystring',
     'other 856 link(s): ignore non-DL/Portal URLs'
 ])
 def test_blasmpipeline_getthumbnailurl(marcfields, expected_url,
@@ -972,6 +1462,22 @@ def test_blasmpipeline_getthumbnailurl(marcfields, expected_url,
     ([('008', 's0301    '),
       ('260', ['a', 'Place1 :', 'b', 'Publisher,', 'c', '[ca. 300?]'])],
      '0301', '301', ['0300', '0301'], ['0300-0309'], ['300', '301', '300s']),
+    ([('008', 's2014    '),
+      ('362', ['a', 'Vol. 1, no. 1 (Apr. 1981)-'], '0 ')],
+     '2014', '2014', ['2014', '1981'], ['2010-2019', '1980-1989'],
+     ['2014', '2010s', '1981', '1980s']),
+    ([('008', 's2014    '),
+      ('362', ['a', 'Began with vol. 4, published in 1947.'], '1 ')],
+     '2014', '2014', ['2014', '1947'], ['2010-2019', '1940-1949'],
+     ['2014', '2010s', '1947', '1940s']),
+    ([('008', 's2014    '),
+      ('362', ['a', 'Published in 1st century.'], '1 ')],
+     '2014', '2014', ['2014'], ['2010-2019', '0000-0009', '0010-0019',
+                                '0020-0029', '0030-0039', '0040-0049',
+                                '0050-0059', '0060-0069', '0070-0079',
+                                '0080-0089', '0090-0099'],
+     ['2014', '2010s', '0s', '10s', '20s', '30s', '40s', '50s', '60s', '70s',
+      '80s', '90s', '1st century']),
 ], ids=[
     'standard, single date in 008 repeated in 260',
     'standard, single date in 008 repeated in 264',
@@ -1014,6 +1520,9 @@ def test_blasmpipeline_getthumbnailurl(marcfields, expected_url,
     'partial date in square brackets is recognizable',
     'three-digit year in 008 and 260c work',
     'three-digit year only 260c works',
+    'formatted date in 362 works',
+    'non-formatted date in 362 works',
+    'century (1st) in 362 works'
 ])
 def test_blasmpipeline_getpubinfo_dates(marcfields, exp_pub_sort,
                                         exp_pub_year_display,
@@ -1030,7 +1539,7 @@ def test_blasmpipeline_getpubinfo_dates(marcfields, exp_pub_sort,
     pipeline = blasm_pipeline_class()
     bib = bl_sierra_test_record('bib_no_items')
     bibmarc = bibrecord_to_pymarc(bib)
-    bibmarc.remove_fields('260', '264')
+    bibmarc.remove_fields('260', '264', '362')
     if len(marcfields) and marcfields[0][0] == '008':
         data = bibmarc.get_fields('008')[0].data
         data = '{}{}{}'.format(data[0:6], marcfields[0][1], data[15:])
@@ -1166,6 +1675,13 @@ def test_blasmpipeline_getpubinfo_dates(marcfields, exp_pub_sort,
                'g', '(2010 printing)'])],
      {'publication_display': ['P Place : Publisher, 2004'],
       'manufacture_display': ['2010 printing']}),
+    ([('008', 's2014    '),
+      ('362', ['a', 'Vol. 1, no. 1 (Apr. 1981)-'], '0 ')],
+     {'publication_display': ['Vol. 1, no. 1 (Apr. 1981)-', '2014']}),
+    ([('008', 's2014    '),
+      ('362', ['a', 'Began with vol. 4, published in 1947.'], '1 ')],
+     {'publication_display': ['2014'],
+      'publication_date_notes': ['Began with vol. 4, published in 1947.']}),
 ], ids=[
     'Plain 260 => publication_display',
     '264 _1 => publication_display',
@@ -1207,6 +1723,8 @@ def test_blasmpipeline_getpubinfo_dates(marcfields, exp_pub_sort,
     '260 with manufacturer information (no mf date)',
     '260 with manufacturer information (has mf date)',
     '260 with manufacturer information (ONLY mf date)',
+    '362 with formatted date',
+    '362 with non-formatted date'
 ])
 def test_blasmpipeline_getpubinfo_statements(marcfields, expected,
                                              bl_sierra_test_record,
@@ -1220,7 +1738,7 @@ def test_blasmpipeline_getpubinfo_statements(marcfields, expected,
     pipeline = blasm_pipeline_class()
     bib = bl_sierra_test_record('bib_no_items')
     bibmarc = bibrecord_to_pymarc(bib)
-    bibmarc.remove_fields('260', '264')
+    bibmarc.remove_fields('260', '264', '362')
     if len(marcfields) and marcfields[0][0] == '008':
         data = bibmarc.get_fields('008')[0].data
         data = '{}{}{}'.format(data[0:6], marcfields[0][1], data[15:])
@@ -1338,6 +1856,13 @@ def test_blasmpipeline_getpubinfo_pub_and_place_search(marcfields, expected,
        'building_facet': ['Chilton Media Library'],
        'shelf_facet': []},
     ),
+    ( (('czm', 'Chilton Media Library'),),
+      tuple(),
+      {'access_facet': ['At the Library'],
+       'collection_facet': ['Media Library'],
+       'building_facet': ['Chilton Media Library'],
+       'shelf_facet': []},
+    ),
     ( (('blah', 'Blah'),),
       (('blah2', 'Blah2'), ('czm', 'Chilton Media Library'),),
       {'access_facet': ['At the Library'],
@@ -1357,6 +1882,13 @@ def test_blasmpipeline_getpubinfo_pub_and_place_search(marcfields, expected,
       {'access_facet': ['Online'],
        'collection_facet': ['General Collection'],
        'building_facet': [],
+       'shelf_facet': []}
+    ),
+    ( (('r', 'Discovery Park Library'), ('lwww', 'UNT ONLINE RESOURCES')),
+      tuple(),
+      {'access_facet': ['At the Library', 'Online'],
+       'collection_facet': ['Discovery Park Library', 'General Collection'],
+       'building_facet': ['Discovery Park Library'],
        'shelf_facet': []}
     ),
     ( (('w', 'Willis Library'),),
@@ -1401,9 +1933,11 @@ def test_blasmpipeline_getpubinfo_pub_and_place_search(marcfields, expected,
     ),
 ], ids=[
     'czm / same bib and item location',
+    'czm / bib loc exists, but no items',
     'czm / unknown bib location and one unknown item location',
     'all bib and item locations are unknown',
     'r, lwww / online-only item with bib location in different collection',
+    'r, lwww / two different bib locations, no items',
     'w, lwww / online-only item with bib location in same collection',
     'x, xdoc / Remote Storage, bib loc is x',
     'sd, xdoc / Remote Storage, bib loc is not x',
@@ -1434,12 +1968,15 @@ def test_blasmpipeline_getaccessinfo(bib_locations, item_locations, expected,
 
 
 @pytest.mark.parametrize('bcode2, expected', [
-    ('a', {'resource_type': 'book',
-           'resource_type_facet': ['books']}),
-    ('b', {'resource_type': 'online_database',
-           'resource_type_facet': ['online_databases']}),
-    ('c', {'resource_type': 'music_score',
-           'resource_type_facet': ['music_scores']}),
+    ('a', {'resource_type': 'ebook',
+           'resource_type_facet': ['books'],
+           'media_type_facet': ['Digital Files']}),
+    ('b', {'resource_type': 'database',
+           'resource_type_facet': ['online_databases'],
+           'media_type_facet': ['Digital Files']}),
+    ('c', {'resource_type': 'score|Online',
+           'resource_type_facet': ['music_scores'],
+           'media_type_facet': ['Digital Files']}),
 ])
 def test_blasmpipeline_getresourcetypeinfo(bcode2,
                                            expected, bl_sierra_test_record,
@@ -1448,8 +1985,8 @@ def test_blasmpipeline_getresourcetypeinfo(bcode2,
     """
     BlacklightASMPipeline.get_resource_type_info should return the
     expected resource_type and resource_type_facet values based on the
-    given bcode2. Note that this doesn't thoroughly and exhaustively
-    test resource type determination; for that, see base.local_rulesets
+    given bcode2. Note that this doesn't test resource type nor
+    category (facet) determination. For that, see base.local_rulesets
     (and associated tests).
     """
     pipeline = blasm_pipeline_class()
@@ -1458,6 +1995,762 @@ def test_blasmpipeline_getresourcetypeinfo(bcode2,
     val = pipeline.get_resource_type_info(bib, None)
     for k, v in expected.items():
         assert v == val[k]
+
+
+@pytest.mark.parametrize('marcfields, expected', [
+    ([('600', ['a', 'Churchill, Winston,', 'c', 'Sir,', 'd', '1874-1965.'],
+       '1 ')], {}),
+    ([('100', [], '1 ')], {}),
+    ([('110', [], '  ')], {}),
+    ([('111', [], '  ')], {}),
+    ([('100', ['e', 'something'], '1 ')], {}),
+    ([('110', ['e', 'something'], '  ')], {}),
+    ([('111', ['j', 'something'], '  ')], {}),
+    ([('100', ['a', 'Churchill, Winston,', 'c', 'Sir,', 'd', '1874-1965.'],
+       '1 ')],
+     {'author_search': ['Churchill, Winston, Sir, 1874-1965',
+                        'Winston Churchill, Sir',
+                        'Sir Winston Churchill'],
+      'author_contributor_facet': ['Churchill, Winston, Sir, 1874-1965'],
+      'author_sort': 'churchill, winston, sir, 1874-1965',
+      'author_json': {'p': [{'d': 'Churchill, Winston, Sir, 1874-1965'}]}
+     }),
+    ([('100', ['a', 'Thomas,', 'c', 'Aquinas, Saint,', 'd', '1225?-1274.'],
+        '0 ')],
+     {'author_search': ['Thomas, Aquinas, Saint, 1225?-1274',
+                        'Aquinas Thomas, Saint',
+                        'Saint Thomas, Aquinas'],
+      'author_contributor_facet': ['Thomas, Aquinas, Saint, 1225?-1274'],
+      'author_sort': 'thomas, aquinas, saint, 1225?-1274',
+      'author_json': {'p': [{'d': 'Thomas, Aquinas, Saint, 1225?-1274'}]}
+     }),
+    ([('100', ['a', 'Hecht, Ben,', 'd', '1893-1964,', 'e', 'writing,',
+               'e', 'direction,', 'e', 'production.'], '1 ')],
+     {'author_search': ['Hecht, Ben, 1893-1964', 'Ben Hecht'],
+      'responsibility_search': ['Ben Hecht writing', 'Ben Hecht direction',
+                                'Ben Hecht production'],
+      'author_contributor_facet': ['Hecht, Ben, 1893-1964'],
+      'author_sort': 'hecht, ben, 1893-1964',
+      'author_json': {'p': [{'d': 'Hecht, Ben, 1893-1964'}],
+                      'r': ['writing', 'direction', 'production']}
+     }),
+    ([('100', ['a', 'Hecht, Ben,', 'd', '1893-1964,',
+               'e', 'writing, direction, production.'], '1 ')],
+     {'author_search': ['Hecht, Ben, 1893-1964', 'Ben Hecht'],
+      'responsibility_search': ['Ben Hecht writing', 'Ben Hecht direction',
+                                'Ben Hecht production'],
+      'author_contributor_facet': ['Hecht, Ben, 1893-1964'],
+      'author_sort': 'hecht, ben, 1893-1964',
+      'author_json': {'p': [{'d': 'Hecht, Ben, 1893-1964'}],
+                      'r': ['writing', 'direction', 'production']}
+     }),
+    ([('100', ['a', 'Hecht, Ben,', 'd', '1893-1964.', '4', 'drt', '4', 'pro'],
+       '1 ')],
+     {'author_search': ['Hecht, Ben, 1893-1964', 'Ben Hecht'],
+      'responsibility_search': ['Ben Hecht director', 'Ben Hecht producer'],
+      'author_contributor_facet': ['Hecht, Ben, 1893-1964'],
+      'author_sort': 'hecht, ben, 1893-1964',
+      'author_json': {'p': [{'d': 'Hecht, Ben, 1893-1964'}],
+                      'r': ['director', 'producer']}
+     }),
+    ([('100', ['a', 'Hecht, Ben,', 'd', '1893-1964,', 'e', 'writer,',
+               'e', 'director.', '4', 'drt', '4', 'pro'], '1 ')],
+     {'author_search': ['Hecht, Ben, 1893-1964', 'Ben Hecht'],
+      'responsibility_search': ['Ben Hecht writer', 'Ben Hecht director',
+                                'Ben Hecht producer'],
+      'author_contributor_facet': ['Hecht, Ben, 1893-1964'],
+      'author_sort': 'hecht, ben, 1893-1964',
+      'author_json': {'p': [{'d': 'Hecht, Ben, 1893-1964'}],
+                      'r': ['writer', 'director', 'producer']}
+     }),
+    ([('700', ['i', 'Container of (work):',
+               '4', 'http://rdaregistry.info/Elements/w/P10147',
+               'a', 'Dicks, Terrance.',
+               't', 'Doctor Who and the Dalek invasion of Earth.'], '12')],
+     {'contributors_search': ['Dicks, Terrance', 'Terrance Dicks'],
+      'author_contributor_facet': ['Dicks, Terrance'],
+      'author_sort': 'dicks, terrance',
+      'contributors_json': {'p': [{'d': 'Dicks, Terrance'}]}
+     }),
+    ([('710', ['a', 'Some Organization,', 't', 'Some Work Title.'], '22')],
+     {'contributors_search': ['Some Organization'],
+      'author_contributor_facet': ['Some Organization'],
+      'author_sort': 'some organization',
+      'contributors_json': {'p': [{'d': 'Some Organization'}]}
+     }),
+    ([('711', ['a', 'Some Festival.'], '2 ')],
+     {'meeting_facet': ['Some Festival'],
+      'meetings_search': ['Some Festival'],
+      'meetings_json': [{'p': [{'d': 'Some Festival'}]}]
+     }),
+    ([('711', ['a', 'Some Festival.', 'e', 'Orchestra.'], '2 ')],
+     {'meeting_facet': ['Some Festival'],
+      'meetings_search': ['Some Festival'],
+      'meetings_json': [{'p': [{'d': 'Some Festival'}]}],
+      'contributors_search': ['Some Festival, Orchestra'],
+      'author_contributor_facet': ['Some Festival, Orchestra'],
+      'author_sort': 'some festival, orchestra',
+      'contributors_json': {'p': [{'d': 'Some Festival, Orchestra'}]}
+     }),
+    ([('111', ['a', 'White House Conference on Lib and Info Services',
+               'd', '(1979 :', 'c', 'Washington, D.C.).',
+               'e', 'Ohio Delegation.'], '2 ')],
+     {'author_search': [
+        'White House Conference on Lib and Info Services, Ohio Delegation'],
+      'author_contributor_facet': [
+        'White House Conference on Lib and Info Services, Ohio Delegation'],
+      'author_sort': 'white house conference on lib and info services, ohio '
+                     'delegation',
+      'author_json': {
+        'p': [{'d': 'White House Conference on Lib and Info Services, Ohio '
+                    'Delegation'}]},
+      'meetings_search': [
+        'White House Conference on Lib and Info Services (1979 : Washington, '
+        'D.C.)'],
+      'meeting_facet': [
+        'White House Conference on Lib and Info Services',
+        'White House Conference on Lib and Info Services (1979 : Washington, '
+        'D.C.)'],
+      'meetings_json': {
+        'p': [
+            {'d': 'White House Conference on Lib and Info Services'},
+            {'d': '(1979 : Washington, D.C.)',
+             'v': 'White House Conference on Lib and Info Services (1979 : '
+                  'Washington, D.C.)'}]}
+     }),
+    ([('711', ['a', 'Olympic Games',
+               'n', '(21st :', 'd', '1976 :', 'c', 'Montréal, Québec).',
+               'e', 'Organizing Committee.', 'e', 'Arts and Culture Program.',
+               'e', 'Visual Arts Section.'], '2 ')],
+     {'contributors_search': [
+        'Olympic Games, Organizing Committee > Arts and Culture Program > '
+        'Visual Arts Section'],
+      'author_contributor_facet': [
+        'Olympic Games, Organizing Committee',
+        'Olympic Games, Organizing Committee > Arts and Culture Program',
+        'Olympic Games, Organizing Committee > Arts and Culture Program > '
+        'Visual Arts Section'],
+      'author_sort': 'olympic games, organizing committee > arts and culture '
+                     'program > visual arts section',
+      'contributors_json': {
+        'p': [{'d': 'Olympic Games, Organizing Committee', 's': ' > '},
+              {'d': 'Arts and Culture Program',
+               'v': 'Olympic Games, Organizing Committee > Arts and Culture '
+                    'Program', 's': ' > '},
+              {'d': 'Visual Arts Section',
+               'v': 'Olympic Games, Organizing Committee > Arts and Culture '
+                    'Program > Visual Arts Section'}]},
+      'meetings_search': [
+        'Olympic Games (21st : 1976 : Montréal, Québec)'],
+      'meeting_facet': [
+        'Olympic Games',
+        'Olympic Games (21st : 1976 : Montréal, Québec)'],
+      'meetings_json': {
+        'p': [
+            {'d': 'Olympic Games'},
+            {'d': '(21st : 1976 : Montréal, Québec)',
+             'v': 'Olympic Games (21st : 1976 : Montréal, Québec)'}]}
+     }),
+    ([('111', ['a', 'International Congress of Gerontology.',
+               'e', 'Satellite Conference',
+               'd', '(1978 :', 'c', 'Sydney, N.S.W.)',
+               'e', 'Organizing Committee.'], '2 ')],
+     {'author_search': [
+        'International Congress of Gerontology Satellite Conference, '
+        'Organizing Committee'],
+      'author_contributor_facet': [
+        'International Congress of Gerontology Satellite Conference, '
+        'Organizing Committee'],
+      'author_sort': 'international congress of gerontology satellite '
+                     'conference, organizing committee',
+      'author_json': {
+        'p': [{'d': 'International Congress of Gerontology Satellite '
+                    'Conference, Organizing Committee'}]},
+      'meetings_search': [
+        'International Congress of Gerontology > Satellite Conference '
+        '(1978 : Sydney, N.S.W.)'],
+      'meeting_facet': [
+        'International Congress of Gerontology',
+        'International Congress of Gerontology > Satellite Conference',
+        'International Congress of Gerontology > Satellite Conference '
+        '(1978 : Sydney, N.S.W.)'],
+      'meetings_json': {
+        'p': [
+            {'d': 'International Congress of Gerontology', 's': ' > '},
+            {'d': 'Satellite Conference',
+             'v': 'International Congress of Gerontology > Satellite '
+                  'Conference'},
+            {'d': '(1978 : Sydney, N.S.W.)',
+             'v': 'International Congress of Gerontology > Satellite '
+                  'Conference (1978 : Sydney, N.S.W.)'}]}
+     }),
+    ([('110', ['a', 'Democratic Party (Tex.).',
+               'b', 'State Convention', 'd', '(1857 :', 'c', 'Waco, Tex.).',
+               'b', 'Houston Delegation.'], '2 ')],
+     {'author_search': [
+        'Democratic Party (Tex.) > State Convention, Houston Delegation'],
+      'author_contributor_facet': [
+        'Democratic Party (Tex.)',
+        'Democratic Party (Tex.) > State Convention, Houston Delegation'],
+      'author_sort': 'democratic party (tex.) > state convention, houston '
+                     'delegation',
+      'author_json': {
+        'p': [
+            {'d': 'Democratic Party (Tex.)', 's': ' > '},
+            {'d': 'State Convention, Houston Delegation',
+             'v': 'Democratic Party (Tex.) > State Convention, Houston '
+                  'Delegation'}]},
+      'meetings_search': [
+        'Democratic Party (Tex.), State Convention (1857 : Waco, Tex.)'],
+      'meeting_facet': [
+        'Democratic Party (Tex.), State Convention',
+        'Democratic Party (Tex.), State Convention (1857 : Waco, Tex.)'],
+      'meetings_json': {
+        'p': [
+            {'d': 'Democratic Party (Tex.), State Convention'},
+            {'d': '(1857 : Waco, Tex.)',
+             'v': 'Democratic Party (Tex.), State Convention '
+                  '(1857 : Waco, Tex.)'}]}
+     }),
+    ([('110', ['a', 'Democratic Party (Tex.).', 'b', 'State Convention',
+               'd', '(1857 :', 'c', 'Waco, Tex.).'], '2 ')],
+     {'author_search': ['Democratic Party (Tex.)'],
+      'author_contributor_facet': ['Democratic Party (Tex.)'],
+      'author_sort': 'democratic party (tex.)',
+      'author_json': {'p': [{'d': 'Democratic Party (Tex.)'}]},
+      'meetings_search': [
+        'Democratic Party (Tex.), State Convention (1857 : Waco, Tex.)'],
+      'meeting_facet': [
+        'Democratic Party (Tex.), State Convention',
+        'Democratic Party (Tex.), State Convention (1857 : Waco, Tex.)'],
+      'meetings_json': {
+        'p': [
+            {'d': 'Democratic Party (Tex.), State Convention'},
+            {'d': '(1857 : Waco, Tex.)',
+             'v': 'Democratic Party (Tex.), State Convention '
+                  '(1857 : Waco, Tex.)'}]}
+     }),
+    ([('110', ['a', 'United States.', 'b', 'Congress', 
+               'n', '(97th, 2nd session :', 'd', '1982).',
+               'b', 'House.'], '1 ')],
+     {'author_search': ['United States Congress > House'],
+      'author_contributor_facet': [
+        'United States Congress',
+        'United States Congress > House'],
+      'author_sort': 'united states congress > house',
+      'author_json': {
+        'p': [
+            {'d': 'United States Congress', 's': ' > '},
+            {'d': 'House', 'v': 'United States Congress > House'}]},
+      'meetings_search': ['United States Congress (97th, 2nd session : 1982)'],
+      'meeting_facet': [
+        'United States Congress',
+        'United States Congress (97th, 2nd session : 1982)'],
+      'meetings_json': {
+        'p': [
+            {'d': 'United States Congress'},
+            {'d': '(97th, 2nd session : 1982)',
+             'v': 'United States Congress (97th, 2nd session : 1982)'}]}
+     }),
+    ([('111', ['a', 'Paris.', 'q', 'Peace Conference,', 'd', '1919.'], '1 ')],
+     {'meetings_search': ['Paris Peace Conference, 1919'],
+      'meeting_facet': ['Paris Peace Conference',
+                        'Paris Peace Conference, 1919'],
+      'meetings_json': {
+        'p': [
+            {'d': 'Paris Peace Conference', 's': ', '},
+            {'d': '1919',
+             'v': 'Paris Peace Conference, 1919'}]}
+     }),
+    ([('710', ['i', 'Container of (work):',
+               'a', 'Some Organization,',
+               'e', 'author.',
+               't', 'Some Work Title.'], '22')],
+     {'contributors_search': ['Some Organization'],
+      'responsibility_search': ['Some Organization author'],
+      'author_contributor_facet': ['Some Organization'],
+      'author_sort': 'some organization',
+      'contributors_json': {'p': [{'d': 'Some Organization'}],
+                            'r': ['author']}
+     }),
+    ([('711', ['a', 'Some Festival.', 'e', 'Orchestra,',
+               'j', 'instrumentalist.'], '2 ')],
+     {'meeting_facet': ['Some Festival'],
+      'meetings_search': ['Some Festival'],
+      'meetings_json': [{'p': [{'d': 'Some Festival'}]}],
+      'contributors_search': ['Some Festival, Orchestra'],
+      'responsibility_search': ['Some Festival, Orchestra instrumentalist'],
+      'author_contributor_facet': ['Some Festival, Orchestra'],
+      'author_sort': 'some festival, orchestra',
+      'contributors_json': {'p': [{'d': 'Some Festival, Orchestra'}],
+                            'r': ['instrumentalist']}
+     }),
+    ([('711', ['a', 'Some Conference', 'c', '(Rome),',
+               'j', 'jointly held conference.'], '2 ')],
+     {'meeting_facet': ['Some Conference', 'Some Conference (Rome)'],
+      'meetings_search': ['Some Conference (Rome)'],
+      'responsibility_search': ['Some Conference jointly held conference'],
+      'meetings_json': [{'p': [{'d': 'Some Conference'},
+                               {'d': '(Rome)', 'v': 'Some Conference (Rome)'}],
+                         'r': ['jointly held conference']}]
+     }),
+    ([('800', ['a', 'Berenholtz, Jim,', 'd', '1957-',
+               't', 'Teachings of the feathered serpent ;', 'v', 'bk. 1.'],
+       '1 ')],
+     {'author_contributor_facet': ['Berenholtz, Jim, 1957-'],
+      'contributors_search': ['Berenholtz, Jim, 1957-', 'Jim Berenholtz']
+     }),
+    ([('810', ['a', 'United States.', 'b', 'Army Map Service.',
+               't', 'Special Africa series,', 'v', 'no. 12.'], '1 ')],
+     {'author_contributor_facet': ['United States Army Map Service'],
+      'contributors_search': ['United States Army Map Service']
+     }),
+    ([('811', ['a', 'International Congress of Nutrition',
+               'n', '(11th :', 'd', '1978 :', 'c', 'Rio de Janeiro, Brazil).',
+               't', 'Nutrition and food science ;', 'v', 'v. 1.'], '2 ')],
+     {'meeting_facet': [
+        'International Congress of Nutrition',
+        'International Congress of Nutrition (11th : 1978 : Rio de Janeiro, '
+        'Brazil)'],
+      'meetings_search': ['International Congress of Nutrition (11th : 1978 : '
+                          'Rio de Janeiro, Brazil)']
+     }),
+    ([('100', ['a', 'Author, Main,', 'd', '1910-1990.'], '1 '),
+      ('700', ['a', 'Author, Second,', 'd', '1920-1999.'], '1 '),
+      ('710', ['a', 'Org Contributor.', 't', 'Title'], '22'),
+      ('711', ['a', 'Festival.', 'e', 'Orchestra.'], '2 ')],
+     {'author_search': ['Author, Main, 1910-1990', 'Main Author'],
+      'author_sort': 'author, main, 1910-1990',
+      'author_json': {'p': [{'d': 'Author, Main, 1910-1990'}]},
+      'author_contributor_facet': [
+        'Author, Main, 1910-1990', 'Author, Second, 1920-1999',
+        'Org Contributor', 'Festival, Orchestra'],
+      'contributors_search': [
+        'Author, Second, 1920-1999', 'Second Author', 'Org Contributor',
+        'Festival, Orchestra'],
+      'contributors_json': [
+        {'p': [{'d': 'Author, Second, 1920-1999'}]},
+        {'p': [{'d': 'Org Contributor'}]},
+        {'p': [{'d': 'Festival, Orchestra'}]}],
+      'meeting_facet': ['Festival'],
+      'meetings_search': ['Festival'],
+      'meetings_json': [{'p': [{'d': 'Festival'}]}]
+     }),
+    ([('110', ['a', 'Some Organization'], '2 '),
+      ('700', ['a', 'Author, Second,', 'd', '1920-1999.'], '1 '),
+      ('710', ['a', 'Org Contributor.', 't', 'Title'], '22'),
+      ('711', ['a', 'Festival.', 'e', 'Orchestra.'], '2 ')],
+     {'author_search': ['Some Organization'],
+      'author_sort': 'some organization',
+      'author_json': {'p': [{'d': 'Some Organization'}]},
+      'author_contributor_facet': [
+        'Some Organization', 'Author, Second, 1920-1999',
+        'Org Contributor', 'Festival, Orchestra'],
+      'contributors_search': [
+        'Author, Second, 1920-1999', 'Second Author', 'Org Contributor',
+        'Festival, Orchestra'],
+      'contributors_json': [
+        {'p': [{'d': 'Author, Second, 1920-1999'}]},
+        {'p': [{'d': 'Org Contributor'}]},
+        {'p': [{'d': 'Festival, Orchestra'}]}],
+      'meeting_facet': ['Festival'],
+      'meetings_search': ['Festival'],
+      'meetings_json': [{'p': [{'d': 'Festival'}]}]
+     }),
+    ([('110', ['a', 'Some Org.', 'b', 'Meeting', 'd', '(1999).'], '2 '),
+      ('700', ['a', 'Author, Second,', 'd', '1920-1999.'], '1 '),
+      ('710', ['a', 'Org Contributor.', 't', 'Title'], '22'),
+      ('711', ['a', 'Festival.', 'e', 'Orchestra.'], '2 ')],
+     {'author_search': ['Some Org'],
+      'author_sort': 'some org',
+      'author_json': {'p': [{'d': 'Some Org'}]},
+      'author_contributor_facet': [
+        'Some Org', 'Author, Second, 1920-1999',
+        'Org Contributor', 'Festival, Orchestra'],
+      'contributors_search': [
+        'Author, Second, 1920-1999', 'Second Author', 'Org Contributor',
+        'Festival, Orchestra'],
+      'contributors_json': [
+        {'p': [{'d': 'Author, Second, 1920-1999'}]},
+        {'p': [{'d': 'Org Contributor'}]},
+        {'p': [{'d': 'Festival, Orchestra'}]}],
+      'meeting_facet': ['Some Org, Meeting', 'Some Org, Meeting (1999)',
+                        'Festival'],
+      'meetings_search': ['Some Org, Meeting (1999)', 'Festival'],
+      'meetings_json': [
+        {'p': [{'d': 'Some Org, Meeting'},
+               {'d': '(1999)', 'v': 'Some Org, Meeting (1999)'}]},
+        {'p': [{'d': 'Festival'}]}]
+     }),
+    ([('111', ['a', 'Meeting', 'd', '(1999).'], '2 '),
+      ('700', ['a', 'Author, Second,', 'd', '1920-1999.'], '1 '),
+      ('710', ['a', 'Org Contributor.', 't', 'Title'], '22'),
+      ('711', ['a', 'Festival.', 'e', 'Orchestra.'], '2 ')],
+     {'author_sort': 'author, second, 1920-1999',
+      'author_contributor_facet': [
+        'Author, Second, 1920-1999', 'Org Contributor', 'Festival, Orchestra'],
+      'contributors_search': [
+        'Author, Second, 1920-1999', 'Second Author', 'Org Contributor',
+        'Festival, Orchestra'],
+      'contributors_json': [
+        {'p': [{'d': 'Author, Second, 1920-1999'}]},
+        {'p': [{'d': 'Org Contributor'}]},
+        {'p': [{'d': 'Festival, Orchestra'}]}],
+      'meeting_facet': ['Meeting', 'Meeting (1999)', 'Festival'],
+      'meetings_search': ['Meeting (1999)', 'Festival'],
+      'meetings_json': [
+        {'p': [{'d': 'Meeting'},
+               {'d': '(1999)', 'v': 'Meeting (1999)'}]},
+        {'p': [{'d': 'Festival'}]}]
+     }),
+    ([('111', ['a', 'Conference.', 'e', 'Subcommittee.'], '2 '),
+      ('700', ['a', 'Author, Second,', 'd', '1920-1999.'], '1 '),
+      ('710', ['a', 'Org Contributor.', 't', 'Title'], '22'),
+      ('711', ['a', 'Festival.', 'e', 'Orchestra.'], '2 ')],
+     {'author_search': ['Conference, Subcommittee'],
+      'author_sort': 'conference, subcommittee',
+      'author_json': {'p': [{'d': 'Conference, Subcommittee'}]},
+      'author_contributor_facet': [
+        'Conference, Subcommittee', 'Author, Second, 1920-1999',
+        'Org Contributor', 'Festival, Orchestra'],
+      'contributors_search': [
+        'Author, Second, 1920-1999', 'Second Author', 'Org Contributor',
+        'Festival, Orchestra'],
+      'contributors_json': [
+        {'p': [{'d': 'Author, Second, 1920-1999'}]},
+        {'p': [{'d': 'Org Contributor'}]},
+        {'p': [{'d': 'Festival, Orchestra'}]}],
+      'meeting_facet': ['Conference', 'Festival'],
+      'meetings_search': ['Conference', 'Festival'],
+      'meetings_json': [
+        {'p': [{'d': 'Conference'}]},
+        {'p': [{'d': 'Festival'}]}]
+     })
+], ids=[
+    # Edge cases
+    'Nothing: no 1XX, 7XX, or 8XX fields',
+    'Blank 100',
+    'Blank 110',
+    'Blank 111',
+    '100 with relator but no heading information',
+    '110 with relator but no heading information',
+    '111 with relator but no heading information',
+    # Personal Names (X00) and Relators
+    '100, plain personal name',
+    '100, name, forename only, with multiple titles',
+    '100, name with $e relators, multiple $e instances',
+    '100, name with $e relators, multiple vals listed in $e',
+    '100, name with $4 relators',
+    '100, name with $e and $4 relators',
+    '700, name with $i (ignore!), $4 URI (ignore!), and title info (ignore!)',
+    # Org and Meeting Names (X10, X11)
+    '710, plain org name',
+    '711, plain meeting name',
+    '711, meeting name w/organization subsection and no event info',
+    '111, meeting name w/organization subsection, with event info',
+    '711, meeting name w/muti-org subsection',
+    '111, multi-structured meeting w/organization subsection',
+    '110, org with meeting and sub-org',
+    '110, org with meeting (no sub-org)',
+    '110, jurisdication w/meeting and sub-org',
+    '111, jurisdiction-based meeting',
+    '710, organization with $i and relators',
+    '711, meeting w/org subsection and $j relators',
+    '711, meeting with $j relators applied to meeting',
+    # Series Authors etc. (8XX)
+    '800, personal name',
+    '810, org name, jurisdiction',
+    '811, meeting name',
+    # Multiple 1XX, 7XX, 8XX fields
+    '100 author, 7XX contributors',
+    '110 author, 7XX contributors',
+    '110 author w/meeting component, 7XX contributors',
+    '111 meeting, w/no org component, 7XX contributors',
+    '111 meeting, w/org component, 7XX contributors',
+])
+def test_blasmpipeline_getcontributorinfo(marcfields, expected,
+                                          bl_sierra_test_record,
+                                          blasm_pipeline_class,
+                                          bibrecord_to_pymarc,
+                                          add_marc_fields,
+                                          assert_json_matches_expected):
+    """
+    BlacklightASMPipeline.get_contributor_info should return fields
+    matching the expected parameters.
+    """
+    pipeline = blasm_pipeline_class()
+    bib = bl_sierra_test_record('bib_no_items')
+    bibmarc = bibrecord_to_pymarc(bib)
+    bibmarc.remove_fields('100', '110', '111', '700', '710', '711', '800',
+                          '810', '811')
+    bibmarc = add_marc_fields(bibmarc, marcfields)
+    val = pipeline.get_contributor_info(bib, bibmarc)
+    for k, v in val.items():
+        print k, v
+        if k in expected:
+            if k.endswith('_json'):
+                assert_json_matches_expected(v, expected[k], exact=True)
+            else:
+                assert v == expected[k]
+        else:
+            assert v is None
+
+
+@pytest.mark.parametrize('parsed_pm, expected', [
+    ({'materials_specified': [],
+      'total_performers': '8',
+      'total_ensembles': None,
+      'parts': [
+        [{'primary': [('soprano voice', '2')]}],
+        [{'primary': [('mezzo-soprano voice', '1')]}],
+        [{'primary': [('tenor saxophone', '1')]},
+         {'doubling': [('bass clarinet', '1')]}],
+        [{'primary': [('trumpet', '1')]}],
+        [{'primary': [('piano', '1')]}],
+        [{'primary': [('violin', '1')]}, {'doubling': [('viola', '1')]}],
+        [{'primary': [('double bass', '1')]}],
+     ]}, '8 performers: soprano voice (2); mezzo-soprano voice; tenor '
+         'saxophone doubling bass clarinet; trumpet; piano; violin doubling '
+         'viola; double bass'),
+    ({'materials_specified': [],
+      'total_performers': '1',
+      'total_ensembles': '1',
+      'parts': [
+        [{'solo': [('flute', '1')]}],
+        [{'primary': [('orchestra', '1')]}],
+     ]}, '1 performer and 1 ensemble: solo flute; orchestra'),
+    ({'materials_specified': [],
+      'total_performers': '1',
+      'total_ensembles': None,
+      'parts': [
+        [{'primary': [('flute', '1')]},
+         {'doubling': [('piccolo', '1'), ('alto flute', '1'),
+                       ('bass flute', '1')]}],
+     ]}, '1 performer: flute doubling piccolo, alto flute, and bass '
+         'flute'),
+    ({'materials_specified': [],
+      'total_performers': '3',
+      'total_ensembles': None,
+      'parts': [
+        [{'primary': [('violin', '1')]}, {'doubling': [('flute', '1')]},
+         {'alt': [('piccolo', '1')]}],
+        [{'primary': [('cello', '1')]}],
+        [{'primary': [('piano', '1')]}],
+     ]}, '3 performers: violin doubling flute or piccolo; cello; piano'),
+    ({'materials_specified': [],
+      'total_performers': '8',
+      'total_ensembles': '4',
+      'parts': [
+        [{'solo': [('soprano voice', '3')]}],
+        [{'solo': [('alto voice', '2')]}],
+        [{'solo': [('tenor voice', '1')]}],
+        [{'solo': [('baritone voice', '1')]}],
+        [{'solo': [('bass voice', '1')]}],
+        [{'primary': [('mixed chorus', '2', ['SATB, SATB'])]}],
+        [{'primary': [('children\'s chorus', '1')]}],
+        [{'primary': [('orchestra', '1')]}],
+     ]}, '8 performers and 4 ensembles: solo soprano voice (3); solo alto '
+         'voice (2); solo tenor voice; solo baritone voice; solo bass voice; '
+         'mixed chorus (2) [SATB, SATB]; children\'s chorus; orchestra'),
+    ({'materials_specified': [],
+      'total_performers': None,
+      'total_ensembles': None,
+      'parts': [
+        [{'primary': [('violin', '1')]}, {'alt': [('flute', '1')]},
+         {'doubling': [('viola', '1')]}, {'alt': [('alto flute', '1')]},
+         {'doubling': [('cello', '1')]}, {'alt': [('saxophone', '1')]},
+         {'doubling': [('double bass', '1')]}],
+     ]}, 'Violin or flute doubling viola or alto flute doubling cello or '
+         'saxophone doubling double bass'),
+    ({'materials_specified': [],
+      'total_performers': None,
+      'total_ensembles': None,
+      'parts': [
+        [{'primary': [('violin', '1')]},
+         {'doubling': [('viola', '1'), ('cello', '1'), ('double bass', '1')]},
+         {'alt': [('flute', '1')]},
+         {'doubling': [('alto flute', '1'), ('saxophone', '1')]}],
+     ]}, 'Violin doubling viola, cello, and double bass or flute doubling alto '
+         'flute and saxophone'),
+    ({'materials_specified': [],
+      'total_performers': None,
+      'total_ensembles': None,
+      'parts': [
+        [{'primary': [('violin', '1', ['Note1', 'Note2'])]},
+         {'doubling': [('viola', '1', ['Note3']),
+                       ('cello', '2', ['Note4', 'Note5'])]}]
+    ]}, 'Violin [Note1 / Note2] doubling viola [Note3] and cello (2) [Note4 / '
+        'Note5]'),
+    ({'materials_specified': [],
+      'total_performers': None,
+      'total_ensembles': None,
+      'parts': [
+        [{'primary': [('violin', '1')]},
+         {'doubling': [('viola', '1'), ('cello', '1'), ('double bass', '1')]},
+         {'alt': [('flute', '1'), ('clarinet', '1')]},
+         {'doubling': [('alto flute', '1'), ('saxophone', '1')]}],
+     ]}, 'Violin doubling viola, cello, and double bass, flute, or clarinet '
+         'doubling alto flute and saxophone'),
+    ({'materials_specified': [],
+      'total_performers': None,
+      'total_ensembles': None,
+      'parts': [
+        [{'primary': [('violin', '1')]},
+         {'alt': [('flute', '1'), ('trumpet', '1'), ('clarinet', '1')]},
+         {'doubling': [('viola', '1')]}, {'alt': [('alto flute', '1')]},
+         {'doubling': [('cello', '1')]}, {'alt': [('saxophone', '1')]},
+         {'doubling': [('double bass', '1')]}],
+     ]}, 'Violin, flute, trumpet, or clarinet doubling viola or alto flute '
+         'doubling cello or saxophone doubling double bass'),
+    ({'materials_specified': ['Piece One'],
+      'total_performers': '1',
+      'total_ensembles': '1',
+      'parts': [
+        [{'solo': [('flute', '1')]}],
+        [{'primary': [('orchestra', '1')]}],
+     ]}, '(Piece One) 1 performer and 1 ensemble: solo flute; orchestra')
+])
+def test_blasmpipeline_compileperformancemedium(parsed_pm, expected,
+                                                blasm_pipeline_class):
+    """
+    BlacklightASMPipeline.compile_performance_medium should return
+    a value matching `expected`, given the sample `parsed_pm` output
+    from parsing a 382 field.
+    """
+    pipeline = blasm_pipeline_class()
+    assert pipeline.compile_performance_medium(parsed_pm) == expected
+
+
+def test_blasmpipeline_getgeneral3xxinfo(add_marc_fields, blasm_pipeline_class):
+    """
+    BlacklightASMPipeline.get_general_3xx_info should return fields
+    matching the expected parameters.
+    """
+    exclude = s2m.IGNORED_MARC_FIELDS_BY_GROUP_TAG['r']
+    handled = ('310', '321')
+    exc_fields = [(''.join(('r', t)), ['a', 'No']) for t in exclude + handled]
+    inc_fields = [
+        ('r300', ['a', '300 desc 1', '0', 'exclude']),
+        ('r300', ['a', '300 desc 2', '1', 'exclude']),
+        ('r340', ['3', 'self-portrait', 'a', 'rice paper', 'b', '7" x 9"']),
+        ('r342', ['a', 'Polyconic', 'g', '0.9996', 'h', '0', 'i', '500,000']),
+        ('r343', ['a', 'Coordinate pair;', 'b', 'meters;', 'c', '22;',
+                  'd', '22.']),
+        ('r344', ['a', 'analog', '2', 'rdatr']),
+        ('r344', ['h', 'Dolby-B encoded', '2', 'rdaspc']),
+        ('r345', ['a', 'Cinerama', '2', 'rdapf']),
+        ('r345', ['b', '24 fps']),
+        ('r346', ['a', 'VHS', '2', 'rdavf']),
+        ('r346', ['b', 'NTSC', '2', 'rdabs']),
+        ('r347', ['a', 'video file', '2', 'rdaft']),
+        ('r347', ['b', 'DVD video']),
+        ('r347', ['e', 'region 4', '2', 'rdare']),
+        ('r352', ['a', 'Raster :', 'b', 'pixel',
+                  'd', '(5,000 x', 'e', '5,000) ;', 'q', 'TIFF.']),
+        ('r370', ['a', '370 desc 1']),
+        ('r382', ['a', 'soprano voice', 'n', '2', 'a', 'mezzo-soprano voice',
+                  'n', '1', 'a', 'tenor saxophone', 'n', '1',
+                  'd', 'bass clarinet', 'n', '1', 'a', 'trumpet',
+                  'n', '1', 'a', 'piano', 'n', '1', 'a', 'violin',
+                  'n', '1', 'd', 'viola', 'n', '1', 'a', 'double bass',
+                  'n', '1', 's', '8', '2', 'lcmpt'])
+    ]
+    expected = {
+        'physical_medium': ['(self-portrait) rice paper; 7" x 9"'],
+        'geospatial_data': ['Polyconic; 0.9996; 0; 500,000',
+                            'Coordinate pair; meters; 22; 22.'],
+        'audio_characteristics': ['analog', 'Dolby-B encoded'],
+        'projection_characteristics': ['Cinerama', '24 fps'],
+        'video_characteristics': ['VHS', 'NTSC'],
+        'digital_file_characteristics': ['video file', 'DVD video', 'region 4'],
+        'graphic_representation': ['Raster : pixel (5,000 x 5,000) ; TIFF.'],
+        'performance_medium': ['8 performers: soprano voice (2); mezzo-soprano '
+                               'voice; tenor saxophone doubling bass clarinet; '
+                               'trumpet; piano; violin doubling viola; double '
+                               'bass'],
+        'physical_description': ['300 desc 1', '300 desc 2', '370 desc 1']
+    }
+    marc = add_marc_fields(s2m.SierraMarcRecord(), (exc_fields + inc_fields))
+    pipeline = blasm_pipeline_class()
+    results = pipeline.get_general_3xx_info(None, marc)
+    assert set(results.keys()) == set(expected.keys())
+    for k, v in results.items():
+        assert v == expected[k]
+
+
+def test_blasmpipeline_getgeneral5xxinfo(add_marc_fields, blasm_pipeline_class):
+    """
+    BlacklightASMPipeline.get_general_5xx_info should return fields
+    matching the expected parameters.
+    """
+    exclude = s2m.IGNORED_MARC_FIELDS_BY_GROUP_TAG['n']
+    handled = ('505', '508', '520', '592')
+    exc_fields = [(''.join(('r', t)), ['a', 'No']) for t in exclude + handled]
+    inc_fields = [
+        ('n500', ['a', 'General Note.', '0', 'exclude']),
+        ('n502', ['a', 'Karl Schmidt\'s thesis (doctoral), Munich, 1965.']),
+        ('n502', ['b', 'Ph. D.', 'c', 'University of North Texas',
+                  'd', 'August, 2012.']),
+        ('n502', ['g', 'Some diss', 'b', 'Ph. D.',
+                  'c', 'University of North Texas', 'd', 'August, 2012.']),
+        ('n511', ['a', 'Hosted by Hugh Downs.'], '0 '),
+        ('n511', ['a', 'Colin Blakely, Jane Lapotaire.'], '1 '),
+        ('n521', ['a', 'Clinical students, postgraduate house officers.'],
+         '  '),
+        ('n521', ['a', '3.1.'], '0 '),
+        ('n521', ['a', '7-10.'], '1 '),
+        ('n521', ['a', '7 & up.'], '2 '),
+        ('n521', ['a', 'Vision impaired', 'a', 'fine motor skills impaired',
+                  'a', 'audio learner', 'b', 'LENOCA.'], '3 '),
+        ('n521', ['a', 'Moderately motivated.'], '4 '),
+        ('n521', ['a', 'MPAA rating: R.'], '8 '),
+        ('n546', ['3', 'Marriage certificate', 'a', 'German;',
+                  'b', 'Fraktur.']),
+        ('n583', ['3', 'plates', 'a', 'condition reviewed', 'c', '20040915',
+                  'l', 'mutilated', '2', 'pda', '5', 'DLC'], '1 '),
+        ('n583', ['a', 'will microfilm', 'c', '2004', '2', 'pda', '5', 'ICU'],
+                  '0 '),
+        ('n588', ['a', 'Cannot determine the relationship to Bowling '
+                       'illustrated, also published in New York, 1952-58.',
+                       '5', 'DLC'], '  '),
+        ('n588', ['a', 'Vol. 2, no. 2 (Feb. 1984); title from cover.'], '0 '),
+        ('n588', ['a', '2001.'], '1 '),
+    ]
+    expected = {
+        'performers': [
+            'Hosted by Hugh Downs.',
+            'Cast: Colin Blakely, Jane Lapotaire.'
+        ],
+        'language_notes': ['(Marriage certificate) German; Fraktur.'],
+        'dissertation_notes': [
+            'Karl Schmidt\'s thesis (doctoral), Munich, 1965.',
+            'Ph. D. ― University of North Texas, August, 2012.',
+            'Some diss. Ph. D. ― University of North Texas, August, 2012.'
+        ],
+        'notes': [
+            'General Note.',
+            'Audience: Clinical students, postgraduate house officers.',
+            'Reading grade level: 3.1.',
+            'Ages: 7-10.',
+            'Grades: 7 & up.',
+            'Special audience characteristics: Vision impaired; fine motor '
+            'skills impaired; audio learner (source: LENOCA)',
+            'Motivation/interest level: Moderately motivated.',
+            'MPAA rating: R.',
+            '(plates) condition reviewed; 20040915; mutilated',
+            'Cannot determine the relationship to Bowling illustrated, also '
+            'published in New York, 1952-58.',
+            'Description based on: Vol. 2, no. 2 (Feb. 1984); title from '
+            'cover.',
+            'Latest issue consulted: 2001.'
+        ],
+    }
+    marc = add_marc_fields(s2m.SierraMarcRecord(), (exc_fields + inc_fields))
+    pipeline = blasm_pipeline_class()
+    results = pipeline.get_general_5xx_info(None, marc)
+    assert set(results.keys()) == set(expected.keys())
+    for k, v in results.items():
+        assert v == expected[k]
 
 
 @pytest.mark.parametrize('mapping, bundle, expected', [
@@ -1603,3 +2896,27 @@ def test_plbundleconverter_do_maps_correctly(mapping, bundle, expected,
     for field, exp in zip(fields, expected):
         assert field.tag == exp['tag']
         assert list(field) == exp['data']
+
+
+def test_s2mmarcbatch_compileoriginalmarc_vf_order(s2mbatch_class,
+                                                   bl_sierra_test_record,
+                                                   add_varfields_to_record):
+    """
+    S2MarcBatchBlacklightSolrMarc `compile_original_marc` method should
+    put variable-length field into the correct order, based on field
+    tag groupings and the vf.occ_num values. This should mirror the
+    order catalogers put record fields into in Sierra.
+    """
+    b = bl_sierra_test_record('bib_no_items')
+    add_varfields_to_record(b, 'y', '036', ['|a1'], '  ', 0, True)
+    add_varfields_to_record(b, 'y', '036', ['|a2'], '  ', 1, False)
+    add_varfields_to_record(b, 'a', '100', ['|a3'], '  ', 0, True)
+    add_varfields_to_record(b, 'n', '520', ['|a4'], '  ', 0, True)
+    add_varfields_to_record(b, 'n', '520', ['|a5'], '  ', 1, False)
+    add_varfields_to_record(b, 'n', '500', ['|a6'], '  ', 2, True)
+    add_varfields_to_record(b, 'n', '530', ['|a7'], '  ', 3, True)
+    add_varfields_to_record(b, 'y', '856', ['|a8'], '  ', 2, True)
+    add_varfields_to_record(b, 'y', '856', ['|a9'], '  ', 3, False)
+    rec = s2mbatch_class(b).compile_original_marc(b)
+    fields = rec.get_fields('036', '100', '500', '520', '530', '856')
+    assert fields == sorted(fields, key=lambda l: l.value())

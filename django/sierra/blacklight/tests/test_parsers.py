@@ -89,6 +89,9 @@ def test_compress_punctuation(data, expected):
     ('test : [.],', 'test,'),
     ('test ; [Test :]', 'test ; [Test]'),
     ('ed. : test', 'ed. : test'),
+    ('ed. . test', 'ed. test'),
+    ('ed.. test', 'ed. test'),
+    ('ed. ... test', 'ed. ... test')
 ])
 def test_normalize_punctuation(data, expected):
     """
@@ -153,6 +156,9 @@ def test_strip_brackets(data, keep_inner, to_keep_re, to_remove_re, to_protect_r
     ('Remove ending period from alphabetic ordinal 21st.', 'Remove ending period from alphabetic ordinal 21st'),
     ('Remove ending period from Roman Numeral XII.', 'Remove ending period from Roman Numeral XII'),
     ('Protect ending period from abbreviation eds.', 'Protect ending period from abbreviation eds.'),
+    ('Protect ... ellipses', 'Protect ... ellipses'),
+    ('Protect .... ellipses', 'Protect ... ellipses'),
+    ('Protect. ... Ellipses.', 'Protect ... Ellipses'),
     ('Protect ending period from initial J.', 'Protect ending period from initial J.'),
     ('Lowercase initials do not count, j.', 'Lowercase initials do not count, j'),
     ('Remove inner period. Dude', 'Remove inner period Dude'),
@@ -241,7 +247,7 @@ def test_reconstruct_bracketed(data, brackets, stripchars, expected):
     ('do not strip, inner punctuation', 'do not strip, inner punctuation'),
     (' strip whitespace at ends ', 'strip whitespace at ends'),
     ('strip one punctuation mark at end.', 'strip one punctuation mark at end'),
-    ('strip repeated punctuation marks at end...', 'strip repeated punctuation marks at end'),
+    ('strip repeated punctuation marks at end,,', 'strip repeated punctuation marks at end'),
     ('strip multiple different punctuation marks at end./', 'strip multiple different punctuation marks at end'),
     ('strip punctuation marks and whitespace at end . ;. / ', 'strip punctuation marks and whitespace at end'),
     (';strip one punctuation mark at beginning', 'strip one punctuation mark at beginning'),
@@ -250,6 +256,7 @@ def test_reconstruct_bracketed(data, brackets, stripchars, expected):
     ('. ;./ strip punctuation marks and whitespace at beginning', 'strip punctuation marks and whitespace at beginning'),
     (' . . . strip punctuation and whitespace from both ends . /; ', 'strip punctuation and whitespace from both ends'),
     ('(do not strip parentheses or punct inside parentheses...);', '(do not strip parentheses or punct inside parentheses...)'),
+    ('do not strip ellipses ...', 'do not strip ellipses ...'),
     ('weirdness with,                             whitespace.', 'weirdness with,                             whitespace')
 ])
 def test_strip_ends(data, expected):
@@ -332,6 +339,26 @@ def test_strip_ellipses(data, expected):
 
 
 @pytest.mark.parametrize('data, expected', [
+    ('Container of (work):', 'Container of:'),
+    ('Container of (Work):', 'Container of:'),
+    ('Container of (item):', 'Container of:'),
+    ('Container of (expression):', 'Container of:'),
+    ('Container of (manifestation):', 'Container of:'),
+    ('Container of (salad dressing):', 'Container of (salad dressing):'),
+    ('Container of:', 'Container of:'),
+    ('composer (expression)', 'composer'),
+    ('(Work) blah', ' blah'),
+    ('Contains work:', 'Contains work:'),
+])
+def test_strip_wemi(data, expected):
+    """
+    `strip_wemi` should correctly strip any WEMI entities contained in
+    parentheses in the given data string.
+    """
+    assert parsers.strip_wemi(data) == expected
+
+
+@pytest.mark.parametrize('data, expected', [
     ('This is an example of a title : subtitle / ed. by John Doe.', 'This is an example of a title : subtitle / ed. by John Doe'),
     ('Some test data ... that we have (whatever [whatever]).', 'Some test data that we have (whatever whatever)'),
 ])
@@ -362,6 +389,10 @@ def test_clean(data, expected):
      ('1975', '17uu', '181u')),
     ('300 A.D.', ('0300',)),
     ('201[4]', ('2014',)),
+    ('1st semester 1976.', ('1976',)),
+    ('2nd semester 1976.', ('1976',)),
+    ('3rd semester 1976.', ('1976',)),
+    ('4th semester 1976.', ('1976',)),
 ])
 def test_extract_years(data, expected):
     """
@@ -435,16 +466,17 @@ def test_normalize_cr_symbol(data, expected):
 
 
 @pytest.mark.parametrize('data, first_indicator, exp_forename, exp_surname, exp_family_name', [
-    ('Thomale, Jason,', '0', 'Jason', 'Thomale', ''),
-    ('Thomale, Jason,', '1', 'Jason', 'Thomale', ''),
-    ('Thomale, Jason,', '3', 'Jason', 'Thomale', ''),
-    ('John,', '0', 'John', '', ''),
-    ('John II Comnenus,', '0', 'John II Comnenus', '', ''),
-    ('Byron, George Gordon Byron,', '1', 'George Gordon Byron', 'Byron', ''),
-    ('Joannes Aegidius, Zamorensis,', '1', 'Zamorensis', 'Joannes Aegidius', ''),
-    ('Morton family.', '3', '', 'Morton', 'Morton family'),
-    ('Morton family.', '2', '', 'Morton', 'Morton family'),
-    ('Morton family.', '2', '', 'Morton', 'Morton family'),
+    ('Thomale, Jason,', '0', 'Jason', 'Thomale', None),
+    ('Thomale, Jason,', '1', 'Jason', 'Thomale', None),
+    ('Thomale, Jason,', '3', 'Jason', 'Thomale', None),
+    ('John,', '0', 'John', None, None),
+    ('John II Comnenus,', '0', 'John II Comnenus', None, None),
+    ('Byron, George Gordon Byron,', '1', 'George Gordon Byron', 'Byron', None),
+    ('Joannes Aegidius, Zamorensis,', '1', 'Zamorensis', 'Joannes Aegidius',
+        None),
+    ('Morton family.', '3', None, 'Morton', 'Morton family'),
+    ('Morton family.', '2', None, 'Morton', 'Morton family'),
+    ('Morton family.', '2', None, 'Morton', 'Morton family'),
 ])
 def test_person_name(data, first_indicator, exp_forename, exp_surname, exp_family_name):
     """

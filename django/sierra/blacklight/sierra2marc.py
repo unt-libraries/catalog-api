@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*- 
+
 """
 Sierra2Marc module for catalog-api `blacklight` app.
 """
@@ -8,28 +10,136 @@ import logging
 import re
 import ujson
 from datetime import datetime
+from collections import OrderedDict
 
+from django.conf import settings
 from base import models, local_rulesets
 from export.sierra2marc import S2MarcBatch, S2MarcError
 from blacklight import parsers as p
 from utils import helpers
 
 
-def make_pmfield(tag, data=None, indicators=None, subfields=None):
+# These are MARC fields that we are currently not including in public
+# catalog records, listed by III field group tag.
+IGNORED_MARC_FIELDS_BY_GROUP_TAG = {
+    'n': ('539', '901', '959'),
+    'r': ('306', '307', '336', '337', '338', '341', '348', '351', '355', '357',
+          '377', '380', '381', '383', '384', '385', '386', '387', '388', '389'),
+}
+
+
+class SierraMarcField(pymarc.field.Field):
     """
-    Create a new pymarc Field object with the given parameters.
+    Subclass of pymarc field.Field; adds `group_tag` (III field group tag)
+    to the Field object.
+    """
+    def __init__(self, tag, indicators=None, subfields=None, data=None,
+                 group_tag=None):
+        kwargs = {'tag': tag}
+        if data is None:
+            kwargs['indicators'] = indicators or [' ', ' ']
+            kwargs['subfields'] = subfields or []
+        else:
+            kwargs['data'] = data
+        super(SierraMarcField, self).__init__(**kwargs)
+        self.group_tag = group_tag or ' '
+        self.full_tag = ''.join((self.group_tag, tag))
+
+    def matches_tag(self, tag):
+        """
+        Does this field match the provided `tag`? The `tag` may be the
+        MARC field tag ('100'), the group_field tag ('a'), or both
+        ('a100').
+        """
+        return tag in (self.tag, self.group_tag, self.full_tag)
+
+    def filter_subfields(self, include=None, exclude=None):
+        """
+        Filter subfields on this field based on the provided subfields
+        to `include` or `exclude`. Both, either, or neither args may
+        be provided, and they may be strings ('abcde'), lists, or
+        tuples. Conceptually, the set of SFs to exclude is substracted
+        from the set of SFs to include; if `include` is None, then the
+        "include" set includes all SFs. A subfield listed in `exclude`
+        will always be excluded. Include='abcde', exclude='a' will only
+        include subfields b, c, d, and e. Include=None and exclude='a'
+        will include all subfields except a.
+
+        Produces a generator that yields a sftag, val tuple for each
+        matching subfield, in the order they appear on the field.
+        """
+        incl, excl = include or '', exclude or ''
+        for tag, val in self:
+            if ((incl and tag in incl) or not incl) and tag not in excl:
+                yield (tag, val)
+
+
+class SierraMarcRecord(pymarc.record.Record):
+    """
+    Subclass of pymarc record.Record. Changes `get_fields` method to
+    enable getting fields by field group tag, for SierraMarcField
+    instances.
+    """
+
+    def _field_matches_tag(self, field, tag):
+        try:
+            return field.matches_tag(tag)
+        except AttributeError:
+            return field.tag == tag
+
+    def get_fields_gen(self, *args):
+        """
+        Same as `get_fields`, but it's a generator.
+        """
+        no_args = len(args) == 0
+        for f in self.fields:
+            if no_args:
+                yield f
+            else:
+                for arg in args:
+                    if self._field_matches_tag(f, arg):
+                        yield f
+                        break
+
+    def get_fields(self, *args):
+        """
+        Return a list of fields (in the order they appear on the
+        record) that match the given list of args. Args may include
+        MARC tags ('100'), III field group tags ('a'), or both
+        ('a100'). 'a100' would get all a-tagged 100 fields; separate
+        'a' and '100' args would get all a-tagged fields and all 100
+        fields.
+
+        This returns a list to maintain compatibility with the parent
+        class `get_fields` method. Use `get_fields_gen` if you want a
+        generator instead.
+        """
+        return list(self.get_fields_gen(*args))
+
+    def filter_fields(self, include=None, exclude=None):
+        """
+        Like `get_fields_gen` but lets you provide a list of tags to
+        include and a list to exclude. All tags should be ones such as
+        what's defined in the `get_fields` docstring.
+        """
+        include, exclude = include or tuple(), exclude or tuple()
+        for f in self.get_fields_gen(*include):
+            if all([not self._field_matches_tag(f, ex) for ex in exclude]):
+                yield f
+
+
+def make_mfield(tag, data=None, indicators=None, subfields=None,
+                group_tag=None):
+    """
+    Create a new SierraMarcField object with the given parameters.
 
     `tag` is required. Creates a control field if `data` is not None,
-    otherwise creates a variable-length field. `subfields` and
-    `indicators` default to blank values.
+    otherwise creates a variable-length field. `group_tag` is the
+    III variable field group tag character. `subfields`, `indicators`,
+    and `group_tag` default to blank values.
     """
-    kwargs = {'tag': tag}
-    if data is None:
-        kwargs['indicators'] = indicators or [' ', ' ']
-        kwargs['subfields'] = subfields or []
-    else:
-        kwargs['data'] = data
-    return pymarc.field.Field(**kwargs)
+    return SierraMarcField(tag, indicators=indicators, subfields=subfields,
+                           data=data, group_tag=group_tag)
 
 
 def explode_subfields(pmfield, sftags):
@@ -48,32 +158,53 @@ def explode_subfields(pmfield, sftags):
     return (pmfield.get_subfields(tag) for tag in sftags)
 
 
-def group_subfields(pmfield, sftags, uniquetags=None, breaktags=None):
+def group_subfields(pmfield, include='', exclude='', unique='', start='',
+                    end='', limit=None):
     """
     Put subfields from the given `pmfield` pymarc Field object into
-    groupings based on the given `sftags` string. Returns a list of new
-    pymarc Field objects, where each represents a grouping.
+    groupings based on the given args. (Subfields in each group remain
+    in the order in which they appear in the field.)
+
+    Define which subfield tags to group using `include` or `exclude`.
+    These are mutually exclusive; if both are specified, the first
+    overrides the second. If neither is specified, all tags are
+    included.
+
+    `unique` lists tags that must be unique in each group. A new group
+    starts upon encountering a second instance of a unique tag.
+
+    `start` lists tags that immediately signal the start of a new
+    group. As soon as one is encountered, it becomes the first tag of
+    the next group.
+
+    `end` lists tags that signal the end of a grouping. When one is
+    encountered, it becomes the end of that group, and a new group is
+    started.
     """
+    def _include_tag(tag, include, exclude):
+        return (not include and not exclude) or (include and tag in include) or\
+               (exclude and tag not in exclude)
+
+    def _finish_group(pmfield, grouped, group, limit=None):
+        if not limit or (len(grouped) < limit - 1):
+            grouped.append(make_mfield(pmfield.tag, subfields=group,
+                                        indicators=pmfield.indicators))
+            group = []
+        return grouped, group
+
+    def _is_repeated_unique(tag, unique, group):
+        return tag in unique and tag in [gi[0] for gi in group]
+
     grouped, group = [], []
-    uniquetags = uniquetags or ''
-    breaktags = breaktags or ''
     for tag, value in pmfield:
-        if tag in sftags:
-            if group and tag in uniquetags and tag in [gi[0] for gi in group]:
-                nfield = make_pmfield(pmfield.tag, subfields=group,
-                                      indicators=pmfield.indicators)
-                grouped.append(nfield)
-                group = []
+        if _include_tag(tag, include, exclude):
+            if tag in start or _is_repeated_unique(tag, unique, group):
+                grouped, group = _finish_group(pmfield, grouped, group, limit)
             group.extend([tag, value])
-            if tag in breaktags:
-                nfield = make_pmfield(pmfield.tag, subfields=group,
-                                      indicators=pmfield.indicators)
-                grouped.append(nfield)
-                group = []
+            if tag in end:
+                grouped, group = _finish_group(pmfield, grouped, group, limit)
     if group:
-        nfield = make_pmfield(pmfield.tag, subfields=group,
-                              indicators=pmfield.indicators)
-        grouped.append(nfield)
+        grouped, group = _finish_group(pmfield, grouped, group)
     return grouped
 
 
@@ -90,6 +221,468 @@ def pull_from_subfields(pmfield, sftags=None, pull_func=None):
     if pull_func is None:
         return vals
     return [v2 for v1 in vals for v2 in pull_func(v1)]
+
+
+class MarcParseUtils(object):
+    marc_relatorcode_map = settings.MARCDATA.RELATOR_CODES
+    control_sftags = 'w01256789'
+    title_sftags_7xx = 'fhklmoprstvx'
+
+    def compile_relator_terms(self, tag, val):
+        if tag == '4':
+            term = self.marc_relatorcode_map.get(val, None)
+            return [term] if term else []
+        return [p.strip_wemi(v) for v in p.strip_ends(val).split(', ')]
+
+    def split7xx_name_title(self, field):
+        exclude_sftags = ''.join((self.control_sftags, 'i'))
+        return group_subfields(field, exclude=exclude_sftags,
+                               start=self.title_sftags_7xx, limit=2)
+
+
+class SequentialMarcFieldParser(object):
+    """
+    Parse a pymarc Field obj by parsing subfields sequentially.
+
+    This is a skeletal base class; subclass to create parser classes
+    for looping through all subfields in a MARC field (in the order
+    they appear) and returning a result.
+
+    The `parse` method is the active method; it calls `parse_subfield`
+    on each subfield tag/val pair in the field, in order. When done, it
+    calls `do_post_parse`, and then returns results via
+    `compile_results`. Define these methods in your subclass in order
+    to parse a field. (See PersonalNameParser and OrgEventParser for
+    sample implementations.)
+    """
+    def __init__(self, field):
+        self.field = field
+        self.utils = MarcParseUtils()
+
+    def __call__(self):
+        return self.parse()
+
+    def parse_subfield(self, tag, val):
+        pass
+
+    def do_post_parse(self):
+        pass
+
+    def compile_results(self):
+        """
+        After a field has been completely parsed, this is called last
+        to compile and return results.
+        """
+        return None
+
+    def parse(self):
+        """
+        This is the "main" method for objects of this type. This is
+        what should be called in order to parse a field.
+        """
+        for tag, val in self.field:
+            self.parse_subfield(tag, val)
+        self.do_post_parse()
+        return self.compile_results()
+
+
+class PersonalNameParser(SequentialMarcFieldParser):
+    relator_sftags = 'e4'
+
+    def __init__(self, field):
+        super(PersonalNameParser, self).__init__(field)
+        self.heading_parts = []
+        self.relator_terms = OrderedDict()
+        self.parsed_name = {}
+        self.titles = []
+
+    def do_relators(self, tag, val):
+        for relator_term in self.utils.compile_relator_terms(tag, val):
+            self.relator_terms[relator_term] = None
+
+    def do_name(self, tag, val):
+        self.parsed_name = p.person_name(val, self.field.indicators)
+
+    def do_titles(self, tag, val):
+        self.titles.extend([v for v in p.strip_ends(val).split(', ')])
+
+    def parse_subfield(self, tag, val):
+        if tag in self.relator_sftags:
+            self.do_relators(tag, val)
+        else:
+            self.heading_parts.append(val)
+            if tag == 'a':
+                self.do_name(tag, val)
+            elif tag == 'c':
+                self.do_titles(tag, val)
+
+    def compile_results(self):
+        heading = p.normalize_punctuation(' '.join(self.heading_parts))
+        return {
+            'heading': p.strip_ends(heading) or None,
+            'relations': self.relator_terms.keys() or None,
+            'forename': self.parsed_name.get('forename', None),
+            'surname': self.parsed_name.get('surname', None),
+            'person_titles': self.titles or None,
+            'type': 'person'
+        }
+
+
+class OrgEventNameParser(SequentialMarcFieldParser):
+    event_info_sftags = 'cdgn'
+
+    def __init__(self, field):
+        super(OrgEventNameParser, self).__init__(field)
+        self.relator_terms = OrderedDict()
+        if field.tag.endswith('10'):
+            self.subunit_sftag = 'b'
+            self.relator_sftags = 'e4'
+            self.field_type = 'X10'
+        else:
+            self.subunit_sftag = 'e'
+            self.relator_sftags = 'j4'
+            self.field_type = 'X11'
+        self.parts = {'org': [], 'event': []}
+        self._stacks = {'org': [], 'event': []}
+        self._event_info, self._prev_part_name, self._prev_tag = [], '', ''
+
+    def do_relators(self, tag, val):
+        for relator_term in self.utils.compile_relator_terms(tag, val):
+            self.relator_terms[relator_term] = None
+
+    def sf_is_first_subunit_of_jd_field(self, tag):
+        ind1 = self.field.indicator1
+        is_jurisdiction = tag == self.subunit_sftag and ind1 == '1'
+        return (tag == 'q' or is_jurisdiction) and self._prev_tag == 'a'
+
+    def _build_unit_name(self, part_type):
+        unit_name = self._prev_part_name
+        other_part_type = 'org' if part_type == 'event' else 'event'
+        if self._stacks[part_type]:
+            context = ' '.join(self._stacks[part_type])
+            unit_name = '{}, {}'.format(context, unit_name)
+            self._stacks['org'], self._stacks['event'] = [], []
+        self._stacks[other_part_type].append(self._prev_part_name)
+        return unit_name
+
+    def _build_event_info(self):
+        return p.strip_ends(' '.join(self._event_info))
+
+    def do_unit(self):
+        org_parts, event_parts = [], []
+        if self._event_info:
+            event_parts.append({'name': self._build_unit_name('event'),
+                                'event_info': self._build_event_info()})
+            # Even if this is clearly an event, if it's the first thing
+            # in an X10 field, record it as an org as well.
+            if self.field_type == 'X10' and not self.parts['org']:
+                org_parts.append({'name': self._prev_part_name})
+                if self._stacks['org']:
+                    self._stacks['org'].pop()
+        elif self.field_type == 'X11' and not self.parts['event']:
+            event_parts.append({'name': self._build_unit_name('event')})
+        else:
+            org_parts.append({'name': self._build_unit_name('org')})
+        return org_parts, event_parts
+
+    def parse_subfield(self, tag, val):
+        if tag in (self.relator_sftags):
+            for relator_term in self.utils.compile_relator_terms(tag, val):
+                self.relator_terms[relator_term] = None
+        elif tag in self.event_info_sftags:
+            self._event_info.append(val)
+        elif tag == 'a':
+            self._prev_part_name = p.strip_ends(val)
+        elif self.sf_is_first_subunit_of_jd_field(tag):
+            self._prev_part_name = '{} {}'.format(self._prev_part_name,
+                                                  p.strip_ends(val))
+        elif tag == self.subunit_sftag:
+            new_org_parts, new_event_parts = self.do_unit()
+            self.parts['org'].extend(new_org_parts)
+            self.parts['event'].extend(new_event_parts)
+            self._event_info = []
+            self._prev_part_name = p.strip_ends(val)
+        self._prev_tag = tag
+
+    def do_post_parse(self):
+        new_org_parts, new_event_parts = self.do_unit()
+        self.parts['org'].extend(new_org_parts)
+        self.parts['event'].extend(new_event_parts)
+
+    def compile_results(self):
+        ret_val = []
+        relators = self.relator_terms.keys() or None
+        for part_type in ('org', 'event'):
+            if self.parts[part_type]:
+                ret_val.append({
+                    'relations': relators,
+                    'heading_parts': self.parts[part_type],
+                    'type': 'organization' if part_type == 'org' else 'event'
+                })
+                relators = None
+        return ret_val
+
+
+def extract_name_structs_from_heading_field(field, utils):
+    split_name_title = utils.split7xx_name_title(field)
+    if len(split_name_title):
+        nfield = split_name_title[0]
+        if nfield.tag.endswith('00'):
+            return [PersonalNameParser(nfield).parse()]
+        return OrgEventNameParser(nfield).parse()
+    return []
+
+
+def make_personal_name_variations(forename, surname, ptitles):
+    alts = []
+    if forename and surname:
+        alts.append('{} {}'.format(forename, surname))
+    if ptitles:
+        if alts:
+            namestr = alts.pop()
+            alts.append('{}, {}'.format(namestr, ', '.join(ptitles)))
+        else:
+            namestr = surname or forename
+        for i, title in enumerate(ptitles):
+            altstr = '{} {}'.format(title, namestr)
+            if len(ptitles) > 1:
+                other_titles = ', '.join(ptitles[0:i] + ptitles[i+1:])
+                altstr = '{}, {}'.format(altstr, other_titles)
+            alts.append(altstr)
+    return alts
+
+
+def make_relator_search_variations(base_name, relators):
+    relators = relators or []
+    return ['{} {}'.format(base_name, r) for r in relators]
+
+
+class GenericDisplayFieldParser(SequentialMarcFieldParser):
+    """
+    Parse/format a MARC field for display. This is conceptually similar
+    to using the `pymarc.field.Field.format_field` method, with the
+    following improvements: you can specify a custom `separator` (space
+    is the default); you can specify an optional `sf_filter` to include
+    or exclude certain subfields; subfield 3 (materials specified) is
+    handled automatically, wherever it occurs in the field.
+    """
+    def __init__(self, field, separator=' ', sf_filter=None):
+        filtered = field.filter_subfields(**sf_filter) if sf_filter else field
+        super(GenericDisplayFieldParser, self).__init__(filtered)
+        self.separator = separator
+        self.original_field = field
+        self.sf_filter = sf_filter
+        self.value_stack = []
+        self.materials_specified_stack = []
+
+    def format_materials_specified(self):
+        return '({})'.format(', '.join(self.materials_specified_stack))
+
+    def handle_other_subfields(self, val):
+        if len(self.materials_specified_stack):
+            val = ' '.join((self.format_materials_specified(), val))
+            self.materials_specified_stack = []
+        self.value_stack.append(val)
+
+    def parse_subfield(self, tag, val):
+        if tag == '3':
+            self.materials_specified_stack.append(val)
+        else:
+            self.handle_other_subfields(val)
+
+    def compile_results(self):
+        result = self.separator.join(self.value_stack)
+        if len(self.materials_specified_stack):
+            result = ' '.join((result, self.format_materials_specified()))
+        return p.normalize_punctuation(result)
+
+
+class PerformanceMedParser(SequentialMarcFieldParser):
+    def __init__(self, field):
+        super(PerformanceMedParser, self).__init__(field)
+        self.parts = []
+        self.part_stack = []
+        self.instrument_stack = []
+        self.last_part_type = ''
+        self.total_performers = None
+        self.total_ensembles = None
+        self.materials_specified_stack = []
+
+    def push_instrument(self, instrument, number=None, notes=None):
+        number = number or '1'
+        entry = (instrument, number, notes) if notes else (instrument, number)
+        self.instrument_stack.append(entry)
+
+    def push_instrument_stack(self):
+        if self.instrument_stack:
+            self.part_stack.append({self.last_part_type: self.instrument_stack})
+            self.instrument_stack = []
+
+    def push_part_stack(self):
+        self.push_instrument_stack()
+        if self.part_stack:
+            self.parts.append(self.part_stack)
+            self.part_stack = []
+
+    def update_last_instrument(self, number=None, notes=None):
+        try:
+            entry = self.instrument_stack.pop()
+        except IndexError:
+            pass
+        else:
+            instrument, old_num = entry[:2]
+            number = number or old_num
+            if len(entry) == 3:
+                old_notes = entry[2]
+                notes = old_notes + notes if notes else old_notes
+            self.push_instrument(instrument, number, notes)
+
+    def parse_subfield(self, tag, val):
+        if tag == '3':
+            self.materials_specified_stack.append(val)
+        elif tag in 'abdp':
+            if tag in 'ab':
+                self.push_part_stack()
+                part_type = 'primary' if tag == 'a' else 'solo'
+            elif tag in 'dp':
+                part_type = 'doubling' if tag == 'd' else 'alt'
+                if part_type != self.last_part_type:
+                    self.push_instrument_stack()
+            self.push_instrument(val)
+            self.last_part_type = part_type
+        elif tag in 'en':
+            if val != '1':
+                self.update_last_instrument(number=val)
+        elif tag == 'v':
+            self.update_last_instrument(notes=[val])
+        elif tag in 'rs':
+            self.total_performers = val
+        elif tag == 't':
+            self.total_ensembles = val
+
+    def do_post_parse(self):
+        self.push_part_stack()
+
+    def compile_results(self):
+        return {
+            'materials_specified': self.materials_specified_stack,
+            'parts': self.parts,
+            'total_performers': self.total_performers,
+            'total_ensembles': self.total_ensembles
+        }
+
+
+class DissertationNotesFieldParser(SequentialMarcFieldParser):
+    def __init__(self, field):
+        super(DissertationNotesFieldParser, self).__init__(field)
+        self.degree = None
+        self.institution = None
+        self.date = None
+        self.note_parts = []
+        self.degree_statement_is_done = False
+
+    def format_degree_statement(self):
+        result = ', '.join([v for v in (self.institution, self.date) if v])
+        return ' ― '.join([v for v in (self.degree, result) if v])
+
+    def try_to_do_degree_statement(self):
+        if not self.degree_statement_is_done:
+            if self.degree or self.institution or self.date:
+                self.note_parts.append(self.format_degree_statement())
+                self.degree_statement_is_done = True
+
+    def parse_subfield(self, tag, val):
+        if tag == 'b':
+            self.degree = p.strip_ends(val)
+        elif tag == 'c':
+            self.institution = p.strip_ends(val)
+        elif tag == 'd':
+            self.date = p.strip_ends(val)
+        elif tag in 'go':
+            self.try_to_do_degree_statement()
+            self.note_parts.append(val)
+
+    def do_post_parse(self):
+        self.try_to_do_degree_statement()
+
+    def compile_results(self):
+        return {
+            'degree': self.degree,
+            'institution': self.institution,
+            'date': self.date,
+            'note_parts': self.note_parts
+        }
+
+
+class MultiFieldMarcRecordParser(object):
+    """
+    General purpose class for parsing blocks of fields on a MARC
+    record. The `parse` method returns a dictionary mapping field names
+    to value lists that result from parsing the fields on the input
+    MARC `record`.
+
+    The `mapping` value (passed to __init__) controls how to translate
+    MARC to the output dictionary. It should be a tuple structured as
+    such:
+
+        mapping = (
+            ('author_search', {
+                'fields': {
+                    'include': ('a', '100', '700'),
+                    'exclude': ('111', '711')
+                },
+                'subfields': {
+                    'default': {'exclude': 'w01258'},
+                    '100': {'include': 'acd'},
+                }
+                'parse_func': lambda field: field.format_field()
+            }),
+        )
+
+    The first tuple value is the name of the output field (which
+    becomes a key in the output dictionary). The second is a dictionary
+    of options defining how to get field values from the MARC. These
+    options include:
+
+    `fields` -- a dict containing `include` and `exclude` values to
+    pass as kwargs to the `filter_fields` method on the record, to get
+    a list of fields to process. This is non-optional.
+
+    `subfields` -- a dict mapping MARC field tags to lists of subfield
+    filters to pass as kwargs to the `filter_subfields` method during
+    processing. A `default` key may be included.
+
+    `parse_func` -- a function or method that parses each individual
+    field. It should receive the MARC field object and applicable
+    subfield filter, and it should return a string.
+
+    A fallback default subfield filter may also be included, passed on
+    initialization (`default_df_filter`). If not included, it falls
+    back to the `utils.control_sftags` list.
+    """
+    def __init__(self, record, mapping, utils=None, default_sf_filter=None):
+        self.record = record
+        self.mapping = mapping
+        self.utils = utils or MarcParseUtils()
+        self.default_sf_filter = default_sf_filter or {'exclude':
+                                                       utils.control_sftags}
+
+    def default_parse_func(self, field, sf_filter):
+        return GenericDisplayFieldParser(field, ' ', sf_filter).parse()
+
+    def parse(self):
+        ret_val = {}
+        for fname, fdef in self.mapping:
+            parse_func = fdef.get('parse_func', self.default_parse_func)
+            sfdef = fdef.get('subfields', {})
+            default_sff = sfdef.get('default', self.default_sf_filter)
+            ret_val[fname] = ret_val.get(fname, [])
+            for field in self.record.filter_fields(**fdef['fields']):
+                sff = sfdef.get(field.tag, default_sff)
+                field_val = parse_func(field, sff)
+                if field_val:
+                    ret_val[fname].append(field_val)
+        return ret_val
 
 
 class BlacklightASMPipeline(object):
@@ -116,13 +709,17 @@ class BlacklightASMPipeline(object):
     """
     fields = [
         'id', 'suppressed', 'date_added', 'item_info', 'urls_json',
-        'thumbnail_url', 'pub_info', 'access_info', 'resource_type_info'
+        'thumbnail_url', 'pub_info', 'access_info', 'resource_type_info',
+        'contributor_info', 'general_3xx_info', 'general_5xx_info'
     ]
     prefix = 'get_'
     access_online_label = 'Online'
     access_physical_label = 'At the Library'
     item_rules = local_rulesets.ITEM_RULES
     bib_rules = local_rulesets.BIB_RULES
+    hierarchical_name_separator = ' > '
+    hierarchical_subject_separator = ' — '
+    utils = MarcParseUtils()
 
     @property
     def sierra_location_labels(self):
@@ -142,13 +739,16 @@ class BlacklightASMPipeline(object):
         in the `fields` class attribute and returns a dict composed of
         all keys returned by the individual methods.
         """
-        bundle = {}
+        self.bundle = {}
         for fname in self.fields:
             method_name = '{}{}'.format(self.prefix, fname)
             result = getattr(self, method_name)(r, marc_record)
             for k, v in result.items():
-                bundle[k] = v
-        return bundle
+                if k in self.bundle and self.bundle[k] and v:
+                    self.bundle[k].extend(v)
+                else:
+                    self.bundle[k] = v
+        return self.bundle
 
     def fetch_varfields(self, record, vf_code, only_first=False):
         """
@@ -265,6 +865,9 @@ class BlacklightASMPipeline(object):
             return 'catalog'
         return None
 
+    def _sanitize_url(self, url):
+        return re.sub(r'^([^"]+).*$', r'\1', url)
+
     def get_urls_json(self, r, marc_record):
         """
         Return a JSON string representing URLs associated with the
@@ -274,7 +877,7 @@ class BlacklightASMPipeline(object):
         for f856 in marc_record.get_fields('856'):
             url = f856.get_subfields('u')
             if url:
-                url = re.sub(r'^([^"]+).*$', r'\1', url[0])
+                url = self._sanitize_url(url[0])
                 note = ' '.join(f856.get_subfields('3', 'z')) or None
                 label = ' '.join(f856.get_subfields('y')) or None
                 utype = 'fulltext' if f856.indicator2 in ('0', '1') else 'link'
@@ -367,16 +970,17 @@ class BlacklightASMPipeline(object):
         """
         def _try_media_cover_image(f962s):
             for f962 in f962s:
-                url = f962.get_subfields('u')
-                if url and self._url_is_media_cover_image(url[0]):
-                    return re.sub(r'^(https?):\/\/(www\.)?', 'https://',
-                                  url[0])
+                urls = f962.get_subfields('u')
+                url = self._sanitize_url(urls[0]) if urls else None
+                if url and self._url_is_media_cover_image(url):
+                    return re.sub(r'^(https?):\/\/(www\.)?', 'https://', url)
 
         def _try_digital_library_image(f856s):
             for f856 in f856s:
-                url = f856.get_subfields('u')
-                if url and self._url_is_from_digital_library(url[0]):
-                    url = url[0].split('?')[0].rstrip('/')
+                urls = f856.get_subfields('u')
+                url = self._sanitize_url(urls[0]) if urls else None
+                if url and self._url_is_from_digital_library(url):
+                    url = url.split('?')[0].rstrip('/')
                     url = re.sub(r'^http:', 'https:', url)
                     return '{}/small/'.format(url)
 
@@ -399,7 +1003,7 @@ class BlacklightASMPipeline(object):
                          '4': 'copyright'}
         ptype = ind2_type_map.get(f26x.indicator2, 'publication')
         statements = []
-        for gr in group_subfields(f26x, 'abc', breaktags='c'):
+        for gr in group_subfields(f26x, 'abc', end='c'):
             if f26x.tag == '260':                
                 d = pull_from_subfields(gr, 'c', p.split_pdate_and_cdate)
                 pdate, cdate = tuple(d[0:2]) if len(d) > 1 else ('', '')
@@ -469,7 +1073,7 @@ class BlacklightASMPipeline(object):
                 if match.groups()[1] == 'u':
                     year = year.replace('u', '0s')
                 elif match.groups()[1] == 'uu':
-                    century = unicode(int(match.groups()[0]) + 1)
+                    century = unicode(int(match.groups()[0] or 0) + 1)
                     suffix = century_suffix_map.get(century[-1], 'th')
                     year = '{}{} century'.format(century, suffix)
                 else:
@@ -549,6 +1153,7 @@ class BlacklightASMPipeline(object):
             return []
 
         pub_info, described_years, places, publishers = {}, set(), set(), set()
+        publication_date_notes = []
         for f26x in marc_record.get_fields('260', '264'):
             years = pull_from_subfields(f26x, 'cg', p.extract_years)
             described_years |= set(years)
@@ -564,6 +1169,16 @@ class BlacklightASMPipeline(object):
                 pub = p.strip_ends(pub)
                 publishers.add(p.strip_outer_parentheses(pub, True))
 
+        for f362 in marc_record.get_fields('362'):
+            formatted_date = ' '.join(f362.get_subfields('a'))
+            years = p.extract_years(formatted_date)
+            described_years |= set(years)
+            if f362.indicator1 == '0':
+                pub_info['publication'] = pub_info.get('publication', [])
+                pub_info['publication'].append(formatted_date)
+            else:
+                publication_date_notes.append(f362.format_field())
+
         coded_dates = []
         f008 = (marc_record.get_fields('008') or [None])[0]
         if f008 is not None and len(f008.data) >= 15:
@@ -573,7 +1188,7 @@ class BlacklightASMPipeline(object):
             coded_dates.extend(entries)
 
         for field in marc_record.get_fields('046'):
-            coded_group = group_subfields(field, 'abcde', uniquetags='abcde')
+            coded_group = group_subfields(field, 'abcde', unique='abcde')
             if coded_group:
                 dtype = (coded_group[0].get_subfields('a') or [''])[0]
                 date1 = (coded_group[0].get_subfields('c') or [''])[0]
@@ -581,7 +1196,7 @@ class BlacklightASMPipeline(object):
                 entries = self._interpret_coded_date(dtype, date1, date2)
                 coded_dates.extend(entries)
 
-            other_group = group_subfields(field, 'klop', uniquetags='klop')
+            other_group = group_subfields(field, 'klop', unique='klop')
             if other_group:
                 _k = (other_group[0].get_subfields('k') or [''])[0]
                 _l = (other_group[0].get_subfields('l') or [''])[0]
@@ -619,22 +1234,30 @@ class BlacklightASMPipeline(object):
             'publication_year_display': year_display,
             'publication_places_search': list(places),
             'publishers_search': list(publishers),
-            'publication_dates_search': sdates
+            'publication_dates_search': sdates,
+            'publication_date_notes': publication_date_notes
         })
         return ret_val
 
     def get_access_info(self, r, marc_record):
         accessf, buildingf, shelff, collectionf = set(), set(), set(), set()
 
-        # Note: For now we're just ignoring Bib Locations
+        # Note: We only consider bib locations if the bib record has no
+        # attached items, in which case bib locations stand in for item
+        # locations.
 
         item_rules = self.item_rules
-        for link in r.bibrecorditemrecordlink_set.all():
-            item = link.item_record
+        item_info = [{'location_id': l.item_record.location_id} 
+                        for l in r.bibrecorditemrecordlink_set.all()]
+        if len(item_info) == 0:
+            item_info = [{'location_id': l.code} for l in r.locations.all()]
+
+        for item in item_info:
             if item_rules['is_online'].evaluate(item):
                 accessf.add(self.access_online_label)
             else:
-                shelf = self.sierra_location_labels.get(item.location_id, None)
+                shelf = self.sierra_location_labels.get(item['location_id'],
+                                                        None)
                 building_lcode = item_rules['building_location'].evaluate(item)
                 building = None
                 if building_lcode is not None:
@@ -656,37 +1279,320 @@ class BlacklightASMPipeline(object):
         }
 
     def get_resource_type_info(self, r, marc_record):
-        resource_type = self.bib_rules['resource_type'].evaluate(r)
-        rt_categories = {
-            'unknown': [],
-            'book': ['books'],
-            'online_database': ['online_databases'],
-            'music_score': ['music_scores'],
-            'map': ['maps'],
-            'video_film': ['video_film'],
-            'audiobook': ['books', 'audio'],
-            'music_recording': ['music_recordings', 'audio'],
-            'print_graphic': ['images'],
-            'software': ['software'],
-            'video_game': ['games', 'software'],
-            'eresource': ['software'],
-            'ebook': ['books'],
-            'educational_kit': ['educational_kits'],
-            'archival_collection': ['archives_manuscripts'],
-            'print_journal': ['journals_periodicals'],
-            'object_artifact': ['objects_artifacts'],
-            'tabletop_game': ['games', 'objects_artifacts'],
-            'equipment': ['equipment', 'objects_artifacts'],
-            'score_thesis': ['music_scores', 'theses_dissertations'],
-            'manuscript': ['books', 'archives_manuscripts'],
-            'ejournal': ['journals_periodicals'],
-            'thesis_dissertation': ['theses_dissertations'],
+        rtype_info = self.bib_rules['resource_type'].evaluate(r)
+        return {
+            'resource_type': rtype_info['resource_type'],
+            'resource_type_facet': rtype_info['resource_type_categories'],
+            'media_type_facet': rtype_info['media_type_categories']
         }
 
+    def compile_person_info(self, name_struct):
+        heading, relations = name_struct['heading'], name_struct['relations']
+        json = {'r': relations} if relations else {}
+        json['p'] = [{'d': heading}]
+        fn, sn, pt = [name_struct[k] for k in ('forename', 'surname', 
+                                               'person_titles')]
+        search_vals = [heading] + make_personal_name_variations(fn, sn, pt)
+        base_name = '{} {}'.format(fn, sn) if (fn and sn) else (sn or fn)
+        rel_search_vals = make_relator_search_variations(base_name, relations)
+        return {'heading': heading, 'json': json, 'search_vals': search_vals,
+                'relator_search_vals': rel_search_vals,
+                'facet_vals': [heading]}
+
+    def compile_org_or_event_info(self, name_struct):
+        sep = self.hierarchical_name_separator
+        heading, relations = '', name_struct['relations']
+        json = {'r': relations} if relations else {}
+        json['p'], facet_vals = [], []
+        for i, part in enumerate(name_struct['heading_parts']):
+            this_is_first_part = i == 0
+            this_is_last_part = i == len(name_struct['heading_parts']) - 1
+            json_entry = {'d': part['name']}
+            if this_is_first_part:
+                heading = part['name']
+            else:
+                heading = sep.join((heading, part['name']))
+                json_entry['v'] = heading
+            json['p'].append(json_entry)
+            facet_vals.append(heading)
+            if 'event_info' in part:
+                ev_info = part['event_info']
+                need_punct_before_ev_info = bool(re.match(r'^\w', ev_info))
+                if need_punct_before_ev_info:
+                    heading = ', '.join((heading, ev_info))
+                    json['p'][-1]['s'] = ', '
+                else:
+                    heading = ' '.join((heading, ev_info))
+                json_entry = {'d': ev_info, 'v': heading}
+                json['p'].append(json_entry)
+                facet_vals.append(heading)
+            if not this_is_last_part:
+                json['p'][-1]['s'] = sep
+        base_name = ' '.join([h['name'] for h in name_struct['heading_parts']])
+        rel_search_vals = make_relator_search_variations(base_name, relations)
+        return {'heading': heading, 'json': json, 'search_vals': [heading],
+                'relator_search_vals': rel_search_vals,
+                'facet_vals': facet_vals}
+
+    def parse_contributor_fields(self, fields):
+        for f in fields:
+            for name in extract_name_structs_from_heading_field(f, self.utils):
+                if name['type'] == 'person':
+                    info = self.compile_person_info(name)
+                else:
+                    info = self.compile_org_or_event_info(name)
+                if info['heading']:
+                    info['tag'] = f.tag
+                    info['name_type'] = name['type']
+                    yield info
+
+    def get_contributor_info(self, r, marc_record):
+        """
+        This is responsible for using the 100, 110, 111, 700, 710, 711,
+        800, 810, and 811 to determine the entirety of author,
+        contributor, and meeting fields.
+        """
+        author_json, contributors_json, meetings_json = {}, [], []
+        author_search, contributors_search, meetings_search = [], [], []
+        author_contributor_facet, meeting_facet = [], []
+        responsibility_search = []
+        author_sort = None
+
+        fields = marc_record.get_fields('100', '110', '111', '700', '710',
+                                        '711', '800', '810', '811')
+        for parsed in self.parse_contributor_fields(fields):
+            this_is_event = parsed['name_type'] == 'event'
+            this_is_1XX = parsed['tag'].startswith('1')
+            this_is_7XX = parsed['tag'].startswith('7')
+            this_is_8XX = parsed['tag'].startswith('8')
+            if this_is_event:
+                meetings_search.extend(parsed['search_vals'])
+                meeting_facet.extend(parsed['facet_vals'])
+                if not this_is_8XX:
+                    meetings_json.append(parsed['json'])
+            else:
+                have_seen_author = bool(author_contributor_facet)
+                if not have_seen_author:
+                    if this_is_1XX or this_is_7XX:
+                        author_sort = parsed['heading'].lower()
+                    if this_is_1XX:
+                        author_json = parsed['json']
+                        author_search.extend(parsed['search_vals'])
+                if have_seen_author or this_is_7XX or this_is_8XX:
+                    contributors_search.extend(parsed['search_vals'])
+                if have_seen_author or this_is_7XX:
+                    contributors_json.append(parsed['json'])
+                author_contributor_facet.extend(parsed['facet_vals'])
+            responsibility_search.extend(parsed['relator_search_vals'])
+
         return {
-            'resource_type': resource_type,
-            'resource_type_facet': rt_categories[resource_type]
+            'author_json': ujson.dumps(author_json) if author_json else None,
+            'contributors_json': [ujson.dumps(v) for v in contributors_json]
+                                  or None,
+            'meetings_json': [ujson.dumps(v) for v in meetings_json]
+                             or None,
+            'author_search': author_search or None,
+            'contributors_search': contributors_search or None,
+            'meetings_search': meetings_search or None,
+            'author_contributor_facet': author_contributor_facet or None,
+            'meeting_facet': meeting_facet or None,
+            'author_sort': author_sort,
+            'responsibility_search': responsibility_search or None
         }
+
+    def compile_performance_medium(self, parsed_pm): 
+        def _render_instrument(entry):
+            instrument, number = entry[:2]
+            render_stack = [instrument]
+            if number != '1':
+                render_stack.append('({})'.format(number))
+            if len(entry) == 3:
+                notes = entry[2]
+                render_stack.append('[{}]'.format(' / '.join(notes)))
+            return ' '.join(render_stack)
+
+        def _render_clause(rendered_insts, conjunction, prefix):
+            if prefix:
+                render_stack = [' '.join((prefix, rendered_insts[0]))]
+            else:
+                render_stack = [rendered_insts[0]]
+            num_insts = len(rendered_insts)
+            item_sep = ', ' if num_insts > 2 else ' '
+            if num_insts > 1:
+                last_inst = ' '.join((conjunction, rendered_insts[-1]))
+                render_stack.extend(rendered_insts[1:-1] + [last_inst])
+            return item_sep.join(render_stack)
+
+        def _render_totals(parsed_pm):
+            render_stack, nums = [], {}
+            nums['performer'] = parsed_pm['total_performers']
+            nums['ensemble'] = parsed_pm['total_ensembles']
+            for entity_type, num in nums.items():
+                if num:
+                    s = '' if num == '1' else 's'
+                    render_stack.append('{} {}{}'.format(num, entity_type, s))
+            return ' and '.join(render_stack)
+
+        totals = _render_totals(parsed_pm)
+        compiled_parts = []
+        for parsed_part in parsed_pm['parts']:
+            rendered_clauses = []
+            for clause in parsed_part:
+                part_type, instruments = clause.items()[0]
+                conjunction = 'or' if part_type == 'alt' else 'and'
+                prefix = part_type if part_type in ('doubling', 'solo') else ''
+                rendered_insts = [_render_instrument(i) for i in instruments]
+                if part_type == 'alt':
+                    if len(rendered_clauses):
+                        last_clause = rendered_clauses.pop()
+                        rendered_insts = [last_clause] + rendered_insts
+                rendered_clause = _render_clause(rendered_insts, conjunction,
+                                                 prefix)
+                rendered_clauses.append(rendered_clause)
+            compiled_parts.append(' '.join(rendered_clauses))
+        pstr = '; '.join(compiled_parts)
+        final_stack = ([totals] if totals else []) + ([pstr] if pstr else [])
+        if final_stack:
+            final_render = ': '.join(final_stack)
+            if parsed_pm['materials_specified']:
+                ms_render = ', '.join(parsed_pm['materials_specified'])
+                final_render = ' '.join(('({})'.format(ms_render), final_render))
+            return ''.join([final_render[0].upper(), final_render[1:]])
+
+    def get_general_3xx_info(self, r, marc_record):
+        def join_subfields_with_semicolons(field, sf_filter):
+            return GenericDisplayFieldParser(field, '; ', sf_filter).parse()
+
+        def parse_performance_medium(field, sf_filter):
+            parsed = PerformanceMedParser(field).parse()
+            return self.compile_performance_medium(parsed)
+
+        record_parser = MultiFieldMarcRecordParser(marc_record, (
+            ('physical_medium', {
+                'fields': {'include': ('340',)},
+                'parse_func': join_subfields_with_semicolons
+            }),
+            ('geospatial_data', {
+                'fields': {'include': ('342', '343')},
+                'parse_func': join_subfields_with_semicolons
+            }),
+            ('audio_characteristics', {
+                'fields': {'include': ('344',)},
+                'parse_func': join_subfields_with_semicolons
+            }),
+            ('projection_characteristics', {
+                'fields': {'include': ('345',)},
+                'parse_func': join_subfields_with_semicolons
+            }),
+            ('video_characteristics', {
+                'fields': {'include': ('346',)},
+                'parse_func': join_subfields_with_semicolons
+            }),
+            ('digital_file_characteristics', {
+                'fields': {'include': ('347',)},
+                'parse_func': join_subfields_with_semicolons
+            }),
+            ('graphic_representation', {
+                'fields': {'include': ('352',)}
+            }),
+            ('performance_medium', {
+                'fields': {'include': ('382',)},
+                'parse_func': parse_performance_medium
+            }),
+            ('physical_description', {
+                'fields': {
+                    'include': ('r', '370'),
+                    'exclude': IGNORED_MARC_FIELDS_BY_GROUP_TAG['r'] +
+                               ('310', '321', '340', '342', '343', '344', '345',
+                                '346', '347', '352', '362', '382')
+                }
+            })
+        ), utils=self.utils)
+        return record_parser.parse()
+
+    def get_general_5xx_info(self, r, marc_record):
+        def join_subfields_with_spaces(field, sf_filter):
+            return GenericDisplayFieldParser(field, ' ', sf_filter).parse()
+
+        def join_subfields_with_semicolons(field, sf_filter):
+            return GenericDisplayFieldParser(field, '; ', sf_filter).parse()
+
+        def _generate_display_constant(parse_func, test_val, mapping):
+            label = mapping.get(test_val, None)
+            if label:
+                return '{}: {}'.format(label, parse_func())
+            return parse_func()
+
+        def parse_502_dissertation_notes(field, sf_filter):
+            if field.get_subfields('a'):
+                return join_subfields_with_spaces(field, {'include': 'ago'})
+            parsed_dn = DissertationNotesFieldParser(field).parse()
+            diss_note = '{}.'.format('. '.join(parsed_dn['note_parts']))
+            return p.normalize_punctuation(diss_note)
+
+        def parse_511_performers(field, sf_filter):
+            return _generate_display_constant(
+                lambda: join_subfields_with_spaces(field, sf_filter),
+                field.indicator1,
+                {'1': 'Cast'}
+            )
+
+        def parse_all_other_notes(field, sf_filter):
+            if field.tag == '521':
+                val = _generate_display_constant(
+                    lambda: join_subfields_with_semicolons(field,
+                                                           {'include': '3a'}),
+                    field.indicator1,
+                    {' ': 'Audience',
+                     '0': 'Reading grade level',
+                     '1': 'Ages',
+                     '2': 'Grades',
+                     '3': 'Special audience characteristics',
+                     '4': 'Motivation/interest level'}
+                )
+                source = ', '.join(field.get_subfields('b'))
+                if source:
+                    val = '{} (source: {})'.format(val, p.strip_ends(source))
+                return val
+
+            if field.tag == '583':
+                if field.indicator1 == '1':
+                    return join_subfields_with_semicolons(field, sf_filter)
+                return None
+
+            if field.tag == '588':
+                return _generate_display_constant(
+                    lambda: join_subfields_with_spaces(field, sf_filter),
+                    field.indicator1,
+                    {'0': 'Description based on',
+                     '1': 'Latest issue consulted'}
+                )
+            return join_subfields_with_spaces(field, sf_filter)
+
+        record_parser = MultiFieldMarcRecordParser(marc_record, (
+            ('performers', {
+                'fields': {'include': ('511',)},
+                'parse_func': parse_511_performers
+            }),
+            ('language_notes', {
+                'fields': {'include': ('546',)},
+                'parse_func': join_subfields_with_spaces
+            }),
+            ('dissertation_notes', {
+                'fields': {'include': ('502',)},
+                'parse_func': parse_502_dissertation_notes
+            }),
+            ('notes', {
+                'fields': {
+                    'include': ('n', '583'),
+                    'exclude': IGNORED_MARC_FIELDS_BY_GROUP_TAG['n'] +
+                               ('502', '505', '508', '511', '520', '546',
+                                '592'),
+                },
+                'parse_func': parse_all_other_notes    
+            })
+        ), utils=self.utils)
+        return record_parser.parse()
 
 
 class PipelineBundleConverter(object):
@@ -741,15 +1647,22 @@ class PipelineBundleConverter(object):
         ( '907', ('id',) ),
         ( '970', ('suppressed', 'date_added', 'access_facet', 'building_facet',
                   'shelf_facet', 'collection_facet', 'resource_type',
-                  'resource_type_facet', 'game_duration_facet',
-                  'game_players_facet', 'game_age_facet') ),
+                  'resource_type_facet', 'media_type_facet') ),
         ( '971', ('items_json',) ),
         ( '971', ('has_more_items',) ),
         ( '971', ('more_items_json',) ),
         ( '971', ('thumbnail_url', 'urls_json') ),
         ( '971', ('serial_holdings',) ),
-        ( '972', ('author_display_json',) ),
-        ( '972', ('contributors_display_json',) ),
+        ( '972', ('author_json',) ),
+        ( '972', ('contributors_json',) ),
+        ( '972', ('meetings_json',) ),
+        ( '972', ('author_search',) ),
+        ( '972', ('contributors_search',) ),
+        ( '972', ('meetings_search',) ),
+        ( '972', ('author_contributor_facet',) ),
+        ( '972', ('meeting_facet',) ),
+        ( '972', ('author_sort',) ),
+        ( '972', ('responsibility_search',) ),
         ( '973', ('full_title', 'responsibility', 'parallel_titles') ),
         ( '973', ('included_work_titles', 'related_work_titles') ),
         ( '973', ('included_work_titles_display_json',) ),
@@ -772,7 +1685,12 @@ class PipelineBundleConverter(object):
                   'distribution_display', 'manufacture_display',
                   'copyright_display') ),
         ( '976', ('publication_places_search', 'publishers_search',
-                  'publication_dates_search') ),
+                  'publication_dates_search', 'publication_date_notes') ),
+        ( '977', ('physical_description', 'physical_medium', 'geospatial_data',
+                  'audio_characteristics', 'projection_characteristics',
+                  'video_characteristics', 'digital_file_characteristics',
+                  'graphic_representation', 'performance_medium', 'performers',
+                  'language_notes', 'dissertation_notes', 'notes') ),
     )
 
     def __init__(self, mapping=None):
@@ -794,13 +1712,13 @@ class PipelineBundleConverter(object):
             for v in vals:
                 if v is not None:
                     if repeat_field:
-                        field = make_pmfield(tag, subfields=[sftag, v])
+                        field = make_mfield(tag, subfields=[sftag, v])
                         fields.append(field)
                     else:
                         subfields.extend([sftag, v])
             sftag = self._increment_sftag(sftag)
         if len(subfields):
-            fields.append(make_pmfield(tag, subfields=subfields))
+            fields.append(make_mfield(tag, subfields=subfields))
         return sftag, fields
 
     def do(self, bundle):
@@ -868,34 +1786,44 @@ class S2MarcBatchBlacklightSolrMarc(S2MarcBatch):
         for cf in control_fields:
             try:
                 data = cf.get_data()
-                field = make_pmfield(cf.get_tag(), data=data)
+                field = make_mfield(cf.get_tag(), data=data)
             except Exception as e:
                 raise S2MarcError('Skipped. Couldn\'t create MARC field '
                     'for {}. ({})'.format(cf.get_tag(), e), str(r))
             mfields.append(field)
         return mfields
 
+    def order_varfields(self, varfields):
+        groups = []
+        vfgroup_ordernum, last_vftag = 0, None
+        for vf in sorted(varfields, key=lambda vf: vf.marc_tag):
+            if vf.marc_tag:
+                if last_vftag and last_vftag != vf.varfield_type_code:
+                    vfgroup_ordernum += 1
+                sort_key = (vfgroup_ordernum * 1000) + vf.occ_num
+                groups.append((sort_key, vf))
+                last_vftag = vf.varfield_type_code
+        return [vf for _, vf in sorted(groups, key=lambda r: r[0])]
+
     def compile_varfields(self, r):
         mfields = []
         try:
-            varfields = r.record_metadata.varfield_set\
-                        .exclude(marc_tag=None)\
-                        .exclude(marc_tag='')\
-                        .order_by('marc_tag')
+            varfields = r.record_metadata.varfield_set.all()
         except Exception as e:
             raise S2MarcError('Skipped. Couldn\'t retrieve varfields. '
                               '({})'.format(e), str(r))
-        for vf in varfields:
+        for vf in self.order_varfields(varfields):
             tag, ind1, ind2 = vf.marc_tag, vf.marc_ind1, vf.marc_ind2
             content, field = vf.field_content, None
             try:
                 if tag in ['{:03}'.format(num) for num in range(1,10)]:
-                    field = make_pmfield(tag, data=content)
+                    field = make_mfield(tag, data=content)
                 elif tag[0] != '9' or tag in ('962',):
                     # Ignore most existing 9XX fields from Sierra.
                     ind = [ind1, ind2]
                     sf = re.split(r'\|([a-z0-9])', content)[1:]
-                    field = make_pmfield(tag, indicators=ind, subfields=sf)
+                    field = make_mfield(tag, indicators=ind, subfields=sf,
+                                              group_tag=vf.varfield_type_code)
             except Exception as e:
                 raise S2MarcError('Skipped. Couldn\'t create MARC field '
                         'for {}. ({})'.format(vf.marc_tag, e), str(r))
@@ -904,9 +1832,9 @@ class S2MarcBatchBlacklightSolrMarc(S2MarcBatch):
         return mfields
 
     def compile_original_marc(self, r):
-        marc_record = pymarc.record.Record(force_utf8=True)
-        marc_record.add_ordered_field(*self.compile_control_fields(r))
-        marc_record.add_ordered_field(*self.compile_varfields(r))
+        marc_record = SierraMarcRecord(force_utf8=True)
+        marc_record.add_field(*self.compile_control_fields(r))
+        marc_record.add_field(*self.compile_varfields(r))
         return marc_record
 
     def _one_to_marc(self, r):
@@ -915,11 +1843,11 @@ class S2MarcBatchBlacklightSolrMarc(S2MarcBatch):
             raise S2MarcError('Skipped. No MARC fields on Bib record.', str(r))
 
         bundle = self.custom_data_pipeline.do(r, marc_record)
-        marc_record.add_ordered_field(*self.to_9xx_converter.do(bundle))
+        marc_record.add_field(*self.to_9xx_converter.do(bundle))
 
         marc_record.remove_fields('001')
         hacked_id = 'a{}'.format(bundle['id'])
-        marc_record.add_grouped_field(make_pmfield('001', data=hacked_id))
+        marc_record.add_grouped_field(make_mfield('001', data=hacked_id))
         
         material_type = r.bibrecordproperty_set.all()[0].material.code
         metadata_field = pymarc.field.Field(
@@ -927,7 +1855,7 @@ class S2MarcBatchBlacklightSolrMarc(S2MarcBatch):
                 indicators=[' ', ' '],
                 subfields=['d', material_type]
         )
-        marc_record.add_ordered_field(metadata_field)
+        marc_record.add_field(metadata_field)
 
         # For each call number in the record, add a 909 field.
         i = 0
@@ -948,7 +1876,7 @@ class S2MarcBatchBlacklightSolrMarc(S2MarcBatch):
                 indicators=[' ', ' '],
                 subfields=subfield_data
             )
-            marc_record.add_ordered_field(cn_field)
+            marc_record.add_field(cn_field)
             i += 1
 
         # If this record has a media game facet field: clean it up,
@@ -964,7 +1892,7 @@ class S2MarcBatchBlacklightSolrMarc(S2MarcBatch):
                 indicators=[' ', ' '],
                 subfields = mf_subfield_data
             )
-            marc_record.add_ordered_field(mf_field)
+            marc_record.add_field(mf_field)
 
         if re.match(r'[0-9]', marc_record.as_marc()[5]):
             raise S2MarcError('Skipped. MARC record exceeds 99,999 bytes.', 

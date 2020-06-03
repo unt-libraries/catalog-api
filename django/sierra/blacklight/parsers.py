@@ -208,7 +208,8 @@ def protect_periods_and_do(data, do, repl_char='~',
     protect_all = r'\b(({}|{}|{})(?=\.\W)|({}|{}))\.'.format(ordinal_period_numeric, ordinal_period_alphabetic,
                                                              roman_numerals, initials, abbreviations_re)
     periods_in_words_protected = re.sub(r'\.(\w)', r'{}\1'.format(repl_char), data)
-    all_protected = re.sub(protect_all, r'\1{}'.format(repl_char), periods_in_words_protected)
+    ellipses_protected = re.sub(r'\.{3}', r'{0}{0}{0}'.format(repl_char), periods_in_words_protected)
+    all_protected = re.sub(protect_all, r'\1{}'.format(repl_char), ellipses_protected)
     processed_data = do(all_protected)
     periods_restored = re.sub(repl_char, r'.', processed_data)
     return periods_restored
@@ -227,9 +228,10 @@ def normalize_punctuation(data, punctuation_re=settings.MARCDATA.ENDING_PUNCTUAT
         bracket_end_punct_removed = re.sub(r'(\s*{}\s*)+([\]\}}\)])'.format(punctuation_re), r'\2', bracket_front_punct_removed)
         empty_brackets_removed = re.sub(r'(\[\s*\]|\(\s*\)|\{\s*\})', r'', bracket_end_punct_removed)
         multiples_removed = re.sub(r'(\s?)(\s*{0})+\s*({0})'.format(punctuation_re), r'\1\3', empty_brackets_removed)
-        front_punct_removed = re.sub(r'^(\s*{}\s*)+'.format(punctuation_re), r'', multiples_removed)
+        periods_after_abbrevs_removed = re.sub(r'~(\s*\.)(\s*[^.]|$)', r'~\2', multiples_removed)
+        front_punct_removed = re.sub(r'^(\s*{}\s*)+'.format(punctuation_re), r'', periods_after_abbrevs_removed)
         return front_punct_removed
-    return compress_punctuation(protect_periods_and_do(data.strip(), _normalize), left_space_re=r'[\.,]')
+    return compress_punctuation(protect_periods_and_do(data.strip(), _normalize, '~'), left_space_re=r'\.(?!\.\.)|,')
 
 
 def strip_ends(data, end_punctuation_re=settings.MARCDATA.ENDING_PUNCTUATION_REGEX):
@@ -315,6 +317,15 @@ def strip_ellipses(data):
     return re.sub(r'(^\.{3}|\s*(?<=[^\.])\.{3})\s*(\.?)', r'\2 ', data).strip()
 
 
+def strip_wemi(data):
+    """
+    Strip any FRBR WEMI entity terms (work, expression, manifestation,
+    or item) in the given string data.
+    """
+    return re.sub(r'\s*\((work|expression|manifestation|item)\)', r'', data,
+                  flags=re.IGNORECASE)
+
+
 def clean(data):
     """
     Perform common clean-up operations on a string of MARC field data.
@@ -340,14 +351,14 @@ def extract_years(data):
     19uu => 20th century
     """
     dates = []
-    century_re = r'\d{1,2}st|\d{1,2}nd|\d{1,2}rd|\d{1,2}th(?=.+centur)'
+    century_re = r'(\d{1,2}st|\d{1,2}nd|\d{1,2}rd|\d{1,2}th)(?=.+centur)'
     decade_re = r'\d{2,3}0s'
     year_re = r'\d---|\d\d--|\d\d\d-|\d{3,4}(?![\ds])'
     combined_re = r'(?<!\d)({}|{}|{})'.format(century_re, decade_re, year_re)
 
     data = data.replace('[', '').replace(']', '')
     
-    for date in re.findall(combined_re, data, flags=re.IGNORECASE):
+    for date, _ in re.findall(combined_re, data, flags=re.IGNORECASE):
         if date.lower().endswith('0s'):
             new_date = '{}u'.format(date[:-2])
         elif date[-2:].lower() in ('st', 'nd', 'rd', 'th'):
@@ -442,6 +453,6 @@ def person_name(data, indicators):
             if is_family_name or re.search(r'\s*family\b', surname, flags=re.I):
                 family_name = surname
                 surname = re.sub(r'\s*family\b', '', surname, flags=re.I)
-    return {'forename': strip_ends(forename),
-            'surname': strip_ends(surname),
-            'family_name': strip_ends(family_name)}
+    return {'forename': strip_ends(forename) or None,
+            'surname': strip_ends(surname) or None,
+            'family_name': strip_ends(family_name) or None}
