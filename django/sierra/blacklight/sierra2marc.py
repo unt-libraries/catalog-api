@@ -1341,9 +1341,10 @@ class BlacklightASMPipeline(object):
                     info = self.compile_person_info(name)
                 else:
                     info = self.compile_org_or_event_info(name)
-                info['tag'] = f.tag
-                info['name_type'] = name['type']
-                yield info
+                if info['heading']:
+                    info['tag'] = f.tag
+                    info['name_type'] = name['type']
+                    yield info
 
     def get_contributor_info(self, r, marc_record):
         """
