@@ -229,7 +229,7 @@ def solr_profile_definitions(global_solr_conn):
     """
     hs_conn = global_solr_conn('haystack')
     bib_conn = global_solr_conn('bibdata')
-    marc_conn = global_solr_conn('marc')
+    # marc_conn = global_solr_conn('marc')
     return {
         'location': {
             'conn': hs_conn,
@@ -261,11 +261,11 @@ def solr_profile_definitions(global_solr_conn):
             'user_fields': tp.BIB_FIELDS,
             'field_gens': tp.BIB_GENS
         },
-        'marc': {
-            'conn': marc_conn,
-            'user_fields': tp.MARC_FIELDS,
-            'field_gens': tp.MARC_GENS
-        }
+        # 'marc': {
+        #     'conn': marc_conn,
+        #     'user_fields': tp.MARC_FIELDS,
+        #     'field_gens': tp.MARC_GENS
+        # }
     }
 
 

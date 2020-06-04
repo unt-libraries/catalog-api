@@ -359,7 +359,7 @@ def test_attachedtoasm_delete_records(asm_exporter_class, do_commit,
     bib_data = [(r.id, {'record_number': r.get_iii_recnum()}) for r in records]
     bl_solr_assembler.load_static_test_data('alphasolrmarc', ams_data)
     basic_solr_assembler.load_static_test_data('bib', bib_data)
-    basic_solr_assembler.load_static_test_data('marc', bib_data)
+    # basic_solr_assembler.load_static_test_data('marc', bib_data)
     
     expclass = asm_exporter_class('BibsToAlphaSmAndAttachedToSolr')
     exporter = new_exporter(expclass, 'full_export', 'waiting')

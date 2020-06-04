@@ -398,7 +398,7 @@ class BibsToSolr(ToSolrExporter):
     Index = ToSolrExporter.Index
     index_config = (
         Index('Bibs', indexes.BibIndex, SOLR_CONNS['BibsToSolr:BIBS']),
-        Index('MARC', indexes.MarcIndex, SOLR_CONNS['BibsToSolr:MARC'])
+        # Index('MARC', indexes.MarcIndex, SOLR_CONNS['BibsToSolr:MARC'])
     )
     model = sierra_models.BibRecord
     deletion_filter = [

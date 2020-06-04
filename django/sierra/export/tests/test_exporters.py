@@ -169,7 +169,8 @@ def test_allmdtosolr_export_get_deletions(batch_exporter_class, record_sets,
 @pytest.mark.do_export
 @pytest.mark.basic
 @pytest.mark.parametrize('et_code, rset_code, rectypes, do_reindex', [
-    ('BibsToSolr', 'bib_set', ('bib', 'marc'), False),
+    # ('BibsToSolr', 'bib_set', ('bib', 'marc'), False),
+    ('BibsToSolr', 'bib_set', ('bib',), False),
     ('EResourcesToSolr', 'eres_set', ('eresource',), False),
     ('ItemsToSolr', 'item_set', ('item',), False),
     ('ItemStatusesToSolr', 'istatus_set', ('itemstatus',), True),
@@ -260,7 +261,8 @@ def test_allmdtosolr_export_records(batch_exporter_class, record_sets,
 @pytest.mark.do_export
 @pytest.mark.basic
 @pytest.mark.parametrize('et_code, rset_code, rectypes', [
-    ('BibsToSolr', 'bib_del_set', ('bib', 'marc')),
+    # ('BibsToSolr', 'bib_del_set', ('bib', 'marc')),
+    ('BibsToSolr', 'bib_del_set', ('bib',)),
     ('EResourcesToSolr', 'eres_del_set', ('eresource',)),
     ('ItemsToSolr', 'item_del_set', ('item',)),
 ])
@@ -353,7 +355,8 @@ def test_attached_solr_export_records(et_code, rset_code, basic_exporter_class,
 @pytest.mark.do_export
 @pytest.mark.parametrize('et_code, rset_code, rectypes', [
     ('ItemsBibsToSolr', 'item_del_set', ('item',)),
-    ('BibsAndAttachedToSolr', 'bib_del_set', ('bib', 'marc')),
+    # ('BibsAndAttachedToSolr', 'bib_del_set', ('bib', 'marc')),
+    ('BibsAndAttachedToSolr', 'bib_del_set', ('bib',)),
 ])
 def test_attached_solr_delete_records(et_code, rset_code, rectypes,
                                       basic_exporter_class, record_sets,

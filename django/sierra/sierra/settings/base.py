@@ -310,11 +310,11 @@ HAYSTACK_CONNECTIONS = {
         'URL': solr_bibdata_url,
         'TIMEOUT': 60 * 20,
     },
-    'marc': {
-        'ENGINE': 'sierra.solr_backend.CustomSolrEngine',
-        'URL': solr_marc_url,
-        'TIMEOUT': 60 * 20,
-    },
+    # 'marc': {
+    #     'ENGINE': 'sierra.solr_backend.CustomSolrEngine',
+    #     'URL': solr_marc_url,
+    #     'TIMEOUT': 60 * 20,
+    # },
     'alpha-solrmarc': {
         'ENGINE': 'sierra.solr_backend.SolrmarcEngine',
         'URL': solr_asm_url,
@@ -420,7 +420,8 @@ TASK_LOG_LABEL = 'Scheduler'
 EXPORTER_HAYSTACK_CONNECTIONS = {
     'ItemsToSolr': 'haystack',
     'BibsToSolr:BIBS': 'bibdata',
-    'BibsToSolr:MARC': 'marc',
+    # 'BibsToSolr:MARC': 'marc',
+    'BibsToSolr:MARC': '',
     'LocationsToSolr': 'haystack',
     'ItypesToSolr': 'haystack',
     'ItemStatusesToSolr': 'haystack',
@@ -470,7 +471,8 @@ SOLRMARC_CONFIG_FILE = get_env_variable('SOLRMARC_CONFIG_FILE',
 # that don't use the default connection.
 REST_VIEWS_HAYSTACK_CONNECTIONS = {
     'Bibs': 'bibdata',
-    'Marc': 'marc',
+    # 'Marc': 'marc',
+    'Marc': '',
 }
 
 # This specifies which installed apps have user permissions settings

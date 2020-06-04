@@ -269,10 +269,10 @@ class BibSerializer(SimpleSerializer):
                 'href': APIUris.get_uri('bibs-detail', req=req, absolute=True,
                                         v=view.api_version, id=obj_id)
             }
-            ret['marc'] = {
-                'href': APIUris.get_uri('marc-detail', req=req, absolute=True,
-                                        v=view.api_version, id=obj_id)
-            }
+            # ret['marc'] = {
+            #     'href': APIUris.get_uri('marc-detail', req=req, absolute=True,
+            #                             v=view.api_version, id=obj_id)
+            # }
             if item_ids is not None:
                 items = []
                 for item_id in item_ids:
