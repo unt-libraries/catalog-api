@@ -320,16 +320,16 @@ HAYSTACK_CONNECTIONS = {
         'URL': solr_asm_url,
         'TIMEOUT': 60 * 20,
     },
-    'alpha-solrmarc-02': {
-        'ENGINE': 'sierra.solr_backend.SolrmarcEngine',
-        'URL': solr_asm02_url,
-        'TIMEOUT': 60 * 20,
-    },
-    'bl-suggest': {
-        'ENGINE': 'sierra.solr_backend.CustomSolrEngine',
-        'URL': solr_bls_url,
-        'TIMEOUT': 60 * 20,
-    }
+    # 'alpha-solrmarc-02': {
+    #     'ENGINE': 'sierra.solr_backend.SolrmarcEngine',
+    #     'URL': solr_asm02_url,
+    #     'TIMEOUT': 60 * 20,
+    # },
+    # 'bl-suggest': {
+    #     'ENGINE': 'sierra.solr_backend.CustomSolrEngine',
+    #     'URL': solr_bls_url,
+    #     'TIMEOUT': 60 * 20,
+    # }
 }
 
 # BL_CONN_NAME: the name of the connection / Solr core you're using for
@@ -337,7 +337,8 @@ HAYSTACK_CONNECTIONS = {
 BL_CONN_NAME = 'alpha-solrmarc'
 # BL_SUGGEST_CONN_NAME: the name of the connection / Solr core you're
 # using for the current Blacklight auto-suggest index.
-BL_SUGGEST_CONN_NAME = 'bl-suggest'
+# BL_SUGGEST_CONN_NAME = 'bl-suggest'
+BL_SUGGEST_CONN_NAME = ''
 
 # HAYSTACK_LIMIT_TO_REGISTERED_MODELS, set to False to allow Haystack
 # to search our SolrMarc indexes, which are not model-based

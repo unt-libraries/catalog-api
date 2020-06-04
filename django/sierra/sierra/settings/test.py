@@ -81,5 +81,5 @@ HAYSTACK_CONNECTIONS['haystack']['URL'] = solr_haystack_url
 HAYSTACK_CONNECTIONS['bibdata']['URL'] = solr_bibdata_url
 HAYSTACK_CONNECTIONS['marc']['URL'] = solr_marc_url
 HAYSTACK_CONNECTIONS['alpha-solrmarc']['URL'] = solr_asm_url
-HAYSTACK_CONNECTIONS['alpha-solrmarc-02']['URL'] = solr_asm02_url
-HAYSTACK_CONNECTIONS['bl-suggest']['URL'] = solr_bls_url
+# HAYSTACK_CONNECTIONS['alpha-solrmarc-02']['URL'] = solr_asm02_url
+# HAYSTACK_CONNECTIONS['bl-suggest']['URL'] = solr_bls_url
