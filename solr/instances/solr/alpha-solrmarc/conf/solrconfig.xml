@@ -495,7 +495,7 @@
     <filterCache class="solr.FastLRUCache"
                  size="512"
                  initialSize="512"
-                 autowarmCount="0"/>
+                 autowarmCount="128"/>
 
     <!-- Query Result Cache
          
@@ -505,7 +505,7 @@
     <queryResultCache class="solr.LRUCache"
                      size="512"
                      initialSize="512"
-                     autowarmCount="0"/>
+                     autowarmCount="128"/>
    
     <!-- Document Cache
 
@@ -623,16 +623,133 @@
       -->
     <listener event="newSearcher" class="solr.QuerySenderListener">
       <arr name="queries">
-        <!--
-           <lst><str name="q">solr</str><str name="sort">price asc</str></lst>
-           <lst><str name="q">rocks</str><str name="sort">weight asc</str></lst>
-          -->
+        <str name="f.access_facet.facet.sort">index</str>
+        <str name="f.publication_year_facet.facet.limit">11</str>
+        <str name="fq">suppressed:false</str>
+        <str name="f.publication_year_facet.facet.sort">index</str>
+        <str name="f.languages.facet.limit">11</str>
+        <str name="facet.query">date_added:[NOW-7DAYS/DAY+TO+NOW/DAY]</str>
+        <str name="facet.query">date_added:[NOW-14DAYS/DAY+TO+NOW/DAY]</str>
+        <str name="facet.query">date_added:[NOW-21DAYS/DAY+TO+NOW/DAY]</str>
+        <str name="facet.query">date_added:[NOW-1MONTH/DAY+TO+NOW/DAY]</str>
+        <str name="facet.query">date_added:[NOW-2MONTHS/DAY+TO+NOW/DAY]</str>
+        <str name="facet.query">date_added:[NOW-3MONTHS/DAY+TO+NOW/DAY]</str>
+        <str name="facet.query">date_added:[NOW-6MONTHS/DAY+TO+NOW/DAY]</str>
+        <str name="facet.query">game_facet:d1t29</str>
+        <str name="facet.query">game_facet:d30t59</str>
+        <str name="facet.query">game_facet:d60t120</str>
+        <str name="facet.query">game_facet:d120t500</str>
+        <str name="facet.query">game_facet:p1</str>
+        <str name="facet.query">game_facet:p2t4</str>
+        <str name="facet.query">game_facet:p4t8</str>
+        <str name="facet.query">game_facet:p9t99</str>
+        <str name="facet.query">game_facet:a1t4</str>
+        <str name="facet.query">game_facet:a5t9</str>
+        <str name="facet.query">game_facet:a10t13</str>
+        <str name="facet.query">game_facet:a14t16</str>
+        <str name="facet.query">game_facet:a17t100</str>
+        <str name="f.public_series_facet.facet.limit">11</str>
+        <str name="f.building_facet.facet.sort">index</str>
+        <str name="f.public_title_facet.facet.limit">11</str>
+        <str name="f.author_contributor_facet.facet.limit">11</str>
+        <str name="f.publication_decade_facet.facet.sort">index</str>
+        <str name="wt">json</str>
+        <str name="f.geographic_terms_facet.facet.limit">11</str>
+        <str name="f.public_subject_facet.facet.limit">11</str>
+        <str name="facet.field">access_facet</str>
+        <str name="facet.field">media_type_facet</str>
+        <str name="facet.field">collection_facet</str>
+        <str name="facet.field">building_facet</str>
+        <str name="facet.field">shelf_facet</str>
+        <str name="facet.field">publication_year_facet</str>
+        <str name="facet.field">publication_decade_facet</str>
+        <str name="facet.field">languages</str>
+        <str name="facet.field">author_contributor_facet</str>
+        <str name="facet.field">meeting_facet</str>
+        <str name="facet.field">public_title_facet</str>
+        <str name="facet.field">public_series_facet</str>
+        <str name="facet.field">public_genre_facet</str>
+        <str name="facet.field">public_subject_facet</str>
+        <str name="facet.field">geographic_terms_facet</str>
+        <str name="facet.field">era_terms_facet</str>
+        <str name="qt">catalog-search</str>
+        <str name="f.shelf_facet.facet.limit">11</str>
+        <str name="f.public_genre_facet.facet.limit">11</str>
+        <str name="f.era_terms_facet.facet.limit">11</str>
+        <str name="f.collection_facet.facet.sort">index</str>
+        <str name="sort">score+desc,+title_sort+asc</str>
+        <str name="rows">50</str>
+        <str name="f.shelf_facet.facet.sort">index</str>
+        <str name="f.meeting_facet.facet.limit">11</str>
+        <str name="f.media_type_facet.facet.limit">11</str>
+        <str name="f.publication_decade_facet.facet.limit">11</str>
+        <str name="facet">true</str>
       </arr>
     </listener>
     <listener event="firstSearcher" class="solr.QuerySenderListener">
       <arr name="queries">
         <lst>
-          <str name="q">static firstSearcher warming in solrconfig.xml</str>
+          <str name="f.access_facet.facet.sort">index</str>
+          <str name="f.publication_year_facet.facet.limit">11</str>
+          <str name="fq">suppressed:false</str>
+          <str name="f.publication_year_facet.facet.sort">index</str>
+          <str name="f.languages.facet.limit">11</str>
+          <str name="facet.query">date_added:[NOW-7DAYS/DAY+TO+NOW/DAY]</str>
+          <str name="facet.query">date_added:[NOW-14DAYS/DAY+TO+NOW/DAY]</str>
+          <str name="facet.query">date_added:[NOW-21DAYS/DAY+TO+NOW/DAY]</str>
+          <str name="facet.query">date_added:[NOW-1MONTH/DAY+TO+NOW/DAY]</str>
+          <str name="facet.query">date_added:[NOW-2MONTHS/DAY+TO+NOW/DAY]</str>
+          <str name="facet.query">date_added:[NOW-3MONTHS/DAY+TO+NOW/DAY]</str>
+          <str name="facet.query">date_added:[NOW-6MONTHS/DAY+TO+NOW/DAY]</str>
+          <str name="facet.query">game_facet:d1t29</str>
+          <str name="facet.query">game_facet:d30t59</str>
+          <str name="facet.query">game_facet:d60t120</str>
+          <str name="facet.query">game_facet:d120t500</str>
+          <str name="facet.query">game_facet:p1</str>
+          <str name="facet.query">game_facet:p2t4</str>
+          <str name="facet.query">game_facet:p4t8</str>
+          <str name="facet.query">game_facet:p9t99</str>
+          <str name="facet.query">game_facet:a1t4</str>
+          <str name="facet.query">game_facet:a5t9</str>
+          <str name="facet.query">game_facet:a10t13</str>
+          <str name="facet.query">game_facet:a14t16</str>
+          <str name="facet.query">game_facet:a17t100</str>
+          <str name="f.public_series_facet.facet.limit">11</str>
+          <str name="f.building_facet.facet.sort">index</str>
+          <str name="f.public_title_facet.facet.limit">11</str>
+          <str name="f.author_contributor_facet.facet.limit">11</str>
+          <str name="f.publication_decade_facet.facet.sort">index</str>
+          <str name="wt">json</str>
+          <str name="f.geographic_terms_facet.facet.limit">11</str>
+          <str name="f.public_subject_facet.facet.limit">11</str>
+          <str name="facet.field">access_facet</str>
+          <str name="facet.field">media_type_facet</str>
+          <str name="facet.field">collection_facet</str>
+          <str name="facet.field">building_facet</str>
+          <str name="facet.field">shelf_facet</str>
+          <str name="facet.field">publication_year_facet</str>
+          <str name="facet.field">publication_decade_facet</str>
+          <str name="facet.field">languages</str>
+          <str name="facet.field">author_contributor_facet</str>
+          <str name="facet.field">meeting_facet</str>
+          <str name="facet.field">public_title_facet</str>
+          <str name="facet.field">public_series_facet</str>
+          <str name="facet.field">public_genre_facet</str>
+          <str name="facet.field">public_subject_facet</str>
+          <str name="facet.field">geographic_terms_facet</str>
+          <str name="facet.field">era_terms_facet</str>
+          <str name="qt">catalog-search</str>
+          <str name="f.shelf_facet.facet.limit">11</str>
+          <str name="f.public_genre_facet.facet.limit">11</str>
+          <str name="f.era_terms_facet.facet.limit">11</str>
+          <str name="f.collection_facet.facet.sort">index</str>
+          <str name="sort">score+desc,+title_sort+asc</str>
+          <str name="rows">50</str>
+          <str name="f.shelf_facet.facet.sort">index</str>
+          <str name="f.meeting_facet.facet.limit">11</str>
+          <str name="f.media_type_facet.facet.limit">11</str>
+          <str name="f.publication_decade_facet.facet.limit">11</str>
+          <str name="facet">true</str>
         </lst>
       </arr>
     </listener>
@@ -644,7 +761,7 @@
          warming searcher and use it.  If "false" then all requests
          will block until the first searcher is done warming.
       -->
-    <useColdSearcher>false</useColdSearcher>
+    <useColdSearcher>true</useColdSearcher>
 
     <!-- Max Warming Searchers
          
