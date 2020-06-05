@@ -49,7 +49,7 @@ def do_commit():
 @pytest.mark.parametrize('et_code', [
     'BibsToAlphaSolrmarc',
     'BibsToAlphaSmAndAttachedToSolr',
-    'BuildAlphaSolrmarcSuggest'
+    # 'BuildAlphaSolrmarcSuggest'
 ])
 def test_exporter_class_versions(et_code, new_exporter, asm_exporter_class):
     """
@@ -91,9 +91,10 @@ def test_asm_export_get_records(et_code, rset_code, asm_exporter_class,
 
 @pytest.mark.exports
 @pytest.mark.get_records
-def _test_buildsuggest_get_records(asm_exporter_class, new_exporter,
-                                  bl_solr_assembler):
+def disabled_test_buildsuggest_get_records(asm_exporter_class, new_exporter,
+                                           bl_solr_assembler):
     """
+    THIS TEST IS CURRENTLY DISABLED
     The `get_records` method for the `BuildAlphaSolrmarcSuggest`
     exporter should return the expected recordset. Currently the
     `full_export` and `last_export` filter types are the only ones that
@@ -140,9 +141,10 @@ def test_asm_export_get_deletions(et_code, rset_code, asm_exporter_class,
 
 @pytest.mark.deletions
 @pytest.mark.get_records
-def _test_buildsuggest_get_deletions(asm_exporter_class, new_exporter,
-                                    bl_solr_assembler):
+def disabled_test_buildsuggest_get_deletions(asm_exporter_class, new_exporter,
+                                             bl_solr_assembler):
     """
+    THIS TEST IS CURRENTLY DISABLED
     The `get_deletions` method for the `BuildAlphaSolrmarcSuggest`
     exporter should return None, no matter what. (Deletions aren't
     handled this way for this exporter.)
@@ -222,10 +224,11 @@ def test_bibstoasm_export_records(asm_exporter_class, record_sets,
 
 @pytest.mark.exports
 @pytest.mark.do_export
-def _test_buildsuggest_export_records(asm_exporter_class,
-                                     new_exporter, solr_conns,
-                                     solr_search, bl_solr_assembler):
+def disabled_test_buildsuggest_export_records(asm_exporter_class,
+                                              new_exporter, solr_conns,
+                                              solr_search, bl_solr_assembler):
     """
+    THIS TEST IS CURRENTLY DISABLED
     The `BuildAlphaSolrmarcSuggest` exporter should use the "suggest"
     index `builder_class` object to construct a set of suggest records
     to load into Solr. For headings where all records that have that
@@ -356,7 +359,7 @@ def test_attachedtoasm_delete_records(asm_exporter_class, do_commit,
     bib_data = [(r.id, {'record_number': r.get_iii_recnum()}) for r in records]
     bl_solr_assembler.load_static_test_data('alphasolrmarc', ams_data)
     basic_solr_assembler.load_static_test_data('bib', bib_data)
-    basic_solr_assembler.load_static_test_data('marc', bib_data)
+    # basic_solr_assembler.load_static_test_data('marc', bib_data)
     
     expclass = asm_exporter_class('BibsToAlphaSmAndAttachedToSolr')
     exporter = new_exporter(expclass, 'full_export', 'waiting')

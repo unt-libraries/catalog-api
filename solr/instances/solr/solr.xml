@@ -31,10 +31,10 @@
   <cores adminPath="/admin/cores" host="${host:}" hostPort="${jetty.port:8983}" hostContext="${hostContext:solr}">
     <core name="bibdata" instanceDir="bibdata" />
     <core name="haystack" instanceDir="haystack" />
-    <core name="marc" instanceDir="marc" />
+    <!--<core name="marc" instanceDir="marc" />-->
     <core name="libguides" instanceDir="libguides" />
     <core name="alpha-solrmarc" instanceDir="alpha-solrmarc" />
-    <core name="alpha-solrmarc-02" instanceDir="alpha-solrmarc-02" />
-    <core name="bl-suggest" instanceDir="bl-suggest" />
+    <!--<core name="alpha-solrmarc-02" instanceDir="alpha-solrmarc-02" />-->
+    <!--<core name="bl-suggest" instanceDir="bl-suggest" />-->
   </cores>
 </solr>

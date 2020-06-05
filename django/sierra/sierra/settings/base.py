@@ -310,26 +310,26 @@ HAYSTACK_CONNECTIONS = {
         'URL': solr_bibdata_url,
         'TIMEOUT': 60 * 20,
     },
-    'marc': {
-        'ENGINE': 'sierra.solr_backend.CustomSolrEngine',
-        'URL': solr_marc_url,
-        'TIMEOUT': 60 * 20,
-    },
+    # 'marc': {
+    #     'ENGINE': 'sierra.solr_backend.CustomSolrEngine',
+    #     'URL': solr_marc_url,
+    #     'TIMEOUT': 60 * 20,
+    # },
     'alpha-solrmarc': {
         'ENGINE': 'sierra.solr_backend.SolrmarcEngine',
         'URL': solr_asm_url,
         'TIMEOUT': 60 * 20,
     },
-    'alpha-solrmarc-02': {
-        'ENGINE': 'sierra.solr_backend.SolrmarcEngine',
-        'URL': solr_asm02_url,
-        'TIMEOUT': 60 * 20,
-    },
-    'bl-suggest': {
-        'ENGINE': 'sierra.solr_backend.CustomSolrEngine',
-        'URL': solr_bls_url,
-        'TIMEOUT': 60 * 20,
-    }
+    # 'alpha-solrmarc-02': {
+    #     'ENGINE': 'sierra.solr_backend.SolrmarcEngine',
+    #     'URL': solr_asm02_url,
+    #     'TIMEOUT': 60 * 20,
+    # },
+    # 'bl-suggest': {
+    #     'ENGINE': 'sierra.solr_backend.CustomSolrEngine',
+    #     'URL': solr_bls_url,
+    #     'TIMEOUT': 60 * 20,
+    # }
 }
 
 # BL_CONN_NAME: the name of the connection / Solr core you're using for
@@ -337,7 +337,8 @@ HAYSTACK_CONNECTIONS = {
 BL_CONN_NAME = 'alpha-solrmarc'
 # BL_SUGGEST_CONN_NAME: the name of the connection / Solr core you're
 # using for the current Blacklight auto-suggest index.
-BL_SUGGEST_CONN_NAME = 'bl-suggest'
+# BL_SUGGEST_CONN_NAME = 'bl-suggest'
+BL_SUGGEST_CONN_NAME = ''
 
 # HAYSTACK_LIMIT_TO_REGISTERED_MODELS, set to False to allow Haystack
 # to search our SolrMarc indexes, which are not model-based
@@ -419,7 +420,8 @@ TASK_LOG_LABEL = 'Scheduler'
 EXPORTER_HAYSTACK_CONNECTIONS = {
     'ItemsToSolr': 'haystack',
     'BibsToSolr:BIBS': 'bibdata',
-    'BibsToSolr:MARC': 'marc',
+    # 'BibsToSolr:MARC': 'marc',
+    'BibsToSolr:MARC': '',
     'LocationsToSolr': 'haystack',
     'ItypesToSolr': 'haystack',
     'ItemStatusesToSolr': 'haystack',
@@ -469,7 +471,8 @@ SOLRMARC_CONFIG_FILE = get_env_variable('SOLRMARC_CONFIG_FILE',
 # that don't use the default connection.
 REST_VIEWS_HAYSTACK_CONNECTIONS = {
     'Bibs': 'bibdata',
-    'Marc': 'marc',
+    # 'Marc': 'marc',
+    'Marc': '',
 }
 
 # This specifies which installed apps have user permissions settings

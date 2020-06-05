@@ -39,10 +39,10 @@ def api_root(request):
             'href': APIUris.get_uri('bibs-list', req=request,
                                     absolute=True)
         },
-        'marc': {
-            'href': APIUris.get_uri('marc-list', req=request,
-                                    absolute=True)
-        },
+        # 'marc': {
+        #     'href': APIUris.get_uri('marc-list', req=request,
+        #                             absolute=True)
+        # },
         'items': {
             'href': APIUris.get_uri('items-list', req=request,
                                     absolute=True)
@@ -212,8 +212,9 @@ class MarcList(SimpleGetMixin, SimpleView):
     Paginated list of MARC records. Use the 'limit' and 'offset' query
     parameters for paging.
     """
-    queryset = solr.Queryset(using=
-                 settings.REST_VIEWS_HAYSTACK_CONNECTIONS['Marc'])
+    # queryset = solr.Queryset(using=
+    #              settings.REST_VIEWS_HAYSTACK_CONNECTIONS['Marc'])
+    queryset = []
     serializer_class = serializers.MarcSerializer
     resource_name = 'marc'
     filter_fields = ['record_number', '/^(mf_)?\\d{3}$/',
@@ -225,8 +226,9 @@ class MarcDetail(SimpleGetMixin, SimpleView):
     """
     Retrieve one MARC record.
     """
-    queryset = solr.Queryset(using=
-                 settings.REST_VIEWS_HAYSTACK_CONNECTIONS['Marc'])
+    # queryset = solr.Queryset(using=
+    #              settings.REST_VIEWS_HAYSTACK_CONNECTIONS['Marc'])
+    queryset = []
     serializer_class = serializers.MarcSerializer
     resource_name = 'marc'
     multi = False
