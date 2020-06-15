@@ -794,20 +794,39 @@ def test_blasmpipeline_getsuppressed(in_val, expected, bl_sierra_test_record,
     assert val == {'suppressed': expected}
 
 
-@pytest.mark.parametrize('test_date, expected', [
-    (None, None),
-    (datetime.datetime(2019, 3, 23, tzinfo=pytz.utc), '2019-03-23T00:00:00Z')
+@pytest.mark.parametrize('bib_locs, created_date, cat_date, expected', [
+    ([], None, None, None),
+    (['czwww'], datetime.datetime(2018, 1, 1, tzinfo=pytz.utc),
+     datetime.datetime(2019, 12, 31, tzinfo=pytz.utc),
+     '2018-01-01T00:00:00Z'),
+    (['czwww', 'czm'], datetime.datetime(2018, 1, 1, tzinfo=pytz.utc),
+     datetime.datetime(2019, 12, 31, tzinfo=pytz.utc),
+     '2019-12-31T00:00:00Z'),
+    (['czwww', 'mwww'], datetime.datetime(2018, 1, 1, tzinfo=pytz.utc),
+     datetime.datetime(2019, 12, 31, tzinfo=pytz.utc),
+     '2018-01-01T00:00:00Z'),
+    (['czm'], datetime.datetime(2018, 1, 1, tzinfo=pytz.utc),
+     datetime.datetime(2019, 12, 31, tzinfo=pytz.utc),
+     '2019-12-31T00:00:00Z'),
 ])
-def test_blasmpipeline_getdateadded(test_date, expected, bl_sierra_test_record,
-                                    blasm_pipeline_class,
+def test_blasmpipeline_getdateadded(bib_locs, created_date, cat_date, expected,
+                                    bl_sierra_test_record, blasm_pipeline_class,
+                                    get_or_make_location_instances,
+                                    update_test_bib_inst,
                                     setattr_model_instance):
     """
     BlacklightASMPipeline.get_date_added should return the correct date
-    (bib CAT DATE) in the datetime format Solr requires.
+    in the datetime format Solr requires.
     """
     pipeline = blasm_pipeline_class()
     bib = bl_sierra_test_record('bib_no_items')
-    setattr_model_instance(bib, 'cataloging_date_gmt', test_date)
+    loc_info = [{'code': code} for code in bib_locs]
+    locations = get_or_make_location_instances(loc_info)
+    if locations:
+        bib = update_test_bib_inst(bib, locations=locations)
+    setattr_model_instance(bib, 'cataloging_date_gmt', cat_date)
+    setattr_model_instance(bib.record_metadata, 'creation_date_gmt',
+                           created_date)
     val = pipeline.get_date_added(bib, None)
     assert val == {'date_added': expected}
 

@@ -780,10 +780,16 @@ class BlacklightASMPipeline(object):
 
     def get_date_added(self, r, marc_record):
         """
-        Return the CAT DATE (cataloged date) of the Bib record, in Solr
-        date format, as the date the record was added to the catalog.
+        Return a date that most closely approximates when the record
+        was added to the catalog. E-resources (where all bib locations
+        are online) use record_metadata.creation_date_gmt; all others
+        use the CAT DATE (cataloged date) of the Bib record. Dates are
+        converted to the string format needed by Solr.
         """
-        cdate = r.cataloging_date_gmt
+        if all((l.code.endswith('www') for l in r.locations.all())):
+            cdate = r.record_metadata.creation_date_gmt
+        else:
+            cdate = r.cataloging_date_gmt
         rval = None if cdate is None else cdate.strftime('%Y-%m-%dT%H:%M:%SZ')
         return { 'date_added': rval }
 
