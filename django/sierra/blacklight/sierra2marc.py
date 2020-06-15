@@ -1363,6 +1363,7 @@ class BlacklightASMPipeline(object):
         author_contributor_facet, meeting_facet = [], []
         responsibility_search = []
         author_sort = None
+        headings_set = set()
 
         fields = marc_record.get_fields('100', '110', '111', '700', '710',
                                         '711', '800', '810', '811')
@@ -1371,25 +1372,27 @@ class BlacklightASMPipeline(object):
             this_is_1XX = parsed['tag'].startswith('1')
             this_is_7XX = parsed['tag'].startswith('7')
             this_is_8XX = parsed['tag'].startswith('8')
-            if this_is_event:
-                meetings_search.extend(parsed['search_vals'])
-                meeting_facet.extend(parsed['facet_vals'])
-                if not this_is_8XX:
-                    meetings_json.append(parsed['json'])
-            else:
-                have_seen_author = bool(author_contributor_facet)
-                if not have_seen_author:
-                    if this_is_1XX or this_is_7XX:
-                        author_sort = parsed['heading'].lower()
-                    if this_is_1XX:
-                        author_json = parsed['json']
-                        author_search.extend(parsed['search_vals'])
-                if have_seen_author or this_is_7XX or this_is_8XX:
-                    contributors_search.extend(parsed['search_vals'])
-                if have_seen_author or this_is_7XX:
-                    contributors_json.append(parsed['json'])
-                author_contributor_facet.extend(parsed['facet_vals'])
-            responsibility_search.extend(parsed['relator_search_vals'])
+            if parsed['heading'] not in headings_set:
+                if this_is_event:
+                    meetings_search.extend(parsed['search_vals'])
+                    meeting_facet.extend(parsed['facet_vals'])
+                    if not this_is_8XX:
+                        meetings_json.append(parsed['json'])
+                else:
+                    have_seen_author = bool(author_contributor_facet)
+                    if not have_seen_author:
+                        if this_is_1XX or this_is_7XX:
+                            author_sort = parsed['heading'].lower()
+                        if this_is_1XX:
+                            author_json = parsed['json']
+                            author_search.extend(parsed['search_vals'])
+                    if have_seen_author or this_is_7XX or this_is_8XX:
+                        contributors_search.extend(parsed['search_vals'])
+                    if have_seen_author or this_is_7XX:
+                        contributors_json.append(parsed['json'])
+                    author_contributor_facet.extend(parsed['facet_vals'])
+                responsibility_search.extend(parsed['relator_search_vals'])
+                headings_set.add(parsed['heading'])
 
         return {
             'author_json': ujson.dumps(author_json) if author_json else None,
