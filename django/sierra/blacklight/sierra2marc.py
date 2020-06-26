@@ -234,11 +234,6 @@ class MarcParseUtils(object):
             return [term] if term else []
         return [p.strip_wemi(v) for v in p.strip_ends(val).split(', ')]
 
-    def split7xx_name_title(self, field):
-        exclude_sftags = ''.join((self.control_sftags, 'i'))
-        return group_subfields(field, exclude=exclude_sftags,
-                               start=self.title_sftags_7xx, limit=2)
-
 
 class SequentialMarcFieldParser(object):
     """
@@ -263,9 +258,21 @@ class SequentialMarcFieldParser(object):
         return self.parse()
 
     def parse_subfield(self, tag, val):
+        """
+        This method is called once for each subfield on a field, in the
+        order it occurs. No explicit return value is needed, but if one
+        is provided that evaluates to a True value, then it signals the
+        end of parsing (even if it is not the last subfield) and breaks
+        out of the loop.
+        """
         pass
 
     def do_post_parse(self):
+        """
+        This is called after the repeated loop that calls
+        `parse_subfield` ends, so you can take care of any cleanup
+        before results are compiled.
+        """
         pass
 
     def compile_results(self):
@@ -281,13 +288,16 @@ class SequentialMarcFieldParser(object):
         what should be called in order to parse a field.
         """
         for tag, val in self.field:
-            self.parse_subfield(tag, val)
+            if self.parse_subfield(tag, val):
+                break
         self.do_post_parse()
         return self.compile_results()
 
 
 class PersonalNameParser(SequentialMarcFieldParser):
     relator_sftags = 'e4'
+    done_sftags = 'fhklmoprstvxz'
+    ignore_sftags = 'i'
 
     def __init__(self, field):
         super(PersonalNameParser, self).__init__(field)
@@ -307,9 +317,11 @@ class PersonalNameParser(SequentialMarcFieldParser):
         self.titles.extend([v for v in p.strip_ends(val).split(', ')])
 
     def parse_subfield(self, tag, val):
-        if tag in self.relator_sftags:
+        if tag in self.done_sftags:
+            return True
+        elif tag in self.relator_sftags:
             self.do_relators(tag, val)
-        else:
+        elif tag not in self.ignore_sftags:
             self.heading_parts.append(val)
             if tag == 'a':
                 self.do_name(tag, val)
@@ -330,6 +342,8 @@ class PersonalNameParser(SequentialMarcFieldParser):
 
 class OrgEventNameParser(SequentialMarcFieldParser):
     event_info_sftags = 'cdgn'
+    done_sftags = 'fhklmoprstvxz'
+    ignore_sftags = 'i'
 
     def __init__(self, field):
         super(OrgEventNameParser, self).__init__(field)
@@ -386,7 +400,9 @@ class OrgEventNameParser(SequentialMarcFieldParser):
         return org_parts, event_parts
 
     def parse_subfield(self, tag, val):
-        if tag in (self.relator_sftags):
+        if tag in self.done_sftags:
+            return True
+        elif tag in (self.relator_sftags):
             for relator_term in self.utils.compile_relator_terms(tag, val):
                 self.relator_terms[relator_term] = None
         elif tag in self.event_info_sftags:
@@ -423,14 +439,30 @@ class OrgEventNameParser(SequentialMarcFieldParser):
         return ret_val
 
 
-def extract_name_structs_from_heading_field(field, utils):
-    split_name_title = utils.split7xx_name_title(field)
-    if len(split_name_title):
-        nfield = split_name_title[0]
-        if nfield.tag.endswith('00'):
-            return [PersonalNameParser(nfield).parse()]
-        return OrgEventNameParser(nfield).parse()
+class PreferredTitleParser(SequentialMarcFieldParser):
+    def __init__(self, field):
+        super(PreferredTitleParser, self).__init__(field)
+
+    def parse_subfield(self, tag, val):
+        pass
+
+    def compile_results(self):
+        heading = ''
+        return {
+            'heading': heading
+        }
+
+
+def extract_name_structs_from_field(field):
+    if field.tag.endswith('00'):
+        return [PersonalNameParser(field).parse()]
+    if field.tag.endswith('10') or field.tag.endswith('11'):
+        return OrgEventNameParser(field).parse()
     return []
+
+
+def extract_title_struct_from_field(field):
+    return PreferredTitleParser(field).parse()
 
 
 def make_personal_name_variations(forename, surname, ptitles):
@@ -710,7 +742,7 @@ class BlacklightASMPipeline(object):
     fields = [
         'id', 'suppressed', 'date_added', 'item_info', 'urls_json',
         'thumbnail_url', 'pub_info', 'access_info', 'resource_type_info',
-        'contributor_info', 'general_3xx_info', 'general_5xx_info'
+        'contributor_info', 'title_info', 'general_3xx_info', 'general_5xx_info'
     ]
     prefix = 'get_'
     access_online_label = 'Online'
@@ -720,6 +752,11 @@ class BlacklightASMPipeline(object):
     hierarchical_name_separator = ' > '
     hierarchical_subject_separator = ' — '
     utils = MarcParseUtils()
+
+    def __init__(self):
+        super(BlacklightASMPipeline, self).__init__()
+        self.bundle = {}
+        self.name_titles = []
 
     @property
     def sierra_location_labels(self):
@@ -740,6 +777,7 @@ class BlacklightASMPipeline(object):
         all keys returned by the individual methods.
         """
         self.bundle = {}
+        self.name_titles = []
         for fname in self.fields:
             method_name = '{}{}'.format(self.prefix, fname)
             result = getattr(self, method_name)(r, marc_record)
@@ -1340,17 +1378,58 @@ class BlacklightASMPipeline(object):
                 'relator_search_vals': rel_search_vals,
                 'facet_vals': facet_vals}
 
-    def parse_contributor_fields(self, fields):
-        for f in fields:
-            for name in extract_name_structs_from_heading_field(f, self.utils):
-                if name['type'] == 'person':
-                    info = self.compile_person_info(name)
-                else:
-                    info = self.compile_org_or_event_info(name)
-                if info['heading']:
-                    info['tag'] = f.tag
-                    info['name_type'] = name['type']
-                    yield info
+    def parse_name_title_fields(self, marc_record):
+        def compile_name_info(field, name):
+            if name['type'] == 'person':
+                compiled = self.compile_person_info(name)
+            else:
+                compiled = self.compile_org_or_event_info(name)
+            if compiled['heading']:
+                return {
+                    'field': field,
+                    'parsed': name,
+                    'compiled': compiled
+                }
+
+        def compile_title_info(field, title):
+            return {
+                'field': field,
+                'parsed': title,
+                'compiled': title
+            }
+
+        if self.name_titles:
+            for entry in self.name_titles:
+                yield entry
+        else:
+            entry = {'names': [], 'title': None}
+            for f in marc_record.get_fields('100', '110', '111'):
+                names = extract_name_structs_from_field(f)
+                compiled_names = [compile_name_info(f, n) for n in names]
+                entry['names'] = [n for n in compiled_names if n is not None]
+                break
+
+            for f in marc_record.get_fields('130', '240'):
+                title = extract_title_struct_from_field(f)
+                entry['title'] = compile_title_info(f, title)
+                break
+
+            self.name_titles = [entry]
+            yield entry
+
+            added_fields = marc_record.get_fields('700', '710', '711', '730',
+                                                  '740', '800', '810', '811',
+                                                  '830')
+            for f in added_fields:
+                names = extract_name_structs_from_field(f)
+                title = extract_title_struct_from_field(f)
+                compiled_names = [compile_name_info(f, n) for n in names]
+                entry = {
+                    'names': [n for n in compiled_names if n is not None],
+                    'title': compile_title_info(f, title) if title else None
+                }
+                self.name_titles.append(entry)
+                yield entry
 
     def get_contributor_info(self, r, marc_record):
         """
@@ -1365,39 +1444,41 @@ class BlacklightASMPipeline(object):
         author_sort = None
         headings_set = set()
 
-        fields = marc_record.get_fields('100', '110', '111', '700', '710',
-                                        '711', '800', '810', '811')
-        for parsed in self.parse_contributor_fields(fields):
-            this_is_event = parsed['name_type'] == 'event'
-            this_is_1XX = parsed['tag'].startswith('1')
-            this_is_7XX = parsed['tag'].startswith('7')
-            this_is_8XX = parsed['tag'].startswith('8')
-            if parsed['heading'] not in headings_set:
-                if this_is_event:
-                    meetings_search.extend(parsed['search_vals'])
-                    meeting_facet.extend(parsed['facet_vals'])
-                    if not this_is_8XX:
-                        meetings_json.append(parsed['json'])
-                else:
-                    have_seen_author = bool(author_contributor_facet)
-                    if not have_seen_author:
-                        if this_is_1XX or this_is_7XX:
-                            author_sort = parsed['heading'].lower()
-                        if this_is_1XX:
-                            author_json = parsed['json']
-                            author_search.extend(parsed['search_vals'])
-                    if have_seen_author or this_is_7XX or this_is_8XX:
-                        contributors_search.extend(parsed['search_vals'])
-                    if have_seen_author or this_is_7XX:
-                        contributors_json.append(parsed['json'])
-                    author_contributor_facet.extend(parsed['facet_vals'])
-                responsibility_search.extend(parsed['relator_search_vals'])
-                headings_set.add(parsed['heading'])
+        for entry in self.parse_name_title_fields(marc_record):
+            for name in entry['names']:
+                compiled = name['compiled']
+                field = name['field']
+                parsed = name['parsed']
+                this_is_event = parsed['type'] == 'event'
+                this_is_1XX = field.tag.startswith('1')
+                this_is_7XX = field.tag.startswith('7')
+                this_is_8XX = field.tag.startswith('8')
+                if compiled['heading'] not in headings_set:
+                    if this_is_event:
+                        meetings_search.extend(compiled['search_vals'])
+                        meeting_facet.extend(compiled['facet_vals'])
+                        if not this_is_8XX:
+                            meetings_json.append(compiled['json'])
+                    else:
+                        have_seen_author = bool(author_contributor_facet)
+                        if not have_seen_author:
+                            if this_is_1XX or this_is_7XX:
+                                author_sort = compiled['heading'].lower()
+                            if this_is_1XX:
+                                author_json = compiled['json']
+                                author_search.extend(compiled['search_vals'])
+                        if have_seen_author or this_is_7XX or this_is_8XX:
+                            contributors_search.extend(compiled['search_vals'])
+                        if have_seen_author or this_is_7XX:
+                            contributors_json.append(compiled['json'])
+                        author_contributor_facet.extend(compiled['facet_vals'])
+                    responsibility_search.extend(compiled['relator_search_vals'])
+                    headings_set.add(compiled['heading'])
 
         return {
             'author_json': ujson.dumps(author_json) if author_json else None,
             'contributors_json': [ujson.dumps(v) for v in contributors_json]
-                                  or None,
+                                 or None,
             'meetings_json': [ujson.dumps(v) for v in meetings_json]
                              or None,
             'author_search': author_search or None,
@@ -1407,6 +1488,42 @@ class BlacklightASMPipeline(object):
             'meeting_facet': meeting_facet or None,
             'author_sort': author_sort,
             'responsibility_search': responsibility_search or None
+        }
+
+    def get_title_info(self, r, marc_record):
+        """
+        This is responsible for using the 130, 240, 242, 243, 245, 246,
+        247, 490, 700, 710, 711, 730, 740, 800, 810, 811, and 830 to
+        determine the entirety of title and series fields. 
+        """
+        title_display, non_truncated_title_display = '', ''
+        main_title_search = []
+        iworks_json, rworks_json, series_json = [], [], []
+        iworks_search, rworks_search, series_search = [], [], []
+        variant_titles_notes, variant_titles_search = [], []
+        title_series_facet = []
+        title_sort = ''
+        responsibility_display, responsibility_search = '', []
+
+        return {
+            'title_display': title_display or None,
+            'non_truncated_title_display': non_truncated_title_display or None,
+            'included_work_titles_json': [ujson.dumps(v) for v in iworks_json]
+                                         or None,
+            'related_work_titles_json': [ujson.dumps(v) for v in rworks_json]
+                                        or None,
+            'related_series_titles_json': [ujson.dumps(v) for v in series_json]
+                                          or None,
+            'variant_titles_notes': variant_titles_notes or None,
+            'main_title_search': main_title_search or None,
+            'included_work_titles_search': iworks_search or None,
+            'related_work_titles_search': rworks_search or None,
+            'related_series_titles_search': series_search or None,
+            'variant_titles_search': variant_titles_search or None,
+            'title_series_facet': title_series_facet or None,
+            'title_sort': title_sort or None,
+            'responsibility_search': responsibility_search or None,
+            'responsibility_display': responsibility_display or None
         }
 
     def compile_performance_medium(self, parsed_pm): 
@@ -1672,11 +1789,19 @@ class PipelineBundleConverter(object):
         ( '972', ('meeting_facet',) ),
         ( '972', ('author_sort',) ),
         ( '972', ('responsibility_search',) ),
-        ( '973', ('full_title', 'responsibility', 'parallel_titles') ),
-        ( '973', ('included_work_titles', 'related_work_titles') ),
-        ( '973', ('included_work_titles_display_json',) ),
-        ( '973', ('related_work_titles_display_json',) ),
-        ( '973', ('series_titles_display_json',) ),
+        ( '972', ('responsibility_display',) ),
+        ( '973', ('title_display', 'non_truncated_title_display') ),
+        ( '973', ('included_work_titles_json',) ),
+        ( '973', ('related_work_titles_json',) ),
+        ( '973', ('related_series_titles_json',) ),
+        ( '973', ('variant_titles_notes',) ),
+        ( '973', ('main_title_search',) ),
+        ( '973', ('included_work_titles_search',) ),
+        ( '973', ('related_work_titles_search',) ),
+        ( '973', ('related_series_titles_search',) ),
+        ( '973', ('variant_titles_search',) ),
+        ( '973', ('title_series_facet',) ),
+        ( '973', ('title_sort',) ),
         ( '974', ('subjects',) ),
         ( '974', ('subject_topic_facet',) ),
         ( '974', ('subject_region_facet',) ),

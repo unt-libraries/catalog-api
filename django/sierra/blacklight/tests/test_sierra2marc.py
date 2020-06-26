@@ -2541,6 +2541,38 @@ def test_blasmpipeline_getcontributorinfo(marcfields, expected,
         else:
             assert v is None
 
+@pytest.mark.parametrize('marcfields, expected', [
+    ([('100', ['a', 'Churchill, Winston,', 'c', 'Sir,', 'd', '1874-1965.'],
+       '1 ')], {}),
+], ids=[
+    'First test'
+])
+def test_blasmpipeline_gettitleinfo(marcfields, expected, bl_sierra_test_record,
+                                    blasm_pipeline_class, bibrecord_to_pymarc,
+                                    add_marc_fields,
+                                    assert_json_matches_expected):
+    """
+    BlacklightASMPipeline.get_title_info should return fields matching
+    the expected parameters.
+    """
+    pipeline = blasm_pipeline_class()
+    bib = bl_sierra_test_record('bib_no_items')
+    bibmarc = bibrecord_to_pymarc(bib)
+    bibmarc.remove_fields('100', '110', '111', '130', '240', '242', '243',
+                          '245', '246', '247', '490', '700', '710', '711',
+                          '730', '740', '800', '810', '811', '830')
+    bibmarc = add_marc_fields(bibmarc, marcfields)
+    val = pipeline.get_title_info(bib, bibmarc)
+    for k, v in val.items():
+        print k, v
+        if k in expected:
+            if k.endswith('_json'):
+                assert_json_matches_expected(v, expected[k], exact=True)
+            else:
+                assert v == expected[k]
+        else:
+            assert v is None
+
 
 @pytest.mark.parametrize('parsed_pm, expected', [
     ({'materials_specified': [],

@@ -28,8 +28,14 @@ ALPHASOLRMARC_FIELDS = (
     'author_json', 'contributors_json', 'meetings_json', 'author_sort',
     'author_contributor_facet', 'meeting_facet', 'author_search',
     'contributors_search', 'meetings_search', 'responsibility_search',
-    'summary_notes', 'toc_notes', 'physical_description', 'physical_medium',
-    'geospatial_data', 'audio_characteristics', 'projection_characteristics',
+    'responsibility_display', 'title_display', 'non_truncated_title_display',
+    'included_work_titles_json', 'related_work_titles_json',
+    'related_series_titles_json', 'variant_titles_notes', 'main_title_search',
+    'included_work_titles_search', 'related_work_titles_search',
+    'related_series_titles_search', 'variant_titles_search',
+    'title_series_facet', 'title_sort', 'summary_notes', 'toc_notes',
+    'physical_description', 'physical_medium', 'geospatial_data',
+    'audio_characteristics', 'projection_characteristics',
     'video_characteristics', 'digital_file_characteristics',
     'graphic_representation', 'performance_medium', 'performers',
     'language_notes', 'dissertation_notes', 'notes',
@@ -37,13 +43,11 @@ ALPHASOLRMARC_FIELDS = (
     'game_facet', 'languages', 'isbn_numbers',
     'issn_numbers', 'lccn_number', 'oclc_numbers', 'dewey_call_numbers',
     'loc_call_numbers', 'sudoc_numbers', 'other_call_numbers',
-    'main_call_number', 'main_call_number_sort', 'main_title', 'subtitle',
-    'statement_of_responsibility', 'full_title', 'title_sort',
-    'alternate_titles', 'uniform_title', 'related_titles',
+    'main_call_number', 'main_call_number_sort',
     'era_terms', 'form_terms',
     'general_terms', 'genre_terms', 'geographic_terms', 'other_terms',
-    'topic_terms', 'full_subjects', 'series', 'series_exact',
-    'public_title_facet', 'public_series_facet', 'public_subject_facet',
+    'topic_terms', 'full_subjects',
+    'public_subject_facet',
     'geographic_terms_facet', 'era_terms_facet', 'public_genre_facet', 'text'
 )
 
@@ -66,8 +70,9 @@ def _combine_fields(record, fields):
     return list(values) if values else None
 
 
-def public_title_facet(record):
-    fields = ('uniform_title', 'main_title', 'related_titles')
+def title_series_facet(record):
+    fields = ('included_work_titles_search', 'related_work_titles_search',
+              'related_series_titles_search')
     return _combine_fields(record, fields)
 
 
@@ -111,13 +116,23 @@ ALPHASOLRMARC_GENS = (
     ('other_call_numbers', GENS(tp.chance(tp.multi(tp.other_cn, 1, 2), 30))),
     ('main_call_number', GENS(tp.pick_main_call_number)),
     ('main_call_number_sort', GENS(tp.main_call_number_sort)),
-    ('main_title', GENS(tp.title_like)),
-    ('subtitle', GENS(tp.chance(tp.title_like, 40))),
-    ('full_title', GENS(tp.full_title)),
-    ('title_sort', GENS(tp.sortable_text_field('full_title'))),
-    ('alternate_titles', GENS(tp.chance(tp.multi(tp.title_like, 1, 3), 20))),
-    ('uniform_title', GENS(tp.chance(tp.title_like), 30)),
-    ('related_titles', GENS(tp.chance(tp.multi(tp.title_like, 1, 5), 50))),
+    ('title_display', GENS(tp.title_like)),
+    ('main_title_search', GENS(tp.copy_field('title_display'))),
+    ('non_truncated_title_display',
+        GENS(tp.chance(tp.copy_field('title_display'), 20))),
+    ('included_work_titles_json', None),
+    ('related_work_titles_json', None),
+    ('related_series_titles_json', None),
+    ('included_work_titles_search', GENS(tp.chance(tp.multi(tp.title_like, 1,
+                                                            3), 50))),
+    ('related_work_titles_search', GENS(tp.chance(tp.multi(tp.title_like, 1, 3),
+                                                   20))),
+    ('related_series_titles_search', GENS(tp.chance(tp.multi(tp.title_like, 1,
+                                                             3), 20))),
+    ('variant_titles_notes', GENS(tp.chance(tp.multi(tp.title_like, 1, 3),
+                                            20))),
+    ('variant_titles_search', GENS(tp.copy_field('variant_titles_search'))),
+    ('title_sort', GENS(tp.sortable_text_field('title_display'))),
     ('author_json', None),
     ('contributors_json', None),
     ('meetings_json', None),
@@ -126,7 +141,8 @@ ALPHASOLRMARC_GENS = (
     ('contributors_search', GENS(tp.chance(tp.multi(random_agent(6, 3, 1),
                                                     1, 5), 75))),
     ('meetings_search', GENS(tp.chance(tp.multi(tp.org_name_like, 1, 3), 25))),
-    ('responsibility_search', GENS(tp.chance(tp.statement_of_resp, 80))),
+    ('responsibility_display', GENS(tp.chance(tp.statement_of_resp, 80))),
+    ('responsibility_search', GENS(tp.copy_field('responsibility_display'))),
     ('summary_notes', GENS(tp.chance(tp.multi(tp.sentence_like, 1, 4), 50))),
     ('toc_notes', GENS(tp.chance(tp.multi(tp.sentence_like, 1, 4), 50))),
     ('era_terms', GENS(tp.chance(tp.multi(tp.year_range_like, 1, 2), 25))),
@@ -137,12 +153,9 @@ ALPHASOLRMARC_GENS = (
     ('other_terms', GENS(tp.chance(tp.multi(tp.keyword_like, 1, 2), 25))),
     ('topic_terms', GENS(tp.multi(tp.keyword_like, 1, 5))),
     ('full_subjects', GENS(tp.subjects)),
-    ('series', GENS(tp.chance(tp.multi(tp.title_like, 1, 3), 50))),
-    ('series_exact', GENS(tp.copy_field('series'))),
     ('timestamp_of_last_solr_update', 'auto'),
-    ('public_title_facet', GENS(public_title_facet)),
+    ('title_series_facet', GENS(title_series_facet)),
     ('author_contributor_facet', GENS(author_contributor_facet)),
-    ('public_series_facet', GENS(tp.copy_field('series'))),
     ('meeting_facet', GENS(tp.copy_field('meetings_search'))),
     ('public_subject_facet', GENS(tp.copy_field('full_subjects'))),
     ('geographic_terms_facet', GENS(tp.copy_field('geographic_terms'))),
@@ -153,9 +166,7 @@ ALPHASOLRMARC_GENS = (
         'id', 'languages', 'isbn_numbers', 'issn_numbers',
         'lccn_number', 'oclc_numbers', 'dewey_call_numbers',
         'loc_call_numbers', 'sudoc_numbers', 'other_call_numbers',
-        'main_call_number', 'statement_of_responsibility', 'full_title',
-        'alternate_titles', 'uniform_title', 'related_titles',
-        'summary_notes', 'toc_notes', 'full_subjects', 'series'
+        'main_call_number', 'summary_notes', 'toc_notes', 'full_subjects'
     ])))
 )
 
