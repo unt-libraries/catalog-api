@@ -155,7 +155,7 @@
     <field name="meetings_json" type="string" indexed="false" stored="true" multiValued="true"/>
 
     <!-- SORT FIELDS ====================================================================================== -->
-    <field name="publication_sort" type="string" indexed="false" stored="false" multiValued="false" docValues="true"/>
+    <field name="publication_sort" type="string" indexed="true" stored="false" multiValued="false"/>
     <field name="author_sort" type="norm_string" indexed="true" stored="false" multiValued="false"/>
 
     <!-- FACET FIELDS ===================================================================================== -->
@@ -167,8 +167,8 @@
     <field name="collection_facet" type="string" indexed="true" stored="false" multiValued="true"/>
     <field name="resource_type_facet" type="string" indexed="true" stored="false" multiValued="true"/>
     <field name="media_type_facet" type="string" indexed="true" stored="false" multiValued="true"/>
-    <field name="author_contributor_facet" type="string" indexed="true" stored="false" multiValued="true" docValues="true"/>
-    <field name="meeting_facet" type="string" indexed="true" stored="false" multiValued="true" docValues="true"/>
+    <field name="author_contributor_facet" type="string" indexed="true" stored="false" multiValued="true"/>
+    <field name="meeting_facet" type="string" indexed="true" stored="false" multiValued="true"/>
 
     <!-- GENERAL SEARCH OR SEARCH/DISPLAY FIELDS ========================================================== -->
     <field name="text" type="text" indexed="true" stored="false" multiValued="true"/>
@@ -251,8 +251,8 @@
     <field name="corporations" type="text" indexed="true" stored="true" multiValued="true"/>
     <field name="meetings" type="text" indexed="true" stored="true" multiValued="true"/>
     <field name="creator_sort" type="norm_string" indexed="true" stored="true"/>
-    <field name="public_author_facet" type="string" indexed="true" stored="false" multiValued="true" docValues="true" />
-    <field name="meetings_facet" type="string" indexed="true" stored="false" multiValued="true" docValues="true" />
+    <field name="public_author_facet" type="string" indexed="true" stored="false" multiValued="true" />
+    <field name="meetings_facet" type="string" indexed="true" stored="false" multiValued="true" />
     <field name="physical_characteristics" type="text" indexed="true" stored="true" multiValued="true" />
     <field name="context_notes" type="text" indexed="true" stored="true" multiValued="true" />
 
@@ -313,12 +313,12 @@
 
     <!-- Temporary Fields to remove later: these were dynamic fields, but we want to start making
          sure all our fields are defined explicitly. -->
-    <field name="public_title_facet" type="string" indexed="true" stored="false" multiValued="true" docValues="true" />
-    <field name="public_series_facet" type="string" indexed="true" stored="false" multiValued="true" docValues="true" />
-    <field name="public_subject_facet" type="string" indexed="true" stored="false" multiValued="true" docValues="true" />
-    <field name="geographic_terms_facet" type="string" indexed="true" stored="false" multiValued="true" docValues="true" />
-    <field name="era_terms_facet" type="string" indexed="true" stored="false" multiValued="true" docValues="true" />
-    <field name="public_genre_facet" type="string" indexed="true" stored="false" multiValued="true" docValues="true" />
+    <field name="public_title_facet" type="string" indexed="true" stored="false" multiValued="true" />
+    <field name="public_series_facet" type="string" indexed="true" stored="false" multiValued="true" />
+    <field name="public_subject_facet" type="string" indexed="true" stored="false" multiValued="true" />
+    <field name="geographic_terms_facet" type="string" indexed="true" stored="false" multiValued="true" />
+    <field name="era_terms_facet" type="string" indexed="true" stored="false" multiValued="true" />
+    <field name="public_genre_facet" type="string" indexed="true" stored="false" multiValued="true" />
     <field name="call_numbers_search" type="string" indexed="true" stored="false" multiValued="true" />
 
     <!-- Commenting out other/default dynamic fields, just to simplify things.

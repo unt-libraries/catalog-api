@@ -121,7 +121,6 @@ class ResourceTypeDeterminer(object):
     complex. This class should never be instantiated/used directly,
     only through the `BIB_RULES` rule constant.
     """
-
     bcode2_to_basetype = {
         '-': 'unknown',
         'a': 'book',
@@ -144,52 +143,167 @@ class ResourceTypeDeterminer(object):
         'z': 'book_thesis',
     }
 
-    # Print types could be Print/Paper or Microform (or online) but
-    # default to Print/Paper, absent other information.
-    print_types = ('book', 'score', 'kit', 'journal', 'score_thesis',
-                   'book_thesis', 'map', 'graphic')
+    paper_types = ('book', 'score', 'map', 'graphic', 'kit', 'journal',
+                   'score_thesis', 'manuscript', 'book_thesis', 'newspaper')
+    online_types = ('database', 'ebook', 'ejournal')
+    newspaper_types = ('book', 'ebook', 'journal', 'ejournal', 'database')
+    basetypes_ignore_007 = online_types + ('object',)
 
-    # Online types are those that are always online/electronic and
-    # cannot have microform or paper formats.
-    online_types = ('ebook', 'ejournal', 'database')
+    f007_to_format = [(0, 3, {
+        'cbh': 'game_handheld_cartridge',
+        'cbr': 'game_console_cartridge',
+        'co ': 'cdrom',
+        'coh': 'game_handheld_cdrom',
+        'cor': 'game_console_cdrom',
+        'cot': 'game_computer_cdrom',
+        'cr ': 'online',
+        'cz ': 'digital',
+        'mr ': '16mmfilm',
+        'vdv': 'dvd',
+        'vdb': 'bluray',
+        'go ': 'filmstrip',
+        'vdg': 'laserdisc',
+        'vf ': 'vhs',
+        'gs ': 'slide',
+        'vzs': 'streaming',
+        'he ': 'microfiche',
+        'hd ': 'microfilm',
+        'hg ': 'microopaque',
+        'sz ': 'digital',
+        'ta ': 'print',
+        'tb ': 'largeprint',
+        'tc ': 'braille',
+        'td ': 'paper',
+        'sd ': [(5, 7, {
+            'mc': 'record_7inch',
+            'md': 'record_10inch',
+            'me': 'record_12inch',
+        }), (5, 6, {
+            'm': 'record',
+        }), (3, 4, {
+            'd': 'record_78rpm',
+            'f': 'cd',
+        })],
+        'sr ': [(3, 4, {
+            'n': 'streaming',
+        })],
+        'ss ': [(3, 4, {
+            'l': 'cassette',
+        })]
+    })]
 
-    # Possible newspaper types are those that could logically have
-    # items that are actually newspapers, if 008/21 is 'n'.
-    possible_newspaper_types = ('book', 'ebook', 'journal', 'ejournal',
-                                'database')
+    f008_newspaper = [(21, 22, {
+        'n': 'newspaper'
+    })]
 
-    f007_map = {
-        'ss l': (None, 'cassette', None),
-        'sd f': (None, 'cd', None),
-        'sd d': (None, 'record', '78 RPM'),
-        'sd **mc': (None, 'record', '7-inch'),
-        'sd **md': (None, 'record', '10-inch'),
-        'sd **me': (None, 'record', '12-inch'),
-        'sd **m*': (None, 'record', None),
-        'sr n': (None, 'streaming', None),
-        'cz': (None, 'book', 'Digital Device'),
-        'sz': (None, 'book', 'Digital Device'),
-        'co ': (None, 'computer', 'CD-ROM'),
-        'cot': ('game', 'computer', 'CD-ROM'),
-        'cor': ('game', 'console', None),
-        'cbr': ('game', 'console', None),
-        'coh': ('game', 'handheld', None),
-        'cbh': ('game', 'handheld', None),
-        'mr ': ('film', None, '16mm Film'),
-        'vdv': ('video', 'dvd', None),
-        'vdb': ('video', 'bluray', None),
-        'go ': ('filmstrip', None, None),
-        'vdg': ('video', 'laserdisc', None),
-        'vf ': ('video', 'vhs', None),
-        'gs ': ('slide', None, None),
-        'vzs': ('video', 'streaming', None),
-        'he ': (None, None, 'Microfiche'),
-        'hd ': (None, None, 'Microfilm'),
-        'hg a': (None, None, 'Microopaque'),
-        'cr ': (None, None, 'Online'),
-        'tb': (None, None, 'Large-Print/Paper'),
-        'tc': (None, None, 'Braille'),
-        't': (None, None, 'Print/Paper')
+    f008_to_format = [(23, 24, {
+        'a': 'microfilm',
+        'b': 'microfiche',
+        'c': 'microopaque',
+        'd': 'largeprint',
+        'f': 'braille',
+        'o': 'online',
+        'q': 'digital',
+        'r': 'print',
+        's': 'digital',
+    })]
+
+    f008_software_type = [(26, 27, {
+        'b': 'software',
+        'g': 'game',
+        'h': 'audio',
+        'i': 'software',
+    })]
+
+    formatcombos_to_formats = {
+        ('digital', 'online'): ('streaming',),
+        ('digital', 'streaming'): ('streaming',),
+        ('online', 'streaming'): ('streaming',),
+        ('digital', 'online', 'streaming'): ('streaming',),
+    }
+
+    basetypeformat_to_rtypesformats = {
+        ('software', 'game_handheld_cartridge'): (('game', 'handheld'), ()),
+        ('software', 'game_console_cartridge'): (('game', 'console'), ()),
+        ('software', 'game_handheld_cdrom'): (('game', 'handheld'), ()),
+        ('software', 'game_console_cdrom'): (('game', 'console'), ()),
+        ('software', 'game_computer_cdrom'): (('game', 'computer'), ('cdrom',)),
+        ('software', 'cdrom'): (('software', 'computer'), ('cdrom',)),
+        ('video_film', '16mmfilm'): (('film',), ('16mmfilm',)),
+        ('video_film', 'dvd'): (('video', 'dvd',), ()),
+        ('video_film', 'bluray'): (('video', 'bluray',), ()),
+        ('video_film', 'filmstrip'): (('filmstrip',), ()),
+        ('video_film', 'laserdisc'): (('video', 'laserdisc'), ()),
+        ('video_film', 'vhs'): (('video', 'vhs'), ()),
+        ('video_film', 'slide'): (('slide',), ()),
+        ('video_film', 'streaming'): (('video', 'streaming'), ()),
+        ('audio_spoken', 'digital'): (('audio', 'spoken', 'book'),
+                                      ('digital_device',)),
+        ('audio_spoken', 'streaming'): (('audio', 'spoken', 'streaming'), ()),
+        ('audio_spoken', 'record_7inch'): (('audio', 'spoken', 'record'),
+                                           ('record_7inch',)),
+        ('audio_spoken', 'record_10inch'): (('audio', 'spoken', 'record'),
+                                            ('record_10inch',)),
+        ('audio_spoken', 'record_12inch'): (('audio', 'spoken', 'record'),
+                                            ('record_12inch',)),
+        ('audio_spoken', 'record_78rpm'): (('audio', 'spoken', 'record'),
+                                           ('record_78rpm',)),
+        ('audio_spoken', 'record'): (('audio', 'spoken', 'record'), ()),
+        ('audio_spoken', 'cd'): (('audio', 'spoken', 'cd'), ()),
+        ('audio_spoken', 'cassette'): (('audio', 'spoken', 'cassette'), ()),
+        ('audio_music', 'streaming'): (('audio', 'music', 'streaming',), ()),
+        ('audio_music', 'record_7inch'): (('audio', 'music', 'record'),
+                                           ('record_7inch',)),
+        ('audio_music', 'record_10inch'): (('audio', 'music', 'record'),
+                                            ('record_10inch',)),
+        ('audio_music', 'record_12inch'): (('audio', 'music', 'record'),
+                                            ('record_12inch',)),
+        ('audio_music', 'record_78rpm'): (('audio', 'music', 'record'),
+                                           ('record_78rpm',)),
+        ('audio_music', 'record'): (('audio', 'music', 'record'), ()),
+        ('audio_music', 'cd'): (('audio', 'music', 'cd'), ()),
+        ('audio_music', 'cassette'): (('audio', 'music', 'cassette'), ()),
+        ('book', 'online'): (('ebook',), ()),
+        ('book', 'streaming'): (('ebook',), ()),
+        ('book', 'digital'): (('ebook',), ()),
+        ('journal', 'online'): (('ejournal',), ()),
+        ('journal', 'streaming'): (('ejournal',), ()),
+        ('journal', 'digital'): (('ejournal',), ()),
+        ('manuscript', 'print'): (('manuscript',), ('paper',)),
+    }
+
+    format_labels = {
+        'game_handheld_cartridge': 'Game Cartridge',
+        'game_console_cartridge': 'Game Cartridge',
+        'cdrom': 'CD-ROM',
+        'game_handheld_cdrom': 'Game CD-ROM',
+        'game_console_cdrom': 'Game CD-ROM',
+        'game_computer_cdrom': 'Game CD-ROM',
+        'online': 'Online',
+        'digital': 'Digital File',
+        'digital_device': 'Digital Device',
+        '16mmfilm': '16mm Film',
+        'dvd': 'DVD',
+        'bluray': 'Blu-ray',
+        'filmstrip': 'Filmstrip',
+        'laserdisc': 'Laserdisc',
+        'vhs': 'VHS',
+        'slide': 'Slide',
+        'streaming': 'Online',
+        'microfiche': 'Microfiche',
+        'microfilm': 'Microfilm',
+        'microopaque': 'Microopaque',
+        'print': 'Print/Paper',
+        'paper': 'Paper',
+        'largeprint': 'Large-Print/Paper',
+        'braille': 'Braille',
+        'record': 'Record',
+        'record_78rpm': '78 RPM',
+        'record_7inch': '7-inch Vinyl',
+        'record_10inch': '10-inch Vinyl',
+        'record_12inch': '12-inch Vinyl',
+        'cd': 'CD',
+        'cassette': 'Cassette',
     }
 
     rtype_to_rtype_categories = {
@@ -219,11 +333,11 @@ class ResourceTypeDeterminer(object):
         'equipment': ['equipment', 'objects_artifacts'],
         'manuscript': ['books', 'archives_manuscripts'],
         'ejournal': ['journals_periodicals'],
-        'newspaper': ['journals_periodicals'],
+        'newspaper': ['journals_periodicals', 'newspapers'],
         'thesis': ['theses_dissertations']
     }
 
-    rtype_to_mtype_categories = {
+    any_to_mtype_categories = {
         'cassette': ['Audio Cassette Tapes'],
         'cd': ['Audio CDs'],
         'record': ['Audio Records (LPs/EPs)'],
@@ -237,6 +351,11 @@ class ResourceTypeDeterminer(object):
         'game_computer': ['Computer Games'],
         'game_console': ['Console Games'],
         'game_handheld': ['Handheld Games'],
+        'game_computer_cdrom': ['Computer Games'],
+        'game_console_cdrom': ['Console Games'],
+        'game_handheld_cdrom': ['Handheld Games'],
+        'game_console_cartridge': ['Console Games'],
+        'game_handheld_cartridge': ['Handheld Games'],
         'dvd': ['DVDs'],
         'bluray': ['Blu-ray Discs'],
         'filmstrip': ['Filmstrips'],
@@ -245,71 +364,95 @@ class ResourceTypeDeterminer(object):
         'slide': ['Slides'],
         'game_tabletop': ['Tabletop Games'],
         'manuscript': ['Manuscripts'],
-        'newspaper': ['Newspapers'],
         'archive': ['Archival Collections'],
-    }
-
-    format_to_mtype_categories = {
-        '78 RPM': ['78 RPM Records'],
-        '7-inch': ['7-inch Vinyl Records'],
-        '10-inch': ['10-inch Vinyl Records'],
-        '12-inch': ['12-inch Vinyl Records'],
-        'Digital Device': ['Audiobook Devices', 'Digital Files'],
-        'CD-ROM': ['CD-ROMs'],
-        '16mm Film': ['16mm Film'],
-        'Print/Paper': ['Printed Paper'],
-        'Large-Print/Paper': ['Printed Paper', 'Large Print'],
-        'Braille': ['Printed Paper', 'Braille'],
-        'Microfiche': ['Microforms', 'Microfiche'],
-        'Microfilm': ['Microforms', 'Microfilm'],
-        'Microopaque': ['Microforms', 'Microopaques'],
+        'record_78rpm': ['78 RPM Records'],
+        'record_7inch': ['7-inch Vinyl Records'],
+        'record_10inch': ['10-inch Vinyl Records'],
+        'record_12inch': ['12-inch Vinyl Records'],
+        'digital_device': ['Audiobook Devices', 'Digital Files'],
+        'cdrom': ['CD-ROMs'],
+        '16mmfilm': ['16mm Film'],
+        'print': ['Paper'],
+        'paper': ['Paper'],
+        'digital': ['Digital Files'],
+        'largeprint': ['Paper', 'Large Print'],
+        'braille': ['Paper', 'Braille'],
+        'microfiche': ['Microforms', 'Microfiche'],
+        'microfilm': ['Microforms', 'Microfilm'],
+        'microopaque': ['Microforms', 'Microopaques'],
     }
 
     def __call__(self, obj):
-        base_type, media, fmt = self.determine_basetype_media_format(obj)
-        rtypes = base_type.split('_') + ([media] if media else [])
-        categories = self.categorize_resource_type(rtypes, fmt)
+        rtypes, fmts = self.determine_rtypes_and_formats(obj)
+        categories = self.categorize_resource_type(rtypes, fmts)
         return {
-            'resource_type': self.format_resource_type_value(rtypes, fmt),
+            'resource_type': self.format_resource_type_value(rtypes, fmts),
             'resource_type_categories': categories['resource_type'],
             'media_type_categories': categories['media_type']
         }
 
-    def format_resource_type_value(self, rtypes, fmt):
-        rtype_str = '_'.join(rtypes)
-        return '|'.join((rtype_str, fmt)) if fmt else rtype_str
-
-    def determine_basetype_media_format(self, obj):
+    def determine_rtypes_and_formats(self, obj):
+        rtypes, fmts = [], set()
         base_type = self.bcode2_to_basetype.get(obj.bcode2, 'unknown')
-        do = getattr(self, 'process_{}'.format(base_type), None)
-        return do(obj, base_type) if do else (base_type, None, None)
+        if base_type in set(self.newspaper_types) | set(self.paper_types):
+            f008s = self.get_control_field_from_obj(obj, '008')
+            if base_type in self.newspaper_types:
+                if self.is_newspaper(obj, f008s):
+                    if base_type in self.online_types:
+                        fmts = set(['online'])
+                    base_type = 'newspaper'
+            if base_type in self.paper_types:
+                fmts |= set(self.get_ff_formats(obj, '008', f008s))
+        if base_type not in self.basetypes_ignore_007:
+            f007s = self.get_control_field_from_obj(obj, '007')
+            fmts |= set(self.get_ff_formats(obj, '007', f007s))
 
-    def categorize_resource_type(self, rtypes, fmt):
+        if base_type in self.paper_types and not fmts:
+            fmts.add('print')
+
+        if len(fmts) > 1:
+            combo_key = tuple(sorted(list(fmts)))
+            fmts = set(self.formatcombos_to_formats.get(combo_key, fmts))
+        if len(fmts) <= 1:
+            key = (base_type, list(fmts)[0] if fmts else None)
+            res = self.basetypeformat_to_rtypesformats.get(key, (rtypes, fmts))
+            rtypes, fmts = (list(res[0]), set(res[1]))
+
+        do = getattr(self, 'process_{}'.format(base_type), None)
+        if do:
+            rtypes, fmts = do(obj, base_type, rtypes, fmts)
+
+        rtypes = rtypes or base_type.split('_')
+        return rtypes, list(fmts)
+
+    def format_resource_type_value(self, rtypes, fmts):
+        rtypestr = '_'.join(rtypes)
+        fmtstr = ', '.join([self.format_labels.get(f, f) for f in sorted(fmts)])
+        return '|'.join((rtypestr, fmtstr)) if fmtstr else rtypestr
+
+    def categorize_resource_type(self, rtypes, fmts):
         rtype_cats, mtype_cats = [], []
         rtype_str = '_'.join(rtypes)
-        mtype_cats = (self.rtype_to_mtype_categories.get(rtype_str, []) + 
-                      self.format_to_mtype_categories.get(fmt, []))
+        mtype_cats.extend(self.any_to_mtype_categories.get(rtype_str, []))
+
+        for fmt in fmts:
+            mtype_cats.extend(self.any_to_mtype_categories.get(fmt, []))
         for rtype in rtypes:
             rtype_cats.extend(self.rtype_to_rtype_categories.get(rtype, []))
-            mtype_cats.extend(self.rtype_to_mtype_categories.get(rtype, []))
+            mtype_cats.extend(self.any_to_mtype_categories.get(rtype, []))
 
-        if rtype_str in ('game_console', 'game_handheld') and fmt:
-            mtype_cats.append('{} Games'.format(fmt))
+        gtypes = ('game_console', 'game_handheld')
+        if rtype_str in gtypes or 'software' in rtypes or 'computer' in rtypes:
+            mtype_cats.extend(['{} Games'.format(fmt) for fmt in fmts
+                               if fmt not in self.format_labels])
 
-        if fmt == 'Online' and 'software' not in rtypes:
+        if 'online' in fmts and 'software' not in rtypes:
             mtype_cats.append('Digital Files')
 
         return {
             'resource_type': list(set(rtype_cats)),
             'media_type': list(set(mtype_cats)),
         }
-
-    def try_f007_map(self, tests, base_type):
-        for test in tests:
-            override, media, fmt = self.f007_map.get(test, (None, None, None))
-            if override or media or fmt:
-                return (override or base_type, media, fmt)
-        return (base_type, None, None)
 
     def get_callnums_from_obj(self, obj):
         for cn, _ in obj.get_call_numbers():
@@ -329,143 +472,85 @@ class ResourceTypeDeterminer(object):
     def get_bib_location_codes_from_obj(self, obj):
         return (l.code for l in obj.locations.all())
 
-    def get_printed_online_or_micro_format(self, obj, base_type):
-        for f007 in self.get_control_field_from_obj(obj, '007'):
-            tests = (f007[0:4], f007[0:3], f007[0])
-            fmt = self.try_f007_map(tests, base_type)[2]
-            if fmt:
-                return fmt
-        return 'Print/Paper' if base_type in self.print_types else None
+    def _map_fixedfield(self, ffmap, ffstr):
+        for i, j, mapdef in ffmap:
+            if len(ffstr) >= j:
+                entry = mapdef.get(ffstr[i:j], None)
+                if entry:
+                    if not isinstance(entry, list):
+                        return entry
+                    return self._map_fixedfield(entry, ffstr)
 
-    def get_text_or_print_format(self, obj, base_type):
-        fmt = None
-        if base_type not in self.online_types:
-            fmt = self.get_printed_online_or_micro_format(obj, base_type)
-            if fmt == 'Online':
-                if base_type == 'book':
-                    base_type, fmt = 'ebook', None
-                elif base_type == 'journal':
-                    base_type, fmt = 'ejournal', None
+    def get_ff_formats(self, obj, fftag, ffstrs):
+        ffmap = self.f007_to_format if fftag == '007' else self.f008_to_format
+        entries = []
+        for ffstr in ffstrs:
+            entry = self._map_fixedfield(ffmap, ffstr)
+            if entry:
+                entries.append(entry)
+        return entries
 
-        if base_type in self.possible_newspaper_types:
-            for f008 in self.get_control_field_from_obj(obj, '008'):
-                if len(f008) >= 22 and f008[21] == 'n':
-                    if base_type in self.online_types:
-                        fmt = 'Online'
-                    base_type = 'newspaper'
-                    break
-        return base_type, None, fmt
+    def is_newspaper(self, obj, f008s):
+        for ffstr in f008s:
+            newspaper = self._map_fixedfield(self.f008_newspaper, ffstr)
+            if newspaper:
+                return True
+        return False
 
-    def process_book(self, obj, base_type):
-        return self.get_text_or_print_format(obj, base_type)
+    def process_video_film(self, obj, base_type, rtypes, fmts):
+        if len(fmts) <= 1:
+            cns = (cn.lower() for cn in self.get_callnums_from_obj(obj))
+            for cn in cns:
+                if cn.startswith('mdvd'):
+                    return ['video', 'music', 'dvd'], fmts
+                if cn.startswith('mvc'):
+                    return ['video', 'music', 'vhs'], fmts
+        return rtypes, fmts
 
-    def process_database(self, obj, base_type):
-        return self.get_text_or_print_format(obj, base_type)
-
-    def process_score(self, obj, base_type):
-        return self.get_text_or_print_format(obj, base_type)
-
-    def process_map(self, obj, base_type):
-        return self.get_text_or_print_format(obj, base_type)
-
-    def process_video_film(self, obj, base_type):
-        for f007 in self.get_control_field_from_obj(obj, '007'):
-            maybe = self.try_f007_map((f007[0:3],), base_type)
-            print maybe
-            if maybe != (base_type, None, None):
-                base_type, media, fmt = maybe
-                if base_type == 'video':
-                    cns = (cn.lower() for cn in self.get_callnums_from_obj(obj))
-                    if any((cn.startswith('mdvd') or cn.startswith('mvc') 
-                            for cn in cns)):
-                        base_type = 'video_music'
-                return (base_type, media, fmt)
-        return (base_type, None, None)
-
-    def process_audio_spoken(self, obj, base_type):
-        for f007 in self.get_control_field_from_obj(obj, '007'):
-            tests = (f007[0:2], f007[0:4],
-                     '{}**{}*'.format(f007[0:3], f007[5:6]))
-            maybe = self.try_f007_map(tests, base_type)
-            if maybe != (base_type, None, None):
-                return maybe
-        return ('audio_spoken_book', None, None)
-
-    def process_audio_music(self, obj, base_type):
-        for f007 in self.get_control_field_from_obj(obj, '007'):
-            tests = (f007[0:4], '{}**{}'.format(f007[0:3], f007[5:7]))
-            maybe = self.try_f007_map(tests, base_type)
-            if maybe != (base_type, None, None):
-                return maybe
-        return (base_type, None, None)
-
-    def process_graphic(self, obj, base_type):
-        return self.get_text_or_print_format(obj, base_type)
-
-    def process_software(self, obj, base_type):
-        def determine_game_platform(obj):
+    def process_software(self, obj, base_type, rtypes, fmts):
+        def determine_game_platforms(obj):
+            platforms = []
             for cn in self.get_callnums_from_obj(obj):
                 if cn.lower().startswith('game'):
                     cn_parts = cn.split(' ', 2)
                     if len(cn_parts) == 3:
-                        return cn_parts[2]
+                        platforms.append(cn_parts[2])
+            return platforms
 
-        def try_game_007_info(obj, base_type):
-            media, fmt = None, None
-            for f007 in self.get_control_field_from_obj(obj, '007'):
-                base_type, media, fmt = self.try_f007_map((f007[0:3],),
-                                                           base_type)
-                if base_type == 'game':
-                    if media != 'computer':
-                        fmt = determine_game_platform(obj)
-                    return (base_type, media, fmt)
-            return (base_type, media, fmt)
-
-        def try_specific_software_type(obj):
+        def determine_software_type(obj):
             for f008 in self.get_control_field_from_obj(obj, '008'):
-                if f008 and len(f008) >= 27:
-                    if f008[26] in 'bi':
-                        return 'software'
-                    if f008[26] == 'g':
-                        return 'game'
-                    if f008[26] == 'h':
-                        return 'audio'
+                swtype = self._map_fixedfield(self.f008_software_type, f008)
+                if swtype is not None:
+                    return swtype
+            return 'document'
 
-        base_type, media, fmt = try_game_007_info(obj, base_type)
-        if base_type == 'game':
-            return (base_type, media, fmt)
+        hh_fmts = set(['game_handheld_cartridge', 'game_handheld_cdrom'])
+        hh_rtypes = ['game', 'handheld']
+        con_fmts = set(['game_console_cartridge', 'game_console_cdrom'])
+        con_rtypes = ['game', 'console']
+        is_console_game = rtypes == con_rtypes or len(con_fmts - fmts) < 2
+        is_handheld_game = rtypes == hh_rtypes or len(hh_fmts - fmts) < 2
+        if is_console_game or is_handheld_game:
+            platforms = set(determine_game_platforms(obj))
+            if platforms:
+                if is_console_game:
+                    fmts -= con_fmts
+                if is_handheld_game:
+                    fmts -= hh_fmts
+            fmts |= platforms
+            if is_console_game and is_handheld_game:
+                rtypes = con_rtypes
+        elif 'game' not in rtypes and 'game_computer_cdrom' not in fmts:
+            rtypes = [determine_software_type(obj), 'computer']
+        return rtypes, fmts
 
-        base_type = try_specific_software_type(obj) or 'document'
-        return (base_type, 'computer', fmt)
-
-    def process_ebook(self, obj, base_type):
-        return self.get_text_or_print_format(obj, base_type)
-
-    def process_kit(self, obj, base_type):
-        return self.get_text_or_print_format(obj, base_type)
-
-    def process_journal(self, obj, base_type):
-        return self.get_text_or_print_format(obj, base_type)
-
-    def process_object(self, obj, base_type):
+    def process_object(self, obj, base_type, rtypes, fmts):
         cns = (cn for cn in self.get_callnums_from_obj(obj))
         if any((cn.lower().startswith('boardgame') for cn in cns)):
-            return ('game', 'tabletop', None)
+            return ['game', 'tabletop'], fmts
         if 'w4spe' in self.get_bib_location_codes_from_obj(obj):
-            return (base_type, None, None)
-        return ('equipment', None, None)
-
-    def process_score_thesis(self, obj, base_type):
-        return self.get_text_or_print_format(obj, base_type)
-
-    def process_manuscript(self, obj, base_type):
-        return self.get_text_or_print_format(obj, base_type)
-
-    def process_ejournal(self, obj, base_type):
-        return self.get_text_or_print_format(obj, base_type)
-
-    def process_book_thesis(self, obj, base_type):
-        return self.get_text_or_print_format(obj, base_type)
+            return ['object'], fmts
+        return ['equipment'], fmts
 
 
 BIB_RULES = {

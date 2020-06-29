@@ -334,7 +334,7 @@ HAYSTACK_CONNECTIONS = {
 
 # BL_CONN_NAME: the name of the connection / Solr core you're using for
 # the current Blacklight deployment.
-BL_CONN_NAME = 'alpha-solrmarc-02'
+BL_CONN_NAME = 'alpha-solrmarc'
 # BL_SUGGEST_CONN_NAME: the name of the connection / Solr core you're
 # using for the current Blacklight auto-suggest index.
 # BL_SUGGEST_CONN_NAME = 'bl-suggest'
