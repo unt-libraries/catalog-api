@@ -215,33 +215,57 @@ def protect_periods_and_do(data, do, repl_char='~',
     return periods_restored
 
 
-def normalize_punctuation(data, punctuation_re=settings.MARCDATA.ENDING_PUNCTUATION_REGEX):
+def normalize_punctuation(data, periods_protected=False, repl_char='~',
+                          punctuation_re=settings.MARCDATA.ENDING_PUNCTUATION_REGEX):
     """
     Normalize punctuation in the input `data` string.
     Normalization entails removing multiple ending punctuation marks
     in a row (perhaps separated by whitespace) and stripping
     punctuation from the beginning of the string or the beginning of an
     opening bracket (parenthetical, square, or curly).
+
+    You'll want periods to be protected (via `protect_periods_and_do`)
+    when the normalization runs; to prevent unnecessary overhead from
+    protecting periods multiple times on the same data, you can include
+    a call to this function within a `do` function, in which case it
+    will run after periods have already been protected. Set
+    `periods_protected` to True when used in this context.
     """
     def _normalize(data):
         bracket_front_punct_removed = re.sub(r'([\[\{{\(])(\s*{}\s*)+'.format(punctuation_re), r'\1', data)
         bracket_end_punct_removed = re.sub(r'(\s*{}\s*)+([\]\}}\)])'.format(punctuation_re), r'\2', bracket_front_punct_removed)
         empty_brackets_removed = re.sub(r'(\[\s*\]|\(\s*\)|\{\s*\})', r'', bracket_end_punct_removed)
         multiples_removed = re.sub(r'(\s?)(\s*{0})+\s*({0})'.format(punctuation_re), r'\1\3', empty_brackets_removed)
-        periods_after_abbrevs_removed = re.sub(r'~(\s*\.)(\s*[^.]|$)', r'~\2', multiples_removed)
+        periods_after_abbrevs_removed = re.sub(r'{}(\s*\.)(\s*[^.]|$)'.format(repl_char), r'{}\2'.format(repl_char), multiples_removed)
         front_punct_removed = re.sub(r'^(\s*{}\s*)+'.format(punctuation_re), r'', periods_after_abbrevs_removed)
         return front_punct_removed
-    return compress_punctuation(protect_periods_and_do(data.strip(), _normalize, '~'), left_space_re=r'\.(?!\.\.)|,')
+
+    if periods_protected:
+        normalized = _normalize(data.strip())
+    else:
+        normalized = protect_periods_and_do(data.strip(), _normalize, repl_char)
+    return compress_punctuation(normalized, left_space_re=r'\.(?!\.\.)|,')
 
 
-def strip_ends(data, end_punctuation_re=settings.MARCDATA.ENDING_PUNCTUATION_REGEX):
+def strip_ends(data, periods_protected=False,
+               end_punctuation_re=settings.MARCDATA.ENDING_PUNCTUATION_REGEX):
     """
     Strip unnecessary punctuation/whitespace from both ends of the
     input string (`data`). Retains periods if they belong to an
     abbreviation.
+
+    You'll want periods to be protected (via `protect_periods_and_do`)
+    when the strip function runs; to prevent unnecessary overhead from
+    protecting periods multiple times on the same data, you can include
+    a call to this function within a `do` function, in which case it
+    it will run after periods have already been protected. Set
+    `periods_protected` to True when used in this context.
     """
     def strip_punctuation(data):
         return re.sub(r'^({0}|\s)*(.+?)({0}|\s)*$'.format(end_punctuation_re), r'\2', data)
+
+    if periods_protected:
+        return strip_punctuation(data)
     return protect_periods_and_do(data, strip_punctuation)
 
 

@@ -93,11 +93,30 @@ def test_compress_punctuation(data, expected):
     ('ed.. test', 'ed. test'),
     ('ed. ... test', 'ed. ... test')
 ])
-def test_normalize_punctuation(data, expected):
+def test_normalize_punctuation_periods_need_protection(data, expected):
     """
-    `normalize_punctuation` should ...
+    `normalize_punctuation` should normalize internal and ending
+    punctuation, resulting in the expected value. This set of tests
+    assumes that periods need protection, i.e. `periods_protected` is
+    False, which is the default.
     """
-    assert parsers.normalize_punctuation(data) == expected
+    assert parsers.normalize_punctuation(data, False) == expected
+
+
+@pytest.mark.parametrize('data, expected', [
+    ('ed. : test', 'ed: test'),
+    ('ed. . test', 'ed. test'),
+    ('ed.. test', 'ed. test'),
+    ('ed. ... test', 'ed. test')
+])
+def test_normalize_punctuation_periods_do_not_need_protection(data, expected):
+    """
+    `normalize_punctuation` should normalize internal and ending
+    punctuation, resulting in the expected value. This set of tests
+    assumes that periods do not need protection, i.e.
+    `periods_protected` is True.
+    """
+    assert parsers.normalize_punctuation(data, True) == expected
 
 
 @pytest.mark.parametrize('data, keep_inner, to_keep_re, to_remove_re, to_protect_re, expected', [
@@ -257,14 +276,32 @@ def test_reconstruct_bracketed(data, brackets, stripchars, expected):
     (' . . . strip punctuation and whitespace from both ends . /; ', 'strip punctuation and whitespace from both ends'),
     ('(do not strip parentheses or punct inside parentheses...);', '(do not strip parentheses or punct inside parentheses...)'),
     ('do not strip ellipses ...', 'do not strip ellipses ...'),
-    ('weirdness with,                             whitespace.', 'weirdness with,                             whitespace')
+    ('weirdness with,                             whitespace.', 'weirdness with,                             whitespace'),
+    ('abbreviations not stripped A.A.', 'abbreviations not stripped A.A.'),
+    ('abbreviations not stripped A.A. .;', 'abbreviations not stripped A.A.'),
 ])
-def test_strip_ends(data, expected):
+def test_strip_ends_periods_need_protection(data, expected):
     """
     `strip_ends` should correctly strip whitespace and punctuation from
-    both ends of the input data string.
+    both ends of the input data string. This set of tests assumes
+    periods need to be protected, i.e. `periods_protected` is False,
+    which is the default.
     """
-    assert parsers.strip_ends(data) == expected
+    assert parsers.strip_ends(data, False) == expected
+
+
+@pytest.mark.parametrize('data, expected', [
+    ('abbreviations stripped A.A.', 'abbreviations stripped A.A'),
+    ('abbreviations stripped A.A. .;', 'abbreviations stripped A.A'),
+])
+def test_strip_ends_periods_do_not_need_protection(data, expected):
+    """
+    `strip_ends` should correctly strip whitespace and punctuation from
+    both ends of the input data string. This set of tests assumes
+    periods do not need to be protected, i.e. `periods_protected` is
+    True
+    """
+    assert parsers.strip_ends(data, True) == expected
 
 
 @pytest.mark.parametrize('data, strip_mismatched, expected', [
