@@ -179,23 +179,23 @@ def reconstruct_bracketed(data, openchar='(', closechar=')', stripchars=''):
     return ''.join(strings)
 
 
-def protect_periods_and_do(data, do, repl_char='~',
-                           abbreviations_re=settings.MARCDATA.ABBREVIATIONS_REGEX):
+def protect_periods(data, repl_char='~',
+                    abbreviations_re=settings.MARCDATA.ABBREVIATIONS_REGEX):
     """
-    Do something to an input data string, but protect certain periods.
     Periods in MARC data are often used to indicate structure, such as
     the end of the Name portion of a Name/Title heading. But sometimes
     periods are non-structural--used for abbreviations, initials, and
     certain kinds of numbering, e.g.: 1. First thing, 2. Second thing.
-    Often we want to use structural periods while parsing something and
-    then strip them, while ignoring and retaining non-structural
-    periods.
-    This parser will do the `do` function on the `data` string, but it
-    will protect non-structural periods beforehand and restore them
-    afterward. Returns the results.
+    Often we want to use structural periods while parsing something,
+    while ignoring and retaining non-structural periods.
+
+    This parser protects non-structural periods for you in the provided
+    `data` string.
+
     `repl_char` is the character you want to temporarily replace
     non-structural periods with. It should be something that will not
     occur otherwise in your data. ~ is the default.
+
     `abbreviations_re` is a regular-expression to use for recognizing
     abbreviations in your data. Typically it's a large regex group of
     abbreviations separated by r'|'. Any periods following these
@@ -209,10 +209,33 @@ def protect_periods_and_do(data, do, repl_char='~',
                                                              roman_numerals, initials, abbreviations_re)
     periods_in_words_protected = re.sub(r'\.(\w)', r'{}\1'.format(repl_char), data)
     ellipses_protected = re.sub(r'\.{3}', r'{0}{0}{0}'.format(repl_char), periods_in_words_protected)
-    all_protected = re.sub(protect_all, r'\1{}'.format(repl_char), ellipses_protected)
-    processed_data = do(all_protected)
-    periods_restored = re.sub(repl_char, r'.', processed_data)
-    return periods_restored
+    return re.sub(protect_all, r'\1{}'.format(repl_char), ellipses_protected)
+
+
+def restore_periods(data, repl_char='~'):
+    """
+    Restore periods in data processed with `protect_periods`. Be sure
+    `repl_char` is the same as what was used when calling
+    `protect_periods`.
+    """
+    return re.sub(repl_char, r'.', data)
+
+
+def protect_periods_and_do(data, do, repl_char='~',
+                           abbreviations_re=settings.MARCDATA.ABBREVIATIONS_REGEX):
+    """
+    Do something to an input data string, but protect certain periods
+    first via `protect_periods`.
+    
+    This parser will do the `do` function on the `data` string, but it
+    will protect non-structural periods beforehand and restore them for
+    you afterward. (The `do` function must return a string. If you need
+    to do anything more complex, call `protect_periods` first yourself
+    and `restore_periods` afterward.)
+    """
+    protected = protect_periods(data, repl_char, abbreviations_re)
+    processed_data = do(protected)
+    return restore_periods(processed_data, repl_char)
 
 
 def normalize_punctuation(data, periods_protected=False, repl_char='~',
