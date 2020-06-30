@@ -155,7 +155,7 @@
     <field name="meetings_json" type="string" indexed="false" stored="true" multiValued="true"/>
 
     <!-- SORT FIELDS ====================================================================================== -->
-    <field name="publication_sort" type="string" indexed="false" stored="false" multiValued="false"/>
+    <field name="publication_sort" type="string" indexed="true" stored="false" multiValued="false"/>
     <field name="author_sort" type="norm_string" indexed="true" stored="false" multiValued="false"/>
 
     <!-- FACET FIELDS ===================================================================================== -->
