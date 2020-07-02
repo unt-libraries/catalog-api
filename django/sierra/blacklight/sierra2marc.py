@@ -439,6 +439,176 @@ class OrgEventNameParser(SequentialMarcFieldParser):
         return ret_val
 
 
+class TranscribedTitleParser(SequentialMarcFieldParser):
+    isbd_punct_mapping = {
+        ';': 'new_title',
+        ':': 'same_part',
+        '/': 'responsibility',
+        '=': 'parallel_title',
+        ',': 'same_part',
+        '.': 'new_part'
+    }
+
+    def __init__(self, field):
+        super(TranscribedTitleParser, self).__init__(field)
+        self.prev_punct = ''
+        self.prev_tag = ''
+        self.flags = {}
+        self.lock_parallel = False
+        self.title_parts = []
+        self.responsibility = ''
+        self.titles = []
+        self.parallel_titles = []
+
+    def pop_isbd_punct_from_title_part(self, part):
+        end_punct = part.strip()[-1]
+        if end_punct in self.isbd_punct_mapping:
+            chars_to_strip = '{} '.format(end_punct)
+            return part.strip(chars_to_strip), end_punct
+        return part, ''
+
+    def what_type_is_this_part(self, prev_punct):
+        ptype = self.isbd_punct_mapping.get(prev_punct, '')
+        lock_same_title = self.flags['lock_same_title']
+        if not ptype or (ptype == 'new_title' and lock_same_title):
+            default = 'new_part' if self.flags['newpart_def'] else 'same_part'
+            return default
+        return ptype
+
+    def start_next_title(self):
+        title, is_parallel = {}, self.lock_parallel
+        if self.title_parts:
+            parts = [p.compress_punctuation(tp) for tp in self.title_parts]
+            title['parts'] = parts
+            self.title_parts = []
+        if self.responsibility:
+            no_prev_r = self.titles and 'responsibility' not in self.titles[-1]
+            responsibility = p.compress_punctuation(self.responsibility)
+            if is_parallel and no_prev_r:
+                self.titles[-1]['responsibility'] = responsibility
+            else:
+                title['responsibility'] = responsibility
+            self.responsibility = ''
+        if title:
+            if is_parallel and self.titles:
+                self.parallel_titles.append(title)
+            else:
+                self.titles.append(title)
+        self.lock_parallel = False
+
+    def join_parts(self, last_part, part, prev_punct):
+        if self.flags['subpart_may_need_formatting']:
+            if self.flags['is_bulk_following_incl_dates']:
+                if re.match(r'\d', part[0]):
+                    prev_punct = ''
+                    part = '(bulk {})'.format(part)
+            if re.match(r'\w', last_part[-1]) and re.match(r'\w', part[0]):
+                prev_punct = prev_punct or ','
+        return '{}{} {}'.format(last_part, prev_punct, part)
+
+    def push_title_part(self, part, prev_punct):
+        part_type = self.what_type_is_this_part(prev_punct)
+        part = p.restore_periods(part)
+        if part_type == 'same_part' and len(self.title_parts):
+            part = self.join_parts(self.title_parts[-1], part, prev_punct)
+            self.title_parts[-1] = part
+        elif part_type in ('new_title', 'parallel_title'):
+            self.start_next_title()
+            self.title_parts = [part]
+            if part_type == 'parallel_title':
+              self.lock_parallel = True
+        elif part_type == 'responsibility':
+            self.responsibility = part
+            self.start_next_title()
+        else:
+            # i.e.:
+            # if part_type == 'new_part', or
+            # if part_type =='same_part' but len(self.title_parts) == 0
+            self.title_parts.append(part)
+
+    def split_compound_title(self, tstring, handle_internal_periods):
+        prev_punct = self.prev_punct
+        int_punct_re = r'\s+[;=]\s+'
+        int_periods_re = r'|\.\s?' if handle_internal_periods else ''
+        split_re = r'({}{})'.format(int_punct_re, int_periods_re)
+        for i, val in enumerate(re.split(split_re, tstring)):
+            if i % 2 == 0:
+                yield prev_punct, val
+            else:
+                prev_punct = val.strip()
+
+    def do_compound_title_part(self, part, is_subfield_c):
+        compound_title_pieces = self.split_compound_title(part, is_subfield_c)
+        for prev_punct, subpart in compound_title_pieces:
+            if subpart:
+                self.push_title_part(subpart, prev_punct)
+
+    def split_sor_from_tstring(self, tstring):
+        sor_parts = re.split(r'(\s+=\s+|\.\s?)', tstring, 1)
+        if len(sor_parts) == 3:
+            sor, end_punct, rem_tstring = sor_parts
+            return sor, end_punct.strip(), rem_tstring
+        sor = sor_parts[0] if len(sor_parts) else ''
+        return sor, '', ''
+
+    def split_title_and_sor(self, tstring):
+        title_and_remaining = tstring.split(' / ', 1)
+        title = title_and_remaining[0]
+        rem = title_and_remaining[1] if len(title_and_remaining) > 1 else ''
+        return title, rem
+
+    def do_titles_and_sors(self, tstring, is_subfield_c):
+        tstring = p.normalize_punctuation(tstring, periods_protected=True,
+                                          punctuation_re=r'[\.\/;:,=]')
+        do_sor_next = is_subfield_c
+        while tstring:
+            if do_sor_next:
+                sor, end_punct, tstring = self.split_sor_from_tstring(tstring)
+                self.responsibility = p.restore_periods(sor)
+                self.start_next_title()
+                self.prev_punct = end_punct
+            if tstring:
+                title_part, tstring = self.split_title_and_sor(tstring)
+                self.do_compound_title_part(title_part, is_subfield_c)
+                do_sor_next = True
+
+    def get_flags(self, tag, val):
+        return {
+            'newpart_def': tag == 'n' or (tag == 'p' and self.prev_tag != 'n'),
+            'lock_same_title': tag in 'fgknps',
+            'is_valid': tag in 'abcfghknps' and val,
+            'is_main_part': tag in 'ab',
+            'is_subpart': tag in 'fgknps',
+            'is_subfield_c': tag == 'c',
+            'is_bulk_following_incl_dates': tag == 'g' and self.prev_tag == 'f',
+            'subpart_may_need_formatting': tag in 'fgkps'
+        }
+
+    def parse_subfield(self, tag, val):
+        self.flags = self.get_flags(tag, val)
+        if self.flags['is_valid']:
+            protected = p.protect_periods(val)
+            part, end_punct = self.pop_isbd_punct_from_title_part(protected)
+            if self.flags['is_main_part']:
+                self.do_titles_and_sors(part, False)
+            elif self.flags['is_subfield_c']:
+                self.do_titles_and_sors(part, True)
+                return True
+            elif self.flags['is_subpart'] and part:
+                self.push_title_part(part, self.prev_punct)
+            self.prev_punct = end_punct
+            self.prev_tag = tag
+
+    def do_post_parse(self):
+        self.start_next_title()
+
+    def compile_results(self):
+        return {
+            'transcribed': self.titles,
+            'parallel': self.parallel_titles
+        }
+
+
 class PreferredTitleParser(SequentialMarcFieldParser):
     def __init__(self, field):
         super(PreferredTitleParser, self).__init__(field)
@@ -1490,6 +1660,9 @@ class BlacklightASMPipeline(object):
             'responsibility_search': responsibility_search or None
         }
 
+    def parse_245_transcribed_title(self, f245):
+        pass
+
     def get_title_info(self, r, marc_record):
         """
         This is responsible for using the 130, 240, 242, 243, 245, 246,
@@ -1504,6 +1677,14 @@ class BlacklightASMPipeline(object):
         title_series_facet = []
         title_sort = ''
         responsibility_display, responsibility_search = '', []
+
+        from_245 = {}
+        for f in marc_record.get_fields('245'):
+            from_245 = self.parse_245_transcribed_title(f)
+            break
+
+        for i, entry in enumerate(self.parse_name_title_fields(marc_record)):
+            pass
 
         return {
             'title_display': title_display or None,

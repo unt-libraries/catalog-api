@@ -2541,6 +2541,324 @@ def test_blasmpipeline_getcontributorinfo(marcfields, expected,
         else:
             assert v is None
 
+
+@pytest.mark.parametrize('subfields, expected', [
+    # Start with edge cases: missing data, non-ISBD punctuation, etc.
+
+    ([],
+     {'transcribed': [],
+      'parallel': []}),
+
+    (['a', ''],
+     {'transcribed': [],
+      'parallel': []}),
+
+    (['a', '', 'b', 'oops mistake /'],
+     {'transcribed': [
+        {'parts': ['oops mistake']}],
+      'parallel': []}),
+
+    (['a', 'A title', 'b', 'no punctuation', 'c', 'by Joe'],
+     {'transcribed': [
+        {'parts': ['A title no punctuation'],
+         'responsibility': 'by Joe'}],
+      'parallel': []}),
+
+    (['a', 'A title', 'b', 'no punctuation', 'n', 'Part 1',
+      'p', 'the quickening', 'c', 'by Joe'],
+     {'transcribed': [
+        {'parts': ['A title no punctuation', 'Part 1, the quickening'],
+         'responsibility': 'by Joe'}],
+      'parallel': []}),
+
+    (['a', 'A title', 'b', 'no punctuation', 'p', 'The quickening',
+      'p', 'Subpart A', 'c', 'by Joe'],
+     {'transcribed': [
+        {'parts': ['A title no punctuation', 'The quickening',
+                   'Subpart A'],
+         'responsibility': 'by Joe'}],
+      'parallel': []}),
+
+    (['a', 'A title,', 'b', 'non-ISBD punctuation;', 'n', 'Part 1,',
+      'p', 'the quickening', 'c', 'by Joe'],
+     {'transcribed': [
+        {'parts': ['A title, non-ISBD punctuation', 'Part 1, the quickening'],
+         'responsibility': 'by Joe'}],
+      'parallel': []}),
+
+    (['a', 'A title!', 'b', 'Non-ISBD punctuation;', 'p', 'The quickening',
+      'c', 'by Joe'],
+     {'transcribed': [
+        {'parts': ['A title! Non-ISBD punctuation', 'The quickening'],
+         'responsibility': 'by Joe'}],
+      'parallel': []}),
+
+    (['a', 'A title : with punctuation, all in $a. Part 1 / by Joe'],
+     {'transcribed': [
+        {'parts': ['A title: with punctuation, all in $a. Part 1'],
+         'responsibility': 'by Joe'}],
+      'parallel': []}),
+
+    (['b', ' = A parallel title missing a main title'],
+     {'transcribed': [
+        {'parts': ['A parallel title missing a main title']}],
+      'parallel': []}),
+
+    (['a', '1. One thing, 2. Another, 3. A third :',
+      'b', 'This is like some of the Early English Books Online titles / '
+           'by Joe = 1. One thing, 2. Another, 3. A third : Plus long '
+           'subtitle etc. /'],
+     {'transcribed': [
+        {'parts': ['1. One thing, 2. Another, 3. A third: This is like some '
+                   'of the Early English Books Online titles'],
+         'responsibility': 'by Joe'}],
+      'parallel': [
+        {'parts': ['1. One thing, 2. Another, 3. A third: Plus long subtitle '
+                   'etc.']}
+    ]}),
+
+    (['a', '1. This is like another Early English Books Online title :',
+      'b', 'something: 2. Something else: 3. About the 22th. of June, 1678. '
+           'by Richard Greene of Dilwin, etc.'],
+     {'transcribed': [
+        {'parts': ['1. This is like another Early English Books Online title: '
+                   'something: 2. Something else: 3. About the 22th. of June, '
+                   '1678. by Richard Greene of Dilwin, etc.']}],
+      'parallel': []}),
+
+    # Now test cases on more standard data.
+
+    (['a', 'Title :', 'b', 'with subtitle.'],
+     {'transcribed': [{'parts': ['Title: with subtitle']}],
+      'parallel': []}),
+
+    (['a', 'First title ;', 'b', 'Second title.'],
+     {'transcribed': [{'parts': ['First title']}, {'parts': ['Second title']}],
+      'parallel': []}),
+
+    (['a', 'First title ;', 'b', 'Second title ; Third title'],
+     {'transcribed': [{'parts': ['First title']}, {'parts': ['Second title']},
+                      {'parts': ['Third title']}],
+      'parallel': []}),
+
+    (['a', 'Title /', 'c', 'by Author.'],
+     {'transcribed': [
+        {'parts': ['Title'],
+         'responsibility': 'by Author'}],
+      'parallel': []}),
+
+    (['a', 'Title /', 'c', 'Author 1 ; Author 2 ; Author 3.'],
+     {'transcribed': [
+        {'parts': ['Title'],
+         'responsibility': 'Author 1; Author 2; Author 3'}],
+      'parallel': []}),
+
+    (['a', 'Title!', 'b', 'What ending punctuation should we keep?'],
+     {'transcribed': [
+        {'parts': ['Title! What ending punctuation should we keep?']}],
+      'parallel': []}),
+
+    # Titles that include parts ($n and $p).
+
+    (['a', 'Title.', 'n', 'Part 1.'],
+     {'transcribed': [
+        {'parts': ['Title', 'Part 1']}],
+      'parallel': []}),
+
+    (['a', 'Title.', 'p', 'Name of a part.'],
+     {'transcribed': [
+        {'parts': ['Title', 'Name of a part']}],
+      'parallel': []}),
+
+    (['a', 'Title.', 'n', 'Part 1,', 'p', 'Name of a part.'],
+     {'transcribed': [
+        {'parts': ['Title', 'Part 1, Name of a part']}],
+      'parallel': []}),
+
+    (['a', 'Title.', 'n', 'Part 1', 'p', 'Name of a part.'],
+     {'transcribed': [
+        {'parts': ['Title', 'Part 1, Name of a part']}],
+      'parallel': []}),
+
+    (['a', 'Title.', 'n', 'Part 1.', 'p', 'Name of a part.'],
+     {'transcribed': [
+        {'parts': ['Title', 'Part 1', 'Name of a part']}],
+      'parallel': []}),
+
+    (['a', 'Title.', 'n', '1. Part', 'p', 'Name of a part.'],
+     {'transcribed': [
+        {'parts': ['Title', '1. Part, Name of a part']}],
+      'parallel': []}),
+
+    (['a', 'Title.', 'n', '1. Part A', 'n', '2. Part B'],
+     {'transcribed': [
+        {'parts': ['Title', '1. Part A', '2. Part B']}],
+      'parallel': []}),
+
+    (['a', 'Title :', 'b', 'subtitle.', 'n', '1. Part A', 'n', '2. Part B'],
+     {'transcribed': [
+        {'parts': ['Title: subtitle', '1. Part A', '2. Part B']}],
+      'parallel': []}),
+
+    (['a', 'Title one.', 'n', 'Book 2.', 'n', 'Chapter V /',
+      'c', 'Author One. Title two. Book 3. Chapter VI / Author Two.'],
+     {'transcribed': [
+        {'parts': ['Title one', 'Book 2', 'Chapter V'],
+         'responsibility': 'Author One'},
+        {'parts': ['Title two', 'Book 3. Chapter VI'],
+         'responsibility': 'Author Two'}],
+      'parallel': []}),
+
+    # Fun with parallel titles!
+
+    (['a', 'Title in French =', 'b', 'Title in English /', 'c', 'by Author.'],
+     {'transcribed': [
+        {'parts': ['Title in French'],
+         'responsibility': 'by Author'}],
+      'parallel': [
+        {'parts': ['Title in English']}]}),
+
+    (['a', 'Title in French /',
+      'c', 'by Author in French = Title in English / by Author in English.'],
+     {'transcribed': [
+        {'parts': ['Title in French'],
+         'responsibility': 'by Author in French'}],
+      'parallel': [
+        {'parts': ['Title in English'],
+         'responsibility': 'by Author in English'}]}),
+
+    (['a', 'Title in French =', 'b', 'Title in English = Title in German /',
+      'c', 'by Author.'],
+     {'transcribed': [
+        {'parts': ['Title in French'],
+         'responsibility': 'by Author'}],
+      'parallel': [
+        {'parts': ['Title in English']},
+        {'parts': ['Title in German']}]}),
+
+    (['a', 'First title in French =',
+      'b', 'First title in English ; Second title in French = Second title in '
+           'English.'],
+     {'transcribed': [
+        {'parts': ['First title in French']},
+        {'parts': ['Second title in French']}],
+      'parallel': [
+        {'parts': ['First title in English']},
+        {'parts': ['Second title in English']}
+      ]}),
+
+    (['a', 'Title in French.', 'p',  'Part One =', 'b', 'Title in English.',
+      'p', 'Part One.'],
+     {'transcribed': [
+        {'parts': ['Title in French', 'Part One']}],
+      'parallel': [
+        {'parts': ['Title in English', 'Part One']}]}),
+
+    (['a', 'Title in French.', 'p',  'Part One :',
+      'b', 'subtitle = Title in English.', 'p', 'Part One : subtitle.'],
+     {'transcribed': [
+        {'parts': ['Title in French', 'Part One: subtitle']}],
+      'parallel': [
+        {'parts': ['Title in English', 'Part One: subtitle']}]}),
+
+    # $h (medium) is ignored, except for ISBD punctuation
+
+    (['a', 'First title', 'h', '[sound recording] ;', 'b', 'Second title.'],
+     {'transcribed': [{'parts': ['First title']}, {'parts': ['Second title']}],
+      'parallel': []}),
+
+    (['a', 'Title in French.', 'p',  'Part One', 'h', '[sound recording] =',
+      'b', 'Title in English.', 'p', 'Part One.'],
+     {'transcribed': [
+        {'parts': ['Title in French', 'Part One']}],
+      'parallel': [
+        {'parts': ['Title in English', 'Part One']}]}),
+
+    # Subfields for archives and archival collections (fgks)
+
+    (['a', 'Smith family papers,', 'f', '1800-1920.'],
+     {'transcribed': [
+        {'parts': ['Smith family papers, 1800-1920']}],
+      'parallel': []}),
+
+    (['a', 'Smith family papers', 'f', '1800-1920.'],
+     {'transcribed': [
+        {'parts': ['Smith family papers, 1800-1920']}],
+      'parallel': []}),
+
+    (['a', 'Smith family papers', 'f', '1800-1920', 'g', '1850-1860.'],
+     {'transcribed': [
+        {'parts': ['Smith family papers, 1800-1920 (bulk 1850-1860)']}],
+      'parallel': []}),
+
+    (['a', 'Smith family papers', 'g', '1850-1860.'],
+     {'transcribed': [
+        {'parts': ['Smith family papers, 1850-1860']}],
+      'parallel': []}),
+
+    (['a', 'Smith family papers', 'f', '1800-1920,', 'g', '1850-1860.'],
+     {'transcribed': [
+        {'parts': ['Smith family papers, 1800-1920 (bulk 1850-1860)']}],
+      'parallel': []}),
+
+    (['a', 'Smith family papers', 'f', '1800-1920,', 'g', '(1850-1860).'],
+     {'transcribed': [
+        {'parts': ['Smith family papers, 1800-1920, (1850-1860)']}],
+      'parallel': []}),
+
+    (['a', 'Smith family papers', 'f', '1800-1920', 'g', '(1850-1860).'],
+     {'transcribed': [
+        {'parts': ['Smith family papers, 1800-1920 (1850-1860)']}],
+      'parallel': []}),
+
+    (['a', 'Some title :', 'k', 'typescript', 'f', '1800.'],
+     {'transcribed': [
+        {'parts': ['Some title: typescript, 1800']}],
+      'parallel': []}),
+
+    (['a', 'Hearing Files', 'k', 'Case Files', 'f', '1800', 'p', 'District 6.'],
+     {'transcribed': [
+        {'parts': ['Hearing Files, Case Files, 1800', 'District 6']}],
+      'parallel': []}),
+
+    (['a', 'Hearing Files.', 'k', 'Case Files', 'f', '1800', 'p', 'District 6.'],
+     {'transcribed': [
+        {'parts': ['Hearing Files', 'Case Files, 1800', 'District 6']}],
+      'parallel': []}),
+
+    (['a', 'Report.', 's', 'Executive summary.'],
+     {'transcribed': [
+        {'parts': ['Report', 'Executive summary']}],
+      'parallel': []}),
+
+    (['a', 'Title', 'k', 'Form', 's', 'Version', 'f', '1990'],
+     {'transcribed': [
+        {'parts': ['Title, Form, Version, 1990']}],
+      'parallel': []}),
+
+    (['k', 'Form', 's', 'Version', 'f', '1990'],
+     {'transcribed': [
+        {'parts': ['Form, Version, 1990']}],
+      'parallel': []}),
+
+    # ([],
+    #  {'transcribed': [
+    #     {'parts': [],
+    #      'responsibility': ''}],
+    #   'parallel': [
+    #     {'parts': [],
+    #      'responsibility': ''}
+    # ]}),
+])
+def test_transcribedtitleparser_parse(subfields, expected):
+    """
+    PerformanceMedParser `parse` method should return a dict with the
+    expected structure, given the provided MARC 245 field.
+    """
+    field = s2m.make_mfield('245', subfields=subfields)
+    assert s2m.TranscribedTitleParser(field).parse() == expected
+
+
 @pytest.mark.parametrize('marcfields, expected', [
     ([('100', ['a', 'Churchill, Winston,', 'c', 'Sir,', 'd', '1874-1965.'],
        '1 ')], {}),
