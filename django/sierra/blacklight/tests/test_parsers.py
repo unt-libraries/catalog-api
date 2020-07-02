@@ -183,6 +183,7 @@ def test_strip_brackets(data, keep_inner, to_keep_re, to_remove_re, to_protect_r
     ('Remove inner period. Dude', 'Remove inner period Dude'),
     ('Protect period inside a word, like 1.1', 'Protect period inside a word, like 1.1'),
     ('Protect inner period from numeric ordinal 1. Dude', 'Protect inner period from numeric ordinal 1. Dude'),
+    ('Protect inner period from longer number, 1684. followed by lowercase letter', 'Protect inner period from longer number, 1684. followed by lowercase letter'),
     ('Protect inner period from alphabetic ordinal 21st. Dude', 'Protect inner period from alphabetic ordinal 21st. Dude'),
     ('Protect inner period from Roman Numeral XII. Dude', 'Protect inner period from Roman Numeral XII. Dude'),
     ('Protect inner period from abbreviation eds. Dude', 'Protect inner period from abbreviation eds. Dude'),

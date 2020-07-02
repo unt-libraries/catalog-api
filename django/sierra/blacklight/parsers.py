@@ -204,9 +204,11 @@ def protect_periods(data, repl_char='~',
     initials = r'([A-Z])'
     ordinal_period_numeric = r'(\d{1,3})'
     ordinal_period_alphabetic = r'(\d+[A-Za-z]+)'
+    ordinal_period_long_number = r'(\d+)(?=\.\W*[a-z])'
     roman_numerals = r'({})'.format(settings.MARCDATA.ROMAN_NUMERAL_REGEX)
-    protect_all = r'\b(({}|{}|{})(?=\.\W)|({}|{}))\.'.format(ordinal_period_numeric, ordinal_period_alphabetic,
-                                                             roman_numerals, initials, abbreviations_re)
+    protect_all = r'\b(({}|{}|{})(?=\.\W)|{}|({}|{}))\.'.format(ordinal_period_numeric, ordinal_period_alphabetic,
+                                                                roman_numerals, ordinal_period_long_number, initials,
+                                                                abbreviations_re)
     periods_in_words_protected = re.sub(r'\.(\w)', r'{}\1'.format(repl_char), data)
     ellipses_protected = re.sub(r'\.{3}', r'{0}{0}{0}'.format(repl_char), periods_in_words_protected)
     return re.sub(protect_all, r'\1{}'.format(repl_char), ellipses_protected)
