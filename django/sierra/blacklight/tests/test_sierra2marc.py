@@ -2852,11 +2852,439 @@ def test_blasmpipeline_getcontributorinfo(marcfields, expected,
 ])
 def test_transcribedtitleparser_parse(subfields, expected):
     """
-    PerformanceMedParser `parse` method should return a dict with the
+    TranscribedTitleParser `parse` method should return a dict with the
     expected structure, given the provided MARC 245 field.
     """
     field = s2m.make_mfield('245', subfields=subfields)
     assert s2m.TranscribedTitleParser(field).parse() == expected
+
+
+@pytest.mark.parametrize('tag, subfields, expected', [    
+    # Start with edge cases: missing data, non-ISBD punctuation, etc.
+
+    ('130', [],
+     {'materials_specified': [],
+      'display_constants': [],
+      'title_parts': [],
+      'expression_parts': [],
+      'languages': [],
+      'is_collective': False,
+      'is_music_form': False,
+     }),
+
+    ('130', ['a', ''],
+     {'materials_specified': [],
+      'display_constants': [],
+      'title_parts': [],
+      'expression_parts': [],
+      'languages': [],
+      'is_collective': False,
+      'is_music_form': False,
+     }),
+
+    ('130', ['a', '', 'k', 'Selections.'],
+     {'materials_specified': [],
+      'display_constants': [],
+      'title_parts': ['Selections'],
+      'expression_parts': [],
+      'languages': [],
+      'is_collective': False,
+      'is_music_form': False,
+     }),
+
+    ('130', ['a', 'Basic title no punctuation', 'n', 'Part 1'],
+     {'materials_specified': [],
+      'display_constants': [],
+      'title_parts': ['Basic title no punctuation', 'Part 1'],
+      'expression_parts': [],
+      'languages': [],
+      'is_collective': False,
+      'is_music_form': False,
+     }),
+
+    ('130', ['a', 'Basic title no punctuation', 'p', 'Named part'],
+     {'materials_specified': [],
+      'display_constants': [],
+      'title_parts': ['Basic title no punctuation', 'Named part'],
+      'expression_parts': [],
+      'languages': [],
+      'is_collective': False,
+      'is_music_form': False,
+     }),
+
+    ('130', ['a', 'Basic title no punctuation', 'n', 'Part 1',
+             'p', 'named part'],
+     {'materials_specified': [],
+      'display_constants': [],
+      'title_parts': ['Basic title no punctuation', 'Part 1, named part'],
+      'expression_parts': [],
+      'languages': [],
+      'is_collective': False,
+      'is_music_form': False,
+     }),
+
+    ('130', ['a', 'Basic title no punctuation', 'n', 'Part 1', 'n', 'Part 2'],
+     {'materials_specified': [],
+      'display_constants': [],
+      'title_parts': ['Basic title no punctuation', 'Part 1', 'Part 2'],
+      'expression_parts': [],
+      'languages': [],
+      'is_collective': False,
+      'is_music_form': False,
+     }),
+
+    ('130', ['a', 'Basic title no punctuation', 'p', 'Named part',
+             'n', 'Part 2'],
+     {'materials_specified': [],
+      'display_constants': [],
+      'title_parts': ['Basic title no punctuation', 'Named part', 'Part 2'],
+      'expression_parts': [],
+      'languages': [],
+      'is_collective': False,
+      'is_music_form': False,
+     }),
+
+    ('130', ['a', 'Basic title no punctuation', 'n', 'Part 1', 'l', 'English'],
+     {'materials_specified': [],
+      'display_constants': [],
+      'title_parts': ['Basic title no punctuation', 'Part 1'],
+      'expression_parts': ['English'],
+      'languages': ['English'],
+      'is_collective': False,
+      'is_music_form': False,
+     }),
+
+    # Once the first expression-level subfield appears, the rest are
+    # interpreted as expression parts, whatever they are.
+    ('130', ['a', 'Basic title no punctuation', 'n', 'Part 1',
+             's', 'Version A', 'p', 'Subpart C'],
+     {'materials_specified': [],
+      'display_constants': [],
+      'title_parts': ['Basic title no punctuation', 'Part 1'],
+      'expression_parts': ['Version A', 'Subpart C'],
+      'languages': [],
+      'is_collective': False,
+      'is_music_form': False,
+     }),
+
+    ('130', ['a', 'Basic title no punctuation', 'n', 'Part 1',
+             's', 'Version A', 'p', 'Subpart C'],
+     {'materials_specified': [],
+      'display_constants': [],
+      'title_parts': ['Basic title no punctuation', 'Part 1'],
+      'expression_parts': ['Version A', 'Subpart C'],
+      'languages': [],
+      'is_collective': False,
+      'is_music_form': False,
+     }),
+
+    # Test cases on more standard data.
+
+    # For music collective titles, the first $n or $p ('op. 10' in this
+    # case) becomes a new part even if the preceding comma indicates
+    # otherwise.
+    ('130', ['a', 'Duets,', 'm', 'violin, viola,', 'n', 'op. 10.',
+             'n', 'No. 3.'],
+     {'materials_specified': [],
+      'display_constants': [],
+      'title_parts': ['Duets, violin, viola', 'Op. 10', 'No. 3'],
+      'expression_parts': [],
+      'languages': [],
+      'is_collective': True,
+      'is_music_form': True,
+     }),
+
+    # For other titles, the first subpart becomes part of the main
+    # title if there's a preceding comma.
+    ('130', ['a', 'Some title,', 'n', 'the first part.', 'n', 'Volume 1.'],
+     {'materials_specified': [],
+      'display_constants': [],
+      'title_parts': ['Some title, the first part', 'Volume 1'],
+      'expression_parts': [],
+      'languages': [],
+      'is_collective': False,
+      'is_music_form': False,
+     }),
+
+    # The first $n or $p starts a new part if there's a preceding period.
+    ('130', ['a', 'Some title.', 'n', 'The first part.', 'n', 'Volume 1.'],
+     {'materials_specified': [],
+      'display_constants': [],
+      'title_parts': ['Some title', 'The first part', 'Volume 1'],
+      'expression_parts': [],
+      'languages': [],
+      'is_collective': False,
+      'is_music_form': False,
+     }),
+
+    # A $p after $n is combined with the $n if there's a comma (or
+    # nothing) preceding $p.
+    ('130', ['a', 'Some title.', 'n', 'The first part,', 'p', 'part name.'],
+     {'materials_specified': [],
+      'display_constants': [],
+      'title_parts': ['Some title', 'The first part, part name'],
+      'expression_parts': [],
+      'languages': [],
+      'is_collective': False,
+      'is_music_form': False,
+     }),
+
+    # A $p after $n becomes a new part if there's a period preceding
+    # $p.
+    ('130', ['a', 'Some title.', 'n', 'The first part.', 'p', 'Part name.'],
+     {'materials_specified': [],
+      'display_constants': [],
+      'title_parts': ['Some title', 'The first part', 'Part name'],
+      'expression_parts': [],
+      'languages': [],
+      'is_collective': False,
+      'is_music_form': False,
+     }),
+
+    # For $n's and $p's (after the first), part hierarchy is based on
+    # punctuation. Commas denote same part, periods denote new parts.
+    ('130', ['a', 'Some title.', 'n', 'Part 1,', 'n', 'Part 2.'],
+     {'materials_specified': [],
+      'display_constants': [],
+      'title_parts': ['Some title', 'Part 1, Part 2'],
+      'expression_parts': [],
+      'languages': [],
+      'is_collective': False,
+      'is_music_form': False,
+     }),
+
+    # $k is treated as a new part.
+    ('130', ['a', 'Works.', 'k', 'Selections.'],
+     {'materials_specified': [],
+      'display_constants': [],
+      'title_parts': ['Works', 'Selections'],
+      'expression_parts': [],
+      'languages': [],
+      'is_collective': True,
+      'is_music_form': False,
+     }),
+
+    # $k following a collective title is always a new part.
+    ('130', ['a', 'Works,', 'k', 'Selections.'],
+     {'materials_specified': [],
+      'display_constants': [],
+      'title_parts': ['Works', 'Selections'],
+      'expression_parts': [],
+      'languages': [],
+      'is_collective': True,
+      'is_music_form': False,
+     }),
+
+    # Languages are parsed out if multiple are found.
+    ('130', ['a', 'Something.', 'l', 'English and French.'],
+     {'materials_specified': [],
+      'display_constants': [],
+      'title_parts': ['Something'],
+      'expression_parts': ['English and French'],
+      'languages': ['English', 'French'],
+      'is_collective': False,
+      'is_music_form': False,
+     }),
+
+    ('130', ['a', 'Something.', 'l', 'English & French.'],
+     {'materials_specified': [],
+      'display_constants': [],
+      'title_parts': ['Something'],
+      'expression_parts': ['English & French'],
+      'languages': ['English', 'French'],
+      'is_collective': False,
+      'is_music_form': False,
+     }),
+
+    ('130', ['a', 'Something.', 'l', 'English, French, and German.'],
+     {'materials_specified': [],
+      'display_constants': [],
+      'title_parts': ['Something'],
+      'expression_parts': ['English, French, and German'],
+      'languages': ['English', 'French', 'German'],
+      'is_collective': False,
+      'is_music_form': False,
+     }),
+
+    # If a generic collective title, like "Works", is followed by a
+    # subfield m, it's interpreted as a music form title.
+    ('130', ['a', 'Works,', 'm', 'violin.', 'k', 'Selections.'],
+     {'materials_specified': [],
+      'display_constants': [],
+      'title_parts': ['Works, violin', 'Selections'],
+      'expression_parts': [],
+      'languages': [],
+      'is_collective': True,
+      'is_music_form': True,
+     }),
+
+    # Anything following a $k results in a new hierarchical part.
+    ('130', ['a', 'Works,', 'm', 'violin.', 'k', 'Selections,', 'n', 'op. 8.'],
+     {'materials_specified': [],
+      'display_constants': [],
+      'title_parts': ['Works, violin', 'Selections', 'Op. 8'],
+      'expression_parts': [],
+      'languages': [],
+      'is_collective': True,
+      'is_music_form': True,
+     }),
+
+    # "[Instrument] music" is treated as a collective title but not a
+    # music form title.
+    ('130', ['a', 'Piano music (4 hands)', 'k', 'Selections.'],
+     {'materials_specified': [],
+      'display_constants': [],
+      'title_parts': ['Piano music (4 hands)', 'Selections'],
+      'expression_parts': [],
+      'languages': [],
+      'is_collective': True,
+      'is_music_form': False,
+     }),
+
+    # $d interacts with collective titles like other subpart sf types.
+    ('240', ['a', 'Treaties, etc.', 'd', '1948.'],
+     {'materials_specified': [],
+      'display_constants': [],
+      'title_parts': ['Treaties, etc.', '1948'],
+      'expression_parts': [],
+      'languages': [],
+      'is_collective': True,
+      'is_music_form': False,
+     }),
+
+    ('240', ['a', 'Treaty of whatever', 'd', '(1948)'],
+     {'materials_specified': [],
+      'display_constants': [],
+      'title_parts': ['Treaty of whatever (1948)'],
+      'expression_parts': [],
+      'languages': [],
+      'is_collective': False,
+      'is_music_form': False,
+     }),
+
+    # ... and $d is treated like other subpart types when it occurs
+    # elsewhere.
+    ('240', ['a', 'Treaties, etc.', 'g', 'Poland,', 'd', '1948 Mar. 2.',
+             'k', 'Protocols, etc.,', 'd', '1951 Mar. 6'],
+     {'materials_specified': [],
+      'display_constants': [],
+      'title_parts': ['Treaties, etc.', 'Poland, 1948 Mar. 2',
+                      'Protocols, etc.', '1951 Mar. 6'],
+      'expression_parts': [],
+      'languages': [],
+      'is_collective': True,
+      'is_music_form': False,
+     }),
+
+    # 700, 710, and 711 fields skip past the "author" subfields but
+    # handle the $i, if present.
+
+    ('700', ['i', 'Container of (work):', 'a', 'Fauré, Gabriel,',
+             'd', '1845-1924.', 't', 'Nocturnes,', 'm', 'piano,',
+             'n', 'no. 11, op. 104, no. 1,', 'r', 'F♯ minor'],
+     {'materials_specified': [],
+      'display_constants': ['Container of'],
+      'title_parts': ['Nocturnes, piano', 'No. 11, op. 104, no. 1, F♯ minor'],
+      'expression_parts': [],
+      'languages': [],
+      'is_collective': True,
+      'is_music_form': True,
+     }),
+
+    ('710', ['i', 'Summary of (work):', 'a', 'United States.',
+             'b', 'Adjutant-General\'s Office.',
+             't', 'Correspondence relating to the war with Spain'],
+     {'materials_specified': [],
+      'display_constants': ['Summary of'],
+      'title_parts': ['Correspondence relating to the war with Spain'],
+      'expression_parts': [],
+      'languages': [],
+      'is_collective': False,
+      'is_music_form': False,
+     }),
+
+    ('711', ['a', 'International Conference on Gnosticism', 'd', '(1978 :',
+             'c', 'New Haven, Conn.).', 't', 'Rediscovery of Gnosticism.',
+             'p', 'Modern writers.'],
+     {'materials_specified': [],
+      'display_constants': [],
+      'title_parts': ['Rediscovery of Gnosticism', 'Modern writers'],
+      'expression_parts': [],
+      'languages': [],
+      'is_collective': False,
+      'is_music_form': False,
+     }),
+
+    ('730', ['i', 'Container of (expression):', 'a', 'Bible.', 'p', 'Epistles.',
+             'k', 'Selections.', 'l', 'Tabaru.', 's', 'Common Language.',
+             'f', '2001'],
+     {'materials_specified': [],
+      'display_constants': ['Container of'],
+      'title_parts': ['Bible', 'Epistles', 'Selections'],
+      'expression_parts': ['Tabaru', 'Common Language', '2001'],
+      'languages': ['Tabaru'],
+      'is_collective': False,
+      'is_music_form': False,
+     }),
+
+    # If $o is present and begins with 'arr', the statement 'arranged'
+    # is added to `expression_parts`.
+    ('730', ['a', 'God save the king;', 'o', 'arr.', 'f', '1982.'],
+     {'materials_specified': [],
+      'display_constants': [],
+      'title_parts': ['God save the king'],
+      'expression_parts': ['arranged', '1982'],
+      'languages': [],
+      'is_collective': False,
+      'is_music_form': False,
+     }),
+
+    # 800, 810, 811, and 830 fields are series and may have $v (volume)
+    # and/or $x (ISSN)
+
+    ('800', ['a', 'Berenholtz, Jim,', 'd', '1957-',
+             't', 'Teachings of the feathered serpent ;', 'v', 'bk. 1'],
+     {'materials_specified': [],
+      'display_constants': [],
+      'title_parts': ['Teachings of the feathered serpent'],
+      'expression_parts': [],
+      'languages': [],
+      'volume': 'bk. 1',
+      'issn': '',
+      'is_collective': False,
+      'is_music_form': False,
+     }),
+
+    # $3 becomes `materials_specified` if present
+    ('830', ['3', 'v. 1-8', 'a','Collection Byzantine.', 'x', '0223-3738'],
+     {'materials_specified': ['v. 1-8'],
+      'display_constants': [],
+      'title_parts': ['Collection Byzantine'],
+      'expression_parts': [],
+      'languages': [],
+      'volume': '',
+      'issn': '0223-3738',
+      'is_collective': False,
+      'is_music_form': False,
+     }),
+
+    # ('', [],
+    #  {'materials_specified': [],
+    #   'display_constants': [],
+    #   'title_parts': [],
+    #   'expression_parts': [],
+    #   'languages': [],
+    #   'is_collective': False,
+    #   'is_music_form': False,
+    #  }),
+])
+def test_preferredtitleparser_parse(tag, subfields, expected):
+    """
+    PreferredTitleParser `parse` method should return a dict with the
+    expected structure, given the provided MARC field.
+    """
+    field = s2m.make_mfield(tag, subfields=subfields)
+    assert s2m.PreferredTitleParser(field).parse() == expected
 
 
 @pytest.mark.parametrize('marcfields, expected', [

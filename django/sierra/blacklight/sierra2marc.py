@@ -439,26 +439,10 @@ class OrgEventNameParser(SequentialMarcFieldParser):
         return ret_val
 
 
-class TranscribedTitleParser(SequentialMarcFieldParser):
-    isbd_punct_mapping = {
-        ';': 'new_title',
-        ':': 'same_part',
-        '/': 'responsibility',
-        '=': 'parallel_title',
-        ',': 'same_part',
-        '.': 'new_part'
-    }
-
-    def __init__(self, field):
-        super(TranscribedTitleParser, self).__init__(field)
-        self.prev_punct = ''
-        self.prev_tag = ''
-        self.flags = {}
-        self.lock_parallel = False
-        self.title_parts = []
-        self.responsibility = ''
-        self.titles = []
-        self.parallel_titles = []
+class HierarchicalTitlePartAnalyzer(object):
+    def __init__(self, isbd_punct_mapping):
+        super(HierarchicalTitlePartAnalyzer, self).__init__()
+        self.isbd_punct_mapping = isbd_punct_mapping
 
     def pop_isbd_punct_from_title_part(self, part):
         end_punct = part.strip()[-1]
@@ -467,13 +451,35 @@ class TranscribedTitleParser(SequentialMarcFieldParser):
             return part.strip(chars_to_strip), end_punct
         return part, ''
 
-    def what_type_is_this_part(self, prev_punct):
+    def what_type_is_this_part(self, prev_punct, flags):
         ptype = self.isbd_punct_mapping.get(prev_punct, '')
-        lock_same_title = self.flags['lock_same_title']
+        lock_same_title = flags.get('lock_same_title', False)
+        default_to_new_part = flags.get('default_to_new_part', False)
         if not ptype or (ptype == 'new_title' and lock_same_title):
-            default = 'new_part' if self.flags['newpart_def'] else 'same_part'
-            return default
+            return 'new_part' if default_to_new_part else 'same_part'
         return ptype
+
+
+class TranscribedTitleParser(SequentialMarcFieldParser):
+    def __init__(self, field):
+        super(TranscribedTitleParser, self).__init__(field)
+        self.prev_punct = ''
+        self.prev_tag = ''
+        self.part_type = ''
+        self.flags = {}
+        self.lock_parallel = False
+        self.title_parts = []
+        self.responsibility = ''
+        self.titles = []
+        self.parallel_titles = []
+        self.analyzer = HierarchicalTitlePartAnalyzer({
+            ';': 'new_title',
+            ':': 'same_part',
+            '/': 'responsibility',
+            '=': 'parallel_title',
+            ',': 'same_part',
+            '.': 'new_part'
+        })
 
     def start_next_title(self):
         title, is_parallel = {}, self.lock_parallel
@@ -507,7 +513,7 @@ class TranscribedTitleParser(SequentialMarcFieldParser):
         return '{}{} {}'.format(last_part, prev_punct, part)
 
     def push_title_part(self, part, prev_punct):
-        part_type = self.what_type_is_this_part(prev_punct)
+        part_type = self.analyzer.what_type_is_this_part(prev_punct, self.flags)
         part = p.restore_periods(part)
         if part_type == 'same_part' and len(self.title_parts):
             part = self.join_parts(self.title_parts[-1], part, prev_punct)
@@ -573,8 +579,9 @@ class TranscribedTitleParser(SequentialMarcFieldParser):
                 do_sor_next = True
 
     def get_flags(self, tag, val):
+        def_to_new_part = tag == 'n' or (tag == 'p' and self.prev_tag != 'n')
         return {
-            'newpart_def': tag == 'n' or (tag == 'p' and self.prev_tag != 'n'),
+            'default_to_new_part': def_to_new_part,
             'lock_same_title': tag in 'fgknps',
             'is_valid': tag in 'abcfghknps' and val,
             'is_main_part': tag in 'ab',
@@ -587,8 +594,8 @@ class TranscribedTitleParser(SequentialMarcFieldParser):
     def parse_subfield(self, tag, val):
         self.flags = self.get_flags(tag, val)
         if self.flags['is_valid']:
-            protected = p.protect_periods(val)
-            part, end_punct = self.pop_isbd_punct_from_title_part(protected)
+            prot = p.protect_periods(val)
+            part, end_punct = self.analyzer.pop_isbd_punct_from_title_part(prot)
             if self.flags['is_main_part']:
                 self.do_titles_and_sors(part, False)
             elif self.flags['is_subfield_c']:
@@ -610,17 +617,154 @@ class TranscribedTitleParser(SequentialMarcFieldParser):
 
 
 class PreferredTitleParser(SequentialMarcFieldParser):
+    title_only_fields = ('130', '240', '243', '730', '740', '830')
+    name_title_fields = ('700', '710', '711', '800', '810', '811')
+    series_fields = ('800', '810', '811', '830')
+    nt_title_tags = 'tfklmnoprs'
+    subpart_tags = 'dgknpr'
+    expression_tags = 'flos'
+
     def __init__(self, field):
         super(PreferredTitleParser, self).__init__(field)
+        self.prev_punct = ''
+        self.prev_tag = ''
+        self.flags = {}
+        self.lock_title = False
+        self.lock_expression_info = False
+        self.seen_subpart = False
+        self.primary_title_tag = 't'
+        self.materials_specified = []
+        self.display_constants = []
+        self.title_parts = []
+        self.expression_parts = []
+        self.languages = []
+        self.volume = ''
+        self.issn = ''
+        self.title_is_collective = field.tag == '243'
+        self.title_is_music_form = False
+        self.is_series = False
+        self.analyzer = HierarchicalTitlePartAnalyzer({
+            ';': 'start_version_info',
+            ',': 'same_part',
+            '.': 'new_part'
+        })
+
+        if field.tag in self.title_only_fields:
+            self.lock_title = True
+            self.primary_title_tag = 'a'
+
+        if field.tag in self.series_fields:
+            self.is_series = True
+            self.nt_title_tags = '{}vx'.format(self.nt_title_tags)
+
+    def join_parts(self, last_part, part, prev_punct):
+        if re.match(r'\w', last_part[-1]) and re.match(r'\w', part[0]):
+            prev_punct = prev_punct or ','
+        return '{}{} {}'.format(last_part, prev_punct, part)
+
+    def force_new_part(self):
+        if self.prev_tag == 'k':
+            return True
+        if self.flags['first_subpart'] and self.title_is_collective:
+            return True
+
+    def push_title_part(self, part, prev_punct):
+        part_type = self.analyzer.what_type_is_this_part(prev_punct, self.flags)
+        part = p.restore_periods(part)
+        force_new = self.force_new_part()
+        if not force_new and part_type == 'same_part' and len(self.title_parts):
+            part = self.join_parts(self.title_parts[-1], part, prev_punct)
+            self.title_parts[-1] = part
+        else:
+            if force_new and part:
+                part = '{}{}'.format(part[0].upper(), part[1:])
+            self.title_parts.append(part)
+
+    def describe_collective_title(self, main_part):
+        norm_part = main_part.lower()
+        if not self.title_is_collective:
+            is_expl_ct = norm_part in settings.MARCDATA.COLLECTIVE_TITLE_TERMS
+            is_legal_ct = re.search(r's, etc\W?$', norm_part)
+            is_music_ct = re.search(r'\smusic(\s+\(.+\)\s*)?$', norm_part)
+            if is_expl_ct or is_music_ct or is_legal_ct:
+                self.title_is_collective = True
+        if norm_part in settings.MARCDATA.MUSIC_FORM_TERMS:
+            self.title_is_music_form = True
+            self.title_is_collective = True
+
+    def parse_languages(self, lang_str):
+        return [l for l in re.split(r', and | and | & |, ', lang_str) if l]
+
+    def get_flags(self, tag, val):
+        if not self.lock_title:
+            self.lock_title = tag in self.nt_title_tags
+        if self.lock_expression_info:
+            is_subpart = False
+        else:
+            is_subpart = tag in self.subpart_tags
+            self.lock_expression_info = tag in self.expression_tags
+        def_to_new_part = tag == 'n' or (tag == 'p' and self.prev_tag != 'n')
+        return {
+            'is_materials_specified': tag == '3',
+            'is_display_const': tag == 'i',
+            'is_valid_title_part': self.lock_title and val,
+            'is_main_part': tag == self.primary_title_tag,
+            'is_subpart': is_subpart,
+            'first_subpart': not self.seen_subpart and is_subpart,
+            'is_perf_medium': tag == 'm',
+            'is_language': tag == 'l',
+            'is_arrangement': tag == 'o',
+            'is_volume': tag == 'v' and self.is_series,
+            'is_issn': tag == 'x' and self.is_series,
+            'default_to_new_part': def_to_new_part,
+        }
 
     def parse_subfield(self, tag, val):
-        pass
+        self.flags = self.get_flags(tag, val)
+        if self.flags['is_materials_specified']:
+            self.materials_specified.append(val)
+        elif self.flags['is_display_const']:
+            self.display_constants.append(p.strip_ends(p.strip_wemi(val)))
+        elif self.flags['is_valid_title_part']:
+            prot = p.protect_periods(val)
+            part, end_punct = self.analyzer.pop_isbd_punct_from_title_part(prot)
+            if self.flags['is_main_part']:
+                self.describe_collective_title(part)
+                self.push_title_part(part, self.prev_punct)
+            elif self.flags['is_perf_medium']:
+                if self.title_is_collective:
+                    self.title_is_music_form = True
+                self.push_title_part(part, self.prev_punct)
+            elif self.flags['is_subpart']:
+                self.push_title_part(part, self.prev_punct)
+                self.seen_subpart = True
+            elif self.flags['is_volume']:
+                self.volume = p.restore_periods(part)
+            elif self.flags['is_issn']:
+                self.issn = p.restore_periods(part)
+            else:
+                if self.flags['is_language']:
+                    self.languages = self.parse_languages(part)
+                if self.flags['is_arrangement'] and part.startswith('arr'):
+                    part = 'arranged'
+                self.expression_parts.append(p.restore_periods(part))
+            self.prev_punct = end_punct
+        self.prev_tag = tag
 
     def compile_results(self):
-        heading = ''
-        return {
-            'heading': heading
+        ret_val = {
+            'materials_specified': self.materials_specified,
+            'display_constants': self.display_constants,
+            'title_parts': self.title_parts,
+            'expression_parts': self.expression_parts,
+            'languages': self.languages,
+            'is_collective': self.title_is_collective,
+            'is_music_form': self.title_is_music_form,
         }
+        if self.is_series:
+            ret_val['volume'] = self.volume
+            ret_val['issn'] = self.issn
+        return ret_val
 
 
 def extract_name_structs_from_field(field):
@@ -1660,9 +1804,6 @@ class BlacklightASMPipeline(object):
             'responsibility_search': responsibility_search or None
         }
 
-    def parse_245_transcribed_title(self, f245):
-        pass
-
     def get_title_info(self, r, marc_record):
         """
         This is responsible for using the 130, 240, 242, 243, 245, 246,
@@ -1680,7 +1821,7 @@ class BlacklightASMPipeline(object):
 
         from_245 = {}
         for f in marc_record.get_fields('245'):
-            from_245 = self.parse_245_transcribed_title(f)
+            from_245 = TranscribedTitleParser(f).parse()
             break
 
         for i, entry in enumerate(self.parse_name_title_fields(marc_record)):
