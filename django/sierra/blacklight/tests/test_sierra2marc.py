@@ -2542,84 +2542,84 @@ def test_blasmpipeline_getcontributorinfo(marcfields, expected,
             assert v is None
 
 
-@pytest.mark.parametrize('subfields, expected', [
+@pytest.mark.parametrize('tag, subfields, expected', [
     # Start with edge cases: missing data, non-ISBD punctuation, etc.
 
-    ([],
+    ('245', [],
      {'transcribed': [],
       'parallel': []}),
 
-    (['a', ''],
+    ('245', ['a', ''],
      {'transcribed': [],
       'parallel': []}),
 
-    (['a', '', 'b', 'oops mistake /'],
+    ('245', ['a', '', 'b', 'oops mistake /'],
      {'transcribed': [
         {'parts': ['oops mistake']}],
       'parallel': []}),
 
-    (['a', 'A title', 'b', 'no punctuation', 'c', 'by Joe'],
+    ('245', ['a', 'A title', 'b', 'no punctuation', 'c', 'by Joe'],
      {'transcribed': [
         {'parts': ['A title no punctuation'],
          'responsibility': 'by Joe'}],
       'parallel': []}),
 
-    (['a', 'A title', 'b', 'no punctuation', 'n', 'Part 1',
-      'p', 'the quickening', 'c', 'by Joe'],
+    ('245', ['a', 'A title', 'b', 'no punctuation', 'n', 'Part 1',
+             'p', 'the quickening', 'c', 'by Joe'],
      {'transcribed': [
         {'parts': ['A title no punctuation', 'Part 1, the quickening'],
          'responsibility': 'by Joe'}],
       'parallel': []}),
 
-    (['a', 'A title', 'b', 'no punctuation', 'p', 'The quickening',
-      'p', 'Subpart A', 'c', 'by Joe'],
+    ('245', ['a', 'A title', 'b', 'no punctuation', 'p', 'The quickening',
+             'p', 'Subpart A', 'c', 'by Joe'],
      {'transcribed': [
         {'parts': ['A title no punctuation', 'The quickening',
                    'Subpart A'],
          'responsibility': 'by Joe'}],
       'parallel': []}),
 
-    (['a', 'A title,', 'b', 'non-ISBD punctuation;', 'n', 'Part 1,',
-      'p', 'the quickening', 'c', 'by Joe'],
+    ('245', ['a', 'A title,', 'b', 'non-ISBD punctuation;', 'n', 'Part 1,',
+             'p', 'the quickening', 'c', 'by Joe'],
      {'transcribed': [
         {'parts': ['A title, non-ISBD punctuation', 'Part 1, the quickening'],
          'responsibility': 'by Joe'}],
       'parallel': []}),
 
-    (['a', 'A title!', 'b', 'Non-ISBD punctuation;', 'p', 'The quickening',
-      'c', 'by Joe'],
+    ('245', ['a', 'A title!', 'b', 'Non-ISBD punctuation;',
+             'p', 'The quickening', 'c', 'by Joe'],
      {'transcribed': [
         {'parts': ['A title! Non-ISBD punctuation', 'The quickening'],
          'responsibility': 'by Joe'}],
       'parallel': []}),
 
-    (['a', 'A title : with punctuation, all in $a. Part 1 / by Joe'],
+    ('245', ['a', 'A title : with punctuation, all in $a. Part 1 / by Joe'],
      {'transcribed': [
         {'parts': ['A title: with punctuation, all in $a. Part 1'],
          'responsibility': 'by Joe'}],
       'parallel': []}),
 
-    (['b', ' = A parallel title missing a main title'],
+    ('245', ['b', ' = A parallel title missing a main title'],
      {'transcribed': [
         {'parts': ['A parallel title missing a main title']}],
       'parallel': []}),
 
-    (['a', '1. One thing, 2. Another, 3. A third :',
-      'b', 'This is like some of the Early English Books Online titles / '
-           'by Joe = 1. One thing, 2. Another, 3. A third : Plus long '
-           'subtitle etc. /'],
+    ('245', ['a', '1. One thing, 2. Another, 3. A third :',
+             'b', 'This is like some Early English Books Online titles / '
+                  'by Joe = 1. One thing, 2. Another, 3. A third : Plus long '
+                  'subtitle etc. /'],
      {'transcribed': [
         {'parts': ['1. One thing, 2. Another, 3. A third: This is like some '
-                   'of the Early English Books Online titles'],
+                   'Early English Books Online titles'],
          'responsibility': 'by Joe'}],
       'parallel': [
         {'parts': ['1. One thing, 2. Another, 3. A third: Plus long subtitle '
                    'etc.']}
     ]}),
 
-    (['a', '1. This is like another Early English Books Online title :',
-      'b', 'something: 2. Something else: 3. About the 22th. of June, 1678. '
-           'by Richard Greene of Dilwin, etc.'],
+    ('245', ['a', '1. This is like another Early English Books Online title :',
+             'b', 'something: 2. Something else: 3. About the 22th. of June, '
+                  '1678. by Richard Greene of Dilwin, etc.'],
      {'transcribed': [
         {'parts': ['1. This is like another Early English Books Online title: '
                    'something: 2. Something else: 3. About the 22th. of June, '
@@ -2628,80 +2628,81 @@ def test_blasmpipeline_getcontributorinfo(marcfields, expected,
 
     # Now test cases on more standard data.
 
-    (['a', 'Title :', 'b', 'with subtitle.'],
+    ('245', ['a', 'Title :', 'b', 'with subtitle.'],
      {'transcribed': [{'parts': ['Title: with subtitle']}],
       'parallel': []}),
 
-    (['a', 'First title ;', 'b', 'Second title.'],
+    ('245', ['a', 'First title ;', 'b', 'Second title.'],
      {'transcribed': [{'parts': ['First title']}, {'parts': ['Second title']}],
       'parallel': []}),
 
-    (['a', 'First title ;', 'b', 'Second title ; Third title'],
+    ('245', ['a', 'First title ;', 'b', 'Second title ; Third title'],
      {'transcribed': [{'parts': ['First title']}, {'parts': ['Second title']},
                       {'parts': ['Third title']}],
       'parallel': []}),
 
-    (['a', 'Title /', 'c', 'by Author.'],
+    ('245', ['a', 'Title /', 'c', 'by Author.'],
      {'transcribed': [
         {'parts': ['Title'],
          'responsibility': 'by Author'}],
       'parallel': []}),
 
-    (['a', 'Title /', 'c', 'Author 1 ; Author 2 ; Author 3.'],
+    ('245', ['a', 'Title /', 'c', 'Author 1 ; Author 2 ; Author 3.'],
      {'transcribed': [
         {'parts': ['Title'],
          'responsibility': 'Author 1; Author 2; Author 3'}],
       'parallel': []}),
 
-    (['a', 'Title!', 'b', 'What ending punctuation should we keep?'],
+    ('245', ['a', 'Title!', 'b', 'What ending punctuation should we keep?'],
      {'transcribed': [
         {'parts': ['Title! What ending punctuation should we keep?']}],
       'parallel': []}),
 
     # Titles that include parts ($n and $p).
 
-    (['a', 'Title.', 'n', 'Part 1.'],
+    ('245', ['a', 'Title.', 'n', 'Part 1.'],
      {'transcribed': [
         {'parts': ['Title', 'Part 1']}],
       'parallel': []}),
 
-    (['a', 'Title.', 'p', 'Name of a part.'],
+    ('245', ['a', 'Title.', 'p', 'Name of a part.'],
      {'transcribed': [
         {'parts': ['Title', 'Name of a part']}],
       'parallel': []}),
 
-    (['a', 'Title.', 'n', 'Part 1,', 'p', 'Name of a part.'],
+    ('245', ['a', 'Title.', 'n', 'Part 1,', 'p', 'Name of a part.'],
      {'transcribed': [
         {'parts': ['Title', 'Part 1, Name of a part']}],
       'parallel': []}),
 
-    (['a', 'Title.', 'n', 'Part 1', 'p', 'Name of a part.'],
+    ('245', ['a', 'Title.', 'n', 'Part 1', 'p', 'Name of a part.'],
      {'transcribed': [
         {'parts': ['Title', 'Part 1, Name of a part']}],
       'parallel': []}),
 
-    (['a', 'Title.', 'n', 'Part 1.', 'p', 'Name of a part.'],
+    ('245', ['a', 'Title.', 'n', 'Part 1.', 'p', 'Name of a part.'],
      {'transcribed': [
         {'parts': ['Title', 'Part 1', 'Name of a part']}],
       'parallel': []}),
 
-    (['a', 'Title.', 'n', '1. Part', 'p', 'Name of a part.'],
+    ('245', ['a', 'Title.', 'n', '1. Part', 'p', 'Name of a part.'],
      {'transcribed': [
         {'parts': ['Title', '1. Part, Name of a part']}],
       'parallel': []}),
 
-    (['a', 'Title.', 'n', '1. Part A', 'n', '2. Part B'],
+    ('245', ['a', 'Title.', 'n', '1. Part A', 'n', '2. Part B'],
      {'transcribed': [
         {'parts': ['Title', '1. Part A', '2. Part B']}],
       'parallel': []}),
 
-    (['a', 'Title :', 'b', 'subtitle.', 'n', '1. Part A', 'n', '2. Part B'],
+    ('245', ['a', 'Title :', 'b', 'subtitle.', 'n', '1. Part A',
+             'n', '2. Part B'],
      {'transcribed': [
         {'parts': ['Title: subtitle', '1. Part A', '2. Part B']}],
       'parallel': []}),
 
-    (['a', 'Title one.', 'n', 'Book 2.', 'n', 'Chapter V /',
-      'c', 'Author One. Title two. Book 3. Chapter VI / Author Two.'],
+    ('245', ['a', 'Title one.', 'n', 'Book 2.', 'n', 'Chapter V /',
+             'c', 'Author One. Title two. Book 3. Chapter VI / Author Two.'],
      {'transcribed': [
         {'parts': ['Title one', 'Book 2', 'Chapter V'],
          'responsibility': 'Author One'},
@@ -2711,15 +2712,17 @@ def test_blasmpipeline_getcontributorinfo(marcfields, expected,
 
     # Fun with parallel titles!
 
-    (['a', 'Title in French =', 'b', 'Title in English /', 'c', 'by Author.'],
+    ('245', ['a', 'Title in French =', 'b', 'Title in English /',
+             'c', 'by Author.'],
      {'transcribed': [
         {'parts': ['Title in French'],
          'responsibility': 'by Author'}],
       'parallel': [
         {'parts': ['Title in English']}]}),
 
-    (['a', 'Title in French /',
-      'c', 'by Author in French = Title in English / by Author in English.'],
+    ('245', ['a', 'Title in French /',
+             'c', 'by Author in French = Title in English / by Author in '
+                  'English.'],
      {'transcribed': [
         {'parts': ['Title in French'],
          'responsibility': 'by Author in French'}],
@@ -2727,8 +2730,8 @@ def test_blasmpipeline_getcontributorinfo(marcfields, expected,
         {'parts': ['Title in English'],
          'responsibility': 'by Author in English'}]}),
 
-    (['a', 'Title in French =', 'b', 'Title in English = Title in German /',
-      'c', 'by Author.'],
+    ('245', ['a', 'Title in French =',
+             'b', 'Title in English = Title in German /', 'c', 'by Author.'],
      {'transcribed': [
         {'parts': ['Title in French'],
          'responsibility': 'by Author'}],
@@ -2736,9 +2739,9 @@ def test_blasmpipeline_getcontributorinfo(marcfields, expected,
         {'parts': ['Title in English']},
         {'parts': ['Title in German']}]}),
 
-    (['a', 'First title in French =',
-      'b', 'First title in English ; Second title in French = Second title in '
-           'English.'],
+    ('245', ['a', 'First title in French =',
+             'b', 'First title in English ; Second title in French = Second '
+                  'title in English.'],
      {'transcribed': [
         {'parts': ['First title in French']},
         {'parts': ['Second title in French']}],
@@ -2747,15 +2750,15 @@ def test_blasmpipeline_getcontributorinfo(marcfields, expected,
         {'parts': ['Second title in English']}
       ]}),
 
-    (['a', 'Title in French.', 'p',  'Part One =', 'b', 'Title in English.',
-      'p', 'Part One.'],
+    ('245', ['a', 'Title in French.', 'p',  'Part One =',
+             'b', 'Title in English.', 'p', 'Part One.'],
      {'transcribed': [
         {'parts': ['Title in French', 'Part One']}],
       'parallel': [
         {'parts': ['Title in English', 'Part One']}]}),
 
-    (['a', 'Title in French.', 'p',  'Part One :',
-      'b', 'subtitle = Title in English.', 'p', 'Part One : subtitle.'],
+    ('245', ['a', 'Title in French.', 'p',  'Part One :',
+             'b', 'subtitle = Title in English.', 'p', 'Part One : subtitle.'],
      {'transcribed': [
         {'parts': ['Title in French', 'Part One: subtitle']}],
       'parallel': [
@@ -2763,12 +2766,14 @@ def test_blasmpipeline_getcontributorinfo(marcfields, expected,
 
     # $h (medium) is ignored, except for ISBD punctuation
 
-    (['a', 'First title', 'h', '[sound recording] ;', 'b', 'Second title.'],
+    ('245', ['a', 'First title', 'h', '[sound recording] ;',
+             'b', 'Second title.'],
      {'transcribed': [{'parts': ['First title']}, {'parts': ['Second title']}],
       'parallel': []}),
 
-    (['a', 'Title in French.', 'p',  'Part One', 'h', '[sound recording] =',
-      'b', 'Title in English.', 'p', 'Part One.'],
+    ('245', ['a', 'Title in French.', 'p',  'Part One',
+             'h', '[sound recording] =', 'b', 'Title in English.',
+             'p', 'Part One.'],
      {'transcribed': [
         {'parts': ['Title in French', 'Part One']}],
       'parallel': [
@@ -2776,72 +2781,119 @@ def test_blasmpipeline_getcontributorinfo(marcfields, expected,
 
     # Subfields for archives and archival collections (fgks)
 
-    (['a', 'Smith family papers,', 'f', '1800-1920.'],
+    ('245', ['a', 'Smith family papers,', 'f', '1800-1920.'],
      {'transcribed': [
         {'parts': ['Smith family papers, 1800-1920']}],
       'parallel': []}),
 
-    (['a', 'Smith family papers', 'f', '1800-1920.'],
+    ('245', ['a', 'Smith family papers', 'f', '1800-1920.'],
      {'transcribed': [
         {'parts': ['Smith family papers, 1800-1920']}],
       'parallel': []}),
 
-    (['a', 'Smith family papers', 'f', '1800-1920', 'g', '1850-1860.'],
+    ('245', ['a', 'Smith family papers', 'f', '1800-1920', 'g', '1850-1860.'],
      {'transcribed': [
         {'parts': ['Smith family papers, 1800-1920 (bulk 1850-1860)']}],
       'parallel': []}),
 
-    (['a', 'Smith family papers', 'g', '1850-1860.'],
+    ('245', ['a', 'Smith family papers', 'g', '1850-1860.'],
      {'transcribed': [
         {'parts': ['Smith family papers, 1850-1860']}],
       'parallel': []}),
 
-    (['a', 'Smith family papers', 'f', '1800-1920,', 'g', '1850-1860.'],
+    ('245', ['a', 'Smith family papers', 'f', '1800-1920,', 'g', '1850-1860.'],
      {'transcribed': [
         {'parts': ['Smith family papers, 1800-1920 (bulk 1850-1860)']}],
       'parallel': []}),
 
-    (['a', 'Smith family papers', 'f', '1800-1920,', 'g', '(1850-1860).'],
+    ('245', ['a', 'Smith family papers', 'f', '1800-1920,',
+             'g', '(1850-1860).'],
      {'transcribed': [
         {'parts': ['Smith family papers, 1800-1920, (1850-1860)']}],
       'parallel': []}),
 
-    (['a', 'Smith family papers', 'f', '1800-1920', 'g', '(1850-1860).'],
+    ('245', ['a', 'Smith family papers', 'f', '1800-1920', 'g', '(1850-1860).'],
      {'transcribed': [
         {'parts': ['Smith family papers, 1800-1920 (1850-1860)']}],
       'parallel': []}),
 
-    (['a', 'Some title :', 'k', 'typescript', 'f', '1800.'],
+    ('245', ['a', 'Some title :', 'k', 'typescript', 'f', '1800.'],
      {'transcribed': [
         {'parts': ['Some title: typescript, 1800']}],
       'parallel': []}),
 
-    (['a', 'Hearing Files', 'k', 'Case Files', 'f', '1800', 'p', 'District 6.'],
+    ('245', ['a', 'Hearing Files', 'k', 'Case Files', 'f', '1800',
+             'p', 'District 6.'],
      {'transcribed': [
         {'parts': ['Hearing Files, Case Files, 1800', 'District 6']}],
       'parallel': []}),
 
-    (['a', 'Hearing Files.', 'k', 'Case Files', 'f', '1800', 'p', 'District 6.'],
+    ('245', ['a', 'Hearing Files.', 'k', 'Case Files', 'f', '1800',
+             'p', 'District 6.'],
      {'transcribed': [
         {'parts': ['Hearing Files', 'Case Files, 1800', 'District 6']}],
       'parallel': []}),
 
-    (['a', 'Report.', 's', 'Executive summary.'],
+    ('245', ['a', 'Report.', 's', 'Executive summary.'],
      {'transcribed': [
         {'parts': ['Report', 'Executive summary']}],
       'parallel': []}),
 
-    (['a', 'Title', 'k', 'Form', 's', 'Version', 'f', '1990'],
+    ('245', ['a', 'Title', 'k', 'Form', 's', 'Version', 'f', '1990'],
      {'transcribed': [
         {'parts': ['Title, Form, Version, 1990']}],
       'parallel': []}),
 
-    (['k', 'Form', 's', 'Version', 'f', '1990'],
+    ('245', ['k', 'Form', 's', 'Version', 'f', '1990'],
      {'transcribed': [
         {'parts': ['Form, Version, 1990']}],
       'parallel': []}),
 
-    # ([],
+    # 242s (Translated titles)
+
+    ('242', ['a', 'Annals of chemistry', 'n', 'Series C,',
+             'p', 'Organic chemistry and biochemistry.', 'y', 'eng'],
+     {'display_text': 'Title translation, English',
+      'transcribed': [
+        {'parts': ['Annals of chemistry',
+                   'Series C, Organic chemistry and biochemistry']}],
+      'parallel': []}),
+
+    # 246s (Variant titles)
+
+    ('246', ['a', 'Archives for meteorology, geophysics, and bioclimatology.',
+             'n', 'Serie A,', 'p', 'Meteorology and geophysics'],
+     {'transcribed': [
+        {'parts': ['Archives for meteorology, geophysics, and bioclimatology',
+                   'Serie A, Meteorology and geophysics']}],
+      'parallel': []}),
+
+    ('246 12', ['a', 'Creating jobs', 'f', '1980'],
+     {'display_text': 'Issue title',
+      'transcribed': [
+        {'parts': ['Creating jobs, 1980']}],
+      'parallel': []}),
+
+    ('246 12', ['a', 'Creating jobs', 'g', '(varies slightly)', 'f', '1980'],
+     {'display_text': 'Issue title',
+      'transcribed': [
+        {'parts': ['Creating jobs (varies slightly) 1980']}],
+      'parallel': []}),
+
+    ('246 1 ', ['i', 'At head of title:', 'a', 'Science and public affairs',
+                'f', 'Jan. 1970-Apr. 1974'],
+     {'display_text': 'At head of title',
+      'transcribed': [
+        {'parts': ['Science and public affairs, Jan. 1970-Apr. 1974']}],
+      'parallel': []}),
+
+    ('247', ['a', 'Industrial medicine and surgery', 'x', '0019-8536'],
+     {'issn': '0019-8536',
+      'transcribed': [
+        {'parts': ['Industrial medicine and surgery']}],
+      'parallel': []}),
+
+    # ('', [],
     #  {'transcribed': [
     #     {'parts': [],
     #      'responsibility': ''}],
@@ -2850,12 +2902,18 @@ def test_blasmpipeline_getcontributorinfo(marcfields, expected,
     #      'responsibility': ''}
     # ]}),
 ])
-def test_transcribedtitleparser_parse(subfields, expected):
+def test_transcribedtitleparser_parse(tag, subfields, expected):
     """
     TranscribedTitleParser `parse` method should return a dict with the
-    expected structure, given the provided MARC 245 field.
+    expected structure, given the provided MARC field. Can handle 242s,
+    245s, 246s, and 247s, but is mainly geared toward 245s (for obvious
+    reasons).
     """
-    field = s2m.make_mfield('245', subfields=subfields)
+    if ' ' in tag:
+        tag, indicators = tag.split(' ', 1)
+    else:
+        indicators = '  '
+    field = s2m.make_mfield(tag, subfields=subfields, indicators=indicators)
     assert s2m.TranscribedTitleParser(field).parse() == expected
 
 

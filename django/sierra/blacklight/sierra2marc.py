@@ -461,6 +461,18 @@ class HierarchicalTitlePartAnalyzer(object):
 
 
 class TranscribedTitleParser(SequentialMarcFieldParser):
+    variant_types = {
+            '0': '',
+            '1': 'Title translation',
+            '2': 'Issue title',
+            '3': 'Other title',
+            '4': 'Cover title',
+            '5': 'Added title page title',
+            '6': 'Caption title',
+            '7': 'Running title',
+            '8': 'Spine title'
+        }
+    
     def __init__(self, field):
         super(TranscribedTitleParser, self).__init__(field)
         self.prev_punct = ''
@@ -470,6 +482,9 @@ class TranscribedTitleParser(SequentialMarcFieldParser):
         self.lock_parallel = False
         self.title_parts = []
         self.responsibility = ''
+        self.display_text = ''
+        self.issn = ''
+        self.language_code = ''
         self.titles = []
         self.parallel_titles = []
         self.analyzer = HierarchicalTitlePartAnalyzer({
@@ -580,14 +595,18 @@ class TranscribedTitleParser(SequentialMarcFieldParser):
 
     def get_flags(self, tag, val):
         def_to_new_part = tag == 'n' or (tag == 'p' and self.prev_tag != 'n')
+        is_bdates = tag == 'g' and self.field.tag == '245'
         return {
             'default_to_new_part': def_to_new_part,
             'lock_same_title': tag in 'fgknps',
-            'is_valid': tag in 'abcfghknps' and val,
+            'is_valid': tag in 'abcfghiknpsxy' and val,
+            'is_display_text': tag == 'i',
             'is_main_part': tag in 'ab',
             'is_subpart': tag in 'fgknps',
             'is_subfield_c': tag == 'c',
-            'is_bulk_following_incl_dates': tag == 'g' and self.prev_tag == 'f',
+            'is_issn': tag == 'x',
+            'is_language_code': tag == 'y',
+            'is_bulk_following_incl_dates': is_bdates and self.prev_tag == 'f',
             'subpart_may_need_formatting': tag in 'fgkps'
         }
 
@@ -596,13 +615,22 @@ class TranscribedTitleParser(SequentialMarcFieldParser):
         if self.flags['is_valid']:
             prot = p.protect_periods(val)
             part, end_punct = self.analyzer.pop_isbd_punct_from_title_part(prot)
-            if self.flags['is_main_part']:
-                self.do_titles_and_sors(part, False)
-            elif self.flags['is_subfield_c']:
+            if self.flags['is_display_text']:
+                self.display_text = p.restore_periods(part)
+            elif self.flags['is_main_part']:
+                if self.field.tag == '245':
+                    self.do_titles_and_sors(part, False)
+                else:
+                    self.push_title_part(part, self.prev_punct)
+            elif self.field.tag == '245' and self.flags['is_subfield_c']:
                 self.do_titles_and_sors(part, True)
                 return True
             elif self.flags['is_subpart'] and part:
                 self.push_title_part(part, self.prev_punct)
+            elif self.flags['is_issn']:
+                self.issn = part
+            elif self.flags['is_language_code']:
+                self.language_code = part
             self.prev_punct = end_punct
             self.prev_tag = tag
 
@@ -610,10 +638,27 @@ class TranscribedTitleParser(SequentialMarcFieldParser):
         self.start_next_title()
 
     def compile_results(self):
-        return {
+        display_text = ''
+        if self.field.tag == '242':
+            display_text = self.variant_types['1']
+            if self.language_code:
+                lang = settings.MARCDATA.LANGUAGE_CODES.get(self.language_code,
+                                                            None)
+                display_text = '{}, {}'.format(display_text, lang)
+        if self.field.tag == '246':
+            ind2 = self.field.indicators[1]
+            display_text = self.display_text or self.variant_types.get(ind2, '')
+
+        ret_val = {
             'transcribed': self.titles,
             'parallel': self.parallel_titles
         }
+        if display_text:
+            ret_val['display_text'] = display_text
+        if self.issn:
+            ret_val['issn'] = self.issn
+        
+        return ret_val
 
 
 class PreferredTitleParser(SequentialMarcFieldParser):
