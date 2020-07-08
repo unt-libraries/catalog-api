@@ -2928,6 +2928,7 @@ def test_transcribedtitleparser_parse(tag, subfields, expected):
       'languages': [],
       'is_collective': False,
       'is_music_form': False,
+      'type': 'main'
      }),
 
     ('130', ['a', ''],
@@ -2938,6 +2939,7 @@ def test_transcribedtitleparser_parse(tag, subfields, expected):
       'languages': [],
       'is_collective': False,
       'is_music_form': False,
+      'type': 'main'
      }),
 
     ('130', ['a', '', 'k', 'Selections.'],
@@ -2948,6 +2950,7 @@ def test_transcribedtitleparser_parse(tag, subfields, expected):
       'languages': [],
       'is_collective': False,
       'is_music_form': False,
+      'type': 'main'
      }),
 
     ('130', ['a', 'Basic title no punctuation', 'n', 'Part 1'],
@@ -2958,6 +2961,7 @@ def test_transcribedtitleparser_parse(tag, subfields, expected):
       'languages': [],
       'is_collective': False,
       'is_music_form': False,
+      'type': 'main'
      }),
 
     ('130', ['a', 'Basic title no punctuation', 'p', 'Named part'],
@@ -2968,6 +2972,7 @@ def test_transcribedtitleparser_parse(tag, subfields, expected):
       'languages': [],
       'is_collective': False,
       'is_music_form': False,
+      'type': 'main'
      }),
 
     ('130', ['a', 'Basic title no punctuation', 'n', 'Part 1',
@@ -2979,6 +2984,7 @@ def test_transcribedtitleparser_parse(tag, subfields, expected):
       'languages': [],
       'is_collective': False,
       'is_music_form': False,
+      'type': 'main'
      }),
 
     ('130', ['a', 'Basic title no punctuation', 'n', 'Part 1', 'n', 'Part 2'],
@@ -2989,6 +2995,7 @@ def test_transcribedtitleparser_parse(tag, subfields, expected):
       'languages': [],
       'is_collective': False,
       'is_music_form': False,
+      'type': 'main'
      }),
 
     ('130', ['a', 'Basic title no punctuation', 'p', 'Named part',
@@ -3000,6 +3007,7 @@ def test_transcribedtitleparser_parse(tag, subfields, expected):
       'languages': [],
       'is_collective': False,
       'is_music_form': False,
+      'type': 'main'
      }),
 
     ('130', ['a', 'Basic title no punctuation', 'n', 'Part 1', 'l', 'English'],
@@ -3010,6 +3018,7 @@ def test_transcribedtitleparser_parse(tag, subfields, expected):
       'languages': ['English'],
       'is_collective': False,
       'is_music_form': False,
+      'type': 'main'
      }),
 
     # Once the first expression-level subfield appears, the rest are
@@ -3023,6 +3032,7 @@ def test_transcribedtitleparser_parse(tag, subfields, expected):
       'languages': [],
       'is_collective': False,
       'is_music_form': False,
+      'type': 'main'
      }),
 
     ('130', ['a', 'Basic title no punctuation', 'n', 'Part 1',
@@ -3034,6 +3044,7 @@ def test_transcribedtitleparser_parse(tag, subfields, expected):
       'languages': [],
       'is_collective': False,
       'is_music_form': False,
+      'type': 'main'
      }),
 
     # Test cases on more standard data.
@@ -3050,6 +3061,7 @@ def test_transcribedtitleparser_parse(tag, subfields, expected):
       'languages': [],
       'is_collective': True,
       'is_music_form': True,
+      'type': 'main'
      }),
 
     # For other titles, the first subpart becomes part of the main
@@ -3062,6 +3074,7 @@ def test_transcribedtitleparser_parse(tag, subfields, expected):
       'languages': [],
       'is_collective': False,
       'is_music_form': False,
+      'type': 'main'
      }),
 
     # The first $n or $p starts a new part if there's a preceding period.
@@ -3073,6 +3086,7 @@ def test_transcribedtitleparser_parse(tag, subfields, expected):
       'languages': [],
       'is_collective': False,
       'is_music_form': False,
+      'type': 'main'
      }),
 
     # A $p after $n is combined with the $n if there's a comma (or
@@ -3085,6 +3099,7 @@ def test_transcribedtitleparser_parse(tag, subfields, expected):
       'languages': [],
       'is_collective': False,
       'is_music_form': False,
+      'type': 'main'
      }),
 
     # A $p after $n becomes a new part if there's a period preceding
@@ -3097,6 +3112,7 @@ def test_transcribedtitleparser_parse(tag, subfields, expected):
       'languages': [],
       'is_collective': False,
       'is_music_form': False,
+      'type': 'main'
      }),
 
     # For $n's and $p's (after the first), part hierarchy is based on
@@ -3109,6 +3125,7 @@ def test_transcribedtitleparser_parse(tag, subfields, expected):
       'languages': [],
       'is_collective': False,
       'is_music_form': False,
+      'type': 'main'
      }),
 
     # $k is treated as a new part.
@@ -3120,6 +3137,7 @@ def test_transcribedtitleparser_parse(tag, subfields, expected):
       'languages': [],
       'is_collective': True,
       'is_music_form': False,
+      'type': 'main'
      }),
 
     # $k following a collective title is always a new part.
@@ -3131,6 +3149,7 @@ def test_transcribedtitleparser_parse(tag, subfields, expected):
       'languages': [],
       'is_collective': True,
       'is_music_form': False,
+      'type': 'main'
      }),
 
     # Languages are parsed out if multiple are found.
@@ -3142,6 +3161,7 @@ def test_transcribedtitleparser_parse(tag, subfields, expected):
       'languages': ['English', 'French'],
       'is_collective': False,
       'is_music_form': False,
+      'type': 'main'
      }),
 
     ('130', ['a', 'Something.', 'l', 'English & French.'],
@@ -3152,6 +3172,7 @@ def test_transcribedtitleparser_parse(tag, subfields, expected):
       'languages': ['English', 'French'],
       'is_collective': False,
       'is_music_form': False,
+      'type': 'main'
      }),
 
     ('130', ['a', 'Something.', 'l', 'English, French, and German.'],
@@ -3162,6 +3183,7 @@ def test_transcribedtitleparser_parse(tag, subfields, expected):
       'languages': ['English', 'French', 'German'],
       'is_collective': False,
       'is_music_form': False,
+      'type': 'main'
      }),
 
     # If a generic collective title, like "Works", is followed by a
@@ -3174,6 +3196,7 @@ def test_transcribedtitleparser_parse(tag, subfields, expected):
       'languages': [],
       'is_collective': True,
       'is_music_form': True,
+      'type': 'main'
      }),
 
     # Anything following a $k results in a new hierarchical part.
@@ -3185,6 +3208,7 @@ def test_transcribedtitleparser_parse(tag, subfields, expected):
       'languages': [],
       'is_collective': True,
       'is_music_form': True,
+      'type': 'main'
      }),
 
     # "[Instrument] music" is treated as a collective title but not a
@@ -3197,6 +3221,7 @@ def test_transcribedtitleparser_parse(tag, subfields, expected):
       'languages': [],
       'is_collective': True,
       'is_music_form': False,
+      'type': 'main'
      }),
 
     # $d interacts with collective titles like other subpart sf types.
@@ -3208,6 +3233,7 @@ def test_transcribedtitleparser_parse(tag, subfields, expected):
       'languages': [],
       'is_collective': True,
       'is_music_form': False,
+      'type': 'main'
      }),
 
     ('240', ['a', 'Treaty of whatever', 'd', '(1948)'],
@@ -3218,6 +3244,7 @@ def test_transcribedtitleparser_parse(tag, subfields, expected):
       'languages': [],
       'is_collective': False,
       'is_music_form': False,
+      'type': 'main'
      }),
 
     # ... and $d is treated like other subpart types when it occurs
@@ -3232,21 +3259,52 @@ def test_transcribedtitleparser_parse(tag, subfields, expected):
       'languages': [],
       'is_collective': True,
       'is_music_form': False,
+      'type': 'main'
      }),
 
     # 700, 710, and 711 fields skip past the "author" subfields but
     # handle the $i, if present.
 
-    ('700', ['i', 'Container of (work):', 'a', 'Fauré, Gabriel,',
-             'd', '1845-1924.', 't', 'Nocturnes,', 'm', 'piano,',
-             'n', 'no. 11, op. 104, no. 1,', 'r', 'F♯ minor'],
+    ('700', ['a', 'Fauré, Gabriel,', 'd', '1845-1924.', 't', 'Nocturnes,',
+             'm', 'piano,', 'n', 'no. 11, op. 104, no. 1,', 'r', 'F♯ minor'],
      {'materials_specified': [],
-      'display_constants': ['Container of'],
+      'display_constants': [],
       'title_parts': ['Nocturnes, piano', 'No. 11, op. 104, no. 1, F♯ minor'],
       'expression_parts': [],
       'languages': [],
       'is_collective': True,
       'is_music_form': True,
+      'type': 'related'
+     }),
+
+    # 7XX ind2 == 2 indicates an 'analytic' type title.
+    ('700  2', ['a', 'Fauré, Gabriel,', 'd', '1845-1924.', 't', 'Nocturnes,',
+                'm', 'piano,', 'n', 'no. 11, op. 104, no. 1,', 'r', 'F♯ minor'],
+     {'materials_specified': [],
+      'display_constants': [],
+      'title_parts': ['Nocturnes, piano', 'No. 11, op. 104, no. 1, F♯ minor'],
+      'expression_parts': [],
+      'languages': [],
+      'is_collective': True,
+      'is_music_form': True,
+      'type': 'analytic'
+     }),
+
+    # 7XX fields with "Container of" in $i indicate an 'analytic' type
+    # title, even if ind2 is not 2. In these cases, because the label
+    # "Container of" is redundant with the 'analytic' type, the display
+    # constant is not generated.
+    ('700   ', ['i', 'Container of (work):', 'a', 'Fauré, Gabriel,',
+                'd', '1845-1924.', 't', 'Nocturnes,', 'm', 'piano,',
+                'n', 'no. 11, op. 104, no. 1,', 'r', 'F♯ minor'],
+     {'materials_specified': [],
+      'display_constants': [],
+      'title_parts': ['Nocturnes, piano', 'No. 11, op. 104, no. 1, F♯ minor'],
+      'expression_parts': [],
+      'languages': [],
+      'is_collective': True,
+      'is_music_form': True,
+      'type': 'analytic'
      }),
 
     ('710', ['i', 'Summary of (work):', 'a', 'United States.',
@@ -3259,6 +3317,7 @@ def test_transcribedtitleparser_parse(tag, subfields, expected):
       'languages': [],
       'is_collective': False,
       'is_music_form': False,
+      'type': 'related'
      }),
 
     ('711', ['a', 'International Conference on Gnosticism', 'd', '(1978 :',
@@ -3271,18 +3330,20 @@ def test_transcribedtitleparser_parse(tag, subfields, expected):
       'languages': [],
       'is_collective': False,
       'is_music_form': False,
+      'type': 'related'
      }),
 
     ('730', ['i', 'Container of (expression):', 'a', 'Bible.', 'p', 'Epistles.',
              'k', 'Selections.', 'l', 'Tabaru.', 's', 'Common Language.',
              'f', '2001'],
      {'materials_specified': [],
-      'display_constants': ['Container of'],
+      'display_constants': [],
       'title_parts': ['Bible', 'Epistles', 'Selections'],
       'expression_parts': ['Tabaru', 'Common Language', '2001'],
       'languages': ['Tabaru'],
       'is_collective': False,
       'is_music_form': False,
+      'type': 'analytic'
      }),
 
     # If $o is present and begins with 'arr', the statement 'arranged'
@@ -3295,6 +3356,7 @@ def test_transcribedtitleparser_parse(tag, subfields, expected):
       'languages': [],
       'is_collective': False,
       'is_music_form': False,
+      'type': 'related'
      }),
 
     # 800, 810, 811, and 830 fields are series and may have $v (volume)
@@ -3311,6 +3373,7 @@ def test_transcribedtitleparser_parse(tag, subfields, expected):
       'issn': '',
       'is_collective': False,
       'is_music_form': False,
+      'type': 'series'
      }),
 
     # $3 becomes `materials_specified` if present
@@ -3324,6 +3387,7 @@ def test_transcribedtitleparser_parse(tag, subfields, expected):
       'issn': '0223-3738',
       'is_collective': False,
       'is_music_form': False,
+      'type': 'series'
      }),
 
     # ('', [],
@@ -3341,7 +3405,11 @@ def test_preferredtitleparser_parse(tag, subfields, expected):
     PreferredTitleParser `parse` method should return a dict with the
     expected structure, given the provided MARC field.
     """
-    field = s2m.make_mfield(tag, subfields=subfields)
+    if ' ' in tag:
+        tag, indicators = tag.split(' ', 1)
+    else:
+        indicators = '  '
+    field = s2m.make_mfield(tag, subfields=subfields, indicators=indicators)
     assert s2m.PreferredTitleParser(field).parse() == expected
 
 

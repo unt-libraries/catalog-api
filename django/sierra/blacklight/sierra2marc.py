@@ -657,14 +657,13 @@ class TranscribedTitleParser(SequentialMarcFieldParser):
             ret_val['display_text'] = display_text
         if self.issn:
             ret_val['issn'] = self.issn
-        
         return ret_val
 
 
 class PreferredTitleParser(SequentialMarcFieldParser):
     title_only_fields = ('130', '240', '243', '730', '740', '830')
     name_title_fields = ('700', '710', '711', '800', '810', '811')
-    series_fields = ('800', '810', '811', '830')
+    main_title_fields = ('130', '240', '243')
     nt_title_tags = 'tfklmnoprs'
     subpart_tags = 'dgknpr'
     expression_tags = 'flos'
@@ -687,7 +686,7 @@ class PreferredTitleParser(SequentialMarcFieldParser):
         self.issn = ''
         self.title_is_collective = field.tag == '243'
         self.title_is_music_form = False
-        self.is_series = False
+        self.title_type = ''
         self.analyzer = HierarchicalTitlePartAnalyzer({
             ';': 'start_version_info',
             ',': 'same_part',
@@ -698,9 +697,16 @@ class PreferredTitleParser(SequentialMarcFieldParser):
             self.lock_title = True
             self.primary_title_tag = 'a'
 
-        if field.tag in self.series_fields:
-            self.is_series = True
+        if field.tag.startswith('8'):
+            self.title_type = 'series'
             self.nt_title_tags = '{}vx'.format(self.nt_title_tags)
+        elif field.tag.startswith('7'):
+            if field.indicator2 == '2':
+                self.title_type = 'analytic'
+            else:
+                self.title_type = 'related'
+        elif field.tag in self.main_title_fields:
+            self.title_type = 'main'
 
     def join_parts(self, last_part, part, prev_punct):
         if re.match(r'\w', last_part[-1]) and re.match(r'\w', part[0]):
@@ -759,8 +765,8 @@ class PreferredTitleParser(SequentialMarcFieldParser):
             'is_perf_medium': tag == 'm',
             'is_language': tag == 'l',
             'is_arrangement': tag == 'o',
-            'is_volume': tag == 'v' and self.is_series,
-            'is_issn': tag == 'x' and self.is_series,
+            'is_volume': tag == 'v' and self.title_type == 'series',
+            'is_issn': tag == 'x' and self.title_type == 'series',
             'default_to_new_part': def_to_new_part,
         }
 
@@ -769,7 +775,11 @@ class PreferredTitleParser(SequentialMarcFieldParser):
         if self.flags['is_materials_specified']:
             self.materials_specified.append(val)
         elif self.flags['is_display_const']:
-            self.display_constants.append(p.strip_ends(p.strip_wemi(val)))
+            display_val = p.strip_ends(p.strip_wemi(val))
+            if display_val.lower() == 'container of':
+                self.title_type = 'analytic'
+            else:
+                self.display_constants.append(display_val)
         elif self.flags['is_valid_title_part']:
             prot = p.protect_periods(val)
             part, end_punct = self.analyzer.pop_isbd_punct_from_title_part(prot)
@@ -805,8 +815,9 @@ class PreferredTitleParser(SequentialMarcFieldParser):
             'languages': self.languages,
             'is_collective': self.title_is_collective,
             'is_music_form': self.title_is_music_form,
+            'type': self.title_type
         }
-        if self.is_series:
+        if self.title_type == 'series':
             ret_val['volume'] = self.volume
             ret_val['issn'] = self.issn
         return ret_val
