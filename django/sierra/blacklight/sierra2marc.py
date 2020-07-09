@@ -472,6 +472,7 @@ class TranscribedTitleParser(SequentialMarcFieldParser):
             '7': 'Running title',
             '8': 'Spine title'
         }
+    fields_with_nonfiling_chars = ('242', '245')
     
     def __init__(self, field):
         super(TranscribedTitleParser, self).__init__(field)
@@ -485,6 +486,7 @@ class TranscribedTitleParser(SequentialMarcFieldParser):
         self.display_text = ''
         self.issn = ''
         self.language_code = ''
+        self.nonfiling_chars = 0
         self.titles = []
         self.parallel_titles = []
         self.analyzer = HierarchicalTitlePartAnalyzer({
@@ -495,6 +497,10 @@ class TranscribedTitleParser(SequentialMarcFieldParser):
             ',': 'same_part',
             '.': 'new_part'
         })
+
+        if field.tag in self.fields_with_nonfiling_chars:
+            if field.indicator2 in [str(i) for i in range(0, 10)]:
+                self.nonfiling_chars = int(field.indicator2)
 
     def start_next_title(self):
         title, is_parallel = {}, self.lock_parallel
@@ -651,7 +657,8 @@ class TranscribedTitleParser(SequentialMarcFieldParser):
 
         ret_val = {
             'transcribed': self.titles,
-            'parallel': self.parallel_titles
+            'parallel': self.parallel_titles,
+            'nonfiling_chars': self.nonfiling_chars
         }
         if display_text:
             ret_val['display_text'] = display_text
@@ -664,6 +671,8 @@ class PreferredTitleParser(SequentialMarcFieldParser):
     title_only_fields = ('130', '240', '243', '730', '740', '830')
     name_title_fields = ('700', '710', '711', '800', '810', '811')
     main_title_fields = ('130', '240', '243')
+    nonfiling_char_ind1_fields = ('130', '730', '740')
+    nonfiling_char_ind2_fields = ('240', '243', '830')
     nt_title_tags = 'tfklmnoprs'
     subpart_tags = 'dgknpr'
     expression_tags = 'flos'
@@ -684,6 +693,7 @@ class PreferredTitleParser(SequentialMarcFieldParser):
         self.languages = []
         self.volume = ''
         self.issn = ''
+        self.nonfiling_chars = 0
         self.title_is_collective = field.tag == '243'
         self.title_is_music_form = False
         self.title_type = ''
@@ -696,6 +706,14 @@ class PreferredTitleParser(SequentialMarcFieldParser):
         if field.tag in self.title_only_fields:
             self.lock_title = True
             self.primary_title_tag = 'a'
+
+        ind_val = None
+        if field.tag in self.nonfiling_char_ind1_fields:
+            ind_val = field.indicator1
+        elif field.tag in self.nonfiling_char_ind2_fields:
+            ind_val = field.indicator2
+        if ind_val is not None and ind_val in [str(i) for i in range(0, 10)]:
+            self.nonfiling_chars = int(ind_val)
 
         if field.tag.startswith('8'):
             self.title_type = 'series'
@@ -808,6 +826,7 @@ class PreferredTitleParser(SequentialMarcFieldParser):
 
     def compile_results(self):
         ret_val = {
+            'nonfiling_chars': self.nonfiling_chars,
             'materials_specified': self.materials_specified,
             'display_constants': self.display_constants,
             'title_parts': self.title_parts,

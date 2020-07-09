@@ -2546,61 +2546,71 @@ def test_blasmpipeline_getcontributorinfo(marcfields, expected,
     # Start with edge cases: missing data, non-ISBD punctuation, etc.
 
     ('245', [],
-     {'transcribed': [],
+     {'nonfiling_chars': 0,
+      'transcribed': [],
       'parallel': []}),
 
     ('245', ['a', ''],
-     {'transcribed': [],
+     {'nonfiling_chars': 0,
+      'transcribed': [],
       'parallel': []}),
 
     ('245', ['a', '', 'b', 'oops mistake /'],
-     {'transcribed': [
+     {'nonfiling_chars': 0,
+      'transcribed': [
         {'parts': ['oops mistake']}],
       'parallel': []}),
 
-    ('245', ['a', 'A title', 'b', 'no punctuation', 'c', 'by Joe'],
-     {'transcribed': [
+    ('245 12', ['a', 'A title', 'b', 'no punctuation', 'c', 'by Joe'],
+     {'nonfiling_chars': 2,
+      'transcribed': [
         {'parts': ['A title no punctuation'],
          'responsibility': 'by Joe'}],
       'parallel': []}),
 
-    ('245', ['a', 'A title', 'b', 'no punctuation', 'n', 'Part 1',
+    ('245 12', ['a', 'A title', 'b', 'no punctuation', 'n', 'Part 1',
              'p', 'the quickening', 'c', 'by Joe'],
-     {'transcribed': [
+     {'nonfiling_chars': 2,
+      'transcribed': [
         {'parts': ['A title no punctuation', 'Part 1, the quickening'],
          'responsibility': 'by Joe'}],
       'parallel': []}),
 
-    ('245', ['a', 'A title', 'b', 'no punctuation', 'p', 'The quickening',
+    ('245 12', ['a', 'A title', 'b', 'no punctuation', 'p', 'The quickening',
              'p', 'Subpart A', 'c', 'by Joe'],
-     {'transcribed': [
+     {'nonfiling_chars': 2,
+      'transcribed': [
         {'parts': ['A title no punctuation', 'The quickening',
                    'Subpart A'],
          'responsibility': 'by Joe'}],
       'parallel': []}),
 
-    ('245', ['a', 'A title,', 'b', 'non-ISBD punctuation;', 'n', 'Part 1,',
+    ('245 12', ['a', 'A title,', 'b', 'non-ISBD punctuation;', 'n', 'Part 1,',
              'p', 'the quickening', 'c', 'by Joe'],
-     {'transcribed': [
+     {'nonfiling_chars': 2,
+      'transcribed': [
         {'parts': ['A title, non-ISBD punctuation', 'Part 1, the quickening'],
          'responsibility': 'by Joe'}],
       'parallel': []}),
 
     ('245', ['a', 'A title!', 'b', 'Non-ISBD punctuation;',
              'p', 'The quickening', 'c', 'by Joe'],
-     {'transcribed': [
+     {'nonfiling_chars': 0,
+      'transcribed': [
         {'parts': ['A title! Non-ISBD punctuation', 'The quickening'],
          'responsibility': 'by Joe'}],
       'parallel': []}),
 
-    ('245', ['a', 'A title : with punctuation, all in $a. Part 1 / by Joe'],
-     {'transcribed': [
+    ('245 12', ['a', 'A title : with punctuation, all in $a. Part 1 / by Joe'],
+     {'nonfiling_chars': 2,
+      'transcribed': [
         {'parts': ['A title: with punctuation, all in $a. Part 1'],
          'responsibility': 'by Joe'}],
       'parallel': []}),
 
     ('245', ['b', ' = A parallel title missing a main title'],
-     {'transcribed': [
+     {'nonfiling_chars': 0,
+      'transcribed': [
         {'parts': ['A parallel title missing a main title']}],
       'parallel': []}),
 
@@ -2608,7 +2618,8 @@ def test_blasmpipeline_getcontributorinfo(marcfields, expected,
              'b', 'This is like some Early English Books Online titles / '
                   'by Joe = 1. One thing, 2. Another, 3. A third : Plus long '
                   'subtitle etc. /'],
-     {'transcribed': [
+     {'nonfiling_chars': 0,
+      'transcribed': [
         {'parts': ['1. One thing, 2. Another, 3. A third: This is like some '
                    'Early English Books Online titles'],
          'responsibility': 'by Joe'}],
@@ -2620,7 +2631,8 @@ def test_blasmpipeline_getcontributorinfo(marcfields, expected,
     ('245', ['a', '1. This is like another Early English Books Online title :',
              'b', 'something: 2. Something else: 3. About the 22th. of June, '
                   '1678. by Richard Greene of Dilwin, etc.'],
-     {'transcribed': [
+     {'nonfiling_chars': 0,
+      'transcribed': [
         {'parts': ['1. This is like another Early English Books Online title: '
                    'something: 2. Something else: 3. About the 22th. of June, '
                    '1678. by Richard Greene of Dilwin, etc.']}],
@@ -2629,81 +2641,96 @@ def test_blasmpipeline_getcontributorinfo(marcfields, expected,
     # Now test cases on more standard data.
 
     ('245', ['a', 'Title :', 'b', 'with subtitle.'],
-     {'transcribed': [{'parts': ['Title: with subtitle']}],
+     {'nonfiling_chars': 0,
+      'transcribed': [{'parts': ['Title: with subtitle']}],
       'parallel': []}),
 
     ('245', ['a', 'First title ;', 'b', 'Second title.'],
-     {'transcribed': [{'parts': ['First title']}, {'parts': ['Second title']}],
+     {'nonfiling_chars': 0,
+      'transcribed': [{'parts': ['First title']}, {'parts': ['Second title']}],
       'parallel': []}),
 
     ('245', ['a', 'First title ;', 'b', 'Second title ; Third title'],
-     {'transcribed': [{'parts': ['First title']}, {'parts': ['Second title']},
+     {'nonfiling_chars': 0,
+      'transcribed': [{'parts': ['First title']}, {'parts': ['Second title']},
                       {'parts': ['Third title']}],
       'parallel': []}),
 
     ('245', ['a', 'Title /', 'c', 'by Author.'],
-     {'transcribed': [
+     {'nonfiling_chars': 0,
+      'transcribed': [
         {'parts': ['Title'],
          'responsibility': 'by Author'}],
       'parallel': []}),
 
     ('245', ['a', 'Title /', 'c', 'Author 1 ; Author 2 ; Author 3.'],
-     {'transcribed': [
+     {'nonfiling_chars': 0,
+      'transcribed': [
         {'parts': ['Title'],
          'responsibility': 'Author 1; Author 2; Author 3'}],
       'parallel': []}),
 
     ('245', ['a', 'Title!', 'b', 'What ending punctuation should we keep?'],
-     {'transcribed': [
+     {'nonfiling_chars': 0,
+      'transcribed': [
         {'parts': ['Title! What ending punctuation should we keep?']}],
       'parallel': []}),
 
     # Titles that include parts ($n and $p).
 
     ('245', ['a', 'Title.', 'n', 'Part 1.'],
-     {'transcribed': [
+     {'nonfiling_chars': 0,
+      'transcribed': [
         {'parts': ['Title', 'Part 1']}],
       'parallel': []}),
 
     ('245', ['a', 'Title.', 'p', 'Name of a part.'],
-     {'transcribed': [
+     {'nonfiling_chars': 0,
+      'transcribed': [
         {'parts': ['Title', 'Name of a part']}],
       'parallel': []}),
 
     ('245', ['a', 'Title.', 'n', 'Part 1,', 'p', 'Name of a part.'],
-     {'transcribed': [
+     {'nonfiling_chars': 0,
+      'transcribed': [
         {'parts': ['Title', 'Part 1, Name of a part']}],
       'parallel': []}),
 
     ('245', ['a', 'Title.', 'n', 'Part 1', 'p', 'Name of a part.'],
-     {'transcribed': [
+     {'nonfiling_chars': 0,
+      'transcribed': [
         {'parts': ['Title', 'Part 1, Name of a part']}],
       'parallel': []}),
 
     ('245', ['a', 'Title.', 'n', 'Part 1.', 'p', 'Name of a part.'],
-     {'transcribed': [
+     {'nonfiling_chars': 0,
+      'transcribed': [
         {'parts': ['Title', 'Part 1', 'Name of a part']}],
       'parallel': []}),
 
     ('245', ['a', 'Title.', 'n', '1. Part', 'p', 'Name of a part.'],
-     {'transcribed': [
+     {'nonfiling_chars': 0,
+      'transcribed': [
         {'parts': ['Title', '1. Part, Name of a part']}],
       'parallel': []}),
 
     ('245', ['a', 'Title.', 'n', '1. Part A', 'n', '2. Part B'],
-     {'transcribed': [
+     {'nonfiling_chars': 0,
+      'transcribed': [
         {'parts': ['Title', '1. Part A', '2. Part B']}],
       'parallel': []}),
 
     ('245', ['a', 'Title :', 'b', 'subtitle.', 'n', '1. Part A',
              'n', '2. Part B'],
-     {'transcribed': [
+     {'nonfiling_chars': 0,
+      'transcribed': [
         {'parts': ['Title: subtitle', '1. Part A', '2. Part B']}],
       'parallel': []}),
 
     ('245', ['a', 'Title one.', 'n', 'Book 2.', 'n', 'Chapter V /',
              'c', 'Author One. Title two. Book 3. Chapter VI / Author Two.'],
-     {'transcribed': [
+     {'nonfiling_chars': 0,
+      'transcribed': [
         {'parts': ['Title one', 'Book 2', 'Chapter V'],
          'responsibility': 'Author One'},
         {'parts': ['Title two', 'Book 3. Chapter VI'],
@@ -2714,7 +2741,8 @@ def test_blasmpipeline_getcontributorinfo(marcfields, expected,
 
     ('245', ['a', 'Title in French =', 'b', 'Title in English /',
              'c', 'by Author.'],
-     {'transcribed': [
+     {'nonfiling_chars': 0,
+      'transcribed': [
         {'parts': ['Title in French'],
          'responsibility': 'by Author'}],
       'parallel': [
@@ -2723,7 +2751,8 @@ def test_blasmpipeline_getcontributorinfo(marcfields, expected,
     ('245', ['a', 'Title in French /',
              'c', 'by Author in French = Title in English / by Author in '
                   'English.'],
-     {'transcribed': [
+     {'nonfiling_chars': 0,
+      'transcribed': [
         {'parts': ['Title in French'],
          'responsibility': 'by Author in French'}],
       'parallel': [
@@ -2732,7 +2761,8 @@ def test_blasmpipeline_getcontributorinfo(marcfields, expected,
 
     ('245', ['a', 'Title in French =',
              'b', 'Title in English = Title in German /', 'c', 'by Author.'],
-     {'transcribed': [
+     {'nonfiling_chars': 0,
+      'transcribed': [
         {'parts': ['Title in French'],
          'responsibility': 'by Author'}],
       'parallel': [
@@ -2742,7 +2772,8 @@ def test_blasmpipeline_getcontributorinfo(marcfields, expected,
     ('245', ['a', 'First title in French =',
              'b', 'First title in English ; Second title in French = Second '
                   'title in English.'],
-     {'transcribed': [
+     {'nonfiling_chars': 0,
+      'transcribed': [
         {'parts': ['First title in French']},
         {'parts': ['Second title in French']}],
       'parallel': [
@@ -2752,14 +2783,16 @@ def test_blasmpipeline_getcontributorinfo(marcfields, expected,
 
     ('245', ['a', 'Title in French.', 'p',  'Part One =',
              'b', 'Title in English.', 'p', 'Part One.'],
-     {'transcribed': [
+     {'nonfiling_chars': 0,
+      'transcribed': [
         {'parts': ['Title in French', 'Part One']}],
       'parallel': [
         {'parts': ['Title in English', 'Part One']}]}),
 
     ('245', ['a', 'Title in French.', 'p',  'Part One :',
              'b', 'subtitle = Title in English.', 'p', 'Part One : subtitle.'],
-     {'transcribed': [
+     {'nonfiling_chars': 0,
+      'transcribed': [
         {'parts': ['Title in French', 'Part One: subtitle']}],
       'parallel': [
         {'parts': ['Title in English', 'Part One: subtitle']}]}),
@@ -2768,13 +2801,15 @@ def test_blasmpipeline_getcontributorinfo(marcfields, expected,
 
     ('245', ['a', 'First title', 'h', '[sound recording] ;',
              'b', 'Second title.'],
-     {'transcribed': [{'parts': ['First title']}, {'parts': ['Second title']}],
+     {'nonfiling_chars': 0,
+      'transcribed': [{'parts': ['First title']}, {'parts': ['Second title']}],
       'parallel': []}),
 
     ('245', ['a', 'Title in French.', 'p',  'Part One',
              'h', '[sound recording] =', 'b', 'Title in English.',
              'p', 'Part One.'],
-     {'transcribed': [
+     {'nonfiling_chars': 0,
+      'transcribed': [
         {'parts': ['Title in French', 'Part One']}],
       'parallel': [
         {'parts': ['Title in English', 'Part One']}]}),
@@ -2782,80 +2817,94 @@ def test_blasmpipeline_getcontributorinfo(marcfields, expected,
     # Subfields for archives and archival collections (fgks)
 
     ('245', ['a', 'Smith family papers,', 'f', '1800-1920.'],
-     {'transcribed': [
+     {'nonfiling_chars': 0,
+      'transcribed': [
         {'parts': ['Smith family papers, 1800-1920']}],
       'parallel': []}),
 
     ('245', ['a', 'Smith family papers', 'f', '1800-1920.'],
-     {'transcribed': [
+     {'nonfiling_chars': 0,
+      'transcribed': [
         {'parts': ['Smith family papers, 1800-1920']}],
       'parallel': []}),
 
     ('245', ['a', 'Smith family papers', 'f', '1800-1920', 'g', '1850-1860.'],
-     {'transcribed': [
+     {'nonfiling_chars': 0,
+      'transcribed': [
         {'parts': ['Smith family papers, 1800-1920 (bulk 1850-1860)']}],
       'parallel': []}),
 
     ('245', ['a', 'Smith family papers', 'g', '1850-1860.'],
-     {'transcribed': [
+     {'nonfiling_chars': 0,
+      'transcribed': [
         {'parts': ['Smith family papers, 1850-1860']}],
       'parallel': []}),
 
     ('245', ['a', 'Smith family papers', 'f', '1800-1920,', 'g', '1850-1860.'],
-     {'transcribed': [
+     {'nonfiling_chars': 0,
+      'transcribed': [
         {'parts': ['Smith family papers, 1800-1920 (bulk 1850-1860)']}],
       'parallel': []}),
 
     ('245', ['a', 'Smith family papers', 'f', '1800-1920,',
              'g', '(1850-1860).'],
-     {'transcribed': [
+     {'nonfiling_chars': 0,
+      'transcribed': [
         {'parts': ['Smith family papers, 1800-1920, (1850-1860)']}],
       'parallel': []}),
 
     ('245', ['a', 'Smith family papers', 'f', '1800-1920', 'g', '(1850-1860).'],
-     {'transcribed': [
+     {'nonfiling_chars': 0,
+      'transcribed': [
         {'parts': ['Smith family papers, 1800-1920 (1850-1860)']}],
       'parallel': []}),
 
     ('245', ['a', 'Some title :', 'k', 'typescript', 'f', '1800.'],
-     {'transcribed': [
+     {'nonfiling_chars': 0,
+      'transcribed': [
         {'parts': ['Some title: typescript, 1800']}],
       'parallel': []}),
 
     ('245', ['a', 'Hearing Files', 'k', 'Case Files', 'f', '1800',
              'p', 'District 6.'],
-     {'transcribed': [
+     {'nonfiling_chars': 0,
+      'transcribed': [
         {'parts': ['Hearing Files, Case Files, 1800', 'District 6']}],
       'parallel': []}),
 
     ('245', ['a', 'Hearing Files.', 'k', 'Case Files', 'f', '1800',
              'p', 'District 6.'],
-     {'transcribed': [
+     {'nonfiling_chars': 0,
+      'transcribed': [
         {'parts': ['Hearing Files', 'Case Files, 1800', 'District 6']}],
       'parallel': []}),
 
     ('245', ['a', 'Report.', 's', 'Executive summary.'],
-     {'transcribed': [
+     {'nonfiling_chars': 0,
+      'transcribed': [
         {'parts': ['Report', 'Executive summary']}],
       'parallel': []}),
 
     ('245', ['a', 'Title', 'k', 'Form', 's', 'Version', 'f', '1990'],
-     {'transcribed': [
+     {'nonfiling_chars': 0,
+      'transcribed': [
         {'parts': ['Title, Form, Version, 1990']}],
       'parallel': []}),
 
     ('245', ['k', 'Form', 's', 'Version', 'f', '1990'],
-     {'transcribed': [
+     {'nonfiling_chars': 0,
+      'transcribed': [
         {'parts': ['Form, Version, 1990']}],
       'parallel': []}),
 
     # 242s (Translated titles)
 
-    ('242', ['a', 'Annals of chemistry', 'n', 'Series C,',
+    ('242 14', ['a', 'The Annals of chemistry', 'n', 'Series C,',
              'p', 'Organic chemistry and biochemistry.', 'y', 'eng'],
      {'display_text': 'Title translation, English',
+      'nonfiling_chars': 4,
       'transcribed': [
-        {'parts': ['Annals of chemistry',
+        {'parts': ['The Annals of chemistry',
                    'Series C, Organic chemistry and biochemistry']}],
       'parallel': []}),
 
@@ -2863,19 +2912,22 @@ def test_blasmpipeline_getcontributorinfo(marcfields, expected,
 
     ('246', ['a', 'Archives for meteorology, geophysics, and bioclimatology.',
              'n', 'Serie A,', 'p', 'Meteorology and geophysics'],
-     {'transcribed': [
+     {'nonfiling_chars': 0,
+      'transcribed': [
         {'parts': ['Archives for meteorology, geophysics, and bioclimatology',
                    'Serie A, Meteorology and geophysics']}],
       'parallel': []}),
 
     ('246 12', ['a', 'Creating jobs', 'f', '1980'],
      {'display_text': 'Issue title',
+      'nonfiling_chars': 0,
       'transcribed': [
         {'parts': ['Creating jobs, 1980']}],
       'parallel': []}),
 
     ('246 12', ['a', 'Creating jobs', 'g', '(varies slightly)', 'f', '1980'],
      {'display_text': 'Issue title',
+      'nonfiling_chars': 0,
       'transcribed': [
         {'parts': ['Creating jobs (varies slightly) 1980']}],
       'parallel': []}),
@@ -2883,18 +2935,21 @@ def test_blasmpipeline_getcontributorinfo(marcfields, expected,
     ('246 1 ', ['i', 'At head of title:', 'a', 'Science and public affairs',
                 'f', 'Jan. 1970-Apr. 1974'],
      {'display_text': 'At head of title',
+      'nonfiling_chars': 0,
       'transcribed': [
         {'parts': ['Science and public affairs, Jan. 1970-Apr. 1974']}],
       'parallel': []}),
 
     ('247', ['a', 'Industrial medicine and surgery', 'x', '0019-8536'],
      {'issn': '0019-8536',
+      'nonfiling_chars': 0,
       'transcribed': [
         {'parts': ['Industrial medicine and surgery']}],
       'parallel': []}),
 
     # ('', [],
-    #  {'transcribed': [
+    #  {'nonfiling_chars': 0,
+    #   'transcribed': [
     #     {'parts': [],
     #      'responsibility': ''}],
     #   'parallel': [
@@ -2921,7 +2976,8 @@ def test_transcribedtitleparser_parse(tag, subfields, expected):
     # Start with edge cases: missing data, non-ISBD punctuation, etc.
 
     ('130', [],
-     {'materials_specified': [],
+     {'nonfiling_chars': 0,
+      'materials_specified': [],
       'display_constants': [],
       'title_parts': [],
       'expression_parts': [],
@@ -2932,7 +2988,8 @@ def test_transcribedtitleparser_parse(tag, subfields, expected):
      }),
 
     ('130', ['a', ''],
-     {'materials_specified': [],
+     {'nonfiling_chars': 0,
+      'materials_specified': [],
       'display_constants': [],
       'title_parts': [],
       'expression_parts': [],
@@ -2943,7 +3000,8 @@ def test_transcribedtitleparser_parse(tag, subfields, expected):
      }),
 
     ('130', ['a', '', 'k', 'Selections.'],
-     {'materials_specified': [],
+     {'nonfiling_chars': 0,
+      'materials_specified': [],
       'display_constants': [],
       'title_parts': ['Selections'],
       'expression_parts': [],
@@ -2953,10 +3011,11 @@ def test_transcribedtitleparser_parse(tag, subfields, expected):
       'type': 'main'
      }),
 
-    ('130', ['a', 'Basic title no punctuation', 'n', 'Part 1'],
-     {'materials_specified': [],
+    ('130 2 ', ['a', 'A Basic title no punctuation', 'n', 'Part 1'],
+     {'nonfiling_chars': 2,
+      'materials_specified': [],
       'display_constants': [],
-      'title_parts': ['Basic title no punctuation', 'Part 1'],
+      'title_parts': ['A Basic title no punctuation', 'Part 1'],
       'expression_parts': [],
       'languages': [],
       'is_collective': False,
@@ -2965,7 +3024,8 @@ def test_transcribedtitleparser_parse(tag, subfields, expected):
      }),
 
     ('130', ['a', 'Basic title no punctuation', 'p', 'Named part'],
-     {'materials_specified': [],
+     {'nonfiling_chars': 0,
+      'materials_specified': [],
       'display_constants': [],
       'title_parts': ['Basic title no punctuation', 'Named part'],
       'expression_parts': [],
@@ -2977,7 +3037,8 @@ def test_transcribedtitleparser_parse(tag, subfields, expected):
 
     ('130', ['a', 'Basic title no punctuation', 'n', 'Part 1',
              'p', 'named part'],
-     {'materials_specified': [],
+     {'nonfiling_chars': 0,
+      'materials_specified': [],
       'display_constants': [],
       'title_parts': ['Basic title no punctuation', 'Part 1, named part'],
       'expression_parts': [],
@@ -2988,7 +3049,8 @@ def test_transcribedtitleparser_parse(tag, subfields, expected):
      }),
 
     ('130', ['a', 'Basic title no punctuation', 'n', 'Part 1', 'n', 'Part 2'],
-     {'materials_specified': [],
+     {'nonfiling_chars': 0,
+      'materials_specified': [],
       'display_constants': [],
       'title_parts': ['Basic title no punctuation', 'Part 1', 'Part 2'],
       'expression_parts': [],
@@ -3000,7 +3062,8 @@ def test_transcribedtitleparser_parse(tag, subfields, expected):
 
     ('130', ['a', 'Basic title no punctuation', 'p', 'Named part',
              'n', 'Part 2'],
-     {'materials_specified': [],
+     {'nonfiling_chars': 0,
+      'materials_specified': [],
       'display_constants': [],
       'title_parts': ['Basic title no punctuation', 'Named part', 'Part 2'],
       'expression_parts': [],
@@ -3011,7 +3074,8 @@ def test_transcribedtitleparser_parse(tag, subfields, expected):
      }),
 
     ('130', ['a', 'Basic title no punctuation', 'n', 'Part 1', 'l', 'English'],
-     {'materials_specified': [],
+     {'nonfiling_chars': 0,
+      'materials_specified': [],
       'display_constants': [],
       'title_parts': ['Basic title no punctuation', 'Part 1'],
       'expression_parts': ['English'],
@@ -3025,7 +3089,8 @@ def test_transcribedtitleparser_parse(tag, subfields, expected):
     # interpreted as expression parts, whatever they are.
     ('130', ['a', 'Basic title no punctuation', 'n', 'Part 1',
              's', 'Version A', 'p', 'Subpart C'],
-     {'materials_specified': [],
+     {'nonfiling_chars': 0,
+      'materials_specified': [],
       'display_constants': [],
       'title_parts': ['Basic title no punctuation', 'Part 1'],
       'expression_parts': ['Version A', 'Subpart C'],
@@ -3037,7 +3102,8 @@ def test_transcribedtitleparser_parse(tag, subfields, expected):
 
     ('130', ['a', 'Basic title no punctuation', 'n', 'Part 1',
              's', 'Version A', 'p', 'Subpart C'],
-     {'materials_specified': [],
+     {'nonfiling_chars': 0,
+      'materials_specified': [],
       'display_constants': [],
       'title_parts': ['Basic title no punctuation', 'Part 1'],
       'expression_parts': ['Version A', 'Subpart C'],
@@ -3054,7 +3120,8 @@ def test_transcribedtitleparser_parse(tag, subfields, expected):
     # otherwise.
     ('130', ['a', 'Duets,', 'm', 'violin, viola,', 'n', 'op. 10.',
              'n', 'No. 3.'],
-     {'materials_specified': [],
+     {'nonfiling_chars': 0,
+      'materials_specified': [],
       'display_constants': [],
       'title_parts': ['Duets, violin, viola', 'Op. 10', 'No. 3'],
       'expression_parts': [],
@@ -3067,7 +3134,8 @@ def test_transcribedtitleparser_parse(tag, subfields, expected):
     # For other titles, the first subpart becomes part of the main
     # title if there's a preceding comma.
     ('130', ['a', 'Some title,', 'n', 'the first part.', 'n', 'Volume 1.'],
-     {'materials_specified': [],
+     {'nonfiling_chars': 0,
+      'materials_specified': [],
       'display_constants': [],
       'title_parts': ['Some title, the first part', 'Volume 1'],
       'expression_parts': [],
@@ -3079,7 +3147,8 @@ def test_transcribedtitleparser_parse(tag, subfields, expected):
 
     # The first $n or $p starts a new part if there's a preceding period.
     ('130', ['a', 'Some title.', 'n', 'The first part.', 'n', 'Volume 1.'],
-     {'materials_specified': [],
+     {'nonfiling_chars': 0,
+      'materials_specified': [],
       'display_constants': [],
       'title_parts': ['Some title', 'The first part', 'Volume 1'],
       'expression_parts': [],
@@ -3092,7 +3161,8 @@ def test_transcribedtitleparser_parse(tag, subfields, expected):
     # A $p after $n is combined with the $n if there's a comma (or
     # nothing) preceding $p.
     ('130', ['a', 'Some title.', 'n', 'The first part,', 'p', 'part name.'],
-     {'materials_specified': [],
+     {'nonfiling_chars': 0,
+      'materials_specified': [],
       'display_constants': [],
       'title_parts': ['Some title', 'The first part, part name'],
       'expression_parts': [],
@@ -3105,7 +3175,8 @@ def test_transcribedtitleparser_parse(tag, subfields, expected):
     # A $p after $n becomes a new part if there's a period preceding
     # $p.
     ('130', ['a', 'Some title.', 'n', 'The first part.', 'p', 'Part name.'],
-     {'materials_specified': [],
+     {'nonfiling_chars': 0,
+      'materials_specified': [],
       'display_constants': [],
       'title_parts': ['Some title', 'The first part', 'Part name'],
       'expression_parts': [],
@@ -3118,7 +3189,8 @@ def test_transcribedtitleparser_parse(tag, subfields, expected):
     # For $n's and $p's (after the first), part hierarchy is based on
     # punctuation. Commas denote same part, periods denote new parts.
     ('130', ['a', 'Some title.', 'n', 'Part 1,', 'n', 'Part 2.'],
-     {'materials_specified': [],
+     {'nonfiling_chars': 0,
+      'materials_specified': [],
       'display_constants': [],
       'title_parts': ['Some title', 'Part 1, Part 2'],
       'expression_parts': [],
@@ -3130,7 +3202,8 @@ def test_transcribedtitleparser_parse(tag, subfields, expected):
 
     # $k is treated as a new part.
     ('130', ['a', 'Works.', 'k', 'Selections.'],
-     {'materials_specified': [],
+     {'nonfiling_chars': 0,
+      'materials_specified': [],
       'display_constants': [],
       'title_parts': ['Works', 'Selections'],
       'expression_parts': [],
@@ -3142,7 +3215,8 @@ def test_transcribedtitleparser_parse(tag, subfields, expected):
 
     # $k following a collective title is always a new part.
     ('130', ['a', 'Works,', 'k', 'Selections.'],
-     {'materials_specified': [],
+     {'nonfiling_chars': 0,
+      'materials_specified': [],
       'display_constants': [],
       'title_parts': ['Works', 'Selections'],
       'expression_parts': [],
@@ -3154,7 +3228,8 @@ def test_transcribedtitleparser_parse(tag, subfields, expected):
 
     # Languages are parsed out if multiple are found.
     ('130', ['a', 'Something.', 'l', 'English and French.'],
-     {'materials_specified': [],
+     {'nonfiling_chars': 0,
+      'materials_specified': [],
       'display_constants': [],
       'title_parts': ['Something'],
       'expression_parts': ['English and French'],
@@ -3165,7 +3240,8 @@ def test_transcribedtitleparser_parse(tag, subfields, expected):
      }),
 
     ('130', ['a', 'Something.', 'l', 'English & French.'],
-     {'materials_specified': [],
+     {'nonfiling_chars': 0,
+      'materials_specified': [],
       'display_constants': [],
       'title_parts': ['Something'],
       'expression_parts': ['English & French'],
@@ -3176,7 +3252,8 @@ def test_transcribedtitleparser_parse(tag, subfields, expected):
      }),
 
     ('130', ['a', 'Something.', 'l', 'English, French, and German.'],
-     {'materials_specified': [],
+     {'nonfiling_chars': 0,
+      'materials_specified': [],
       'display_constants': [],
       'title_parts': ['Something'],
       'expression_parts': ['English, French, and German'],
@@ -3189,7 +3266,8 @@ def test_transcribedtitleparser_parse(tag, subfields, expected):
     # If a generic collective title, like "Works", is followed by a
     # subfield m, it's interpreted as a music form title.
     ('130', ['a', 'Works,', 'm', 'violin.', 'k', 'Selections.'],
-     {'materials_specified': [],
+     {'nonfiling_chars': 0,
+      'materials_specified': [],
       'display_constants': [],
       'title_parts': ['Works, violin', 'Selections'],
       'expression_parts': [],
@@ -3201,7 +3279,8 @@ def test_transcribedtitleparser_parse(tag, subfields, expected):
 
     # Anything following a $k results in a new hierarchical part.
     ('130', ['a', 'Works,', 'm', 'violin.', 'k', 'Selections,', 'n', 'op. 8.'],
-     {'materials_specified': [],
+     {'nonfiling_chars': 0,
+      'materials_specified': [],
       'display_constants': [],
       'title_parts': ['Works, violin', 'Selections', 'Op. 8'],
       'expression_parts': [],
@@ -3214,7 +3293,8 @@ def test_transcribedtitleparser_parse(tag, subfields, expected):
     # "[Instrument] music" is treated as a collective title but not a
     # music form title.
     ('130', ['a', 'Piano music (4 hands)', 'k', 'Selections.'],
-     {'materials_specified': [],
+     {'nonfiling_chars': 0,
+      'materials_specified': [],
       'display_constants': [],
       'title_parts': ['Piano music (4 hands)', 'Selections'],
       'expression_parts': [],
@@ -3226,7 +3306,8 @@ def test_transcribedtitleparser_parse(tag, subfields, expected):
 
     # $d interacts with collective titles like other subpart sf types.
     ('240', ['a', 'Treaties, etc.', 'd', '1948.'],
-     {'materials_specified': [],
+     {'nonfiling_chars': 0,
+      'materials_specified': [],
       'display_constants': [],
       'title_parts': ['Treaties, etc.', '1948'],
       'expression_parts': [],
@@ -3236,10 +3317,11 @@ def test_transcribedtitleparser_parse(tag, subfields, expected):
       'type': 'main'
      }),
 
-    ('240', ['a', 'Treaty of whatever', 'd', '(1948)'],
-     {'materials_specified': [],
+    ('240 14', ['a', 'The Treaty of whatever', 'd', '(1948)'],
+     {'nonfiling_chars': 4,
+      'materials_specified': [],
       'display_constants': [],
-      'title_parts': ['Treaty of whatever (1948)'],
+      'title_parts': ['The Treaty of whatever (1948)'],
       'expression_parts': [],
       'languages': [],
       'is_collective': False,
@@ -3251,7 +3333,8 @@ def test_transcribedtitleparser_parse(tag, subfields, expected):
     # elsewhere.
     ('240', ['a', 'Treaties, etc.', 'g', 'Poland,', 'd', '1948 Mar. 2.',
              'k', 'Protocols, etc.,', 'd', '1951 Mar. 6'],
-     {'materials_specified': [],
+     {'nonfiling_chars': 0,
+      'materials_specified': [],
       'display_constants': [],
       'title_parts': ['Treaties, etc.', 'Poland, 1948 Mar. 2',
                       'Protocols, etc.', '1951 Mar. 6'],
@@ -3267,7 +3350,8 @@ def test_transcribedtitleparser_parse(tag, subfields, expected):
 
     ('700', ['a', 'Fauré, Gabriel,', 'd', '1845-1924.', 't', 'Nocturnes,',
              'm', 'piano,', 'n', 'no. 11, op. 104, no. 1,', 'r', 'F♯ minor'],
-     {'materials_specified': [],
+     {'nonfiling_chars': 0,
+      'materials_specified': [],
       'display_constants': [],
       'title_parts': ['Nocturnes, piano', 'No. 11, op. 104, no. 1, F♯ minor'],
       'expression_parts': [],
@@ -3280,7 +3364,8 @@ def test_transcribedtitleparser_parse(tag, subfields, expected):
     # 7XX ind2 == 2 indicates an 'analytic' type title.
     ('700  2', ['a', 'Fauré, Gabriel,', 'd', '1845-1924.', 't', 'Nocturnes,',
                 'm', 'piano,', 'n', 'no. 11, op. 104, no. 1,', 'r', 'F♯ minor'],
-     {'materials_specified': [],
+     {'nonfiling_chars': 0,
+      'materials_specified': [],
       'display_constants': [],
       'title_parts': ['Nocturnes, piano', 'No. 11, op. 104, no. 1, F♯ minor'],
       'expression_parts': [],
@@ -3297,7 +3382,8 @@ def test_transcribedtitleparser_parse(tag, subfields, expected):
     ('700   ', ['i', 'Container of (work):', 'a', 'Fauré, Gabriel,',
                 'd', '1845-1924.', 't', 'Nocturnes,', 'm', 'piano,',
                 'n', 'no. 11, op. 104, no. 1,', 'r', 'F♯ minor'],
-     {'materials_specified': [],
+     {'nonfiling_chars': 0,
+      'materials_specified': [],
       'display_constants': [],
       'title_parts': ['Nocturnes, piano', 'No. 11, op. 104, no. 1, F♯ minor'],
       'expression_parts': [],
@@ -3310,7 +3396,8 @@ def test_transcribedtitleparser_parse(tag, subfields, expected):
     ('710', ['i', 'Summary of (work):', 'a', 'United States.',
              'b', 'Adjutant-General\'s Office.',
              't', 'Correspondence relating to the war with Spain'],
-     {'materials_specified': [],
+     {'nonfiling_chars': 0,
+      'materials_specified': [],
       'display_constants': ['Summary of'],
       'title_parts': ['Correspondence relating to the war with Spain'],
       'expression_parts': [],
@@ -3323,7 +3410,8 @@ def test_transcribedtitleparser_parse(tag, subfields, expected):
     ('711', ['a', 'International Conference on Gnosticism', 'd', '(1978 :',
              'c', 'New Haven, Conn.).', 't', 'Rediscovery of Gnosticism.',
              'p', 'Modern writers.'],
-     {'materials_specified': [],
+     {'nonfiling_chars': 0,
+      'materials_specified': [],
       'display_constants': [],
       'title_parts': ['Rediscovery of Gnosticism', 'Modern writers'],
       'expression_parts': [],
@@ -3333,12 +3421,13 @@ def test_transcribedtitleparser_parse(tag, subfields, expected):
       'type': 'related'
      }),
 
-    ('730', ['i', 'Container of (expression):', 'a', 'Bible.', 'p', 'Epistles.',
-             'k', 'Selections.', 'l', 'Tabaru.', 's', 'Common Language.',
-             'f', '2001'],
-     {'materials_specified': [],
+    ('730 4 ', ['i', 'Container of (expression):', 'a', 'The Bible.',
+             'p', 'Epistles.', 'k', 'Selections.', 'l', 'Tabaru.',
+             's', 'Common Language.', 'f', '2001'],
+     {'nonfiling_chars': 4,
+      'materials_specified': [],
       'display_constants': [],
-      'title_parts': ['Bible', 'Epistles', 'Selections'],
+      'title_parts': ['The Bible', 'Epistles', 'Selections'],
       'expression_parts': ['Tabaru', 'Common Language', '2001'],
       'languages': ['Tabaru'],
       'is_collective': False,
@@ -3349,7 +3438,8 @@ def test_transcribedtitleparser_parse(tag, subfields, expected):
     # If $o is present and begins with 'arr', the statement 'arranged'
     # is added to `expression_parts`.
     ('730', ['a', 'God save the king;', 'o', 'arr.', 'f', '1982.'],
-     {'materials_specified': [],
+     {'nonfiling_chars': 0,
+      'materials_specified': [],
       'display_constants': [],
       'title_parts': ['God save the king'],
       'expression_parts': ['arranged', '1982'],
@@ -3364,7 +3454,8 @@ def test_transcribedtitleparser_parse(tag, subfields, expected):
 
     ('800', ['a', 'Berenholtz, Jim,', 'd', '1957-',
              't', 'Teachings of the feathered serpent ;', 'v', 'bk. 1'],
-     {'materials_specified': [],
+     {'nonfiling_chars': 0,
+      'materials_specified': [],
       'display_constants': [],
       'title_parts': ['Teachings of the feathered serpent'],
       'expression_parts': [],
@@ -3377,10 +3468,11 @@ def test_transcribedtitleparser_parse(tag, subfields, expected):
      }),
 
     # $3 becomes `materials_specified` if present
-    ('830', ['3', 'v. 1-8', 'a','Collection Byzantine.', 'x', '0223-3738'],
-     {'materials_specified': ['v. 1-8'],
+    ('830  2', ['3', 'v. 1-8', 'a','A Collection Byzantine.', 'x', '0223-3738'],
+     {'nonfiling_chars': 2,
+      'materials_specified': ['v. 1-8'],
       'display_constants': [],
-      'title_parts': ['Collection Byzantine'],
+      'title_parts': ['A Collection Byzantine'],
       'expression_parts': [],
       'languages': [],
       'volume': '',
