@@ -525,3 +525,42 @@ def test_person_name(data, first_indicator, exp_forename, exp_surname, exp_famil
     assert name['forename'] == exp_forename
     assert name['surname'] == exp_surname
     assert name['family_name'] == exp_family_name
+
+
+@pytest.mark.parametrize('data, mn, mx, trunc_patterns, trunc_to_punct, exp', {
+    ('abcd', 5, 5, None, True, 'abcd'),
+    ('abcd', 1, 5, None, True, 'a'),
+    ('', 1, 5, None, True, ''),
+    ('', 0, 0, None, True, ''),
+    ('word word: word. word. Word word.', 5, 25, None, True,
+     'word word: word. word'),
+    ('word word: word word. Word word.', 5, 25, None, False,
+     'word word: word word.'),
+    ('word word: word word. Word word.', 5, 20, None, True,
+     'word word'),
+    ('word word: word word. Word word.', 5, 20, None, False,
+     'word word: word'),
+    ('word word: word word. Word word.', 5, 30, (r':\s',), True,
+     'word word'),
+    ('word word word word. Word word.', 5, 30, (r':\s',), True,
+     'word word word word'),
+    ('word word word word; Word word.', 5, 30, (r':\s',), True,
+     'word word word word'),
+    ('word word word word. Word word.', 5, 30, (r':\s',), False,
+     'word word word word. Word'),
+    ('word word: word word. Word word.', 10, 30, (r':\s',), True,
+     'word word'),
+    ('word word: word word. Word word.', 11, 21, None, True,
+     'word word: word'),
+    ('word wo: rd: word word. Word word.', 5, 30, (r':\s',), True,
+     'word wo: rd'),
+})
+def test_truncator_truncate(data, mn, mx, trunc_patterns, trunc_to_punct, exp):
+    """
+    `Truncator.truncate`, when the Truncate obj is instantiated with
+    the given `trunc_patterns` and `trunc_to_punct` args, should return
+    the `expected` result, when passed the given `mn` and `mx` args. 
+    """
+    truncator = parsers.Truncator(trunc_patterns, trunc_to_punct)
+    assert truncator.truncate(data, mn, mx) == exp
+

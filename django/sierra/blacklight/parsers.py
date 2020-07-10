@@ -505,3 +505,29 @@ def person_name(data, indicators):
     return {'forename': strip_ends(forename) or None,
             'surname': strip_ends(surname) or None,
             'family_name': strip_ends(family_name) or None}
+
+
+class Truncator(object):
+    punct_trunc_pattern = r'[^\w\s]\s+'
+    space_trunc_pattern = r'\s+'
+
+    def __init__(self, trunc_patterns=None, truncate_to_punctuation=True):
+        super(Truncator, self).__init__()
+        trunc_patterns = list(trunc_patterns or [])
+        if truncate_to_punctuation:
+            trunc_patterns.append(self.punct_trunc_pattern)
+        trunc_patterns.append(self.space_trunc_pattern)
+
+        self.trunc_patterns = []
+        for p in trunc_patterns:
+            self.trunc_patterns.append(r'{0}(.(?!{0}))*$'.format(p))
+
+    def truncate(self, text, min_len, max_len):
+        slice_range = (min_len-1, max_len)
+        text_slice = text[slice(*slice_range)]
+        for pattern in self.trunc_patterns:
+            match = re.search(pattern, text_slice)
+            if match:
+                trunc_index = match.start() + slice_range[0]
+                return text[:trunc_index]
+        return text[:min_len]
