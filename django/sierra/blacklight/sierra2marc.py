@@ -359,14 +359,14 @@ class OrgEventNameParser(SequentialMarcFieldParser):
         self.parts = {'org': [], 'event': []}
         self._stacks = {'org': [], 'event': []}
         self._event_info, self._prev_part_name, self._prev_tag = [], '', ''
+        self.is_jurisdiction = self.field.indicator1 == '1'
 
     def do_relators(self, tag, val):
         for relator_term in self.utils.compile_relator_terms(tag, val):
             self.relator_terms[relator_term] = None
 
     def sf_is_first_subunit_of_jd_field(self, tag):
-        ind1 = self.field.indicator1
-        is_jurisdiction = tag == self.subunit_sftag and ind1 == '1'
+        is_jurisdiction = tag == self.subunit_sftag and self.is_jurisdiction
         return (tag == 'q' or is_jurisdiction) and self._prev_tag == 'a'
 
     def _build_unit_name(self, part_type):
@@ -433,7 +433,8 @@ class OrgEventNameParser(SequentialMarcFieldParser):
                 ret_val.append({
                     'relations': relators,
                     'heading_parts': self.parts[part_type],
-                    'type': 'organization' if part_type == 'org' else 'event'
+                    'type': 'organization' if part_type == 'org' else 'event',
+                    'is_jurisdiction': self.is_jurisdiction
                 })
                 relators = None
         return ret_val
