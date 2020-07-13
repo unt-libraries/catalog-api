@@ -527,7 +527,7 @@ def test_person_name(data, first_indicator, exp_forename, exp_surname, exp_famil
     assert name['family_name'] == exp_family_name
 
 
-@pytest.mark.parametrize('data, mn, mx, trunc_patterns, trunc_to_punct, exp', {
+@pytest.mark.parametrize('data, mn, mx, trunc_patterns, trunc_to_punct, exp', [
     ('abcd', 5, 5, None, True, 'abcd'),
     ('abcd', 1, 5, None, True, 'a'),
     ('', 1, 5, None, True, ''),
@@ -554,7 +554,7 @@ def test_person_name(data, first_indicator, exp_forename, exp_surname, exp_famil
      'word word: word'),
     ('word wo: rd: word word. Word word.', 5, 30, (r':\s',), True,
      'word wo: rd'),
-})
+])
 def test_truncator_truncate(data, mn, mx, trunc_patterns, trunc_to_punct, exp):
     """
     `Truncator.truncate`, when the Truncate obj is instantiated with
@@ -563,4 +563,47 @@ def test_truncator_truncate(data, mn, mx, trunc_patterns, trunc_to_punct, exp):
     """
     truncator = parsers.Truncator(trunc_patterns, trunc_to_punct)
     assert truncator.truncate(data, mn, mx) == exp
+
+
+@pytest.mark.parametrize('data, expected', [
+    ('Isidore of Seville ; translated by Helen Dill Goode and Gertrude C. '
+     'Drake.',
+     [['Isidore', 'Seville'], ['Helen', 'Dill', 'Goode'],
+      ['Gertrude', 'C', 'Drake']]),
+    ('Shakespeare ; traductions de Yves Bonnefoy, Armand Robin, et Pierre '
+     'Jean Jouve',
+     [['Shakespeare'], ['Yves', 'Bonnefoy'], ['Armand', 'Robin'],
+      ['Pierre', 'Jean', 'Jouve']]),
+    ('[music by] Rodgers & [words by] Hammerstein',
+     [['Rodgers'], ['Hammerstein']]),
+    ('Béla Bartók ; arranged for junior string orchestra by Gábor Darvas',
+     [['Béla', 'Bartók'], ['Gábor', 'Darvas']]),
+    ('J.S. Bach', [['J', 'S', 'Bach']]),
+    ('JS Bach', [['J', 'S', 'Bach']]),
+    ('U.S. Navy\'s Military Sealift Command',
+     [['U', 'S', 'Navy\'s', 'Military', 'Sealift', 'Command']])
+])
+def test_findnamesinstring(data, expected):
+    """
+    The `find_names_in_string` function should return the expected
+    names.
+    """
+    assert parsers.find_names_in_string(data) == expected
+
+
+@pytest.mark.parametrize('sor, heading, only_first, expected', [
+    ('Isidore of Seville ; translated by Helen Dill Goode and Gertrude C. '
+     'Drake.', 'Isidore of Seville', True, True),
+    ('Isidore of Seville ; translated by Helen Dill Goode and Gertrude C. '
+     'Drake.', 'Goode, Helen Dill', False, True),
+    ('Isidore of Seville ; translated by Helen Dill Goode and Gertrude C. '
+     'Drake.', 'Goode, Helen Dill', True, False),
+])
+def test_sormatchesnameheading(sor, heading, only_first, expected):
+    """
+    The `sor_matches_name_heading` function should return the expected
+    value given the `sor`, `heading`, and `only_first` input values.
+    """
+    result = parsers.sor_matches_name_heading(sor, heading, only_first)
+    assert result == expected
 

@@ -531,3 +531,57 @@ class Truncator(object):
                 trunc_index = match.start() + slice_range[0]
                 return text[:trunc_index]
         return text[:min_len]
+
+
+def find_names_in_string(string):
+    """
+    Return a list of word-lists, where each word-list represents a
+    proper name found in the input `string`. This is designed to pull
+    name candidates out of a statement-of-responsibility string for
+    matching against name headings. Names found via this function do
+    not include any lowercase words, e.g., ['Ludwig', 'Beethoven'].
+    """
+    def push_word_to_name(word, name, names):
+        word = ''.join(word)
+        if word.islower():
+            if name and word == 'and':
+                names.append(name)
+                name = []
+        else:
+            name.append(word)
+        return names, name
+
+    names, name, word = [], [], []
+    for ch in string:
+        if ch.isupper():
+            if word:
+                names, name = push_word_to_name(word, name, names)
+            word = [ch]
+        elif ch.isalpha() or ch == '\'' or ord(ch) > 127:
+            word.append(ch)
+        else:
+            if word:
+                names, name = push_word_to_name(word, name, names)
+                word = []
+            if ch not in (' ', '.') and name:
+                names.append(name)
+                name = []
+    if word:
+        names, name = push_word_to_name(word, name, names)
+    if name:
+        names.append(name)
+    return names
+
+
+def sor_matches_name_heading(sor, heading, only_first=True):
+    """
+    Determine whether the provided statement-of-responsibility string
+    `sor` contains a name that matches the provided name `heading`
+    string. Pass True for `only_first` if you want just the first name
+    from the SOR matched (i.e. if you're looking for the main author).
+    """
+    for name in find_names_in_string(sor):
+        found = all((npart in heading for npart in name))
+        if found or only_first:
+            return found
+    return False
