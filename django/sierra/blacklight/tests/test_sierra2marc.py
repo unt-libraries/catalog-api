@@ -143,6 +143,21 @@ def update_test_bib_inst(add_varfields_to_record, add_items_to_bib,
     return _update_test_bib_inst
 
 
+@pytest.fixture
+def make_name_structs():
+    """
+    Pytest fixture. Returns a function to use for generating
+    name_structs (dictionary structures) from the given X00, X10, or
+    X11 field. Data should be passed as a `tag`, `subfields`,
+    `indicators` tuple (used in many of the test parameters).
+    """
+    def _make_name_structs(marcfield):
+        tag, subfields, indicators = marcfield
+        f = s2m.make_mfield(tag, subfields=subfields, indicators=indicators)
+        return s2m.extract_name_structs_from_field(f)
+    return _make_name_structs
+
+
 # TESTS
 
 @pytest.mark.parametrize('kwargs', [
@@ -2656,6 +2671,16 @@ def test_blasmpipeline_getcontributorinfo(marcfields, expected,
                       {'parts': ['Third title']}],
       'parallel': []}),
 
+    ('245', ['a', 'First title ;', 'b', 'and Second title'],
+     {'nonfiling_chars': 0,
+      'transcribed': [{'parts': ['First title']}, {'parts': ['Second title']}],
+      'parallel': []}),
+
+    ('245', ['a', 'First title,', 'b', 'and Second title'],
+     {'nonfiling_chars': 0,
+      'transcribed': [{'parts': ['First title']}, {'parts': ['Second title']}],
+      'parallel': []}),
+
     ('245', ['a', 'Title /', 'c', 'by Author.'],
      {'nonfiling_chars': 0,
       'transcribed': [
@@ -2942,9 +2967,65 @@ def test_blasmpipeline_getcontributorinfo(marcfields, expected,
 
     ('247', ['a', 'Industrial medicine and surgery', 'x', '0019-8536'],
      {'issn': '0019-8536',
+      'display_text': 'Former title',
       'nonfiling_chars': 0,
       'transcribed': [
         {'parts': ['Industrial medicine and surgery']}],
+      'parallel': []}),
+
+    # Testing 490s: similar to 245s but less (differently?) structured
+
+    ('490', ['a', 'Series statement / responsibility'],
+     {'nonfiling_chars': 0,
+      'transcribed': [
+        {'parts': ['Series statement'],
+         'responsibility': 'responsibility'}],
+      'parallel': []}),
+
+    ('490', ['a', 'Series statement =', 'a', 'Series statement in English'],
+     {'nonfiling_chars': 0,
+      'transcribed': [
+        {'parts': ['Series statement']}],
+      'parallel': [
+        {'parts': ['Series statement in English']}
+      ]}),
+
+    ('490', ['a', 'Series statement ;', 'v', 'v. 1 =',
+             'a', 'Series statement in English ;', 'v', 'v. 1'],
+     {'nonfiling_chars': 0,
+      'transcribed': [
+        {'parts': ['Series statement; v. 1']}],
+      'parallel': [
+        {'parts': ['Series statement in English; v. 1']}
+      ]}),
+
+    ('490', ['3', 'Vol. 1:', 'a', 'Series statement'],
+     {'nonfiling_chars': 0,
+      'materials_specified': ['Vol. 1'],
+      'transcribed': [
+        {'parts': ['Series statement']}],
+      'parallel': []}),
+
+    ('490', ['a', 'Series statement,', 'x', '1234-5678 ;', 'v', 'v. 1'],
+     {'nonfiling_chars': 0,
+      'issn': '1234-5678',
+      'transcribed': [
+        {'parts': ['Series statement; v. 1']}],
+      'parallel': []}),
+
+    ('490', ['a', 'Series statement ;', 'v', 'v. 1.',
+             'a', 'Sub-series / Responsibility ;', 'v', 'v. 36'],
+     {'nonfiling_chars': 0,
+      'transcribed': [
+        {'parts': ['Series statement; v. 1', 'Sub-series; v. 36'],
+         'responsibility': 'Responsibility'}],
+      'parallel': []}),
+
+    ('490', ['a', 'Series statement ;', 'v', 'v. 1.', 'l', '(LC12345)'],
+     {'nonfiling_chars': 0,
+      'lccn': 'LC12345',
+      'transcribed': [
+        {'parts': ['Series statement; v. 1']}],
       'parallel': []}),
 
     # ('', [],
@@ -3337,7 +3418,7 @@ def test_transcribedtitleparser_parse(tag, subfields, expected):
       'materials_specified': [],
       'display_constants': [],
       'title_parts': ['Treaties, etc.', 'Poland, 1948 Mar. 2',
-                      'Protocols, etc.', '1951 Mar. 6'],
+                      'Protocols, etc., 1951 Mar. 6'],
       'expression_parts': [],
       'languages': [],
       'is_collective': True,
@@ -3505,11 +3586,1743 @@ def test_preferredtitleparser_parse(tag, subfields, expected):
     assert s2m.PreferredTitleParser(field).parse() == expected
 
 
+@pytest.mark.parametrize('marcfield, expected', [
+    (('100', ['a', 'Adams, Henry,', 'd', '1838-1918.'], '1 '), ['Adams, H.']),
+    (('100', ['a', 'Riaño, Juan Facundo,', 'd', '1828-1901.'], '1 '),
+     ['Riaño, J.F.']),
+    (('100', ['a', 'Fowler, T. M.', 'q', '(Thaddeus Mortimer),',
+              'd', '1842-1922.'], '1 '),
+     ['Fowler, T.M.']),
+    (('100', ['a', 'Vérez-Peraza, Elena,', 'd', '1919-'], '1 '),
+     ['Vérez-Peraza, E.']),
+    (('100', ['a', 'John', 'b', 'II Comnenus,', 'c', 'Emperor of the East,',
+              'd', '1088-1143.'], '0 '),
+     ['John II Comnenus, Emperor of the East']),
+    (('100', ['a', 'John Paul', 'b', 'II,', 'c', 'Pope,',
+              'd', '1920-'], '0 '),
+     ['John Paul II, Pope']),
+    (('100', ['a', 'Beeton,', 'c', 'Mrs.', 'q', '(Isabella Mary),',
+              'd', '1836-1865.'], '1 '),
+     ['Beeton, Mrs.']),
+    (('100', ['a', 'Black Foot,', 'c', 'Chief,', 'd', 'd. 1877',
+              'c', '(Spirit)'], '0 '),
+     ['Black Foot, Chief (Spirit)']),
+    (('100', ['a', 'Thomas,', 'c', 'Aquinas, Saint,', 'd', '1225?-1274.'],
+        '0 '),
+     ['Thomas, Aquinas, Saint']),
+    (('110', ['a', 'United States.', 'b', 'Court of Appeals (2nd Circuit)'],
+        '1 '),
+     ['United States Court of Appeals (2nd Circuit)']),
+    (('110', ['a', 'Catholic Church.', 'b', 'Province of Baltimore (Md.).',
+              'b', 'Provincial Council.'], '2 '),
+     ['Catholic Church ... Provincial Council']),
+    (('110', ['a', 'United States.', 'b', 'Congress.',
+              'b', 'Joint Committee on the Library.'], '1 '),
+     ['United States Congress, Joint Committee on the Library']),
+    (('110', ['a', 'Catholic Church.',
+              'b', 'Concilium Plenarium Americae Latinae',
+              'd', '(1899 :', 'c', 'Rome, Italy)'], '2 '),
+     ['Catholic Church',
+      'Catholic Church, Concilium Plenarium Americae Latinae']),
+    (('111', ['a', 'Governor\'s Conference on Aging (N.Y.)',
+              'd', '(1982 :', 'c', 'Albany, N.Y.)'], '2 '),
+     ['Governor\'s Conference on Aging (N.Y.)']),
+    (('111', ['a', 'Esto \'84', 'd', '(1984 :', 'c', 'Toronto, Ont).',
+              'e', 'Raamatunaituse Komitee.'], '2 '),
+     ['Esto \'84', 'Esto \'84, Raamatunaituse Komitee'])
+])
+def test_shortenname(marcfield, expected, make_name_structs):
+    """
+    The `shorten_name` function should return the expected shortened
+    version of a name when passed a structure from a NameParser
+    resulting from the given `marcfield` data.
+    """
+    result = [s2m.shorten_name(n) for n in make_name_structs(marcfield)]
+    assert set(result) == set(expected)
+
+
 @pytest.mark.parametrize('marcfields, expected', [
+    # Edge cases -- empty / missing fields, etc.
+
+    # 1XX field but no titles => empty title_info
     ([('100', ['a', 'Churchill, Winston,', 'c', 'Sir,', 'd', '1874-1965.'],
        '1 ')], {}),
+
+    # Empty 240 field => empty title info
+    ([('240', ['a', ''], '  ')], {}),
+
+    # Empty 245 field => empty title info
+    ([('245', ['a', ''], '  ')], {}),
+
+    # 700 field with no $t => empty title info
+    ([('700', ['a', 'Churchill, Winston,', 'c', 'Sir,', 'd', '1874-1965.'],
+       '1 ')], {}),
+
+    # 130 but NO 245
+    # If there is a 130, 240, or 243 but no 245, then the 130/240/243
+    # becomes the main title.
+    ([('130', ['a', 'Duets,', 'm', 'violin, viola,', 'n', 'op. 10.',
+               'n', 'No. 3.'], '0 '),],
+     {'title_display': 'Duets, violin, viola > Op. 10 > No. 3',
+      'main_title_search': ['Duets, violin, viola > Op. 10 > No. 3'],
+      'title_sort': 'duets_violin_viola_op_10_no_3',
+      'included_work_titles_json': [{
+        'p': [{'d': 'Duets, violin, viola',
+               's': ' > ', 
+               'v': 'duets_violin_viola|Duets, violin, viola'},
+              {'d': 'Op. 10',
+               's': ' > ',
+               'v': 'duets_violin_viola_op_10|Duets, violin, viola > Op. 10'},
+              {'d': 'No. 3',
+               'v': 'duets_violin_viola_op_10_no_3|'
+                    'Duets, violin, viola > Op. 10 > No. 3'}]
+      }],
+      'included_work_titles_search': ['Duets, violin, viola > Op. 10 > No. 3'],
+      'title_series_facet': [
+        'duets_violin_viola|Duets, violin, viola',
+        'duets_violin_viola_op_10|Duets, violin, viola > Op. 10',
+        'duets_violin_viola_op_10_no_3|Duets, violin, viola > Op. 10 > No. 3'
+      ]}),
+
+    # Basic configurations of MARC Fields => title fields, Included vs
+    # Related works, and how single author vs multiple
+    # authors/contributors affects display of short authors.
+
+    # 130/245: No author.
+    # 245 is the main title and 130 is in IW. No author info is added to
+    # any titles because there is no author info to add.
+    ([('130', ['a', 'Duets,', 'm', 'violin, viola,', 'n', 'op. 10.',
+               'n', 'No. 3.'], '0 '),
+      ('245', ['a', 'Duets for violin and viola,', 'n', 'opus 10.',
+               'n', 'Number 3 /', 'c', '[various authors]'], '1 ')],
+     {'title_display': 'Duets for violin and viola, opus 10 > Number 3',
+      'main_title_search': ['Duets for violin and viola, opus 10 > Number 3'],
+      'title_sort': 'duets_for_violin_and_viola_opus_10_number_3',
+      'responsibility_display': '[various authors]',
+      'responsibility_search': ['[various authors]'],
+      'included_work_titles_json': [{
+        'p': [{'d': 'Duets, violin, viola',
+               's': ' > ', 
+               'v': 'duets_violin_viola|Duets, violin, viola'},
+              {'d': 'Op. 10',
+               's': ' > ',
+               'v': 'duets_violin_viola_op_10|Duets, violin, viola > Op. 10'},
+              {'d': 'No. 3',
+               'v': 'duets_violin_viola_op_10_no_3|'
+                    'Duets, violin, viola > Op. 10 > No. 3'}]
+      }],
+      'included_work_titles_search': ['Duets, violin, viola > Op. 10 > No. 3'],
+      'title_series_facet': [
+        'duets_violin_viola|Duets, violin, viola',
+        'duets_violin_viola_op_10|Duets, violin, viola > Op. 10',
+        'duets_violin_viola_op_10_no_3|Duets, violin, viola > Op. 10 > No. 3'
+      ]}),
+
+    # 100/240/245: Single author (title in included works).
+    # 240 is in IW and 245 is main title. Short author info is added
+    # to titles.
+    ([('100', ['a', 'Smith, Joe'], '1 '),
+      ('240', ['a', 'Specific Preferred Title.'], '10'),
+      ('245', ['a', 'Transcribed title /',
+               'c', 'Joe Smith ; edited by Edward Copeland.'], '1 ')],
+     {'title_display': 'Transcribed title',
+      'main_title_search': ['Transcribed title'],
+      'title_sort': 'transcribed_title',
+      'responsibility_display': 'Joe Smith; edited by Edward Copeland',
+      'responsibility_search': ['Joe Smith; edited by Edward Copeland'],
+      'included_work_titles_json': [{
+        'a': 'Smith, Joe',
+        'p': [{'d': 'Specific Preferred Title [by Smith, J.]',
+               'v': 'specific_preferred_title|Specific Preferred Title'}]
+      }],
+      'included_work_titles_search': ['Specific Preferred Title'],
+      'title_series_facet': [
+        'specific_preferred_title|Specific Preferred Title'
+      ]}),
+
+    # 100/245: No preferred title.
+    # 245 is main title AND added to IW. Short author info is added.
+    ([('100', ['a', 'Smith, Joe'], '1 '),
+      ('245', ['a', 'Transcribed title /',
+               'c', 'Joe Smith ; edited by Edward Copeland.'], '1 ')],
+     {'title_display': 'Transcribed title',
+      'main_title_search': ['Transcribed title'],
+      'title_sort': 'transcribed_title',
+      'responsibility_display': 'Joe Smith; edited by Edward Copeland',
+      'responsibility_search': ['Joe Smith; edited by Edward Copeland'],
+      'included_work_titles_json': [{
+        'a': 'Smith, Joe',
+        'p': [{'d': 'Transcribed title [by Smith, J.]',
+               'v': 'transcribed_title|Transcribed title'}]
+      }],
+      'included_work_titles_search': ['Transcribed title'],
+      'title_series_facet': [
+        'transcribed_title|Transcribed title'
+      ]}),
+
+    # 130/245/700s (IW): Contribs are in 700s; same person.
+    # 245 is main title. 130 and 700s are incl. works. Short author
+    # info is added.
+    ([('130', ['a', 'Specific Preferred Title (1933)'], '0 '),
+      ('245', ['a', 'Transcribed title /',
+               'c', 'Joe Smith ; edited by Edward Copeland.'], '1 '),
+      ('700', ['a', 'Jung, C. G.', 'q', '(Carl Gustav),', 'd', '1875-1961.',
+               't', 'First work.'], '12'),
+      ('700', ['a', 'Jung, C. G.', 'q', '(Carl Gustav),', 'd', '1875-1961.',
+               't', 'Second work.'], '12')],
+     {'title_display': 'Transcribed title',
+      'main_title_search': ['Transcribed title'],
+      'title_sort': 'transcribed_title',
+      'responsibility_display': 'Joe Smith; edited by Edward Copeland',
+      'responsibility_search': ['Joe Smith; edited by Edward Copeland'],
+      'included_work_titles_json': [
+        {'p': [{'d': 'Specific Preferred Title (1933)',
+                'v': 'specific_preferred_title_1933|'
+                     'Specific Preferred Title (1933)'}]},
+        {'a': 'Jung, C. G. (Carl Gustav), 1875-1961',
+         'p': [{'d': 'First work [by Jung, C.G.]',
+                'v': 'first_work|First work'}]},
+        {'a': 'Jung, C. G. (Carl Gustav), 1875-1961',
+         'p': [{'d': 'Second work [by Jung, C.G.]',
+                'v': 'second_work|Second work'}]},
+      ],
+      'included_work_titles_search': [
+        'Specific Preferred Title (1933)',
+        'First work',
+        'Second work',
+      ],
+      'title_series_facet': [
+        'specific_preferred_title_1933|Specific Preferred Title (1933)',
+        'first_work|First work',
+        'second_work|Second work',
+      ]}),
+
+    # 130/245/700s (IW): Contribs are in 700s; different people.
+    # 245 is main title. 130 and 700s are incl. works. Short author
+    # info is added because there are multiple different people.
+    ([('130', ['a', 'Specific Preferred Title (1933)'], '0 '),
+      ('245', ['a', 'Transcribed title /',
+               'c', 'Joe Smith ; edited by Edward Copeland.'], '1 '),
+      ('700', ['a', 'Jung, C. G.', 'q', '(Carl Gustav),', 'd', '1875-1961.',
+               't', 'First work.'], '12'),
+      ('700', ['a', 'Walter, Johannes.', 't', 'Second work.'], '12')],
+     {'title_display': 'Transcribed title',
+      'main_title_search': ['Transcribed title'],
+      'title_sort': 'transcribed_title',
+      'responsibility_display': 'Joe Smith; edited by Edward Copeland',
+      'responsibility_search': ['Joe Smith; edited by Edward Copeland'],
+      'included_work_titles_json': [
+        {'p': [{'d': 'Specific Preferred Title (1933)',
+                'v': 'specific_preferred_title_1933|'
+                     'Specific Preferred Title (1933)'}]},
+        {'a': 'Jung, C. G. (Carl Gustav), 1875-1961',
+         'p': [{'d': 'First work [by Jung, C.G.]',
+                'v': 'first_work|First work'}]},
+        {'a': 'Walter, Johannes',
+         'p': [{'d': 'Second work [by Walter, J.]',
+                'v': 'second_work|Second work'}]},
+      ],
+      'included_work_titles_search': [
+        'Specific Preferred Title (1933)',
+        'First work',
+        'Second work',
+      ],
+      'title_series_facet': [
+        'specific_preferred_title_1933|Specific Preferred Title (1933)',
+        'first_work|First work',
+        'second_work|Second work',
+      ]}),
+
+    # 130/245/700s/730s (IW): Contribs are in 700s; same person.
+    # 245 is main title. 130 and 700s are incl. works. Short author
+    # info is added, where possible.
+    ([('130', ['a', 'Specific Preferred Title (1933)'], '0 '),
+      ('245', ['a', 'Transcribed title /',
+               'c', 'Joe Smith ; edited by Edward Copeland.'], '1 '),
+      ('700', ['a', 'Jung, C. G.', 'q', '(Carl Gustav),', 'd', '1875-1961.',
+               't', 'First work.'], '12'),
+      ('700', ['a', 'Jung, C. G.', 'q', '(Carl Gustav),', 'd', '1875-1961.',
+               't', 'Second work.'], '12'),
+      ('730', ['a', 'Three little pigs.'], '02')],
+     {'title_display': 'Transcribed title',
+      'main_title_search': ['Transcribed title'],
+      'title_sort': 'transcribed_title',
+      'responsibility_display': 'Joe Smith; edited by Edward Copeland',
+      'responsibility_search': ['Joe Smith; edited by Edward Copeland'],
+      'included_work_titles_json': [
+        {'p': [{'d': 'Specific Preferred Title (1933)',
+                'v': 'specific_preferred_title_1933|'
+                     'Specific Preferred Title (1933)'}]},
+        {'a': 'Jung, C. G. (Carl Gustav), 1875-1961',
+         'p': [{'d': 'First work [by Jung, C.G.]',
+                'v': 'first_work|First work'}]},
+        {'a': 'Jung, C. G. (Carl Gustav), 1875-1961',
+         'p': [{'d': 'Second work [by Jung, C.G.]',
+                'v': 'second_work|Second work'}]},
+        {'p': [{'d': 'Three little pigs',
+                'v': 'three_little_pigs|Three little pigs'}]}
+      ],
+      'included_work_titles_search': [
+        'Specific Preferred Title (1933)',
+        'First work',
+        'Second work',
+        'Three little pigs',
+      ],
+      'title_series_facet': [
+        'specific_preferred_title_1933|Specific Preferred Title (1933)',
+        'first_work|First work',
+        'second_work|Second work',
+        'three_little_pigs|Three little pigs'
+      ]}),
+
+    # 130/245/700s (RW): Contribs are in 700s; same person.
+    # 245 is main title. 130 is IW, but 700s are RWs. Short author
+    # info is added.
+    ([('130', ['a', 'Specific Preferred Title (1933)'], '0 '),
+      ('245', ['a', 'Transcribed title /',
+               'c', 'Joe Smith ; edited by Edward Copeland.'], '1 '),
+      ('700', ['a', 'Jung, C. G.', 'q', '(Carl Gustav),', 'd', '1875-1961.',
+               't', 'First work.'], '1 '),
+      ('700', ['a', 'Jung, C. G.', 'q', '(Carl Gustav),', 'd', '1875-1961.',
+               't', 'Second work.'], '1 ')],
+     {'title_display': 'Transcribed title',
+      'main_title_search': ['Transcribed title'],
+      'title_sort': 'transcribed_title',
+      'responsibility_display': 'Joe Smith; edited by Edward Copeland',
+      'responsibility_search': ['Joe Smith; edited by Edward Copeland'],
+      'included_work_titles_json': [
+        {'p': [{'d': 'Specific Preferred Title (1933)',
+                'v': 'specific_preferred_title_1933|'
+                     'Specific Preferred Title (1933)'}]},
+      ],
+      'included_work_titles_search': ['Specific Preferred Title (1933)'],
+      'related_work_titles_json': [
+        {'a': 'Jung, C. G. (Carl Gustav), 1875-1961',
+         'p': [{'d': 'First work [by Jung, C.G.]',
+                'v': 'first_work|First work'}]},
+        {'a': 'Jung, C. G. (Carl Gustav), 1875-1961',
+         'p': [{'d': 'Second work [by Jung, C.G.]',
+                'v': 'second_work|Second work'}]},
+      ],
+      'related_work_titles_search': [
+        'First work',
+        'Second work',
+      ],
+      'title_series_facet': [
+        'specific_preferred_title_1933|Specific Preferred Title (1933)',
+        'first_work|First work',
+        'second_work|Second work'
+      ]}),
+
+    # 130/245/700s/730s (both): Contribs are in 700s; mix of people.
+    # 245 is main title. 130 and some 700s/730s are incl. works; some
+    # 700s/730s are rel. works. Short authors are added where needed.
+    ([('130', ['a', 'Specific Preferred Title (1933)'], '0 '),
+      ('245', ['a', 'Transcribed title /',
+               'c', 'Joe Smith ; edited by Edward Copeland.'], '1 '),
+      ('700', ['a', 'Jung, C. G.', 'q', '(Carl Gustav),', 'd', '1875-1961.',
+               't', 'First work.'], '1 '),
+      ('700', ['a', 'Smith, Joe.', 't', 'Second work.'], '12'),
+      ('730', ['a', 'Three little pigs.'], '02'),
+      ('730', ['a', 'Fourth work.'], '0 ')],
+     {'title_display': 'Transcribed title',
+      'main_title_search': ['Transcribed title'],
+      'title_sort': 'transcribed_title',
+      'responsibility_display': 'Joe Smith; edited by Edward Copeland',
+      'responsibility_search': ['Joe Smith; edited by Edward Copeland'],
+      'included_work_titles_json': [
+        {'p': [{'d': 'Specific Preferred Title (1933)',
+                'v': 'specific_preferred_title_1933|'
+                     'Specific Preferred Title (1933)'}]},
+        {'a': 'Smith, Joe',
+         'p': [{'d': 'Second work [by Smith, J.]',
+                'v': 'second_work|Second work'}]},
+        {'p': [{'d': 'Three little pigs',
+                'v': 'three_little_pigs|Three little pigs'}]}
+      ],
+      'included_work_titles_search': [
+        'Specific Preferred Title (1933)',
+        'Second work',
+        'Three little pigs'
+      ],
+      'related_work_titles_json': [
+        {'a': 'Jung, C. G. (Carl Gustav), 1875-1961',
+         'p': [{'d': 'First work [by Jung, C.G.]',
+                'v': 'first_work|First work'}]},
+        {'p': [{'d': 'Fourth work',
+                'v': 'fourth_work|Fourth work'}]},
+      ],
+      'related_work_titles_search': [
+        'First work',
+        'Fourth work',
+      ],
+      'title_series_facet': [
+        'specific_preferred_title_1933|Specific Preferred Title (1933)',
+        'first_work|First work',
+        'second_work|Second work',
+        'three_little_pigs|Three little pigs',
+        'fourth_work|Fourth work'
+      ]}),
+
+    # 100/245/700s (IW): Same author in 700s, no (main) pref title
+    # 245 is main title AND is added to IW. Titles in 700s are IWs.
+    # Short author info is added.
+    ([('100', ['a', 'Smith, Joe.'], '10'),
+      ('245', ['a', 'Transcribed title /',
+               'c', 'Joe Smith ; edited by Edward Copeland.'], '1 '),
+      ('700', ['a', 'Jung, C. G.', 'q', '(Carl Gustav),', 'd', '1875-1961.',
+               't', 'First work.'], '12'),
+      ('700', ['a', 'Smith, Joe.', 't', 'Second work.'], '12')],
+     {'title_display': 'Transcribed title',
+      'main_title_search': ['Transcribed title'],
+      'title_sort': 'transcribed_title',
+      'responsibility_display': 'Joe Smith; edited by Edward Copeland',
+      'responsibility_search': ['Joe Smith; edited by Edward Copeland'],
+      'included_work_titles_json': [
+        {'a': 'Smith, Joe',
+         'p': [{'d': 'Transcribed title [by Smith, J.]',
+                'v': 'transcribed_title|Transcribed title'}]},
+        {'a': 'Jung, C. G. (Carl Gustav), 1875-1961',
+         'p': [{'d': 'First work [by Jung, C.G.]',
+                'v': 'first_work|First work'}]},
+        {'a': 'Smith, Joe',
+         'p': [{'d': 'Second work [by Smith, J.]',
+                'v': 'second_work|Second work'}]},
+      ],
+      'included_work_titles_search': [
+        'Transcribed title',
+        'First work',
+        'Second work',
+      ],
+      'title_series_facet': [
+        'transcribed_title|Transcribed title',
+        'first_work|First work',
+        'second_work|Second work',
+      ]}),
+
+
+    # Collective titles, short authors, and "Complete" vs "Selections"
+
+    # 700: Short author attaches to top level of multi-part titles.
+    ([('700', ['a', 'Smith, Joe.', 't', 'First work.', 'n', 'Part One.',
+               'n', 'Part Two.'], '12')],
+     {'included_work_titles_json': [
+        {'a': 'Smith, Joe',
+         'p': [{'d': 'First work [by Smith, J.]',
+                's': ' > ',
+                'v': 'first_work|First work'},
+               {'d': 'Part One',
+                's': ' > ',
+                'v': 'first_work_part_one|First work > Part One'},
+               {'d': 'Part Two',
+                'v': 'first_work_part_one_part_two|'
+                     'First work > Part One > Part Two'}]},
+      ],
+      'included_work_titles_search': [
+        'First work > Part One > Part Two',
+      ],
+      'title_series_facet': [
+        'first_work|First work',
+        'first_work_part_one|First work > Part One',
+        'first_work_part_one_part_two|First work > Part One > Part Two'
+      ]}),
+
+    # 700: Coll title (non-music), by itself.
+    # Short author in facet and display. "Complete" added to top-level
+    # facet. Short author conj is "of".
+    ([('700', ['a', 'Smith, Joe.', 't', 'Works.'], '12')],
+     {'included_work_titles_json': [
+        {'a': 'Smith, Joe',
+         'p': [{'d': 'Works [of Smith, J.] (Complete)',
+                'v': 'works_of_smith_j_complete|'
+                     'Works [of Smith, J.] (Complete)'}]},
+      ],
+      'included_work_titles_search': [
+        'Works [of Smith, J.] (Complete)',
+      ],
+      'title_series_facet': [
+        'works_of_smith_j_complete|Works [of Smith, J.] (Complete)'
+      ]}),
+
+    # 700: Coll title (non-music), "Selections".
+    # Short author in facet and display. "Selections" added to top-level
+    # facet. Short author conj is "of".
+    ([('700', ['a', 'Smith, Joe.', 't', 'Works.', 'k', 'Selections.'], '12')],
+     {'included_work_titles_json': [
+        {'a': 'Smith, Joe',
+         'p': [{'d': 'Works [of Smith, J.] (Selections)',
+                'v': 'works_of_smith_j_selections|'
+                     'Works [of Smith, J.] (Selections)'}]},
+      ],
+      'included_work_titles_search': [
+        'Works [of Smith, J.] (Selections)',
+      ],
+      'title_series_facet': [
+        'works_of_smith_j_selections|Works [of Smith, J.] (Selections)'
+      ]}),
+
+    # 700: Coll title (music form), by itself.
+    # Short author in facet and display. Facets are added for both the
+    # top-level facet and "Complete". The display only includes the
+    # "Complete" facet. Short auth conj is "by".
+    ([('700', ['a', 'Smith, Joe.', 't', 'Sonatas,', 'm', 'piano.'], '12')],
+     {'included_work_titles_json': [
+        {'a': 'Smith, Joe',
+         'p': [{'d': 'Sonatas, piano [by Smith, J.] (Complete)',
+                'v': 'sonatas_piano_by_smith_j_complete|'
+                     'Sonatas, piano [by Smith, J.] (Complete)'}]},
+      ],
+      'included_work_titles_search': [
+        'Sonatas, piano [by Smith, J.] (Complete)',
+      ],
+      'title_series_facet': [
+        'sonatas_piano_by_smith_j|Sonatas, piano [by Smith, J.]',
+        'sonatas_piano_by_smith_j_complete|'
+        'Sonatas, piano [by Smith, J.] (Complete)'
+      ]}),
+
+    # 700: Coll title (music form), "Selections".
+    # Short author in facet and display. Top-level facet remains as-is.
+    # "Selections" added to second facet. Short auth conj is "by".
+    ([('700', ['a', 'Smith, Joe.', 't', 'Sonatas,', 'm', 'piano.',
+        'k', 'Selections.'], '12')],
+     {'included_work_titles_json': [
+        {'a': 'Smith, Joe',
+         'p': [{'d': 'Sonatas, piano [by Smith, J.] (Selections)',
+                'v': 'sonatas_piano_by_smith_j_selections|'
+                     'Sonatas, piano [by Smith, J.] (Selections)'}]},
+      ],
+      'included_work_titles_search': [
+        'Sonatas, piano [by Smith, J.] (Selections)',
+      ],
+      'title_series_facet': [
+        'sonatas_piano_by_smith_j|Sonatas, piano [by Smith, J.]',
+        'sonatas_piano_by_smith_j_selections|'
+        'Sonatas, piano [by Smith, J.] (Selections)'
+      ]}),
+
+    # 700: Coll title (music form) with parts.
+    # Short author in facet and display. Top-level facet remains as-is.
+    # Parts generate additional facets. Short auth conj is "by".
+    ([('700', ['a', 'Smith, Joe.', 't', 'Sonatas,', 'm', 'piano,',
+               'n', 'op. 31.', 'n', 'No. 2.'], '12')],
+     {'included_work_titles_json': [
+        {'a': 'Smith, Joe',
+         'p': [{'d': 'Sonatas, piano [by Smith, J.]',
+                's': ' > ',
+                'v': 'sonatas_piano_by_smith_j|Sonatas, piano [by Smith, J.]'},
+               {'d': 'Op. 31',
+                's': ' > ',
+                'v': 'sonatas_piano_by_smith_j_op_31|'
+                     'Sonatas, piano [by Smith, J.] > Op. 31'},
+               {'d': 'No. 2',
+                'v': 'sonatas_piano_by_smith_j_op_31_no_2|'
+                     'Sonatas, piano [by Smith, J.] > Op. 31 > No. 2'},
+                ]},
+      ],
+      'included_work_titles_search': [
+        'Sonatas, piano [by Smith, J.] > Op. 31 > No. 2'
+      ],
+      'title_series_facet': [
+        'sonatas_piano_by_smith_j|Sonatas, piano [by Smith, J.]',
+        'sonatas_piano_by_smith_j_op_31|'
+        'Sonatas, piano [by Smith, J.] > Op. 31',
+        'sonatas_piano_by_smith_j_op_31_no_2|'
+        'Sonatas, piano [by Smith, J.] > Op. 31 > No. 2'
+      ]}),
+
+    # 700: Coll title (music form) with "Selections" then parts.
+    # Short author in facet and display. Top-level facet remains as-is.
+    # Facet for "Selections" is generated. Parts generate additional
+    # facets. Short auth conj is "by".
+    ([('700', ['a', 'Smith, Joe.', 't', 'Sonatas,', 'm', 'piano.',
+               'k', 'Selections,', 'n', 'op. 31.'], '12')],
+     {'included_work_titles_json': [
+        {'a': 'Smith, Joe',
+         'p': [{'d': 'Sonatas, piano [by Smith, J.] (Selections)',
+                's': ' > ',
+                'v': 'sonatas_piano_by_smith_j_selections|'
+                     'Sonatas, piano [by Smith, J.] (Selections)'},
+               {'d': 'Op. 31',
+                'v': 'sonatas_piano_by_smith_j_selections_op_31|'
+                     'Sonatas, piano [by Smith, J.] (Selections) > Op. 31'},
+                ]},
+      ],
+      'included_work_titles_search': [
+        'Sonatas, piano [by Smith, J.] (Selections) > Op. 31'
+      ],
+      'title_series_facet': [
+        'sonatas_piano_by_smith_j|Sonatas, piano [by Smith, J.]',
+        'sonatas_piano_by_smith_j_selections|'
+        'Sonatas, piano [by Smith, J.] (Selections)',
+        'sonatas_piano_by_smith_j_selections_op_31|'
+        'Sonatas, piano [by Smith, J.] (Selections) > Op. 31'
+      ]}),
+
+    # 700: Coll title (music form) with parts, then "Selections".
+    # Short author in facet and display. Top-level facet remains as-is.
+    # Facet for "Selections" is generated. Parts generate additional facets.
+    # Short auth conj is "by".
+    ([('700', ['a', 'Smith, Joe.', 't', 'Sonatas,', 'm', 'piano,',
+               'n', 'op. 31.', 'k', 'Selections,'], '12')],
+     {'included_work_titles_json': [
+        {'a': 'Smith, Joe',
+         'p': [{'d': 'Sonatas, piano [by Smith, J.]',
+                's': ' > ',
+                'v': 'sonatas_piano_by_smith_j|'
+                     'Sonatas, piano [by Smith, J.]'},
+               {'d': 'Op. 31 (Selections)',
+                'v': 'sonatas_piano_by_smith_j_op_31_selections|'
+                     'Sonatas, piano [by Smith, J.] > Op. 31 (Selections)'},
+                ]},
+      ],
+      'included_work_titles_search': [
+        'Sonatas, piano [by Smith, J.] > Op. 31 (Selections)'
+      ],
+      'title_series_facet': [
+        'sonatas_piano_by_smith_j|'
+        'Sonatas, piano [by Smith, J.]',
+        'sonatas_piano_by_smith_j_op_31|'
+        'Sonatas, piano [by Smith, J.] > Op. 31',
+        'sonatas_piano_by_smith_j_op_31_selections|'
+        'Sonatas, piano [by Smith, J.] > Op. 31 (Selections)',
+      ]}),
+
+    # 710: Coll title (jurisdiction), by itself.
+    # Short author in facet and display. Top-level facet remains as-is.
+    # "Complete" facet is NOT generated. No short auth conj.
+    ([('710', ['a', 'United States.', 'b', 'Congress.',
+               't', 'Laws, etc.'], '12')],
+     {'included_work_titles_json': [
+        {'a': 'United States Congress',
+         'p': [{'d': 'Laws, etc. [United States Congress]',
+                'v': 'laws_etc_united_states_congress|'
+                     'Laws, etc. [United States Congress]'}]},
+      ],
+      'included_work_titles_search': [
+        'Laws, etc. [United States Congress]',
+      ],
+      'title_series_facet': [
+        'laws_etc_united_states_congress|Laws, etc. [United States Congress]'
+      ]}),
+
+    # 710: Coll title (jurisdiction), with parts.
+    # Short author in facet and display. Top-level facet remains as-is.
+    # "Complete" facet is NOT generated. No short auth conj.
+    ([('710', ['a', 'France.', 't', 'Treaties, etc.', 'g', 'Poland,', 
+               'd', '1948 Mar. 2.', 'k', 'Protocols, etc.,',
+               'd', '1951 Mar. 6.'], '12')],
+     {'included_work_titles_json': [
+        {'a': 'France',
+         'p': [{'d': 'Treaties, etc. [France]',
+                's': ' > ',
+                'v': 'treaties_etc_france|Treaties, etc. [France]'},
+               {'d': 'Poland, 1948 Mar. 2',
+                's': ' > ',
+                'v': 'treaties_etc_france_poland_1948_mar_2|'
+                     'Treaties, etc. [France] > Poland, 1948 Mar. 2'},
+               {'d': 'Protocols, etc., 1951 Mar. 6',
+                'v': 'treaties_etc_france_poland_1948_mar_2_protocols_etc_1951_'
+                     'mar_6|Treaties, etc. [France] > Poland, 1948 Mar. 2 > '
+                     'Protocols, etc., 1951 Mar. 6'}
+                ]},
+      ],
+      'included_work_titles_search': [
+        'Treaties, etc. [France] > Poland, 1948 Mar. 2 > '
+        'Protocols, etc., 1951 Mar. 6',
+      ],
+      'title_series_facet': [
+        'treaties_etc_france|Treaties, etc. [France]',
+        'treaties_etc_france_poland_1948_mar_2|'
+        'Treaties, etc. [France] > Poland, 1948 Mar. 2',
+        'treaties_etc_france_poland_1948_mar_2_protocols_etc_1951_mar_6|'
+        'Treaties, etc. [France] > Poland, 1948 Mar. 2 > '
+        'Protocols, etc., 1951 Mar. 6'
+      ]}),
+
+    # 730: Coll title with no corresponding author info.
+    # No short author is generated.
+    ([('730', ['a', 'Poems.'], '02')],
+     {'included_work_titles_json': [
+        {'p': [{'d': 'Poems (Complete)',
+                'v': 'poems_complete|Poems (Complete)'},
+               ]},
+      ],
+      'included_work_titles_search': [
+        'Poems (Complete)',
+      ],
+      'title_series_facet': [
+        'poems_complete|Poems (Complete)'
+      ]}),
+
+
+    # Deep dive into titles from 245 => included works entries
+
+    # 100/240/245: 240 is basic Coll Title.
+    # 245 is added to IW. (Basic collective titles are not very
+    # informative or necessarily representative of the work, so the
+    # 245 is added in addition.)
+    ([('100', ['a', 'Smith, Joe'], '1 '),
+      ('240', ['a', 'Poems.'], '10'),
+      ('245', ['a', 'Poetry! :', 'b', 'an anthology of collected poems /',
+               'c', 'by Joe Smith ; edited by Edward Copeland.'], '1 ')],
+     {'title_display': 'Poetry!: an anthology of collected poems',
+      'main_title_search': ['Poetry!: an anthology of collected poems'],
+      'title_sort': 'poetry_an_anthology_of_collected_poems',
+      'responsibility_display': 'by Joe Smith; edited by Edward Copeland',
+      'responsibility_search': ['by Joe Smith; edited by Edward Copeland'],
+      'included_work_titles_json': [
+        {'a': 'Smith, Joe',
+         'p': [{'d': 'Poetry!: an anthology of collected poems [by Smith, J.]',
+                'v': 'poetry_an_anthology_of_collected_poems|'
+                     'Poetry!: an anthology of collected poems'}]},
+        {'a': 'Smith, Joe',
+         'p': [{'d': 'Poems [of Smith, J.] (Complete)',
+                'v': 'poems_of_smith_j_complete|'
+                     'Poems [of Smith, J.] (Complete)'}]},
+      ],
+      'included_work_titles_search': [
+        'Poetry!: an anthology of collected poems',
+        'Poems [of Smith, J.] (Complete)'
+      ],
+      'title_series_facet': [
+        'poetry_an_anthology_of_collected_poems|'
+        'Poetry!: an anthology of collected poems',
+        'poems_of_smith_j_complete|Poems [of Smith, J.] (Complete)',
+      ]}),
+
+    # 100/240/245: 240 is Coll Title/Selections.
+    # 245 is added to IW.
+    ([('100', ['a', 'Smith, Joe'], '1 '),
+      ('240', ['a', 'Poems.', 'k', 'Selections.'], '10'),
+      ('245', ['a', 'Poetry! :', 'b', 'an anthology of selected poems /',
+               'c', 'by Joe Smith ; edited by Edward Copeland.'], '1 ')],
+     {'title_display': 'Poetry!: an anthology of selected poems',
+      'main_title_search': ['Poetry!: an anthology of selected poems'],
+      'title_sort': 'poetry_an_anthology_of_selected_poems',
+      'responsibility_display': 'by Joe Smith; edited by Edward Copeland',
+      'responsibility_search': ['by Joe Smith; edited by Edward Copeland'],
+      'included_work_titles_json': [
+        {'a': 'Smith, Joe',
+         'p': [{'d': 'Poetry!: an anthology of selected poems [by Smith, J.]',
+                'v': 'poetry_an_anthology_of_selected_poems|'
+                     'Poetry!: an anthology of selected poems'}]},
+        {'a': 'Smith, Joe',
+         'p': [{'d': 'Poems [of Smith, J.] (Selections)',
+                'v': 'poems_of_smith_j_selections|'
+                     'Poems [of Smith, J.] (Selections)'}]},
+      ],
+      'included_work_titles_search': [
+        'Poetry!: an anthology of selected poems',
+        'Poems [of Smith, J.] (Selections)'
+      ],
+      'title_series_facet': [
+        'poetry_an_anthology_of_selected_poems|'
+        'Poetry!: an anthology of selected poems',
+        'poems_of_smith_j_selections|Poems [of Smith, J.] (Selections)',
+      ]}),
+
+    # 100/240/245: 240 is Music Form w/parts.
+    # 245 is not added to IW, because the 240 is specific enough that
+    # it probably isn't needed.
+    ([('100', ['a', 'Smith, Joe'], '1 '),
+      ('240', ['a', 'Sonatas,', 'm', 'piano,', 'n', 'op. 32,',
+               'r', 'C major.'], '10'),
+      ('245', ['a', 'Smith\'s piano sonata in C major, opus 32 /',
+               'c', 'by Joe Smith.'], '1 ')],
+     {'title_display': 'Smith\'s piano sonata in C major, opus 32',
+      'main_title_search': ['Smith\'s piano sonata in C major, opus 32'],
+      'title_sort': 'smith_s_piano_sonata_in_c_major_opus_32',
+      'responsibility_display': 'by Joe Smith',
+      'responsibility_search': ['by Joe Smith'],
+      'included_work_titles_json': [
+        {'a': 'Smith, Joe',
+         'p': [{'d': 'Sonatas, piano [by Smith, J.]',
+                's': ' > ',
+                'v': 'sonatas_piano_by_smith_j|Sonatas, piano [by Smith, J.]'},
+               {'d': 'Op. 32, C major',
+                'v': 'sonatas_piano_by_smith_j_op_32_c_major|'
+                     'Sonatas, piano [by Smith, J.] > Op. 32, C major'},]},
+      ],
+      'included_work_titles_search': [
+        'Sonatas, piano [by Smith, J.] > Op. 32, C major',
+      ],
+      'title_series_facet': [
+        'sonatas_piano_by_smith_j|Sonatas, piano [by Smith, J.]',
+        'sonatas_piano_by_smith_j_op_32_c_major|'
+        'Sonatas, piano [by Smith, J.] > Op. 32, C major'
+      ]}),
+
+    # 100/240/245: 245 has multiple titles, 240 is not Coll Title.
+    # The first title from the 245 is not added if the 240 is not a
+    # collective title, but subsequent titles from the 245 are if there
+    # are no title added entries (7XXs) that cover them.
+    ([('100', ['a', 'Smith, Joe'], '1 '),
+      ('240', ['a', 'Specific Preferred Title.'], '10'),
+      ('245', ['a', 'First work ;', 'b', 'Second work /',
+               'c', 'Joe Smith ; edited by Edward Copeland.'], '1 ')],
+     {'title_display': 'First work; Second work',
+      'main_title_search': ['First work; Second work'],
+      'title_sort': 'first_work_second_work',
+      'responsibility_display': 'Joe Smith; edited by Edward Copeland',
+      'responsibility_search': ['Joe Smith; edited by Edward Copeland'],
+      'included_work_titles_json': [
+        {'a': 'Smith, Joe',
+         'p': [{'d': 'Specific Preferred Title [by Smith, J.]',
+                'v': 'specific_preferred_title|Specific Preferred Title'}]},
+        {'a': 'Smith, Joe',
+         'p': [{'d': 'Second work [by Smith, J.]',
+                'v': 'second_work|Second work'}]}
+      ],
+      'included_work_titles_search': [
+        'Specific Preferred Title',
+        'Second work',
+      ],
+      'title_series_facet': [
+        'specific_preferred_title|Specific Preferred Title',
+        'second_work|Second work'
+      ]}),
+
+    # 100/240/245: 245 has multiple titles, 240 is basic Coll Title.
+    # All titles from the 245 are added to IW if the 240 is a basic
+    # collective title.
+    ([('100', ['a', 'Smith, Joe'], '1 '),
+      ('240', ['a', 'Poems.', 'k', 'Selections.'], '10'),
+      ('245', ['a', 'First poem ;', 'b', 'Second poem /',
+               'c', 'by Joe Smith ; edited by Edward Copeland.'], '1 ')],
+     {'title_display': 'First poem; Second poem',
+      'main_title_search': ['First poem; Second poem'],
+      'title_sort': 'first_poem_second_poem',
+      'responsibility_display': 'by Joe Smith; edited by Edward Copeland',
+      'responsibility_search': ['by Joe Smith; edited by Edward Copeland'],
+      'included_work_titles_json': [
+        {'a': 'Smith, Joe',
+         'p': [{'d': 'First poem [by Smith, J.]',
+                'v': 'first_poem|First poem'}]},
+        {'a': 'Smith, Joe',
+         'p': [{'d': 'Second poem [by Smith, J.]',
+                'v': 'second_poem|Second poem'}]},
+        {'a': 'Smith, Joe',
+         'p': [{'d': 'Poems [of Smith, J.] (Selections)',
+                'v': 'poems_of_smith_j_selections|'
+                     'Poems [of Smith, J.] (Selections)'}]},
+      ],
+      'included_work_titles_search': [
+        'First poem',
+        'Second poem',
+        'Poems [of Smith, J.] (Selections)'
+      ],
+      'title_series_facet': [
+        'first_poem|First poem',
+        'second_poem|Second poem',
+        'poems_of_smith_j_selections|Poems [of Smith, J.] (Selections)',
+      ]}),
+
+    # 100/245/700 (IW): 2-title 245 w/700 covering 2nd.
+    # With a multi-titled 245 where ind1 is 1, we assume that the first
+    # title should be added if there is no 130/240 and there are not
+    # enough 7XXs to cover all of the titles in the 245.
+    ([('100', ['a', 'Smith, Joe'], '1 '),
+      ('245', ['a', 'First work tt /',
+               'c', 'by Joe Smith. Second work tt / by Edward Copeland.'],
+       '1 '),
+      ('700', ['a', 'Copeland, Edward.', 't', 'Second work.'], '12')],
+     {'title_display': 'First work tt; Second work tt',
+      'main_title_search': ['First work tt; Second work tt'],
+      'title_sort': 'first_work_tt_second_work_tt',
+      'responsibility_display': 'by Joe Smith; by Edward Copeland',
+      'responsibility_search': ['by Joe Smith', 'by Edward Copeland'],
+      'included_work_titles_json': [
+        {'a': 'Smith, Joe',
+         'p': [{'d': 'First work tt [by Smith, J.]',
+                'v': 'first_work_tt|First work tt'}]},
+        {'a': 'Copeland, Edward',
+         'p': [{'d': 'Second work [by Copeland, E.]',
+                'v': 'second_work|Second work'}]}
+      ],
+      'included_work_titles_search': [
+        'First work tt',
+        'Second work'
+      ],
+      'title_series_facet': [
+        'first_work_tt|First work tt',
+        'second_work|Second work'
+      ]}),
+
+    # 100/245/700 (IW): 2-title 245 w/700s covering both.
+    # With a multi-titled 245 where ind1 is 1 and no 130/240, we assume
+    # that none of the 245 titles should generate IW entries if there
+    # are enough 7XXs to cover all of the titles in the 245.
+    ([('100', ['a', 'Smith, Joe'], '1 '),
+      ('245', ['a', 'First work tt /',
+               'c', 'by Joe Smith. Second work tt / by Edward Copeland.'],
+       '1 '),
+      ('700', ['a', 'Smith, Joe.', 't', 'First work.'], '12'),
+      ('700', ['a', 'Copeland, Edward.', 't', 'Second work.'], '12')],
+     {'title_display': 'First work tt; Second work tt',
+      'main_title_search': ['First work tt; Second work tt'],
+      'title_sort': 'first_work_tt_second_work_tt',
+      'responsibility_display': 'by Joe Smith; by Edward Copeland',
+      'responsibility_search': ['by Joe Smith', 'by Edward Copeland'],
+      'included_work_titles_json': [
+        {'a': 'Smith, Joe',
+         'p': [{'d': 'First work [by Smith, J.]',
+                'v': 'first_work|First work'}]},
+        {'a': 'Copeland, Edward',
+         'p': [{'d': 'Second work [by Copeland, E.]',
+                'v': 'second_work|Second work'}]}
+      ],
+      'included_work_titles_search': [
+        'First work',
+        'Second work'
+      ],
+      'title_series_facet': [
+        'first_work|First work',
+        'second_work|Second work'
+      ]}),
+
+    # 100/245/700 (IW): 2-title 245 w/700 covering 2nd author only.
+    # With a multi-titled 245 where ind1 is 1, no 130/240, and no 7XXs
+    # with titles, the titles in 245 => IW entries. If there are added
+    # authors, we attempt to match authorship up appropriately based on
+    # the SOR.
+    ([('100', ['a', 'Smith, Joe'], '1 '),
+      ('245', ['a', 'First work /',
+               'c', 'by Joe Smith. Second work / by Edward Copeland.'],
+       '1 '),
+      ('700', ['a', 'Copeland, Edward.'], '1 ')],
+     {'title_display': 'First work; Second work',
+      'main_title_search': ['First work; Second work'],
+      'title_sort': 'first_work_second_work',
+      'responsibility_display': 'by Joe Smith; by Edward Copeland',
+      'responsibility_search': ['by Joe Smith', 'by Edward Copeland'],
+      'included_work_titles_json': [
+        {'a': 'Smith, Joe',
+         'p': [{'d': 'First work [by Smith, J.]',
+                'v': 'first_work|First work'}]},
+        {'a': 'Copeland, Edward',
+         'p': [{'d': 'Second work [by Copeland, E.]',
+                'v': 'second_work|Second work'}]}
+      ],
+      'included_work_titles_search': [
+        'First work',
+        'Second work'
+      ],
+      'title_series_facet': [
+        'first_work|First work',
+        'second_work|Second work'
+      ]}),
+
+    # 100/245/700: 2-title 245 w/700 RWs
+    # 700s that are RWs shouldn't interfere with determining whether or
+    # not titles in 245s need to be added to IWs.
+    ([('100', ['a', 'Smith, Joe'], '1 '),
+      ('245', ['a', 'First work /',
+               'c', 'by Joe Smith. Second work / by Edward Copeland.'],
+       '1 '),
+      ('700', ['a', 'Copeland, Edward.', 't', 'Related work.'], '1 ')],
+     {'title_display': 'First work; Second work',
+      'main_title_search': ['First work; Second work'],
+      'title_sort': 'first_work_second_work',
+      'responsibility_display': 'by Joe Smith; by Edward Copeland',
+      'responsibility_search': ['by Joe Smith', 'by Edward Copeland'],
+      'included_work_titles_json': [
+        {'a': 'Smith, Joe',
+         'p': [{'d': 'First work [by Smith, J.]',
+                'v': 'first_work|First work'}]},
+        {'a': 'Copeland, Edward',
+         'p': [{'d': 'Second work [by Copeland, E.]',
+                'v': 'second_work|Second work'}]}
+      ],
+      'included_work_titles_search': [
+        'First work',
+        'Second work'
+      ],
+      'related_work_titles_json': [
+        {'a': 'Copeland, Edward',
+         'p': [{'d': 'Related work [by Copeland, E.]',
+                'v': 'related_work|Related work'}]},
+      ],
+      'included_work_titles_search': [
+        'First work',
+        'Second work'
+      ],
+      'related_work_titles_search': [
+        'Related work',
+      ],
+      'title_series_facet': [
+        'first_work|First work',
+        'second_work|Second work',
+        'related_work|Related work'
+      ]}),
+
+
+    # 100/245: 2-title 245, same author, no 700s.
+    # With a multi-titled 245 where ind1 is 1, no 130/240, and no 7XXs,
+    # the titles in 245 => IW entries. The author in the 100 should
+    # be matched up with each title in each IW entry.
+    ([('100', ['a', 'Smith, Joe'], '1 '),
+      ('245', ['a', 'First work ;', 'b', 'Second work /',
+               'c', 'by Joe Smith.'], '1 ')],
+     {'title_display': 'First work; Second work',
+      'main_title_search': ['First work; Second work'],
+      'title_sort': 'first_work_second_work',
+      'responsibility_display': 'by Joe Smith',
+      'responsibility_search': ['by Joe Smith'],
+      'included_work_titles_json': [
+        {'a': 'Smith, Joe',
+         'p': [{'d': 'First work [by Smith, J.]',
+                'v': 'first_work|First work'}]},
+        {'a': 'Smith, Joe',
+         'p': [{'d': 'Second work [by Smith, J.]',
+                'v': 'second_work|Second work'}]}
+      ],
+      'included_work_titles_search': [
+        'First work',
+        'Second work'
+      ],
+      'title_series_facet': [
+        'first_work|First work',
+        'second_work|Second work'
+      ]}),
+
+    # 100/245: 2-title 245, 245 ind1 is 0.
+    # If 245 ind1 is 0, no IW or title/series facet entries are
+    # generated at all for it, no matter what.
+    ([('100', ['a', 'Smith, Joe'], '1 '),
+      ('245', ['a', 'First work ;', 'b', 'Second work /',
+               'c', 'by Joe Smith.'], '0 ')],
+     {'title_display': 'First work; Second work',
+      'main_title_search': ['First work; Second work'],
+      'title_sort': 'first_work_second_work',
+      'responsibility_display': 'by Joe Smith',
+      'responsibility_search': ['by Joe Smith']
+      }),
+
+    # 100/245/740: 2-title 245 with a duplicate 740
+    # 740s should only be added as IW or RW if they don't duplicate
+    # an existing title in one of these fields.
+    ([('100', ['a', 'Smith, Joe'], '1 '),
+      ('245', ['a', 'First work ;', 'b', 'Second work /',
+               'c', 'by Joe Smith.'], '1 '),
+      ('740', ['a', 'Second work.'], '02')],
+     {'title_display': 'First work; Second work',
+      'main_title_search': ['First work; Second work'],
+      'title_sort': 'first_work_second_work',
+      'responsibility_display': 'by Joe Smith',
+      'responsibility_search': ['by Joe Smith'],
+      'included_work_titles_json': [
+        {'a': 'Smith, Joe',
+         'p': [{'d': 'First work [by Smith, J.]',
+                'v': 'first_work|First work'}]},
+        {'a': 'Smith, Joe',
+         'p': [{'d': 'Second work [by Smith, J.]',
+                'v': 'second_work|Second work'}]}
+      ],
+      'included_work_titles_search': [
+        'First work',
+        'Second work'
+      ],
+      'title_series_facet': [
+        'first_work|First work',
+        'second_work|Second work'
+      ]}),
+
+    # 700/740: Duplicate 740s
+    # 740s that duplicate other titles are ignored.
+    ([('700', ['a', 'Smith, Joe.', 't', 'First work.'], '12'),
+      ('740', ['a', 'First work.'], '02')],
+     {'included_work_titles_json': [
+        {'a': 'Smith, Joe',
+         'p': [{'d': 'First work [by Smith, J.]',
+                'v': 'first_work|First work'}]},
+      ],
+      'included_work_titles_search': [
+        'First work',
+      ],
+      'title_series_facet': [
+        'first_work|First work',
+      ]}),
+
+    # 700/740: Not-duplicate 740s
+    # 740s that are unique and don't duplicate other titles are used.
+    ([('700', ['a', 'Smith, Joe.', 't', 'First work.'], '12'),
+      ('740', ['a', 'Second work.'], '02')],
+     {'included_work_titles_json': [
+        {'a': 'Smith, Joe',
+         'p': [{'d': 'First work [by Smith, J.]',
+                'v': 'first_work|First work'}]},
+        {'p': [{'d': 'Second work',
+                'v': 'second_work|Second work'}]},
+      ],
+      'included_work_titles_search': [
+        'First work',
+        'Second work',
+      ],
+      'title_series_facet': [
+        'first_work|First work',
+        'second_work|Second work',
+      ]}),
+
+    # Series titles
+
+    # 800s: Series titles, personal author; collective title.
+    # Collective titles in 8XX fields follow the same rules as in other
+    # fields.
+    ([('800', ['a', 'Smith, Joe.', 't', 'Some series.'], '1 '),
+      ('800', ['a', 'Copeland, Edward.', 't', 'Piano music.'], '1 ') ],
+     {'related_series_titles_json': [
+        {'a': 'Smith, Joe',
+         'p': [{'d': 'Some series [by Smith, J.]',
+                'v': 'some_series|Some series'}]},
+        {'a': 'Copeland, Edward',
+         'p': [{'d': 'Piano music [of Copeland, E.] (Complete)',
+                'v': 'piano_music_of_copeland_e_complete|'
+                     'Piano music [of Copeland, E.] (Complete)'}]},
+      ],
+      'related_series_titles_search': [
+        'Some series',
+        'Piano music [of Copeland, E.] (Complete)',
+      ],
+      'title_series_facet': [
+        'some_series|Some series',
+        'piano_music_of_copeland_e_complete|'
+        'Piano music [of Copeland, E.] (Complete)',
+      ]}),
+
+    # 810s: Series titles, org author; collective title.
+    # Collective titles in 8XX fields follow the same rules as in other
+    # fields.
+    ([('810', ['a', 'United States.', 'b', 'Congress.', 'b', 'House.',
+               't', 'Some series.'], '1 '),
+      ('810', ['a', 'Led Zeppelin', 't', 'Piano music.'], '2 ') ],
+     {'related_series_titles_json': [
+        {'a': 'United States Congress > House',
+         'p': [{'d': 'Some series [United States Congress, House]',
+                'v': 'some_series|Some series'}]},
+        {'a': 'Led Zeppelin',
+         'p': [{'d': 'Piano music [Led Zeppelin] (Complete)',
+                'v': 'piano_music_led_zeppelin_complete|'
+                     'Piano music [Led Zeppelin] (Complete)'}]},
+      ],
+      'related_series_titles_search': [
+        'Some series',
+        'Piano music [Led Zeppelin] (Complete)',
+      ],
+      'title_series_facet': [
+        'some_series|Some series',
+        'piano_music_led_zeppelin_complete|'
+        'Piano music [Led Zeppelin] (Complete)',
+      ]}),
+
+    # 811s: Series titles, event author; collective title.
+    # Collective titles in 8XX fields follow the same rules as in other
+    # fields.
+    ([('811', ['a', 'Some conference.', 'n', '(3rd :', 'd', '1983).',
+               't', 'Some series.'], '2 '),
+      ('811', ['a', 'Some event.', 'n', '(3rd :', 'd', '1983).',
+               'e', 'Orchestra.', 't', 'Incidental music.'], '2 ') ],
+     {'related_series_titles_json': [
+        {'a': 'Some conference (3rd : 1983)',
+         'p': [{'d': 'Some series [Some conference]',
+                'v': 'some_series|Some series'}]},
+        {'a': 'Some event, Orchestra',
+         'p': [{'d': 'Incidental music [Some event, Orchestra] (Complete)',
+                'v': 'incidental_music_some_event_orchestra_complete|'
+                     'Incidental music [Some event, Orchestra] (Complete)'}]},
+      ],
+      'related_series_titles_search': [
+        'Some series',
+        'Incidental music [Some event, Orchestra] (Complete)',
+      ],
+      'title_series_facet': [
+        'some_series|Some series',
+        'incidental_music_some_event_orchestra_complete|'
+        'Incidental music [Some event, Orchestra] (Complete)',
+      ]}),
+
+    # 830s: Series titles, no author
+    # Collective titles in 8XX fields follow the same rules as in other
+    # fields.
+    ([('830', ['a', 'Some series.'], ' 0'),
+      ('830', ['a', 'Piano music.'], ' 0') ],
+     {'related_series_titles_json': [
+        {'p': [{'d': 'Some series',
+                'v': 'some_series|Some series'}]},
+        {'p': [{'d': 'Piano music (Complete)',
+                'v': 'piano_music_complete|Piano music (Complete)'}]},
+      ],
+      'related_series_titles_search': [
+        'Some series',
+        'Piano music (Complete)',
+      ],
+      'title_series_facet': [
+        'some_series|Some series',
+        'piano_music_complete|Piano music (Complete)',
+      ]}),
+
+    # 490 (untraced): Untraced 490 => Series titles
+    ([('490', ['3', '1990-92:', 'a', 'Some series ,', 'x', '1234-5678 ;',
+               'v', 'v. 1', 'l', '(LC 12345)'], '0 '),
+      ('490', ['3', '1992-93:', 'a', 'Another series =',
+               'a', 'Series in English / Joe Smith ;'], '0 '),
+      ('490', ['3', '1993-94:', 'a', 'Third series.', 'v', 'v. 1',
+               'a', 'Subseries B ;', 'v', 'v. 2', ], '0 ') ],
+     {'related_series_titles_json': [
+        {'p': [{'d': '(1990-92) Some series; v. 1 | '
+                     'ISSN: 1234-5678; LC Call Number: LC 12345'}]},
+        {'p': [{'d': '(1992-93) Another series [Joe Smith]'}]},
+        {'p': [{'d': '(1993-94) Third series; v. 1 > Subseries B; v. 2'}]},
+      ],
+      'related_series_titles_search': [
+        '(1990-92) Some series; v. 1 | ISSN: 1234-5678; '
+        'LC Call Number: LC 12345',
+        '(1992-93) Another series [Joe Smith]',
+        '(1993-94) Third series; v. 1 > Subseries B; v. 2'
+      ]}),
+
+    # 490/800: Traced 490s are not included in Series titles
+    ([('490', ['a', 'Some series (statement).',  '1 ']),
+      ('490', ['a', 'Piano music of Edward Copeland.',  '1 ']),
+      ('800', ['a', 'Smith, Joe.', 't', 'Some series.'], '1 '),
+      ('800', ['a', 'Copeland, Edward.', 't', 'Piano music.'], '1 ') ],
+     {'related_series_titles_json': [
+        {'a': 'Smith, Joe',
+         'p': [{'d': 'Some series [by Smith, J.]',
+                'v': 'some_series|Some series'}]},
+        {'a': 'Copeland, Edward',
+         'p': [{'d': 'Piano music [of Copeland, E.] (Complete)',
+                'v': 'piano_music_of_copeland_e_complete|'
+                     'Piano music [of Copeland, E.] (Complete)'}]},
+      ],
+      'related_series_titles_search': [
+        'Some series',
+        'Piano music [of Copeland, E.] (Complete)',
+      ],
+      'title_series_facet': [
+        'some_series|Some series',
+        'piano_music_of_copeland_e_complete|'
+        'Piano music [of Copeland, E.] (Complete)',
+      ]}),
+
+    # Materials specified and display constants
+
+    # 700 (IW): "Container of" in $i
+    # Because "included works" implies that a resource contains the
+    # given resource, the $i "Container of" is ignored in that case.
+    ([('700', ['i', 'Container of (work):', 'a', 'Smith, Joe.',
+               't', 'First work.'], '12')],
+     {'included_work_titles_json': [
+        {'a': 'Smith, Joe',
+         'p': [{'d': 'First work [by Smith, J.]',
+                'v': 'first_work|First work'}]},
+      ],
+      'included_work_titles_search': [
+        'First work',
+      ],
+      'title_series_facet': [
+        'first_work|First work',
+      ]}),
+
+    # 700 (IW): not "Container of" in $i
+    # All other $i labels are used.
+    ([('700', ['i', 'Based on (work):', 'a', 'Smith, Joe.',
+               't', 'First work.'], '12')],
+     {'included_work_titles_json': [
+        {'a': 'Smith, Joe',
+         'b': 'Based on:',
+         'p': [{'d': 'First work [by Smith, J.]',
+                'v': 'first_work|First work'}]},
+      ],
+      'included_work_titles_search': [
+        'First work',
+      ],
+      'title_series_facet': [
+        'first_work|First work',
+      ]}),
+
+    # 830: $3 materials specified
+    ([('830', ['3', '1992-93:', 'a', 'Some series.'], ' 0')],
+     {'related_series_titles_json': [
+        {'b': '(1992-93)',
+         'p': [{'d': 'Some series',
+                'v': 'some_series|Some series'}]},
+      ],
+      'related_series_titles_search': [
+        'Some series',
+      ],
+      'title_series_facet': [
+        'some_series|Some series',
+      ]}),
+
+    # 830: $3 materials specified and $i
+    ([('830', ['3', '1992-93:', 'i', 'Based on:', 'a', 'Some series.'], ' 0')],
+     {'related_series_titles_json': [
+        {'b': '(1992-93) Based on:',
+         'p': [{'d': 'Some series',
+                'v': 'some_series|Some series'}]},
+      ],
+      'related_series_titles_search': [
+        'Some series',
+      ],
+      'title_series_facet': [
+        'some_series|Some series',
+      ]}),
+
+    # Preferred titles and expression/version info
+
+    # 730: $lsf, version/expression info
+    ([('730', ['a', 'Work title.', 'p', 'First part.', 'p', 'Second part.',
+               'l', 'English.', 's', 'Some version.', 'f', '1994.'], '02')],
+     {'included_work_titles_json': [
+        {'p': [{'d': 'Work title',
+                's': ' > ',
+                'v': 'work_title|Work title'},
+               {'d': 'First part',
+                's': ' > ',
+                'v': 'work_title_first_part|Work title > First part'},
+               {'d': 'Second part',
+                's': ' | ',
+                'v': 'work_title_first_part_second_part|'
+                     'Work title > First part > Second part'},
+               {'d': 'English, Some version, 1994',
+                'v': 'work_title_first_part_second_part_english_some_version_'
+                     '1994|'
+                     'Work title > First part > Second part | '
+                     'English, Some version, 1994'}]},
+      ],
+      'included_work_titles_search': [
+        'Work title > First part > Second part | English, Some version, 1994',
+      ],
+      'title_series_facet': [
+        'work_title|Work title',
+        'work_title_first_part|Work title > First part',
+        'work_title_first_part_second_part|'
+        'Work title > First part > Second part',
+        'work_title_first_part_second_part_english_some_version_1994|'
+        'Work title > First part > Second part | English, Some version, 1994'
+      ]}),
+
+    # 730: $lsf and $k (Selections)
+    ([('730', ['a', 'Work title.', 'p', 'First part.', 'p', 'Second part.',
+               'l', 'English.', 's', 'Some version.', 'k', 'Selections.',
+               'f', '1994.'], '02')],
+     {'included_work_titles_json': [
+        {'p': [{'d': 'Work title',
+                's': ' > ',
+                'v': 'work_title|Work title'},
+               {'d': 'First part',
+                's': ' > ',
+                'v': 'work_title_first_part|Work title > First part'},
+               {'d': 'Second part',
+                's': ' | ',
+                'v': 'work_title_first_part_second_part|'
+                     'Work title > First part > Second part'},
+               {'d': 'English, Some version, Selections, 1994',
+                'v': 'work_title_first_part_second_part_english_some_version_'
+                     'selections_1994|'
+                     'Work title > First part > Second part | '
+                     'English, Some version, Selections, 1994'}]},
+      ],
+      'included_work_titles_search': [
+        'Work title > First part > Second part | English, Some version, '
+        'Selections, 1994',
+      ],
+      'title_series_facet': [
+        'work_title|Work title',
+        'work_title_first_part|Work title > First part',
+        'work_title_first_part_second_part|'
+        'Work title > First part > Second part',
+        'work_title_first_part_second_part_english_some_version_selections_'
+        '1994|Work title > First part > Second part | English, Some version, '
+        'Selections, 1994'
+      ]}),
+
+    # 730: multiple languages ($l), Lang1 & Lang2
+    ([('730', ['a', 'Three little pigs.', 'l', 'English & German.'], '02')],
+     {'included_work_titles_json': [
+        {'p': [{'d': 'Three little pigs',
+                's': ' | ',
+                'v': 'three_little_pigs|Three little pigs'},
+               {'d': 'English & German',
+                'v': 'three_little_pigs_english_german|'
+                     'Three little pigs | English & German'}]},
+      ],
+      'included_work_titles_search': [
+        'Three little pigs | English & German',
+      ],
+      'title_series_facet': [
+        'three_little_pigs|Three little pigs',
+        'three_little_pigs_english_german|Three little pigs | English & German',
+      ]}),
+
+    # 830: $v, volume info
+    ([('830', ['a', 'Some series ;', 'v', 'v. 2.'], ' 0')],
+     {'related_series_titles_json': [
+        {'p': [{'d': 'Some series',
+                's': ' | ',
+                'v': 'some_series|Some series'},
+               {'d': 'v. 2'}]},
+      ],
+      'related_series_titles_search': [
+        'Some series | v. 2',
+      ],
+      'title_series_facet': [
+        'some_series|Some series',
+      ]}),
+
+    # 830: $x, ISSN info
+    ([('830', ['a', 'Some series.', 'x', '1234-5678'], ' 0')],
+     {'related_series_titles_json': [
+        {'p': [{'d': 'Some series',
+                's': ' | ',
+                'v': 'some_series|Some series'},
+               {'d': 'ISSN: 1234-5678'}]},
+      ],
+      'related_series_titles_search': [
+        'Some series | ISSN: 1234-5678',
+      ],
+      'title_series_facet': [
+        'some_series|Some series',
+      ]}),
+
+    # 830: $v and $x, volume + ISSN info
+    ([('830', ['a', 'Some series ;', 'v', 'v. 2.', 'x', '1234-5678'], ' 0')],
+     {'related_series_titles_json': [
+        {'p': [{'d': 'Some series',
+                's': ' | ',
+                'v': 'some_series|Some series'},
+               {'d': 'v. 2, ISSN: 1234-5678'}]},
+      ],
+      'related_series_titles_search': [
+        'Some series | v. 2, ISSN: 1234-5678',
+      ],
+      'title_series_facet': [
+        'some_series|Some series',
+      ]}),
+
+    # Main titles and truncation
+
+    # 245, single title: Main title > 200 characters
+    ([('245', ['a', 'Title title title title title title title title title '
+                    'title title title title title title title title title '
+                    'title title title title title title title title title '
+                    'title title title title title title title title title '
+                    'title title title title title.'], '0 ')],
+     {'title_display':
+        'Title title title title title title title title title title title '
+        'title title title title title title title title title title title '
+        'title title title ...',
+      'non_truncated_title_display':
+        'Title title title title title title title title title title title '
+        'title title title title title title title title title title title '
+        'title title title title title title title title title title title '
+        'title title title title title title title title',
+      'main_title_search': [
+        'Title title title title title title title title title title title '
+        'title title title title title title title title title title title '
+        'title title title title title title title title title title title '
+        'title title title title title title title title'
+      ],
+      'title_sort': 
+        'title_title_title_title_title_title_title_title_title_title_title_'
+        'title_title_title_title_title_title_title_title_title_title_title_'
+        'title_title_title_title_title_title_title_title_title_title_title_'
+        'title_title_title_title_title_title_title_title',
+     }),
+
+    # 245, multi titles: One title or part > 200 characters
+    ([('245', ['a', 'Title title title title title title title title title '
+                    'title title title title title title title title title '
+                    'title title title title title title title title title '
+                    'title title title title title title title title title '
+                    'title title title title title ;',
+               'b', 'Second title.'], '0 ')],
+     {'title_display':
+        'Title title title title title title title title title title title '
+        'title title title title title title title title title title title '
+        'title title title ...; Second title',
+      'non_truncated_title_display':
+        'Title title title title title title title title title title title '
+        'title title title title title title title title title title title '
+        'title title title title title title title title title title title '
+        'title title title title title title title title; Second title',
+      'main_title_search': [
+        'Title title title title title title title title title title title '
+        'title title title title title title title title title title title '
+        'title title title title title title title title title title title '
+        'title title title title title title title title; Second title'
+      ],
+      'title_sort': 
+        'title_title_title_title_title_title_title_title_title_title_title_'
+        'title_title_title_title_title_title_title_title_title_title_title_'
+        'title_title_title_title_title_title_title_title_title_title_title_'
+        'title_title_title_title_title_title_title_title_second_title',
+     }),
+
+    # 245: Truncation to colon/subtitle
+    ([('245', ['a', 'Title title title title title title title title title '
+                    'title title title title title title title title title '
+                    'title title title title :',
+               'b', 'title title title title title title title title title '
+                    'title title title title title title title title title '
+                    'title.'], '0 ')],
+     {'title_display':
+        'Title title title title title title title title title title title '
+        'title title title title title title title title title title title ...',
+      'non_truncated_title_display':
+        'Title title title title title title title title title title title '
+        'title title title title title title title title title title title: '
+        'title title title title title title title title title title title '
+        'title title title title title title title title',
+      'main_title_search': [
+        'Title title title title title title title title title title title '
+        'title title title title title title title title title title title: '
+        'title title title title title title title title title title title '
+        'title title title title title title title title'
+      ],
+      'title_sort': 
+        'title_title_title_title_title_title_title_title_title_title_title_'
+        'title_title_title_title_title_title_title_title_title_title_title_'
+        'title_title_title_title_title_title_title_title_title_title_title_'
+        'title_title_title_title_title_title_title_title',
+     }),
+
+    # 245: Truncation to nearest punctuation
+    ([('245', ['a', 'Title title title title :',
+               'b', 'title title title title title title title title title '
+                    'title title title title title title title title, title '
+                    'title title title title title title title title title '
+                    'title title title title title title title title title '
+                    'title.'], '0 ')],
+     {'title_display':
+        'Title title title title: title title title title title title title '
+        'title title title title title title title title title title ...',
+      'non_truncated_title_display':
+        'Title title title title: title title title title title title title '
+        'title title title title title title title title title title, title '
+        'title title title title title title title title title title title '
+        'title title title title title title title title',
+      'main_title_search': [
+        'Title title title title: title title title title title title title '
+        'title title title title title title title title title title, title '
+        'title title title title title title title title title title title '
+        'title title title title title title title title'
+      ],
+      'title_sort': 
+        'title_title_title_title_title_title_title_title_title_title_title_'
+        'title_title_title_title_title_title_title_title_title_title_title_'
+        'title_title_title_title_title_title_title_title_title_title_title_'
+        'title_title_title_title_title_title_title_title',
+     }),
+
+    # Variant titles
+
+    # 242: Parallel title in 242, w/language ($y)
+    ([('242', ['a', 'Title in English.', 'n', 'Part 1', 'y', 'eng'], '00')],
+     {'variant_titles_notes': [
+        'Title translation, English: Title in English > Part 1'],
+      'variant_titles_search': [
+        'Title in English > Part 1'],
+      }),
+
+    # 242: Parallel title in 242, no language
+    ([('242', ['a', 'Title in English.', 'n', 'Part 1'], '00')],
+     {'variant_titles_notes': [
+        'Title translation: Title in English > Part 1'],
+      'variant_titles_search': [
+        'Title in English > Part 1'],
+      }),
+
+    # 242: Parallel title w/responsibility
+    ([('242', ['a', 'Title in English /', 'c', 'by Joe Smith.'], '00')],
+     {'responsibility_search': ['by Joe Smith'],
+      'variant_titles_notes': [
+        'Title translation: Title in English'],
+      'variant_titles_search': [
+        'Title in English'],
+      }),
+
+    # 245: Parallel title in 245, no separate responsibilty
+    ([('245', ['a', 'Title =', 'b', 'Title in English /',
+               'c', 'by Joe Smith.'], '00')],
+     {'title_display': 'Title',
+      'main_title_search': ['Title'],
+      'title_sort': 'title',
+      'responsibility_display': 'by Joe Smith',
+      'responsibility_search': ['by Joe Smith'],
+      'variant_titles_notes': [
+        'Title translation: Title in English'],
+      'variant_titles_search': [
+        'Title in English'],
+      }),
+
+    # 245: Parallel title in 245 with its own SOR
+    ([('245', ['a', 'Title in German /',
+               'c', 'by German Author = Title in English / by Joe Smith.'],
+       '00')],
+     {'title_display': 'Title in German',
+      'main_title_search': ['Title in German'],
+      'title_sort': 'title_in_german',
+      'responsibility_display': 'by German Author',
+      'responsibility_search': [
+        'by German Author',
+        'by Joe Smith'
+      ],
+      'variant_titles_notes': [
+        'Title translation: Title in English'],
+      'variant_titles_search': [
+        'Title in English'],
+      }),
+
+    # 242/245: Parallel title in 242 and 245 (duplicates)
+    ([('242', ['a', 'Title in English /', 'c', 'by Joe Smith.'], '00'),
+      ('245', ['a', 'Title in German /',
+               'c', 'by German Author = Title in English / by Joe Smith.'],
+       '00')],
+     {'title_display': 'Title in German',
+      'main_title_search': ['Title in German'],
+      'title_sort': 'title_in_german',
+      'responsibility_display': 'by German Author',
+      'responsibility_search': [
+        'by German Author',
+        'by Joe Smith'
+      ],
+      'variant_titles_notes': [
+        'Title translation: Title in English'],
+      'variant_titles_search': [
+        'Title in English'],
+      }),
+
+    # 245/246: Parallel title in 246 (duplicates)
+    ([('245', ['a', 'Title in German /',
+               'c', 'by German Author = Title in English / by Joe Smith.'],
+       '00'),
+      ('246', ['a', 'Title in English'], '01'),],
+     {'title_display': 'Title in German',
+      'main_title_search': ['Title in German'],
+      'title_sort': 'title_in_german',
+      'responsibility_display': 'by German Author',
+      'responsibility_search': [
+        'by German Author',
+        'by Joe Smith'
+      ],
+      'variant_titles_notes': [
+        'Title translation: Title in English'],
+      'variant_titles_search': [
+        'Title in English'],
+      }),
+
+    # 246: Variant title in 246 w/$i
+    ([('246', ['i', 'Title on container:', 'a', 'Some title'], '0 ')],
+     {'variant_titles_notes': ['Title on container: Some title'],
+      'variant_titles_search': ['Some title'],
+      }),
+
+    # 247: Former title
+    ([('247', ['a', 'Some title', 'f', 'Mar. 1924-Nov. 1927'], '10')],
+     {'variant_titles_notes': ['Former title: Some title, Mar. 1924-Nov. 1927'],
+      'variant_titles_search': ['Some title, Mar. 1924-Nov. 1927'],
+      }),
+
+    # 246: No note if ind1 is NOT 0 or 1
+    ([('246', ['i', 'Title on container:', 'a', 'Some title'], '3 ')],
+     {'variant_titles_search': ['Some title'],
+      }),
+
+    # 247: No note if ind2 is 1
+    ([('247', ['a', 'Some title', 'f', 'Mar. 1924-Nov. 1927'], '11')],
+     {'variant_titles_search': ['Some title, Mar. 1924-Nov. 1927'],
+      }),
+
 ], ids=[
-    'First test'
+    # Edge cases
+    '1XX field but no titles => empty title_info',
+    'Empty 240 field => empty title info',
+    'Empty 245 field => empty title info',
+    '700 field with no $t => empty title info',
+    '130 but NO 245',
+
+    # Basic configurations of MARC Fields => title fields
+    '130/245: No author.',
+    '100/240/245: Single author (title in included works).',
+    '100/245: No preferred title.',
+    '130/245/700s (IW): Contribs are in 700s; same person.',
+    '130/245/700s (IW): Contribs are in 700s; different people.',
+    '130/245/700s/730s (IW): Contribs are in 700s; same person.',
+    '130/245/700s (RW): Contribs are in 700s; same person.',
+    '130/245/700s/730s (both): Contribs are in 700s; mix of people.',
+    '100/245/700s (IW): Same author in 700s, no (main) pref title.',
+
+    # Collective titles, short authors, and "Complete" vs "Selections"
+    '700: Short author attaches to top level of multi-part titles.',
+    '700: Coll title (non-music), by itself.',
+    '700: Coll title (non-music), "Selections".',
+    '700: Coll title (music form), by itself.',
+    '700: Coll title (music form), "Selections".',
+    '700: Coll title (music form) with parts.',
+    '700: Coll title (music form) with "Selections" then parts.',
+    '700: Coll title (music form) with parts, then "Selections".',
+    '710: Coll title (jurisdiction), by itself.',
+    '710: Coll title (jurisdiction), with parts.',
+    '730: Coll title with no corresponding author info.',
+
+    # Deep dive into titles from 245 => included works entries
+    '100/240/245: 240 is basic Coll Title.',
+    '100/240/245: 240 is Coll Title/Selections.',
+    '100/240/245: 240 is Music Form w/parts.',
+    '100/240/245: 245 has multiple titles, 240 is not Coll Title.',
+    '100/240/245: 245 has multiple titles, 240 is basic Coll Title.',
+    '100/245/700 (IW): 2-title 245 w/700 covering 2nd.',
+    '100/245/700 (IW): 2-title 245 w/700s covering both.',
+    '100/245/700 (IW): 2-title 245 w/700 covering 2nd author only.',
+    '100/245/700: 2-title 245 w/700 RWs',
+    '100/245: 2-title 245, same author, no 700s.',
+    '100/245: 2-title 245, 245 ind1 is 0.',
+    '100/245/740s: 2-title 245 with a duplicate 740',
+    '700/740: Duplicate 740s',
+    '700/740: Not-duplicate 740s',
+
+    # Series titles
+    '800s: Series titles, personal author; collective title.',
+    '810s: Series titles, org author; collective title',
+    '811s: Series titles, event author; collective title.',
+    '830s: Series titles, no author',
+    '490 (untraced): Untraced 490 => Series titles',
+    '490/800: Traced 490s are not included in Series titles',
+
+    # Materials specified and display constants
+    '700 (IW): "Container of" in $i',
+    '700 (IW): not "Container of" in $i',
+    '830: $3 materials specified',
+    '830: $3 materials specified and $i',
+
+    # Preferred titles and expression/version info
+    '730: $lsf, version/expression info',
+    '730: $lsf and $k (Selections)',
+    '730: multiple languages ($l), Lang1 & Lang2',
+    '830: $v, volume info',
+    '830: $x, ISSN info',
+    '830: $v and $x, volume + ISSN info',
+
+    # Main titles and truncation
+    '245, single title: Main title > 200 characters',
+    '245, multi titles: One title or part > 200 characters',
+    '245, with subtitle: Truncation to colon/subtitle',
+    '245: Truncation to nearest punctuation',
+
+    # Variant titles
+    '242: Parallel title in 242, w/language ($y)',
+    '242: Parallel title in 242, no language',
+    '242: Parallel title w/responsibility',
+    '245: Parallel title in 245, no separate responsibilty',
+    '245: Parallel title in 245 with its own SOR',
+    '242/245: Parallel title in 242 and 245 (duplicates)',
+    '245/246: Parallel title in 246 (duplicates)',
+    '246: Variant title in 246 w/$i',
+    '247: Former title',
+    '246: No note if ind1 is NOT 0 or 1',
+    '247: No note if ind2 is 1',
 ])
 def test_blasmpipeline_gettitleinfo(marcfields, expected, bl_sierra_test_record,
                                     blasm_pipeline_class, bibrecord_to_pymarc,

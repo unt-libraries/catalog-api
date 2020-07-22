@@ -16,7 +16,7 @@ from django.conf import settings
 from base import models, local_rulesets
 from export.sierra2marc import S2MarcBatch, S2MarcError
 from blacklight import parsers as p
-from utils import helpers
+from utils import helpers, toascii
 
 
 # These are MARC fields that we are currently not including in public
@@ -234,6 +234,36 @@ class MarcParseUtils(object):
             return [term] if term else []
         return [p.strip_wemi(v) for v in p.strip_ends(val).split(', ')]
 
+    def parse_marc_display_field(self, f):
+        """
+        Parse `f`, a display field copied/pasted from the MARC
+        documentation on either the LC or OCLC website, into the MARC
+        field tag, subfield list, and indicator values needed to
+        generate a pymarc MARC field object.
+        """
+        f = re.sub(r'\n\s*', ' ', f)
+        pre = re.match(r'(\d{3})\s?([\d\s#][\d\s#])\s?(?=\S)(.*)$', f)
+        tag = pre.group(1)
+        ind = pre.group(2).replace('#', ' ')
+
+        sf_str = re.sub(r'\s?ǂ(.)\s', r'$\1', pre.group(3))
+        if sf_str[0] != '$':
+            sf_str = '$a{}'.format(sf_str)
+        sfs = re.split(r'[\$\|](.)', sf_str)[1:]
+        pr_sfs = ', '.join(["'{}'".format(s.replace("'", r'\'')) for s in sfs])
+        printable = "('{}', [{}], '{}')".format(tag, pr_sfs, ind)
+        return (tag, sfs, ind, printable)
+
+    def compile_marc_display_field(self, tag, subfields, ind):
+        """
+        Take the given MARC `tag`, list of `subfields`, and `ind`
+        indicator values. Generate a string version of the field for
+        display. (Format is the same as what's on the LC website.)
+        """
+        sf_tuples = zip(subfields[0::2], subfields[1::2])
+        sf_str = ''.join([''.join(['$', sft[0], sft[1]]) for sft in sf_tuples])
+        return '{} {}{}'.format(tag, ind, sf_str)
+
 
 class SequentialMarcFieldParser(object):
     """
@@ -305,6 +335,7 @@ class PersonalNameParser(SequentialMarcFieldParser):
         self.relator_terms = OrderedDict()
         self.parsed_name = {}
         self.titles = []
+        self.numeration = ''
 
     def do_relators(self, tag, val):
         for relator_term in self.utils.compile_relator_terms(tag, val):
@@ -316,6 +347,9 @@ class PersonalNameParser(SequentialMarcFieldParser):
     def do_titles(self, tag, val):
         self.titles.extend([v for v in p.strip_ends(val).split(', ')])
 
+    def do_numeration(self, tag, val):
+        self.numeration = p.strip_ends(val)
+
     def parse_subfield(self, tag, val):
         if tag in self.done_sftags:
             return True
@@ -325,6 +359,8 @@ class PersonalNameParser(SequentialMarcFieldParser):
             self.heading_parts.append(val)
             if tag == 'a':
                 self.do_name(tag, val)
+            elif tag == 'b':
+                self.do_numeration(tag, val)
             elif tag == 'c':
                 self.do_titles(tag, val)
 
@@ -335,6 +371,7 @@ class PersonalNameParser(SequentialMarcFieldParser):
             'relations': self.relator_terms.keys() or None,
             'forename': self.parsed_name.get('forename', None),
             'surname': self.parsed_name.get('surname', None),
+            'numeration': self.numeration or None,
             'person_titles': self.titles or None,
             'type': 'person'
         }
@@ -474,6 +511,7 @@ class TranscribedTitleParser(SequentialMarcFieldParser):
             '8': 'Spine title'
         }
     fields_with_nonfiling_chars = ('242', '245')
+    f247_display_text = 'Former title'
     
     def __init__(self, field):
         super(TranscribedTitleParser, self).__init__(field)
@@ -481,11 +519,13 @@ class TranscribedTitleParser(SequentialMarcFieldParser):
         self.prev_tag = ''
         self.part_type = ''
         self.flags = {}
+        self.materials_specified = []
         self.lock_parallel = False
         self.title_parts = []
         self.responsibility = ''
         self.display_text = ''
         self.issn = ''
+        self.lccn = ''
         self.language_code = ''
         self.nonfiling_chars = 0
         self.titles = []
@@ -537,6 +577,9 @@ class TranscribedTitleParser(SequentialMarcFieldParser):
     def push_title_part(self, part, prev_punct):
         part_type = self.analyzer.what_type_is_this_part(prev_punct, self.flags)
         part = p.restore_periods(part)
+        if self.flags['is_245b'] and re.match('and [A-Z]', part):
+            part = part.lstrip('and ')
+            part_type = 'new_title'
         if part_type == 'same_part' and len(self.title_parts):
             part = self.join_parts(self.title_parts[-1], part, prev_punct)
             self.title_parts[-1] = part
@@ -547,12 +590,19 @@ class TranscribedTitleParser(SequentialMarcFieldParser):
               self.lock_parallel = True
         elif part_type == 'responsibility':
             self.responsibility = part
-            self.start_next_title()
+            if self.field.tag != '490':
+                self.start_next_title()
         else:
             # i.e.:
             # if part_type == 'new_part', or
             # if part_type =='same_part' but len(self.title_parts) == 0
             self.title_parts.append(part)
+
+    def append_volume(self, part):
+        part = p.restore_periods(part)
+        if len(self.title_parts):
+            part = '; '.join((self.title_parts.pop(), part))
+        self.title_parts.append(part)
 
     def split_compound_title(self, tstring, handle_internal_periods):
         prev_punct = self.prev_punct
@@ -565,9 +615,9 @@ class TranscribedTitleParser(SequentialMarcFieldParser):
             else:
                 prev_punct = val.strip()
 
-    def do_compound_title_part(self, part, is_subfield_c):
-        compound_title_pieces = self.split_compound_title(part, is_subfield_c)
-        for prev_punct, subpart in compound_title_pieces:
+    def do_compound_title_part(self, part, handle_internal_periods):
+        comp_tparts = self.split_compound_title(part, handle_internal_periods)
+        for prev_punct, subpart in comp_tparts:
             if subpart:
                 self.push_title_part(subpart, prev_punct)
 
@@ -589,29 +639,40 @@ class TranscribedTitleParser(SequentialMarcFieldParser):
         tstring = p.normalize_punctuation(tstring, periods_protected=True,
                                           punctuation_re=r'[\.\/;:,=]')
         do_sor_next = is_subfield_c
+        handle_internal_periods = is_subfield_c or self.field.tag == '490'
         while tstring:
             if do_sor_next:
                 sor, end_punct, tstring = self.split_sor_from_tstring(tstring)
                 self.responsibility = p.restore_periods(sor)
-                self.start_next_title()
+                if self.field.tag != '490':
+                    self.start_next_title()
                 self.prev_punct = end_punct
             if tstring:
                 title_part, tstring = self.split_title_and_sor(tstring)
-                self.do_compound_title_part(title_part, is_subfield_c)
+                self.do_compound_title_part(title_part, handle_internal_periods)
                 do_sor_next = True
 
     def get_flags(self, tag, val):
-        def_to_new_part = tag == 'n' or (tag == 'p' and self.prev_tag != 'n')
+        if self.field.tag == '490':
+            def_to_newpart = tag == 'a'
+        else:
+            def_to_newpart = tag == 'n' or (tag == 'p' and self.prev_tag != 'n')
         is_bdates = tag == 'g' and self.field.tag == '245'
+        valid_tags = 'alxv3' if self.field.tag == '490' else 'abcfghiknpsxy'
+        is_valid = tag in 'abcfghiknpsxy' and val
         return {
-            'default_to_new_part': def_to_new_part,
+            'default_to_new_part': def_to_newpart,
             'lock_same_title': tag in 'fgknps',
-            'is_valid': tag in 'abcfghiknpsxy' and val,
+            'is_valid': val and tag in valid_tags,
             'is_display_text': tag == 'i',
             'is_main_part': tag in 'ab',
+            'is_245b': tag == 'b' and self.field.tag == '245',
             'is_subpart': tag in 'fgknps',
             'is_subfield_c': tag == 'c',
+            'is_lccn': tag == 'l' and self.field.tag == '490',
             'is_issn': tag == 'x',
+            'is_volume': tag == 'v' and self.field.tag == '490',
+            'is_materials_specified': tag == '3' and self.field.tag == '490',
             'is_language_code': tag == 'y',
             'is_bulk_following_incl_dates': is_bdates and self.prev_tag == 'f',
             'subpart_may_need_formatting': tag in 'fgkps'
@@ -622,14 +683,16 @@ class TranscribedTitleParser(SequentialMarcFieldParser):
         if self.flags['is_valid']:
             prot = p.protect_periods(val)
             part, end_punct = self.analyzer.pop_isbd_punct_from_title_part(prot)
-            if self.flags['is_display_text']:
+            if self.flags['is_materials_specified']:
+                self.materials_specified.append(p.restore_periods(part))
+            elif self.flags['is_display_text']:
                 self.display_text = p.restore_periods(part)
             elif self.flags['is_main_part']:
-                if self.field.tag == '245':
+                if self.field.tag in ('245', '490'):
                     self.do_titles_and_sors(part, False)
                 else:
                     self.push_title_part(part, self.prev_punct)
-            elif self.field.tag == '245' and self.flags['is_subfield_c']:
+            elif self.flags['is_subfield_c']:
                 self.do_titles_and_sors(part, True)
                 return True
             elif self.flags['is_subpart'] and part:
@@ -638,6 +701,11 @@ class TranscribedTitleParser(SequentialMarcFieldParser):
                 self.issn = part
             elif self.flags['is_language_code']:
                 self.language_code = part
+            elif self.flags['is_volume']:
+                self.append_volume(part)
+            elif self.flags['is_lccn']:
+                self.lccn = p.restore_periods(p.strip_outer_parentheses(part))
+
             self.prev_punct = end_punct
             self.prev_tag = tag
 
@@ -656,15 +724,22 @@ class TranscribedTitleParser(SequentialMarcFieldParser):
             ind2 = self.field.indicators[1]
             display_text = self.display_text or self.variant_types.get(ind2, '')
 
+        if self.field.tag == '247':
+            display_text = self.f247_display_text
+
         ret_val = {
             'transcribed': self.titles,
             'parallel': self.parallel_titles,
             'nonfiling_chars': self.nonfiling_chars
         }
+        if self.materials_specified:
+            ret_val['materials_specified'] = self.materials_specified
         if display_text:
             ret_val['display_text'] = display_text
         if self.issn:
             ret_val['issn'] = self.issn
+        if self.lccn:
+            ret_val['lccn'] = self.lccn
         return ret_val
 
 
@@ -674,7 +749,7 @@ class PreferredTitleParser(SequentialMarcFieldParser):
     main_title_fields = ('130', '240', '243')
     nonfiling_char_ind1_fields = ('130', '730', '740')
     nonfiling_char_ind2_fields = ('240', '243', '830')
-    nt_title_tags = 'tfklmnoprs'
+    nt_title_tags = 'tfklmoprs'
     subpart_tags = 'dgknpr'
     expression_tags = 'flos'
 
@@ -733,10 +808,12 @@ class PreferredTitleParser(SequentialMarcFieldParser):
         return '{}{} {}'.format(last_part, prev_punct, part)
 
     def force_new_part(self):
-        if self.prev_tag == 'k':
-            return True
-        if self.flags['first_subpart'] and self.title_is_collective:
-            return True
+        if len(self.title_parts):
+            if self.prev_tag == 'k' and self.title_parts[-1] == 'Selections':
+                return True
+            if self.flags['first_subpart'] and self.title_is_collective:
+                return True
+        return False
 
     def push_title_part(self, part, prev_punct):
         part_type = self.analyzer.what_type_is_this_part(prev_punct, self.flags)
@@ -792,7 +869,7 @@ class PreferredTitleParser(SequentialMarcFieldParser):
     def parse_subfield(self, tag, val):
         self.flags = self.get_flags(tag, val)
         if self.flags['is_materials_specified']:
-            self.materials_specified.append(val)
+            self.materials_specified.append(p.strip_ends(val))
         elif self.flags['is_display_const']:
             display_val = p.strip_ends(p.strip_wemi(val))
             if display_val.lower() == 'container of':
@@ -855,6 +932,32 @@ def extract_title_struct_from_field(field):
     return PreferredTitleParser(field).parse()
 
 
+def shorten_name(name_struct):
+    if name_struct['type'] == 'person':
+        forename, surname = name_struct['forename'], name_struct['surname']
+        titles = name_struct['person_titles']
+        numeration = name_struct['numeration']
+        first, second = (surname or forename or ''), ''
+        if numeration:
+            first = '{} {}'.format(first, numeration)
+
+        if surname and forename:
+            initials = '.'.join([n[0] for n in re.split(r'\W', forename) if n])
+            if initials:
+                second = '{}.'.format(initials)
+        elif titles:
+            second = ', '.join(titles)
+            second = re.sub(r', (\W)', r' \1', second)
+        return ', '.join([first, second])
+
+    parts = [part['name'] for part in name_struct['heading_parts']]
+    if len(parts) == 1:
+        return parts[0]
+    if len(parts) == 2:
+        return ', '.join(parts)
+    return ' ... '.join([parts[0], parts[-1]])
+
+
 def make_personal_name_variations(forename, surname, ptitles):
     alts = []
     if forename and surname:
@@ -879,6 +982,33 @@ def make_relator_search_variations(base_name, relators):
     return ['{} {}'.format(base_name, r) for r in relators]
 
 
+def format_materials_specified(materials_specified):
+    return '({})'.format(', '.join(materials_specified))
+
+
+def format_display_constants(display_constants):
+    return '{}:'.format(', '.join(display_constants))
+
+
+def format_title_short_author(title, conjunction, short_author):
+    conj_author = ([conjunction] if conjunction else []) + [short_author]
+    return '{} [{}]'.format(title, ' '.join(conj_author))
+
+
+def generate_title_key(value, nonfiling_chars=0):
+    key = value.lower()
+    if len(value) > nonfiling_chars:
+        key = key[nonfiling_chars:]
+    key = toascii.map_from_unicode(key)
+    key = re.sub(r'\W+', r'_', key).rstrip('_')
+    return key
+
+
+def format_title_facet_value(heading, nonfiling_chars=0):
+    key = generate_title_key(heading, nonfiling_chars)
+    return '|'.join((key, heading))
+
+
 class GenericDisplayFieldParser(SequentialMarcFieldParser):
     """
     Parse/format a MARC field for display. This is conceptually similar
@@ -897,12 +1027,10 @@ class GenericDisplayFieldParser(SequentialMarcFieldParser):
         self.value_stack = []
         self.materials_specified_stack = []
 
-    def format_materials_specified(self):
-        return '({})'.format(', '.join(self.materials_specified_stack))
-
     def handle_other_subfields(self, val):
         if len(self.materials_specified_stack):
-            val = ' '.join((self.format_materials_specified(), val))
+            ms_str = format_materials_specified(self.materials_specified_stack)
+            val = ' '.join((ms_str, val))
             self.materials_specified_stack = []
         self.value_stack.append(val)
 
@@ -915,7 +1043,8 @@ class GenericDisplayFieldParser(SequentialMarcFieldParser):
     def compile_results(self):
         result = self.separator.join(self.value_stack)
         if len(self.materials_specified_stack):
-            result = ' '.join((result, self.format_materials_specified()))
+            ms_str = format_materials_specified(self.materials_specified_stack)
+            result = ' '.join((result, ms_str))
         return p.normalize_punctuation(result)
 
 
@@ -1720,7 +1849,7 @@ class BlacklightASMPipeline(object):
             'media_type_facet': rtype_info['media_type_categories']
         }
 
-    def compile_person_info(self, name_struct):
+    def compile_person(self, name_struct):
         heading, relations = name_struct['heading'], name_struct['relations']
         json = {'r': relations} if relations else {}
         json['p'] = [{'d': heading}]
@@ -1731,9 +1860,10 @@ class BlacklightASMPipeline(object):
         rel_search_vals = make_relator_search_variations(base_name, relations)
         return {'heading': heading, 'json': json, 'search_vals': search_vals,
                 'relator_search_vals': rel_search_vals,
-                'facet_vals': [heading]}
+                'facet_vals': [heading],
+                'short_author': shorten_name(name_struct)}
 
-    def compile_org_or_event_info(self, name_struct):
+    def compile_org_or_event(self, name_struct):
         sep = self.hierarchical_name_separator
         heading, relations = '', name_struct['relations']
         json = {'r': relations} if relations else {}
@@ -1766,27 +1896,132 @@ class BlacklightASMPipeline(object):
         rel_search_vals = make_relator_search_variations(base_name, relations)
         return {'heading': heading, 'json': json, 'search_vals': [heading],
                 'relator_search_vals': rel_search_vals,
-                'facet_vals': facet_vals}
+                'facet_vals': facet_vals,
+                'short_author': shorten_name(name_struct)}
+
+    def _prep_author_summary_info(self, names):
+        for name in names:
+            if name['compiled']['heading']:
+                return {
+                    'full_name': name['compiled']['heading'],
+                    'short_name': name['compiled']['short_author'],
+                    'is_jd': name['parsed'].get('is_jurisdiction', False),
+                    'ntype': name['parsed']['type']
+                }
+        return {'full_name': '', 'short_name': '', 'is_jd': False, 'ntype': ''}
+
+    def _prep_coll_title_parts(self, orig_title_parts, auth_info, is_mform):
+        title_parts = []
+        p1 = orig_title_parts[0]
+        num_parts = len(orig_title_parts)
+        if auth_info['short_name']:
+            is_org_event = auth_info['ntype'] != 'person'
+            conj = 'by' if is_mform else '' if is_org_event else 'of'
+            p1 = format_title_short_author(p1, conj, auth_info['short_name'])
+        title_parts.append(p1)
+        if num_parts == 1:
+            if not auth_info['is_jd']:
+                title_parts.append('Complete')
+        else:
+            title_parts.extend(orig_title_parts[1:])
+        return title_parts
+
+    def compile_added_title(self, field, title_struct, names):
+        if not title_struct['title_parts']:
+            return None
+
+        auth_info = self._prep_author_summary_info(names)
+        sep = self.hierarchical_name_separator
+        heading = ''
+        json = {'a': auth_info['full_name']} if auth_info['full_name'] else {}
+        json['p'], facet_vals = [], []
+
+        ms = title_struct['materials_specified']
+        dc = title_struct['display_constants']
+        ms_str = format_materials_specified(ms) if ms else ''
+        dc_str = format_display_constants(dc) if dc else ''
+        before = ([ms_str] if ms_str else []) + ([dc_str] if dc_str else [])
+        if before:
+            json['b'] = ' '.join(before)
+
+        nf_chars = title_struct['nonfiling_chars']
+        is_coll = title_struct['is_collective']
+        is_mform = title_struct['is_music_form']
+        tparts = title_struct['title_parts']
+        eparts = title_struct['expression_parts']
+        volume = title_struct.get('volume', '')
+        issn = title_struct.get('issn', '')
+        end_info = [volume] if volume else []
+        end_info += ['ISSN: {}'.format(issn)] if issn else []
+
+        if is_coll:
+            tparts = self._prep_coll_title_parts(tparts, auth_info, is_mform)
+
+        for i, part in enumerate(tparts):
+            this_is_first_part = i == 0
+            this_is_last_part = i == len(tparts) - 1
+
+            if this_is_first_part:
+                heading = part
+            else:
+                if part in ('Complete', 'Selections'):
+                    last_json_entry = json['p'].pop()
+                    last_part = last_json_entry['d']
+                    last_heading = heading[slice(heading.rfind(last_part),)]
+                    part = '{} ({})'.format(last_part, part)
+                    heading = ''.join((last_heading, part))
+                    if is_coll and not is_mform and not auth_info['is_jd']:
+                        facet_vals.pop()
+                else:
+                    heading = sep.join((heading, part))
+
+            facet_val = format_title_facet_value(heading, nf_chars)
+            json_entry = {'d': part, 'v': facet_val}
+
+            if this_is_last_part:
+                if eparts or end_info:
+                    json_entry['s'] = ' | '
+            else:
+                json_entry['s'] = sep
+
+            json['p'].append(json_entry)
+            facet_vals.append(facet_val)
+
+        if eparts:
+            exp_str = ', '.join(eparts)
+            heading = ' | '.join((heading, exp_str))
+            facet_val = format_title_facet_value(heading, nf_chars)
+            json_entry = {'d': exp_str, 'v': facet_val}
+            if end_info:
+                json_entry['s'] = ' | '
+            json['p'].append(json_entry)
+            facet_vals.append(facet_val)
+
+        if end_info:
+            end_info_str = ', '.join(end_info)
+            heading = ' | '.join((heading, end_info_str))
+            json['p'].append({'d': end_info_str})
+
+        return {
+            'auth_info': auth_info,
+            'heading': heading,
+            'title_key': '' if not len(facet_vals) else facet_vals[-1],
+            'json': json,
+            'search_vals': [heading],
+            'facet_vals': facet_vals
+        }
 
     def parse_name_title_fields(self, marc_record):
-        def compile_name_info(field, name):
-            if name['type'] == 'person':
-                compiled = self.compile_person_info(name)
-            else:
-                compiled = self.compile_org_or_event_info(name)
-            if compiled['heading']:
-                return {
-                    'field': field,
-                    'parsed': name,
-                    'compiled': compiled
-                }
+        def gather_name_info(field, name):
+            ctype = 'person' if name['type'] == 'person' else 'org_or_event'
+            compiled = getattr(self, 'compile_{}'.format(ctype))(name)
+            if compiled and compiled['heading']:
+                return {'field': field, 'parsed': name, 'compiled': compiled}
 
-        def compile_title_info(field, title):
-            return {
-                'field': field,
-                'parsed': title,
-                'compiled': title
-            }
+        def gather_title_info(field, title, names):
+            compiled = self.compile_added_title(field, title, names)
+            if compiled and compiled['heading']:
+                return {'field': field, 'parsed': title, 'compiled': compiled}
 
         if self.name_titles:
             for entry in self.name_titles:
@@ -1795,13 +2030,13 @@ class BlacklightASMPipeline(object):
             entry = {'names': [], 'title': None}
             for f in marc_record.get_fields('100', '110', '111'):
                 names = extract_name_structs_from_field(f)
-                compiled_names = [compile_name_info(f, n) for n in names]
-                entry['names'] = [n for n in compiled_names if n is not None]
+                name_info = [gather_name_info(f, n) for n in names]
+                entry['names'] = [n for n in name_info if n is not None]
                 break
 
-            for f in marc_record.get_fields('130', '240'):
+            for f in marc_record.get_fields('130', '240', '243'):
                 title = extract_title_struct_from_field(f)
-                entry['title'] = compile_title_info(f, title)
+                entry['title'] = gather_title_info(f, title, entry['names'])
                 break
 
             self.name_titles = [entry]
@@ -1811,13 +2046,13 @@ class BlacklightASMPipeline(object):
                                                   '740', '800', '810', '811',
                                                   '830')
             for f in added_fields:
+                entry = {'names': [], 'title': None}
                 names = extract_name_structs_from_field(f)
                 title = extract_title_struct_from_field(f)
-                compiled_names = [compile_name_info(f, n) for n in names]
-                entry = {
-                    'names': [n for n in compiled_names if n is not None],
-                    'title': compile_title_info(f, title) if title else None
-                }
+                name_info = [gather_name_info(f, n) for n in names]
+                entry['names'] = [n for n in name_info if n is not None]
+                if title:
+                    entry['title'] = gather_title_info(f, title, entry['names'])
                 self.name_titles.append(entry)
                 yield entry
 
@@ -1880,46 +2115,347 @@ class BlacklightASMPipeline(object):
             'responsibility_search': responsibility_search or None
         }
 
+    def analyze_name_titles(self, entries):
+        parsed_130_240, incl_authors = None, set()
+        main_author = None
+        num_controlled_at = 0
+        num_uncontrolled_at = 0
+        analyzed_entries = []
+
+        for entry in entries:
+            analyzed_entry = entry
+
+            if not main_author:
+                for name in entry['names']:
+                    if name['compiled']['heading']:
+                        if name['field'].tag in ('100', '110', '111'):
+                            main_author = name
+                            break
+
+            title = entry['title']
+            if title:
+                if title['field'].tag in ('130', '240', '243'):
+                    parsed_130_240 = entry
+
+                analyzed_entry['is_740'] = title['field'].tag == '740'
+                if title['parsed']['type'] in ('analytic', 'main'):
+                    analyzed_entry['title_type'] = 'included'
+                    auth_info = title['compiled']['auth_info']
+                    if auth_info['full_name']:
+                        incl_authors.add(auth_info['full_name'])
+                    if title['parsed']['type'] == 'analytic':
+                        if analyzed_entry['is_740']:
+                            num_uncontrolled_at += 1
+                        else:
+                            num_controlled_at += 1
+                else:
+                    analyzed_entry['title_type'] = title['parsed']['type']
+            analyzed_entries.append(analyzed_entry)
+        return {
+            'main_author': main_author,
+            'num_controlled_analytic_titles': num_controlled_at,
+            'num_uncontrolled_analytic_titles': num_uncontrolled_at,
+            'parsed_130_240': parsed_130_240,
+            'num_included_works_authors': len(incl_authors),
+            'analyzed_entries': analyzed_entries
+        }
+
+    def compile_main_title(self, f245, transcribed, nf_chars, parsed_130_240):
+        display, non_trunc = '', ''
+        sep = self.hierarchical_name_separator
+        # truncation settings:
+        trunc_thresh, min_len, max_len  = 200, 80, 150
+
+        if transcribed:
+            disp_titles, full_titles = [], []
+            truncator = p.Truncator([r':\s'], True)
+            for title in transcribed:
+                disp_parts, full_parts = [], []
+                for i, part in enumerate(title['parts']):
+                    full_parts.append(part)
+                    if i == 0 and len(part) > trunc_thresh:
+                        part = truncator.truncate(part, min_len, max_len)
+                        part = '{} ...'.format(part)
+                    disp_parts.append(part)
+                disp_titles.append(sep.join(disp_parts))
+                full_titles.append(sep.join(full_parts))
+            display = '; '.join(disp_titles)
+            non_trunc = '; '.join(full_titles)
+        elif parsed_130_240:
+            title = parsed_130_240['title']
+            display = title['compiled']['heading']
+            nf_chars = title['parsed']['nonfiling_chars']
+
+        non_trunc = '' if non_trunc and display == non_trunc else non_trunc
+        searchable = non_trunc or display
+        return {
+            'display': display,
+            'non_truncated': non_trunc or None,
+            'search': [searchable] if searchable else [],
+            'sort': generate_title_key(searchable, nf_chars)
+        }
+
+    def needs_ttitle(self, f245_ind1, nth_ttitle, total_ttitles, f130_240,
+                     total_analytic_titles):
+        # If 245 ind1 is 0, then we explicitly don't create an added
+        # entry (i.e. facet value) for it.
+        if f245_ind1 == '0':
+            return False
+
+        if nth_ttitle == 0:
+            # If this is the first (or only) title from 245 and there
+            # is a 130/240 that is NOT a collective title (i.e. it DOES
+            # represent a specific work), then we assume the first
+            # title from 245 should not create an added facet because
+            # it's likely to duplicate that 130/240.
+            if f130_240:
+                if not f130_240['title']['parsed']['is_collective']:
+                    return False
+
+                # Similarly, if this is the first/only title from 245
+                # and there's a 130/240 that is a collective title that
+                # is more than just, e.g., "Works > Selections", then
+                # we assume it's specific enough that the first 245
+                # should not create an added facet.
+                tp = f130_240['title']['parsed']['title_parts']
+                general_forms = ('Complete', 'Selections')
+                if len(tp) > 2 or len(tp) == 2 and tp[1] not in general_forms:
+                    return False
+            
+            # If we're here it means there's either no 130/240 or it's
+            # a useless generic collective title. At this point we add
+            # the first/only title from the 245 if it's probably not
+            # duplicated in a 700-730. I.e., if it's the only title in
+            # the 245, then it's probably the title for the whole
+            # resource and there won't be an added analytical title for
+            # it. (If there were, it would probably be the 130/240.)
+            # Or, if there multiple titles in the 245 but there are not
+            # enough added analytical titles on the record to cover all
+            # the individual titles in the 245, then the later titles 
+            # are more likely than the first to be covered, so we
+            # should go ahead and add the first.
+            return total_ttitles == 1 or total_ttitles > total_analytic_titles
+        return total_analytic_titles == 0
+
+    def compile_added_ttitle(self, ttitle, nf_chars, author,
+                             needs_author_in_title):
+        if not ttitle['parts']:
+            return None
+
+        auth_info = self._prep_author_summary_info([author])
+        sep = self.hierarchical_name_separator
+        heading = ''
+        json = {'a': auth_info['full_name']} if auth_info['full_name'] else {}
+        json['p'], facet_vals = [], []
+
+        for i, part in enumerate(ttitle['parts']):
+            this_is_first_part = i == 0
+            this_is_last_part = i == len(ttitle['parts']) - 1
+
+            if this_is_first_part:
+                heading = part
+                if needs_author_in_title and auth_info['short_name']:
+                    conj = 'by' if auth_info['ntype'] == 'person' else ''
+                    part = format_title_short_author(part, conj,
+                                                     auth_info['short_name'])
+            else:
+                heading = sep.join((heading, part))
+
+            facet_val = format_title_facet_value(heading, nf_chars)
+            json_entry = {'d': part, 'v': facet_val}
+            if not this_is_last_part:
+                json_entry['s'] = sep
+
+            json['p'].append(json_entry)
+            facet_vals.append(facet_val)
+
+        return {
+            'heading': heading,
+            'title_key': '' if not len(facet_vals) else facet_vals[-1],
+            'json': json,
+            'search_vals': [heading],
+            'facet_vals': facet_vals
+        }
+
+    def _match_name_from_sor(self, nametitle_entries, sor):
+        for entry in nametitle_entries:
+            for name in entry['names']:
+                heading = name['compiled']['heading']
+                if heading and p.sor_matches_name_heading(sor, heading):
+                    return name
+
     def get_title_info(self, r, marc_record):
         """
         This is responsible for using the 130, 240, 242, 243, 245, 246,
         247, 490, 700, 710, 711, 730, 740, 800, 810, 811, and 830 to
         determine the entirety of title and series fields. 
-        """
-        title_display, non_truncated_title_display = '', ''
-        main_title_search = []
-        iworks_json, rworks_json, series_json = [], [], []
-        iworks_search, rworks_search, series_search = [], [], []
+        """ 
+        main_title_info = {}
+        json_fields = {'included': [], 'related': [], 'series': []}
+        search_fields = {'included': [], 'related': [], 'series': []}
+        title_keys = {'included': set(), 'related': set(), 'series': set()}
         variant_titles_notes, variant_titles_search = [], []
         title_series_facet = []
         title_sort = ''
         responsibility_display, responsibility_search = '', []
+        hold_740s = []
 
-        from_245 = {}
+        name_titles = self.parse_name_title_fields(marc_record)
+        analyzed_name_titles = self.analyze_name_titles(name_titles)
+        num_iw_authors = analyzed_name_titles['num_included_works_authors']
+        num_cont_at = analyzed_name_titles['num_controlled_analytic_titles']
+        num_uncont_at = analyzed_name_titles['num_uncontrolled_analytic_titles']
+        parsed_130_240 = analyzed_name_titles['parsed_130_240']
+        analyzed_entries = analyzed_name_titles['analyzed_entries']
+        main_author = analyzed_name_titles['main_author']
+
+        for entry in analyzed_entries:
+            if entry['title']:
+                compiled = entry['title']['compiled']
+                parsed = entry['title']['parsed']
+                json = compiled['json']
+                search_vals = compiled['search_vals']
+                facet_vals = compiled['facet_vals']
+                title_key = compiled['title_key']
+                is_collective = parsed['is_collective']
+                short_name = compiled['auth_info']['short_name']
+                is_person = compiled['auth_info']['ntype'] == 'person'
+                needs_author = not is_collective
+                # if entry['title_type'] == 'included':
+                #     needs_author = needs_author and num_iw_authors > 1
+                if json['p'] and needs_author and short_name:
+                    tpart1 = json['p'][0]['d']
+                    compiled
+                    conj = 'by' if is_person else ''
+                    tpart1 = format_title_short_author(tpart1, conj, short_name)
+                    json['p'][0]['d'] = tpart1
+                if entry['is_740']:
+                    hold_740s.append({
+                        'title_type': entry['title_type'],
+                        'json': json,
+                        'svals': search_vals,
+                        'fvals': facet_vals,
+                        'title_key': title_key
+                    })
+                else:
+                    json_fields[entry['title_type']].append(json)
+                    search_fields[entry['title_type']].extend(search_vals)
+                    title_series_facet.extend(facet_vals)
+                    title_keys[entry['title_type']].add(title_key)
+
+        f245, parsed_245 = None, {}
         for f in marc_record.get_fields('245'):
-            from_245 = TranscribedTitleParser(f).parse()
+            f245 = f
+            parsed_245 = TranscribedTitleParser(f).parse()
             break
+        transcribed = parsed_245.get('transcribed', [])
+        parallel = parsed_245.get('parallel', [])
+        nf_chars = parsed_245.get('nonfiling_chars', 0)
+        main_title_info = self.compile_main_title(f245, transcribed, nf_chars,
+                                                  parsed_130_240)
+        sor, author = '', main_author
 
-        for i, entry in enumerate(self.parse_name_title_fields(marc_record)):
-            pass
+        for i, ttitle in enumerate(transcribed):
+            is_first = i == 0
+            if 'responsibility' in ttitle:
+                author = '' if (sor or not is_first) else main_author
+                sor = ttitle['responsibility']
+                responsibility_search.append(sor)
 
+            if self.needs_ttitle(f245.indicator1, i, len(transcribed),
+                                 parsed_130_240, num_cont_at):
+                if not author and sor:
+                    author = self._match_name_from_sor(analyzed_entries, sor)
+
+                # needs_author_in_title = num_iw_authors > 1
+                compiled = self.compile_added_ttitle(ttitle, nf_chars, author,
+                                                     True)
+                json, old_json = compiled['json'], json_fields['included']
+                sv, old_sv = compiled['search_vals'], search_fields['included']
+                fv, old_fv = compiled['facet_vals'], title_series_facet
+
+                json_fields['included'] = old_json[:i] + [json] + old_json[i:]
+                search_fields['included'] = old_sv[:i] + sv + old_sv[i:]
+                title_series_facet = old_fv[:i] + fv + old_fv[i:]
+                title_keys['included'].add(compiled['title_key'])
+
+        responsibility_display = '; '.join(responsibility_search)
+
+        for entry in hold_740s:
+            if entry['title_key'] not in title_keys[entry['title_type']]:
+                json_fields[entry['title_type']].append(entry['json'])
+                search_fields[entry['title_type']].extend(entry['svals'])
+                title_series_facet.extend(entry['fvals'])
+                title_keys[entry['title_type']].add(entry['title_key'])
+
+        for f in marc_record.get_fields('242', '246', '247'):
+            parsed = TranscribedTitleParser(f).parse()
+            f246_add_notes = f.tag == '246' and f.indicator1 in ('01')
+            f247_add_notes = f.tag == '247' and f.indicator2 == '0'
+            add_notes = f.tag == '242' or f246_add_notes or f247_add_notes
+            display_text = parsed.get('display_text', '')
+            for vtitle in parsed.get('transcribed', []):
+                tstr = self.hierarchical_name_separator.join(vtitle['parts'])
+                variant_titles_search.append(tstr)
+                if add_notes:
+                    note = '{}: {}'.format(display_text, tstr)
+                    variant_titles_notes.append(note)
+                if 'responsibility' in vtitle:
+                    responsibility_search.append(vtitle['responsibility'])
+
+        for ptitle in parallel:
+            tstr = self.hierarchical_name_separator.join(ptitle['parts'])
+            if tstr not in variant_titles_search:
+                display_text = TranscribedTitleParser.variant_types['1']
+                note = '{}: {}'.format(display_text, tstr)
+                variant_titles_notes = [note] + variant_titles_notes
+                variant_titles_search.append(tstr)
+
+            if 'responsibility' in ptitle:
+                sor = ptitle['responsibility']
+                if sor not in responsibility_search:
+                    responsibility_search.append(ptitle['responsibility'])
+
+        for f in marc_record.get_fields('490'):
+            if f.indicator1 == '0':
+                pre, end = '', []
+                parsed = TranscribedTitleParser(f).parse()
+                if 'materials_specified' in parsed:
+                    ms = parsed['materials_specified']
+                    pre = format_materials_specified(ms)
+                if 'issn' in parsed:
+                    end.append('ISSN: {}'.format(parsed['issn']))
+                if 'lccn' in parsed:
+                    end.append('LC Call Number: {}'.format(parsed['lccn']))
+                for stitle in parsed['transcribed']:
+                    render = [pre] if pre else []
+                    parts = stitle.get('parts', [])
+                    sor = stitle.get('responsibility')
+                    if parts and sor:
+                        parts[0] = '{} [{}]'.format(parts[0], sor)
+                    render.append(self.hierarchical_name_separator.join(parts))
+                    render.extend(['|', '; '.join(end)] if end else [])
+                    rendered = ' '.join(render)
+                    json_fields['series'].append({'p': [{'d': rendered}]})
+                    search_fields['series'].append(rendered)
+
+        iworks_json = [ujson.dumps(v) for v in json_fields['included']]
+        rworks_json = [ujson.dumps(v) for v in json_fields['related']]
+        series_json = [ujson.dumps(v) for v in json_fields['series']]
         return {
-            'title_display': title_display or None,
-            'non_truncated_title_display': non_truncated_title_display or None,
-            'included_work_titles_json': [ujson.dumps(v) for v in iworks_json]
-                                         or None,
-            'related_work_titles_json': [ujson.dumps(v) for v in rworks_json]
-                                        or None,
-            'related_series_titles_json': [ujson.dumps(v) for v in series_json]
-                                          or None,
+            'title_display': main_title_info['display'] or None,
+            'non_truncated_title_display': main_title_info['non_truncated'],
+            'included_work_titles_json': iworks_json or None,
+            'related_work_titles_json': rworks_json or None,
+            'related_series_titles_json': series_json or None,
             'variant_titles_notes': variant_titles_notes or None,
-            'main_title_search': main_title_search or None,
-            'included_work_titles_search': iworks_search or None,
-            'related_work_titles_search': rworks_search or None,
-            'related_series_titles_search': series_search or None,
+            'main_title_search': main_title_info['search'] or None,
+            'included_work_titles_search': search_fields['included'] or None,
+            'related_work_titles_search': search_fields['related'] or None,
+            'related_series_titles_search': search_fields['series'] or None,
             'variant_titles_search': variant_titles_search or None,
             'title_series_facet': title_series_facet or None,
-            'title_sort': title_sort or None,
+            'title_sort': main_title_info['sort'] or None,
             'responsibility_search': responsibility_search or None,
             'responsibility_display': responsibility_display or None
         }
