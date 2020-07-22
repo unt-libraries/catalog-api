@@ -1901,7 +1901,7 @@ class BlacklightASMPipeline(object):
 
     def _prep_author_summary_info(self, names):
         for name in names:
-            if name['compiled']['heading']:
+            if name and name['compiled']['heading']:
                 return {
                     'full_name': name['compiled']['heading'],
                     'short_name': name['compiled']['short_author'],
