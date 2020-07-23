@@ -2619,8 +2619,7 @@ def test_blasmpipeline_getcontributorinfo(marcfields, expected,
     ('245 12', ['a', 'A title : with punctuation, all in $a. Part 1 / by Joe'],
      {'nonfiling_chars': 2,
       'transcribed': [
-        {'parts': ['A title: with punctuation, all in $a. Part 1'],
-         'responsibility': 'by Joe'}],
+        {'parts': ['A title: with punctuation, all in $a. Part 1 / by Joe']}],
       'parallel': []}),
 
     ('245', ['b', ' = A parallel title missing a main title'],
@@ -2636,8 +2635,7 @@ def test_blasmpipeline_getcontributorinfo(marcfields, expected,
      {'nonfiling_chars': 0,
       'transcribed': [
         {'parts': ['1. One thing, 2. Another, 3. A third: This is like some '
-                   'Early English Books Online titles'],
-         'responsibility': 'by Joe'}],
+                   'Early English Books Online titles / by Joe']}],
       'parallel': [
         {'parts': ['1. One thing, 2. Another, 3. A third: Plus long subtitle '
                    'etc.']}
@@ -2651,6 +2649,14 @@ def test_blasmpipeline_getcontributorinfo(marcfields, expected,
         {'parts': ['1. This is like another Early English Books Online title: '
                    'something: 2. Something else: 3. About the 22th. of June, '
                    '1678. by Richard Greene of Dilwin, etc.']}],
+      'parallel': []}),
+
+    ('245', ['a', 'A forward slash somewhere in the title / before sf c /',
+             'c', 'by Joe.'],
+     {'nonfiling_chars': 0,
+      'transcribed': [
+        {'parts': ['A forward slash somewhere in the title / before sf c'],
+         'responsibility': 'by Joe'}],
       'parallel': []}),
 
     # Now test cases on more standard data.

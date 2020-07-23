@@ -688,7 +688,9 @@ class TranscribedTitleParser(SequentialMarcFieldParser):
             elif self.flags['is_display_text']:
                 self.display_text = p.restore_periods(part)
             elif self.flags['is_main_part']:
-                if self.field.tag in ('245', '490'):
+                if self.flags['is_245b']:
+                    self.do_compound_title_part(part, False)
+                elif self.field.tag == '490':
                     self.do_titles_and_sors(part, False)
                 else:
                     self.push_title_part(part, self.prev_punct)
@@ -2171,7 +2173,7 @@ class BlacklightASMPipeline(object):
             truncator = p.Truncator([r':\s'], True)
             for title in transcribed:
                 disp_parts, full_parts = [], []
-                for i, part in enumerate(title['parts']):
+                for i, part in enumerate(title.get('parts', [])):
                     full_parts.append(part)
                     if i == 0 and len(part) > trunc_thresh:
                         part = truncator.truncate(part, min_len, max_len)
@@ -2239,7 +2241,7 @@ class BlacklightASMPipeline(object):
 
     def compile_added_ttitle(self, ttitle, nf_chars, author,
                              needs_author_in_title):
-        if not ttitle['parts']:
+        if not ttitle.get('parts', []):
             return None
 
         auth_info = self._prep_author_summary_info([author])
@@ -2395,21 +2397,23 @@ class BlacklightASMPipeline(object):
             add_notes = f.tag == '242' or f246_add_notes or f247_add_notes
             display_text = parsed.get('display_text', '')
             for vtitle in parsed.get('transcribed', []):
-                tstr = self.hierarchical_name_separator.join(vtitle['parts'])
-                variant_titles_search.append(tstr)
-                if add_notes:
-                    note = '{}: {}'.format(display_text, tstr)
-                    variant_titles_notes.append(note)
+                if 'parts' in vtitle:
+                    t = self.hierarchical_name_separator.join(vtitle['parts'])
+                    variant_titles_search.append(t)
+                    if add_notes:
+                        note = '{}: {}'.format(display_text, t)
+                        variant_titles_notes.append(note)
                 if 'responsibility' in vtitle:
                     responsibility_search.append(vtitle['responsibility'])
 
         for ptitle in parallel:
-            tstr = self.hierarchical_name_separator.join(ptitle['parts'])
-            if tstr not in variant_titles_search:
-                display_text = TranscribedTitleParser.variant_types['1']
-                note = '{}: {}'.format(display_text, tstr)
-                variant_titles_notes = [note] + variant_titles_notes
-                variant_titles_search.append(tstr)
+            if 'parts' in ptitle:
+                tstr = self.hierarchical_name_separator.join(ptitle['parts'])
+                if tstr not in variant_titles_search:
+                    display_text = TranscribedTitleParser.variant_types['1']
+                    note = '{}: {}'.format(display_text, tstr)
+                    variant_titles_notes = [note] + variant_titles_notes
+                    variant_titles_search.append(tstr)
 
             if 'responsibility' in ptitle:
                 sor = ptitle['responsibility']
