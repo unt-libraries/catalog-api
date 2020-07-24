@@ -5225,6 +5225,12 @@ def test_shortenname(marcfield, expected, make_name_structs):
       'variant_titles_search': ['Some title'],
       }),
 
+    # 246: Variant title in 246 w/no display constant
+    ([('246', ['a', 'Some title'], '0 ')],
+     {'variant_titles_notes': ['Some title'],
+      'variant_titles_search': ['Some title'],
+      }),
+
     # 247: Former title
     ([('247', ['a', 'Some title', 'f', 'Mar. 1924-Nov. 1927'], '10')],
      {'variant_titles_notes': ['Former title: Some title, Mar. 1924-Nov. 1927'],
@@ -5326,6 +5332,7 @@ def test_shortenname(marcfield, expected, make_name_structs):
     '242/245: Parallel title in 242 and 245 (duplicates)',
     '245/246: Parallel title in 246 (duplicates)',
     '246: Variant title in 246 w/$i',
+    '246: Variant title in 246 w/no display constant',
     '247: Former title',
     '246: No note if ind1 is NOT 0 or 1',
     '247: No note if ind2 is 1',

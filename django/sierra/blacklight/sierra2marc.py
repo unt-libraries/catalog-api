@@ -2401,7 +2401,10 @@ class BlacklightASMPipeline(object):
                     t = self.hierarchical_name_separator.join(vtitle['parts'])
                     variant_titles_search.append(t)
                     if add_notes:
-                        note = '{}: {}'.format(display_text, t)
+                        if display_text:
+                            note = '{}: {}'.format(display_text, t)
+                        else:
+                            note = t
                         variant_titles_notes.append(note)
                 if 'responsibility' in vtitle:
                     responsibility_search.append(vtitle['responsibility'])
