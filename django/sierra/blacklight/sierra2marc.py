@@ -2084,8 +2084,7 @@ class BlacklightASMPipeline(object):
                     if this_is_event:
                         meetings_search.extend(compiled['search_vals'])
                         meeting_facet.extend(compiled['facet_vals'])
-                        if not this_is_8XX:
-                            meetings_json.append(compiled['json'])
+                        meetings_json.append(compiled['json'])
                     else:
                         have_seen_author = bool(author_contributor_facet)
                         if not have_seen_author:
@@ -2096,7 +2095,6 @@ class BlacklightASMPipeline(object):
                                 author_search.extend(compiled['search_vals'])
                         if have_seen_author or this_is_7XX or this_is_8XX:
                             contributors_search.extend(compiled['search_vals'])
-                        if have_seen_author or this_is_7XX:
                             contributors_json.append(compiled['json'])
                         author_contributor_facet.extend(compiled['facet_vals'])
                     responsibility_search.extend(compiled['relator_search_vals'])

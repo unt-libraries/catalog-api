@@ -2357,12 +2357,14 @@ def test_blasmpipeline_getresourcetypeinfo(bcode2,
                't', 'Teachings of the feathered serpent ;', 'v', 'bk. 1.'],
        '1 ')],
      {'author_contributor_facet': ['Berenholtz, Jim, 1957-'],
-      'contributors_search': ['Berenholtz, Jim, 1957-', 'Jim Berenholtz']
+      'contributors_search': ['Berenholtz, Jim, 1957-', 'Jim Berenholtz'],
+      'contributors_json': [{'p': [{'d': 'Berenholtz, Jim, 1957-'}]}]
      }),
     ([('810', ['a', 'United States.', 'b', 'Army Map Service.',
                't', 'Special Africa series,', 'v', 'no. 12.'], '1 ')],
      {'author_contributor_facet': ['United States Army Map Service'],
-      'contributors_search': ['United States Army Map Service']
+      'contributors_search': ['United States Army Map Service'],
+      'contributors_json': [{'p': [{'d': 'United States Army Map Service'}]}]
      }),
     ([('811', ['a', 'International Congress of Nutrition',
                'n', '(11th :', 'd', '1978 :', 'c', 'Rio de Janeiro, Brazil).',
@@ -2372,7 +2374,12 @@ def test_blasmpipeline_getresourcetypeinfo(bcode2,
         'International Congress of Nutrition (11th : 1978 : Rio de Janeiro, '
         'Brazil)'],
       'meetings_search': ['International Congress of Nutrition (11th : 1978 : '
-                          'Rio de Janeiro, Brazil)']
+                          'Rio de Janeiro, Brazil)'],
+      'meetings_json': [{'p': [{'d': 'International Congress of Nutrition'},
+                               {'d': '(11th : 1978 : Rio de Janeiro, Brazil)',
+                                'v': 'International Congress of Nutrition '
+                                     '(11th : 1978 : Rio de Janeiro, Brazil)'}]
+                       }]
      }),
     ([('100', ['a', 'Author, Main,', 'd', '1910-1990.'], '1 '),
       ('700', ['a', 'Author, Second,', 'd', '1920-1999.'], '1 '),
