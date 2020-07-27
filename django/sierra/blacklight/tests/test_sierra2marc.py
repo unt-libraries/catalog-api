@@ -3606,6 +3606,7 @@ def test_preferredtitleparser_parse(tag, subfields, expected):
     (('100', ['a', 'Fowler, T. M.', 'q', '(Thaddeus Mortimer),',
               'd', '1842-1922.'], '1 '),
      ['Fowler, T.M.']),
+    (('100', ['a', 'Isidore of Seville.'], '0 '), ['Isidore of Seville']),
     (('100', ['a', 'Vérez-Peraza, Elena,', 'd', '1919-'], '1 '),
      ['Vérez-Peraza, E.']),
     (('100', ['a', 'John', 'b', 'II Comnenus,', 'c', 'Emperor of the East,',

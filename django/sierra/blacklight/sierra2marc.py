@@ -950,14 +950,17 @@ def shorten_name(name_struct):
         elif titles:
             second = ', '.join(titles)
             second = re.sub(r', (\W)', r' \1', second)
-        return ', '.join([first, second])
+        to_render = ([first] if first else []) + ([second] if second else [])
+        return ', '.join(to_render)
 
     parts = [part['name'] for part in name_struct['heading_parts']]
-    if len(parts) == 1:
-        return parts[0]
-    if len(parts) == 2:
-        return ', '.join(parts)
-    return ' ... '.join([parts[0], parts[-1]])
+    if parts:
+        if len(parts) == 1:
+            return parts[0]
+        if len(parts) == 2:
+            return ', '.join(parts)
+        return ' ... '.join([parts[0], parts[-1]])
+    return ''
 
 
 def make_personal_name_variations(forename, surname, ptitles):
