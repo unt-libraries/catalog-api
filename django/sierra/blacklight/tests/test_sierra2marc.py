@@ -2008,7 +2008,7 @@ def test_blasmpipeline_getaccessinfo(bib_locations, item_locations, expected,
     ('b', {'resource_type': 'database',
            'resource_type_facet': ['online_databases'],
            'media_type_facet': ['Digital Files']}),
-    ('c', {'resource_type': 'score|Online',
+    ('c', {'resource_type': 'score!Online',
            'resource_type_facet': ['music_scores'],
            'media_type_facet': ['Digital Files']}),
 ])

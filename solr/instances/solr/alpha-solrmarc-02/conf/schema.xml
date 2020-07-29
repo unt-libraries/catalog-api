@@ -83,7 +83,7 @@
     <fieldType name="reverse_number" class="solr.TextField" sortMissingLast="true" omitNorms="true">
       <analyzer type="index">
         <tokenizer class="solr.KeywordTokenizerFactory"/>
-        <filter class="solr.PatternReplaceFilterFactory" pattern="^(\d+\-?\d*)$" replacement="$1|$1"/>
+        <filter class="solr.PatternReplaceFilterFactory" pattern="^(\d+\-?\d*)$" replacement="$1!$1"/>
         <filter class="solr.PatternReplaceFilterFactory" pattern="9(?=.*\|)" replacement="a"/>
         <filter class="solr.PatternReplaceFilterFactory" pattern="8(?=.*\|)" replacement="b"/>
         <filter class="solr.PatternReplaceFilterFactory" pattern="7(?=.*\|)" replacement="c"/>

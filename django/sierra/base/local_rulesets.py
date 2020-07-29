@@ -428,7 +428,7 @@ class ResourceTypeDeterminer(object):
     def format_resource_type_value(self, rtypes, fmts):
         rtypestr = '_'.join(rtypes)
         fmtstr = ', '.join([self.format_labels.get(f, f) for f in sorted(fmts)])
-        return '|'.join((rtypestr, fmtstr)) if fmtstr else rtypestr
+        return '!'.join((rtypestr, fmtstr)) if fmtstr else rtypestr
 
     def categorize_resource_type(self, rtypes, fmts):
         rtype_cats, mtype_cats = [], []
