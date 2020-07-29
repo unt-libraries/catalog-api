@@ -837,9 +837,10 @@ class PreferredTitleParser(SequentialMarcFieldParser):
             is_music_ct = re.search(r'\smusic(\s+\(.+\)\s*)?$', norm_part)
             if is_expl_ct or is_music_ct or is_legal_ct:
                 self.title_is_collective = True
-        if norm_part in settings.MARCDATA.MUSIC_FORM_TERMS:
+        if norm_part in settings.MARCDATA.MUSIC_FORM_TERMS_ALL:
             self.title_is_music_form = True
-            self.title_is_collective = True
+            is_plural = norm_part in settings.MARCDATA.MUSIC_FORM_TERMS_PLURAL
+            self.title_is_collective = is_plural
 
     def parse_languages(self, lang_str):
         return [l for l in re.split(r', and | and | & |, ', lang_str) if l]
@@ -1965,42 +1966,47 @@ class BlacklightASMPipeline(object):
         for i, part in enumerate(tparts):
             this_is_first_part = i == 0
             this_is_last_part = i == len(tparts) - 1
+            next_part = None if this_is_last_part else tparts[i + 1]
+            d_part = part
+            skip = part in ('Complete', 'Selections')
 
             if this_is_first_part:
                 heading = part
-            else:
-                if part in ('Complete', 'Selections'):
-                    last_json_entry = json['p'].pop()
-                    last_part = last_json_entry['d']
-                    last_heading = heading[slice(heading.rfind(last_part),)]
-                    part = '{} ({})'.format(last_part, part)
-                    heading = ''.join((last_heading, part))
-                    if is_coll and not is_mform and not auth_info['is_jd']:
-                        facet_vals.pop()
-                else:
+                if not is_coll and auth_info['short_name']:
+                    conj = 'by' if auth_info['ntype'] == 'person' else ''
+                    d_part = format_title_short_author(part, conj,
+                                                       auth_info['short_name'])
+            if not skip:
+                if not this_is_first_part:
                     heading = sep.join((heading, part))
 
-            facet_val = format_title_facet_value(heading, nf_chars)
-            json_entry = {'d': part, 'v': facet_val}
+                if next_part in ('Complete', 'Selections'):
+                    next_part = '({})'.format(next_part)
+                    d_part = ' '.join((d_part, next_part))
+                    if not is_coll or is_mform or auth_info['is_jd']:
+                        fval = format_title_facet_value(heading, nf_chars)
+                        facet_vals.append(fval)
+                    heading = ' '.join((heading, next_part))
 
-            if this_is_last_part:
+                fval = format_title_facet_value(heading, nf_chars)
+                facet_vals.append(fval)
+                json['p'].append({'d': d_part, 'v': fval, 's': sep})
+
+            if json['p'] and this_is_last_part:
                 if eparts or end_info:
-                    json_entry['s'] = ' | '
-            else:
-                json_entry['s'] = sep
-
-            json['p'].append(json_entry)
-            facet_vals.append(facet_val)
+                    json['p'][-1]['s'] = ' | '
+                else:
+                    del(json['p'][-1]['s'])
 
         if eparts:
             exp_str = ', '.join(eparts)
             heading = ' | '.join((heading, exp_str))
-            facet_val = format_title_facet_value(heading, nf_chars)
-            json_entry = {'d': exp_str, 'v': facet_val}
+            fval = format_title_facet_value(heading, nf_chars)
+            json_entry = {'d': exp_str, 'v': fval}
             if end_info:
                 json_entry['s'] = ' | '
             json['p'].append(json_entry)
-            facet_vals.append(facet_val)
+            facet_vals.append(fval)
 
         if end_info:
             end_info_str = ', '.join(end_info)
@@ -2320,18 +2326,6 @@ class BlacklightASMPipeline(object):
                 search_vals = compiled['search_vals']
                 facet_vals = compiled['facet_vals']
                 title_key = compiled['title_key']
-                is_collective = parsed['is_collective']
-                short_name = compiled['auth_info']['short_name']
-                is_person = compiled['auth_info']['ntype'] == 'person'
-                needs_author = not is_collective
-                # if entry['title_type'] == 'included':
-                #     needs_author = needs_author and num_iw_authors > 1
-                if json['p'] and needs_author and short_name:
-                    tpart1 = json['p'][0]['d']
-                    compiled
-                    conj = 'by' if is_person else ''
-                    tpart1 = format_title_short_author(tpart1, conj, short_name)
-                    json['p'][0]['d'] = tpart1
                 if entry['is_740']:
                     hold_740s.append({
                         'title_type': entry['title_type'],

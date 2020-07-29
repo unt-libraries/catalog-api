@@ -4202,6 +4202,44 @@ def test_shortenname(marcfield, expected, make_name_structs):
         'Sonatas, piano [by Smith, J.] > Op. 31 (Selections)',
       ]}),
 
+    # 700: Non-coll title (singular music form)
+    # Some musical works' distinctive titles are a singular musical
+    # form that would otherwise (in plural form) indicate a collective
+    # title, such as Ravel's Bolero.
+    ([('700', ['a', 'Ravel, Maurice,', 'd', '1875-1937.', 't', 'Bolero,',
+               'm', 'orchestra.'], '12')],
+     {'included_work_titles_json': [
+        {'a': 'Ravel, Maurice, 1875-1937',
+         'p': [{'d': 'Bolero, orchestra [by Ravel, M.]',
+                'v': 'bolero_orchestra!Bolero, orchestra'}]},
+      ],
+      'included_work_titles_search': [
+        'Bolero, orchestra',
+      ],
+      'title_series_facet': [
+        'bolero_orchestra!Bolero, orchestra'
+      ]}),
+
+    # 700: Non-coll title plus Selections
+    # Something like, "Also sprach Zarathustra (Selections)," should
+    # include the short author name prior to "(Selections)".
+    ([('700', ['a', 'Strauss, Richard,', 'd', '1864-1949.',
+               't', 'Also sprach Zarathustra.', 'k', 'Selections.'], '12')],
+     {'included_work_titles_json': [
+        {'a': 'Strauss, Richard, 1864-1949',
+         'p': [{'d': 'Also sprach Zarathustra [by Strauss, R.] (Selections)',
+                'v': 'also_sprach_zarathustra_selections!'
+                     'Also sprach Zarathustra (Selections)'}]},
+      ],
+      'included_work_titles_search': [
+        'Also sprach Zarathustra (Selections)',
+      ],
+      'title_series_facet': [
+        'also_sprach_zarathustra!Also sprach Zarathustra',
+        'also_sprach_zarathustra_selections!'
+        'Also sprach Zarathustra (Selections)'
+      ]}),
+
     # 710: Coll title (jurisdiction), by itself.
     # Short author in facet and display. Top-level facet remains as-is.
     # "Complete" facet is NOT generated. No short auth conj.
@@ -5283,6 +5321,8 @@ def test_shortenname(marcfield, expected, make_name_structs):
     '700: Coll title (music form) with parts.',
     '700: Coll title (music form) with "Selections" then parts.',
     '700: Coll title (music form) with parts, then "Selections".',
+    '700: Non-coll title (singular music form)',
+    '700: Non-coll title plus Selections',
     '710: Coll title (jurisdiction), by itself.',
     '710: Coll title (jurisdiction), with parts.',
     '730: Coll title with no corresponding author info.',
