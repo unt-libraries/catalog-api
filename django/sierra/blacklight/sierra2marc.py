@@ -1011,7 +1011,7 @@ def generate_title_key(value, nonfiling_chars=0):
 
 def format_title_facet_value(heading, nonfiling_chars=0):
     key = generate_title_key(heading, nonfiling_chars)
-    return '|'.join((key, heading))
+    return '!'.join((key, heading))
 
 
 class GenericDisplayFieldParser(SequentialMarcFieldParser):

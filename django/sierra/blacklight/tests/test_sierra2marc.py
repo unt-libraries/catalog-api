@@ -3683,19 +3683,19 @@ def test_shortenname(marcfield, expected, make_name_structs):
       'included_work_titles_json': [{
         'p': [{'d': 'Duets, violin, viola',
                's': ' > ', 
-               'v': 'duets_violin_viola|Duets, violin, viola'},
+               'v': 'duets_violin_viola!Duets, violin, viola'},
               {'d': 'Op. 10',
                's': ' > ',
-               'v': 'duets_violin_viola_op_10|Duets, violin, viola > Op. 10'},
+               'v': 'duets_violin_viola_op_10!Duets, violin, viola > Op. 10'},
               {'d': 'No. 3',
-               'v': 'duets_violin_viola_op_10_no_3|'
+               'v': 'duets_violin_viola_op_10_no_3!'
                     'Duets, violin, viola > Op. 10 > No. 3'}]
       }],
       'included_work_titles_search': ['Duets, violin, viola > Op. 10 > No. 3'],
       'title_series_facet': [
-        'duets_violin_viola|Duets, violin, viola',
-        'duets_violin_viola_op_10|Duets, violin, viola > Op. 10',
-        'duets_violin_viola_op_10_no_3|Duets, violin, viola > Op. 10 > No. 3'
+        'duets_violin_viola!Duets, violin, viola',
+        'duets_violin_viola_op_10!Duets, violin, viola > Op. 10',
+        'duets_violin_viola_op_10_no_3!Duets, violin, viola > Op. 10 > No. 3'
       ]}),
 
     # Basic configurations of MARC Fields => title fields, Included vs
@@ -3717,19 +3717,19 @@ def test_shortenname(marcfield, expected, make_name_structs):
       'included_work_titles_json': [{
         'p': [{'d': 'Duets, violin, viola',
                's': ' > ', 
-               'v': 'duets_violin_viola|Duets, violin, viola'},
+               'v': 'duets_violin_viola!Duets, violin, viola'},
               {'d': 'Op. 10',
                's': ' > ',
-               'v': 'duets_violin_viola_op_10|Duets, violin, viola > Op. 10'},
+               'v': 'duets_violin_viola_op_10!Duets, violin, viola > Op. 10'},
               {'d': 'No. 3',
-               'v': 'duets_violin_viola_op_10_no_3|'
+               'v': 'duets_violin_viola_op_10_no_3!'
                     'Duets, violin, viola > Op. 10 > No. 3'}]
       }],
       'included_work_titles_search': ['Duets, violin, viola > Op. 10 > No. 3'],
       'title_series_facet': [
-        'duets_violin_viola|Duets, violin, viola',
-        'duets_violin_viola_op_10|Duets, violin, viola > Op. 10',
-        'duets_violin_viola_op_10_no_3|Duets, violin, viola > Op. 10 > No. 3'
+        'duets_violin_viola!Duets, violin, viola',
+        'duets_violin_viola_op_10!Duets, violin, viola > Op. 10',
+        'duets_violin_viola_op_10_no_3!Duets, violin, viola > Op. 10 > No. 3'
       ]}),
 
     # 100/240/245: Single author (title in included works).
@@ -3747,11 +3747,11 @@ def test_shortenname(marcfield, expected, make_name_structs):
       'included_work_titles_json': [{
         'a': 'Smith, Joe',
         'p': [{'d': 'Specific Preferred Title [by Smith, J.]',
-               'v': 'specific_preferred_title|Specific Preferred Title'}]
+               'v': 'specific_preferred_title!Specific Preferred Title'}]
       }],
       'included_work_titles_search': ['Specific Preferred Title'],
       'title_series_facet': [
-        'specific_preferred_title|Specific Preferred Title'
+        'specific_preferred_title!Specific Preferred Title'
       ]}),
 
     # 100/245: No preferred title.
@@ -3767,11 +3767,11 @@ def test_shortenname(marcfield, expected, make_name_structs):
       'included_work_titles_json': [{
         'a': 'Smith, Joe',
         'p': [{'d': 'Transcribed title [by Smith, J.]',
-               'v': 'transcribed_title|Transcribed title'}]
+               'v': 'transcribed_title!Transcribed title'}]
       }],
       'included_work_titles_search': ['Transcribed title'],
       'title_series_facet': [
-        'transcribed_title|Transcribed title'
+        'transcribed_title!Transcribed title'
       ]}),
 
     # 130/245/700s (IW): Contribs are in 700s; same person.
@@ -3791,14 +3791,14 @@ def test_shortenname(marcfield, expected, make_name_structs):
       'responsibility_search': ['Joe Smith; edited by Edward Copeland'],
       'included_work_titles_json': [
         {'p': [{'d': 'Specific Preferred Title (1933)',
-                'v': 'specific_preferred_title_1933|'
+                'v': 'specific_preferred_title_1933!'
                      'Specific Preferred Title (1933)'}]},
         {'a': 'Jung, C. G. (Carl Gustav), 1875-1961',
          'p': [{'d': 'First work [by Jung, C.G.]',
-                'v': 'first_work|First work'}]},
+                'v': 'first_work!First work'}]},
         {'a': 'Jung, C. G. (Carl Gustav), 1875-1961',
          'p': [{'d': 'Second work [by Jung, C.G.]',
-                'v': 'second_work|Second work'}]},
+                'v': 'second_work!Second work'}]},
       ],
       'included_work_titles_search': [
         'Specific Preferred Title (1933)',
@@ -3806,9 +3806,9 @@ def test_shortenname(marcfield, expected, make_name_structs):
         'Second work',
       ],
       'title_series_facet': [
-        'specific_preferred_title_1933|Specific Preferred Title (1933)',
-        'first_work|First work',
-        'second_work|Second work',
+        'specific_preferred_title_1933!Specific Preferred Title (1933)',
+        'first_work!First work',
+        'second_work!Second work',
       ]}),
 
     # 130/245/700s (IW): Contribs are in 700s; different people.
@@ -3827,14 +3827,14 @@ def test_shortenname(marcfield, expected, make_name_structs):
       'responsibility_search': ['Joe Smith; edited by Edward Copeland'],
       'included_work_titles_json': [
         {'p': [{'d': 'Specific Preferred Title (1933)',
-                'v': 'specific_preferred_title_1933|'
+                'v': 'specific_preferred_title_1933!'
                      'Specific Preferred Title (1933)'}]},
         {'a': 'Jung, C. G. (Carl Gustav), 1875-1961',
          'p': [{'d': 'First work [by Jung, C.G.]',
-                'v': 'first_work|First work'}]},
+                'v': 'first_work!First work'}]},
         {'a': 'Walter, Johannes',
          'p': [{'d': 'Second work [by Walter, J.]',
-                'v': 'second_work|Second work'}]},
+                'v': 'second_work!Second work'}]},
       ],
       'included_work_titles_search': [
         'Specific Preferred Title (1933)',
@@ -3842,9 +3842,9 @@ def test_shortenname(marcfield, expected, make_name_structs):
         'Second work',
       ],
       'title_series_facet': [
-        'specific_preferred_title_1933|Specific Preferred Title (1933)',
-        'first_work|First work',
-        'second_work|Second work',
+        'specific_preferred_title_1933!Specific Preferred Title (1933)',
+        'first_work!First work',
+        'second_work!Second work',
       ]}),
 
     # 130/245/700s/730s (IW): Contribs are in 700s; same person.
@@ -3865,16 +3865,16 @@ def test_shortenname(marcfield, expected, make_name_structs):
       'responsibility_search': ['Joe Smith; edited by Edward Copeland'],
       'included_work_titles_json': [
         {'p': [{'d': 'Specific Preferred Title (1933)',
-                'v': 'specific_preferred_title_1933|'
+                'v': 'specific_preferred_title_1933!'
                      'Specific Preferred Title (1933)'}]},
         {'a': 'Jung, C. G. (Carl Gustav), 1875-1961',
          'p': [{'d': 'First work [by Jung, C.G.]',
-                'v': 'first_work|First work'}]},
+                'v': 'first_work!First work'}]},
         {'a': 'Jung, C. G. (Carl Gustav), 1875-1961',
          'p': [{'d': 'Second work [by Jung, C.G.]',
-                'v': 'second_work|Second work'}]},
+                'v': 'second_work!Second work'}]},
         {'p': [{'d': 'Three little pigs',
-                'v': 'three_little_pigs|Three little pigs'}]}
+                'v': 'three_little_pigs!Three little pigs'}]}
       ],
       'included_work_titles_search': [
         'Specific Preferred Title (1933)',
@@ -3883,10 +3883,10 @@ def test_shortenname(marcfield, expected, make_name_structs):
         'Three little pigs',
       ],
       'title_series_facet': [
-        'specific_preferred_title_1933|Specific Preferred Title (1933)',
-        'first_work|First work',
-        'second_work|Second work',
-        'three_little_pigs|Three little pigs'
+        'specific_preferred_title_1933!Specific Preferred Title (1933)',
+        'first_work!First work',
+        'second_work!Second work',
+        'three_little_pigs!Three little pigs'
       ]}),
 
     # 130/245/700s (RW): Contribs are in 700s; same person.
@@ -3906,26 +3906,26 @@ def test_shortenname(marcfield, expected, make_name_structs):
       'responsibility_search': ['Joe Smith; edited by Edward Copeland'],
       'included_work_titles_json': [
         {'p': [{'d': 'Specific Preferred Title (1933)',
-                'v': 'specific_preferred_title_1933|'
+                'v': 'specific_preferred_title_1933!'
                      'Specific Preferred Title (1933)'}]},
       ],
       'included_work_titles_search': ['Specific Preferred Title (1933)'],
       'related_work_titles_json': [
         {'a': 'Jung, C. G. (Carl Gustav), 1875-1961',
          'p': [{'d': 'First work [by Jung, C.G.]',
-                'v': 'first_work|First work'}]},
+                'v': 'first_work!First work'}]},
         {'a': 'Jung, C. G. (Carl Gustav), 1875-1961',
          'p': [{'d': 'Second work [by Jung, C.G.]',
-                'v': 'second_work|Second work'}]},
+                'v': 'second_work!Second work'}]},
       ],
       'related_work_titles_search': [
         'First work',
         'Second work',
       ],
       'title_series_facet': [
-        'specific_preferred_title_1933|Specific Preferred Title (1933)',
-        'first_work|First work',
-        'second_work|Second work'
+        'specific_preferred_title_1933!Specific Preferred Title (1933)',
+        'first_work!First work',
+        'second_work!Second work'
       ]}),
 
     # 130/245/700s/730s (both): Contribs are in 700s; mix of people.
@@ -3946,13 +3946,13 @@ def test_shortenname(marcfield, expected, make_name_structs):
       'responsibility_search': ['Joe Smith; edited by Edward Copeland'],
       'included_work_titles_json': [
         {'p': [{'d': 'Specific Preferred Title (1933)',
-                'v': 'specific_preferred_title_1933|'
+                'v': 'specific_preferred_title_1933!'
                      'Specific Preferred Title (1933)'}]},
         {'a': 'Smith, Joe',
          'p': [{'d': 'Second work [by Smith, J.]',
-                'v': 'second_work|Second work'}]},
+                'v': 'second_work!Second work'}]},
         {'p': [{'d': 'Three little pigs',
-                'v': 'three_little_pigs|Three little pigs'}]}
+                'v': 'three_little_pigs!Three little pigs'}]}
       ],
       'included_work_titles_search': [
         'Specific Preferred Title (1933)',
@@ -3962,20 +3962,20 @@ def test_shortenname(marcfield, expected, make_name_structs):
       'related_work_titles_json': [
         {'a': 'Jung, C. G. (Carl Gustav), 1875-1961',
          'p': [{'d': 'First work [by Jung, C.G.]',
-                'v': 'first_work|First work'}]},
+                'v': 'first_work!First work'}]},
         {'p': [{'d': 'Fourth work',
-                'v': 'fourth_work|Fourth work'}]},
+                'v': 'fourth_work!Fourth work'}]},
       ],
       'related_work_titles_search': [
         'First work',
         'Fourth work',
       ],
       'title_series_facet': [
-        'specific_preferred_title_1933|Specific Preferred Title (1933)',
-        'first_work|First work',
-        'second_work|Second work',
-        'three_little_pigs|Three little pigs',
-        'fourth_work|Fourth work'
+        'specific_preferred_title_1933!Specific Preferred Title (1933)',
+        'first_work!First work',
+        'second_work!Second work',
+        'three_little_pigs!Three little pigs',
+        'fourth_work!Fourth work'
       ]}),
 
     # 100/245/700s (IW): Same author in 700s, no (main) pref title
@@ -3995,13 +3995,13 @@ def test_shortenname(marcfield, expected, make_name_structs):
       'included_work_titles_json': [
         {'a': 'Smith, Joe',
          'p': [{'d': 'Transcribed title [by Smith, J.]',
-                'v': 'transcribed_title|Transcribed title'}]},
+                'v': 'transcribed_title!Transcribed title'}]},
         {'a': 'Jung, C. G. (Carl Gustav), 1875-1961',
          'p': [{'d': 'First work [by Jung, C.G.]',
-                'v': 'first_work|First work'}]},
+                'v': 'first_work!First work'}]},
         {'a': 'Smith, Joe',
          'p': [{'d': 'Second work [by Smith, J.]',
-                'v': 'second_work|Second work'}]},
+                'v': 'second_work!Second work'}]},
       ],
       'included_work_titles_search': [
         'Transcribed title',
@@ -4009,9 +4009,9 @@ def test_shortenname(marcfield, expected, make_name_structs):
         'Second work',
       ],
       'title_series_facet': [
-        'transcribed_title|Transcribed title',
-        'first_work|First work',
-        'second_work|Second work',
+        'transcribed_title!Transcribed title',
+        'first_work!First work',
+        'second_work!Second work',
       ]}),
 
 
@@ -4024,21 +4024,21 @@ def test_shortenname(marcfield, expected, make_name_structs):
         {'a': 'Smith, Joe',
          'p': [{'d': 'First work [by Smith, J.]',
                 's': ' > ',
-                'v': 'first_work|First work'},
+                'v': 'first_work!First work'},
                {'d': 'Part One',
                 's': ' > ',
-                'v': 'first_work_part_one|First work > Part One'},
+                'v': 'first_work_part_one!First work > Part One'},
                {'d': 'Part Two',
-                'v': 'first_work_part_one_part_two|'
+                'v': 'first_work_part_one_part_two!'
                      'First work > Part One > Part Two'}]},
       ],
       'included_work_titles_search': [
         'First work > Part One > Part Two',
       ],
       'title_series_facet': [
-        'first_work|First work',
-        'first_work_part_one|First work > Part One',
-        'first_work_part_one_part_two|First work > Part One > Part Two'
+        'first_work!First work',
+        'first_work_part_one!First work > Part One',
+        'first_work_part_one_part_two!First work > Part One > Part Two'
       ]}),
 
     # 700: Coll title (non-music), by itself.
@@ -4048,14 +4048,14 @@ def test_shortenname(marcfield, expected, make_name_structs):
      {'included_work_titles_json': [
         {'a': 'Smith, Joe',
          'p': [{'d': 'Works [of Smith, J.] (Complete)',
-                'v': 'works_of_smith_j_complete|'
+                'v': 'works_of_smith_j_complete!'
                      'Works [of Smith, J.] (Complete)'}]},
       ],
       'included_work_titles_search': [
         'Works [of Smith, J.] (Complete)',
       ],
       'title_series_facet': [
-        'works_of_smith_j_complete|Works [of Smith, J.] (Complete)'
+        'works_of_smith_j_complete!Works [of Smith, J.] (Complete)'
       ]}),
 
     # 700: Coll title (non-music), "Selections".
@@ -4065,14 +4065,14 @@ def test_shortenname(marcfield, expected, make_name_structs):
      {'included_work_titles_json': [
         {'a': 'Smith, Joe',
          'p': [{'d': 'Works [of Smith, J.] (Selections)',
-                'v': 'works_of_smith_j_selections|'
+                'v': 'works_of_smith_j_selections!'
                      'Works [of Smith, J.] (Selections)'}]},
       ],
       'included_work_titles_search': [
         'Works [of Smith, J.] (Selections)',
       ],
       'title_series_facet': [
-        'works_of_smith_j_selections|Works [of Smith, J.] (Selections)'
+        'works_of_smith_j_selections!Works [of Smith, J.] (Selections)'
       ]}),
 
     # 700: Coll title (music form), by itself.
@@ -4083,15 +4083,15 @@ def test_shortenname(marcfield, expected, make_name_structs):
      {'included_work_titles_json': [
         {'a': 'Smith, Joe',
          'p': [{'d': 'Sonatas, piano [by Smith, J.] (Complete)',
-                'v': 'sonatas_piano_by_smith_j_complete|'
+                'v': 'sonatas_piano_by_smith_j_complete!'
                      'Sonatas, piano [by Smith, J.] (Complete)'}]},
       ],
       'included_work_titles_search': [
         'Sonatas, piano [by Smith, J.] (Complete)',
       ],
       'title_series_facet': [
-        'sonatas_piano_by_smith_j|Sonatas, piano [by Smith, J.]',
-        'sonatas_piano_by_smith_j_complete|'
+        'sonatas_piano_by_smith_j!Sonatas, piano [by Smith, J.]',
+        'sonatas_piano_by_smith_j_complete!'
         'Sonatas, piano [by Smith, J.] (Complete)'
       ]}),
 
@@ -4103,15 +4103,15 @@ def test_shortenname(marcfield, expected, make_name_structs):
      {'included_work_titles_json': [
         {'a': 'Smith, Joe',
          'p': [{'d': 'Sonatas, piano [by Smith, J.] (Selections)',
-                'v': 'sonatas_piano_by_smith_j_selections|'
+                'v': 'sonatas_piano_by_smith_j_selections!'
                      'Sonatas, piano [by Smith, J.] (Selections)'}]},
       ],
       'included_work_titles_search': [
         'Sonatas, piano [by Smith, J.] (Selections)',
       ],
       'title_series_facet': [
-        'sonatas_piano_by_smith_j|Sonatas, piano [by Smith, J.]',
-        'sonatas_piano_by_smith_j_selections|'
+        'sonatas_piano_by_smith_j!Sonatas, piano [by Smith, J.]',
+        'sonatas_piano_by_smith_j_selections!'
         'Sonatas, piano [by Smith, J.] (Selections)'
       ]}),
 
@@ -4124,13 +4124,13 @@ def test_shortenname(marcfield, expected, make_name_structs):
         {'a': 'Smith, Joe',
          'p': [{'d': 'Sonatas, piano [by Smith, J.]',
                 's': ' > ',
-                'v': 'sonatas_piano_by_smith_j|Sonatas, piano [by Smith, J.]'},
+                'v': 'sonatas_piano_by_smith_j!Sonatas, piano [by Smith, J.]'},
                {'d': 'Op. 31',
                 's': ' > ',
-                'v': 'sonatas_piano_by_smith_j_op_31|'
+                'v': 'sonatas_piano_by_smith_j_op_31!'
                      'Sonatas, piano [by Smith, J.] > Op. 31'},
                {'d': 'No. 2',
-                'v': 'sonatas_piano_by_smith_j_op_31_no_2|'
+                'v': 'sonatas_piano_by_smith_j_op_31_no_2!'
                      'Sonatas, piano [by Smith, J.] > Op. 31 > No. 2'},
                 ]},
       ],
@@ -4138,10 +4138,10 @@ def test_shortenname(marcfield, expected, make_name_structs):
         'Sonatas, piano [by Smith, J.] > Op. 31 > No. 2'
       ],
       'title_series_facet': [
-        'sonatas_piano_by_smith_j|Sonatas, piano [by Smith, J.]',
-        'sonatas_piano_by_smith_j_op_31|'
+        'sonatas_piano_by_smith_j!Sonatas, piano [by Smith, J.]',
+        'sonatas_piano_by_smith_j_op_31!'
         'Sonatas, piano [by Smith, J.] > Op. 31',
-        'sonatas_piano_by_smith_j_op_31_no_2|'
+        'sonatas_piano_by_smith_j_op_31_no_2!'
         'Sonatas, piano [by Smith, J.] > Op. 31 > No. 2'
       ]}),
 
@@ -4155,10 +4155,10 @@ def test_shortenname(marcfield, expected, make_name_structs):
         {'a': 'Smith, Joe',
          'p': [{'d': 'Sonatas, piano [by Smith, J.] (Selections)',
                 's': ' > ',
-                'v': 'sonatas_piano_by_smith_j_selections|'
+                'v': 'sonatas_piano_by_smith_j_selections!'
                      'Sonatas, piano [by Smith, J.] (Selections)'},
                {'d': 'Op. 31',
-                'v': 'sonatas_piano_by_smith_j_selections_op_31|'
+                'v': 'sonatas_piano_by_smith_j_selections_op_31!'
                      'Sonatas, piano [by Smith, J.] (Selections) > Op. 31'},
                 ]},
       ],
@@ -4166,10 +4166,10 @@ def test_shortenname(marcfield, expected, make_name_structs):
         'Sonatas, piano [by Smith, J.] (Selections) > Op. 31'
       ],
       'title_series_facet': [
-        'sonatas_piano_by_smith_j|Sonatas, piano [by Smith, J.]',
-        'sonatas_piano_by_smith_j_selections|'
+        'sonatas_piano_by_smith_j!Sonatas, piano [by Smith, J.]',
+        'sonatas_piano_by_smith_j_selections!'
         'Sonatas, piano [by Smith, J.] (Selections)',
-        'sonatas_piano_by_smith_j_selections_op_31|'
+        'sonatas_piano_by_smith_j_selections_op_31!'
         'Sonatas, piano [by Smith, J.] (Selections) > Op. 31'
       ]}),
 
@@ -4183,10 +4183,10 @@ def test_shortenname(marcfield, expected, make_name_structs):
         {'a': 'Smith, Joe',
          'p': [{'d': 'Sonatas, piano [by Smith, J.]',
                 's': ' > ',
-                'v': 'sonatas_piano_by_smith_j|'
+                'v': 'sonatas_piano_by_smith_j!'
                      'Sonatas, piano [by Smith, J.]'},
                {'d': 'Op. 31 (Selections)',
-                'v': 'sonatas_piano_by_smith_j_op_31_selections|'
+                'v': 'sonatas_piano_by_smith_j_op_31_selections!'
                      'Sonatas, piano [by Smith, J.] > Op. 31 (Selections)'},
                 ]},
       ],
@@ -4194,11 +4194,11 @@ def test_shortenname(marcfield, expected, make_name_structs):
         'Sonatas, piano [by Smith, J.] > Op. 31 (Selections)'
       ],
       'title_series_facet': [
-        'sonatas_piano_by_smith_j|'
+        'sonatas_piano_by_smith_j!'
         'Sonatas, piano [by Smith, J.]',
-        'sonatas_piano_by_smith_j_op_31|'
+        'sonatas_piano_by_smith_j_op_31!'
         'Sonatas, piano [by Smith, J.] > Op. 31',
-        'sonatas_piano_by_smith_j_op_31_selections|'
+        'sonatas_piano_by_smith_j_op_31_selections!'
         'Sonatas, piano [by Smith, J.] > Op. 31 (Selections)',
       ]}),
 
@@ -4210,14 +4210,14 @@ def test_shortenname(marcfield, expected, make_name_structs):
      {'included_work_titles_json': [
         {'a': 'United States Congress',
          'p': [{'d': 'Laws, etc. [United States Congress]',
-                'v': 'laws_etc_united_states_congress|'
+                'v': 'laws_etc_united_states_congress!'
                      'Laws, etc. [United States Congress]'}]},
       ],
       'included_work_titles_search': [
         'Laws, etc. [United States Congress]',
       ],
       'title_series_facet': [
-        'laws_etc_united_states_congress|Laws, etc. [United States Congress]'
+        'laws_etc_united_states_congress!Laws, etc. [United States Congress]'
       ]}),
 
     # 710: Coll title (jurisdiction), with parts.
@@ -4230,14 +4230,14 @@ def test_shortenname(marcfield, expected, make_name_structs):
         {'a': 'France',
          'p': [{'d': 'Treaties, etc. [France]',
                 's': ' > ',
-                'v': 'treaties_etc_france|Treaties, etc. [France]'},
+                'v': 'treaties_etc_france!Treaties, etc. [France]'},
                {'d': 'Poland, 1948 Mar. 2',
                 's': ' > ',
-                'v': 'treaties_etc_france_poland_1948_mar_2|'
+                'v': 'treaties_etc_france_poland_1948_mar_2!'
                      'Treaties, etc. [France] > Poland, 1948 Mar. 2'},
                {'d': 'Protocols, etc., 1951 Mar. 6',
                 'v': 'treaties_etc_france_poland_1948_mar_2_protocols_etc_1951_'
-                     'mar_6|Treaties, etc. [France] > Poland, 1948 Mar. 2 > '
+                     'mar_6!Treaties, etc. [France] > Poland, 1948 Mar. 2 > '
                      'Protocols, etc., 1951 Mar. 6'}
                 ]},
       ],
@@ -4246,10 +4246,10 @@ def test_shortenname(marcfield, expected, make_name_structs):
         'Protocols, etc., 1951 Mar. 6',
       ],
       'title_series_facet': [
-        'treaties_etc_france|Treaties, etc. [France]',
-        'treaties_etc_france_poland_1948_mar_2|'
+        'treaties_etc_france!Treaties, etc. [France]',
+        'treaties_etc_france_poland_1948_mar_2!'
         'Treaties, etc. [France] > Poland, 1948 Mar. 2',
-        'treaties_etc_france_poland_1948_mar_2_protocols_etc_1951_mar_6|'
+        'treaties_etc_france_poland_1948_mar_2_protocols_etc_1951_mar_6!'
         'Treaties, etc. [France] > Poland, 1948 Mar. 2 > '
         'Protocols, etc., 1951 Mar. 6'
       ]}),
@@ -4259,14 +4259,14 @@ def test_shortenname(marcfield, expected, make_name_structs):
     ([('730', ['a', 'Poems.'], '02')],
      {'included_work_titles_json': [
         {'p': [{'d': 'Poems (Complete)',
-                'v': 'poems_complete|Poems (Complete)'},
+                'v': 'poems_complete!Poems (Complete)'},
                ]},
       ],
       'included_work_titles_search': [
         'Poems (Complete)',
       ],
       'title_series_facet': [
-        'poems_complete|Poems (Complete)'
+        'poems_complete!Poems (Complete)'
       ]}),
 
 
@@ -4288,11 +4288,11 @@ def test_shortenname(marcfield, expected, make_name_structs):
       'included_work_titles_json': [
         {'a': 'Smith, Joe',
          'p': [{'d': 'Poetry!: an anthology of collected poems [by Smith, J.]',
-                'v': 'poetry_an_anthology_of_collected_poems|'
+                'v': 'poetry_an_anthology_of_collected_poems!'
                      'Poetry!: an anthology of collected poems'}]},
         {'a': 'Smith, Joe',
          'p': [{'d': 'Poems [of Smith, J.] (Complete)',
-                'v': 'poems_of_smith_j_complete|'
+                'v': 'poems_of_smith_j_complete!'
                      'Poems [of Smith, J.] (Complete)'}]},
       ],
       'included_work_titles_search': [
@@ -4300,9 +4300,9 @@ def test_shortenname(marcfield, expected, make_name_structs):
         'Poems [of Smith, J.] (Complete)'
       ],
       'title_series_facet': [
-        'poetry_an_anthology_of_collected_poems|'
+        'poetry_an_anthology_of_collected_poems!'
         'Poetry!: an anthology of collected poems',
-        'poems_of_smith_j_complete|Poems [of Smith, J.] (Complete)',
+        'poems_of_smith_j_complete!Poems [of Smith, J.] (Complete)',
       ]}),
 
     # 100/240/245: 240 is Coll Title/Selections.
@@ -4319,11 +4319,11 @@ def test_shortenname(marcfield, expected, make_name_structs):
       'included_work_titles_json': [
         {'a': 'Smith, Joe',
          'p': [{'d': 'Poetry!: an anthology of selected poems [by Smith, J.]',
-                'v': 'poetry_an_anthology_of_selected_poems|'
+                'v': 'poetry_an_anthology_of_selected_poems!'
                      'Poetry!: an anthology of selected poems'}]},
         {'a': 'Smith, Joe',
          'p': [{'d': 'Poems [of Smith, J.] (Selections)',
-                'v': 'poems_of_smith_j_selections|'
+                'v': 'poems_of_smith_j_selections!'
                      'Poems [of Smith, J.] (Selections)'}]},
       ],
       'included_work_titles_search': [
@@ -4331,9 +4331,9 @@ def test_shortenname(marcfield, expected, make_name_structs):
         'Poems [of Smith, J.] (Selections)'
       ],
       'title_series_facet': [
-        'poetry_an_anthology_of_selected_poems|'
+        'poetry_an_anthology_of_selected_poems!'
         'Poetry!: an anthology of selected poems',
-        'poems_of_smith_j_selections|Poems [of Smith, J.] (Selections)',
+        'poems_of_smith_j_selections!Poems [of Smith, J.] (Selections)',
       ]}),
 
     # 100/240/245: 240 is Music Form w/parts.
@@ -4353,17 +4353,17 @@ def test_shortenname(marcfield, expected, make_name_structs):
         {'a': 'Smith, Joe',
          'p': [{'d': 'Sonatas, piano [by Smith, J.]',
                 's': ' > ',
-                'v': 'sonatas_piano_by_smith_j|Sonatas, piano [by Smith, J.]'},
+                'v': 'sonatas_piano_by_smith_j!Sonatas, piano [by Smith, J.]'},
                {'d': 'Op. 32, C major',
-                'v': 'sonatas_piano_by_smith_j_op_32_c_major|'
+                'v': 'sonatas_piano_by_smith_j_op_32_c_major!'
                      'Sonatas, piano [by Smith, J.] > Op. 32, C major'},]},
       ],
       'included_work_titles_search': [
         'Sonatas, piano [by Smith, J.] > Op. 32, C major',
       ],
       'title_series_facet': [
-        'sonatas_piano_by_smith_j|Sonatas, piano [by Smith, J.]',
-        'sonatas_piano_by_smith_j_op_32_c_major|'
+        'sonatas_piano_by_smith_j!Sonatas, piano [by Smith, J.]',
+        'sonatas_piano_by_smith_j_op_32_c_major!'
         'Sonatas, piano [by Smith, J.] > Op. 32, C major'
       ]}),
 
@@ -4383,18 +4383,18 @@ def test_shortenname(marcfield, expected, make_name_structs):
       'included_work_titles_json': [
         {'a': 'Smith, Joe',
          'p': [{'d': 'Specific Preferred Title [by Smith, J.]',
-                'v': 'specific_preferred_title|Specific Preferred Title'}]},
+                'v': 'specific_preferred_title!Specific Preferred Title'}]},
         {'a': 'Smith, Joe',
          'p': [{'d': 'Second work [by Smith, J.]',
-                'v': 'second_work|Second work'}]}
+                'v': 'second_work!Second work'}]}
       ],
       'included_work_titles_search': [
         'Specific Preferred Title',
         'Second work',
       ],
       'title_series_facet': [
-        'specific_preferred_title|Specific Preferred Title',
-        'second_work|Second work'
+        'specific_preferred_title!Specific Preferred Title',
+        'second_work!Second work'
       ]}),
 
     # 100/240/245: 245 has multiple titles, 240 is basic Coll Title.
@@ -4412,13 +4412,13 @@ def test_shortenname(marcfield, expected, make_name_structs):
       'included_work_titles_json': [
         {'a': 'Smith, Joe',
          'p': [{'d': 'First poem [by Smith, J.]',
-                'v': 'first_poem|First poem'}]},
+                'v': 'first_poem!First poem'}]},
         {'a': 'Smith, Joe',
          'p': [{'d': 'Second poem [by Smith, J.]',
-                'v': 'second_poem|Second poem'}]},
+                'v': 'second_poem!Second poem'}]},
         {'a': 'Smith, Joe',
          'p': [{'d': 'Poems [of Smith, J.] (Selections)',
-                'v': 'poems_of_smith_j_selections|'
+                'v': 'poems_of_smith_j_selections!'
                      'Poems [of Smith, J.] (Selections)'}]},
       ],
       'included_work_titles_search': [
@@ -4427,9 +4427,9 @@ def test_shortenname(marcfield, expected, make_name_structs):
         'Poems [of Smith, J.] (Selections)'
       ],
       'title_series_facet': [
-        'first_poem|First poem',
-        'second_poem|Second poem',
-        'poems_of_smith_j_selections|Poems [of Smith, J.] (Selections)',
+        'first_poem!First poem',
+        'second_poem!Second poem',
+        'poems_of_smith_j_selections!Poems [of Smith, J.] (Selections)',
       ]}),
 
     # 100/245/700 (IW): 2-title 245 w/700 covering 2nd.
@@ -4449,18 +4449,18 @@ def test_shortenname(marcfield, expected, make_name_structs):
       'included_work_titles_json': [
         {'a': 'Smith, Joe',
          'p': [{'d': 'First work tt [by Smith, J.]',
-                'v': 'first_work_tt|First work tt'}]},
+                'v': 'first_work_tt!First work tt'}]},
         {'a': 'Copeland, Edward',
          'p': [{'d': 'Second work [by Copeland, E.]',
-                'v': 'second_work|Second work'}]}
+                'v': 'second_work!Second work'}]}
       ],
       'included_work_titles_search': [
         'First work tt',
         'Second work'
       ],
       'title_series_facet': [
-        'first_work_tt|First work tt',
-        'second_work|Second work'
+        'first_work_tt!First work tt',
+        'second_work!Second work'
       ]}),
 
     # 100/245/700 (IW): 2-title 245 w/700s covering both.
@@ -4481,18 +4481,18 @@ def test_shortenname(marcfield, expected, make_name_structs):
       'included_work_titles_json': [
         {'a': 'Smith, Joe',
          'p': [{'d': 'First work [by Smith, J.]',
-                'v': 'first_work|First work'}]},
+                'v': 'first_work!First work'}]},
         {'a': 'Copeland, Edward',
          'p': [{'d': 'Second work [by Copeland, E.]',
-                'v': 'second_work|Second work'}]}
+                'v': 'second_work!Second work'}]}
       ],
       'included_work_titles_search': [
         'First work',
         'Second work'
       ],
       'title_series_facet': [
-        'first_work|First work',
-        'second_work|Second work'
+        'first_work!First work',
+        'second_work!Second work'
       ]}),
 
     # 100/245/700 (IW): 2-title 245 w/700 covering 2nd author only.
@@ -4513,18 +4513,18 @@ def test_shortenname(marcfield, expected, make_name_structs):
       'included_work_titles_json': [
         {'a': 'Smith, Joe',
          'p': [{'d': 'First work [by Smith, J.]',
-                'v': 'first_work|First work'}]},
+                'v': 'first_work!First work'}]},
         {'a': 'Copeland, Edward',
          'p': [{'d': 'Second work [by Copeland, E.]',
-                'v': 'second_work|Second work'}]}
+                'v': 'second_work!Second work'}]}
       ],
       'included_work_titles_search': [
         'First work',
         'Second work'
       ],
       'title_series_facet': [
-        'first_work|First work',
-        'second_work|Second work'
+        'first_work!First work',
+        'second_work!Second work'
       ]}),
 
     # 100/245/700: 2-title 245 w/700 RWs
@@ -4543,10 +4543,10 @@ def test_shortenname(marcfield, expected, make_name_structs):
       'included_work_titles_json': [
         {'a': 'Smith, Joe',
          'p': [{'d': 'First work [by Smith, J.]',
-                'v': 'first_work|First work'}]},
+                'v': 'first_work!First work'}]},
         {'a': 'Copeland, Edward',
          'p': [{'d': 'Second work [by Copeland, E.]',
-                'v': 'second_work|Second work'}]}
+                'v': 'second_work!Second work'}]}
       ],
       'included_work_titles_search': [
         'First work',
@@ -4555,7 +4555,7 @@ def test_shortenname(marcfield, expected, make_name_structs):
       'related_work_titles_json': [
         {'a': 'Copeland, Edward',
          'p': [{'d': 'Related work [by Copeland, E.]',
-                'v': 'related_work|Related work'}]},
+                'v': 'related_work!Related work'}]},
       ],
       'included_work_titles_search': [
         'First work',
@@ -4565,9 +4565,9 @@ def test_shortenname(marcfield, expected, make_name_structs):
         'Related work',
       ],
       'title_series_facet': [
-        'first_work|First work',
-        'second_work|Second work',
-        'related_work|Related work'
+        'first_work!First work',
+        'second_work!Second work',
+        'related_work!Related work'
       ]}),
 
 
@@ -4586,18 +4586,18 @@ def test_shortenname(marcfield, expected, make_name_structs):
       'included_work_titles_json': [
         {'a': 'Smith, Joe',
          'p': [{'d': 'First work [by Smith, J.]',
-                'v': 'first_work|First work'}]},
+                'v': 'first_work!First work'}]},
         {'a': 'Smith, Joe',
          'p': [{'d': 'Second work [by Smith, J.]',
-                'v': 'second_work|Second work'}]}
+                'v': 'second_work!Second work'}]}
       ],
       'included_work_titles_search': [
         'First work',
         'Second work'
       ],
       'title_series_facet': [
-        'first_work|First work',
-        'second_work|Second work'
+        'first_work!First work',
+        'second_work!Second work'
       ]}),
 
     # 100/245: 2-title 245, 245 ind1 is 0.
@@ -4628,18 +4628,18 @@ def test_shortenname(marcfield, expected, make_name_structs):
       'included_work_titles_json': [
         {'a': 'Smith, Joe',
          'p': [{'d': 'First work [by Smith, J.]',
-                'v': 'first_work|First work'}]},
+                'v': 'first_work!First work'}]},
         {'a': 'Smith, Joe',
          'p': [{'d': 'Second work [by Smith, J.]',
-                'v': 'second_work|Second work'}]}
+                'v': 'second_work!Second work'}]}
       ],
       'included_work_titles_search': [
         'First work',
         'Second work'
       ],
       'title_series_facet': [
-        'first_work|First work',
-        'second_work|Second work'
+        'first_work!First work',
+        'second_work!Second work'
       ]}),
 
     # 700/740: Duplicate 740s
@@ -4649,13 +4649,13 @@ def test_shortenname(marcfield, expected, make_name_structs):
      {'included_work_titles_json': [
         {'a': 'Smith, Joe',
          'p': [{'d': 'First work [by Smith, J.]',
-                'v': 'first_work|First work'}]},
+                'v': 'first_work!First work'}]},
       ],
       'included_work_titles_search': [
         'First work',
       ],
       'title_series_facet': [
-        'first_work|First work',
+        'first_work!First work',
       ]}),
 
     # 700/740: Not-duplicate 740s
@@ -4665,17 +4665,17 @@ def test_shortenname(marcfield, expected, make_name_structs):
      {'included_work_titles_json': [
         {'a': 'Smith, Joe',
          'p': [{'d': 'First work [by Smith, J.]',
-                'v': 'first_work|First work'}]},
+                'v': 'first_work!First work'}]},
         {'p': [{'d': 'Second work',
-                'v': 'second_work|Second work'}]},
+                'v': 'second_work!Second work'}]},
       ],
       'included_work_titles_search': [
         'First work',
         'Second work',
       ],
       'title_series_facet': [
-        'first_work|First work',
-        'second_work|Second work',
+        'first_work!First work',
+        'second_work!Second work',
       ]}),
 
     # Series titles
@@ -4688,10 +4688,10 @@ def test_shortenname(marcfield, expected, make_name_structs):
      {'related_series_titles_json': [
         {'a': 'Smith, Joe',
          'p': [{'d': 'Some series [by Smith, J.]',
-                'v': 'some_series|Some series'}]},
+                'v': 'some_series!Some series'}]},
         {'a': 'Copeland, Edward',
          'p': [{'d': 'Piano music [of Copeland, E.] (Complete)',
-                'v': 'piano_music_of_copeland_e_complete|'
+                'v': 'piano_music_of_copeland_e_complete!'
                      'Piano music [of Copeland, E.] (Complete)'}]},
       ],
       'related_series_titles_search': [
@@ -4699,8 +4699,8 @@ def test_shortenname(marcfield, expected, make_name_structs):
         'Piano music [of Copeland, E.] (Complete)',
       ],
       'title_series_facet': [
-        'some_series|Some series',
-        'piano_music_of_copeland_e_complete|'
+        'some_series!Some series',
+        'piano_music_of_copeland_e_complete!'
         'Piano music [of Copeland, E.] (Complete)',
       ]}),
 
@@ -4713,10 +4713,10 @@ def test_shortenname(marcfield, expected, make_name_structs):
      {'related_series_titles_json': [
         {'a': 'United States Congress > House',
          'p': [{'d': 'Some series [United States Congress, House]',
-                'v': 'some_series|Some series'}]},
+                'v': 'some_series!Some series'}]},
         {'a': 'Led Zeppelin',
          'p': [{'d': 'Piano music [Led Zeppelin] (Complete)',
-                'v': 'piano_music_led_zeppelin_complete|'
+                'v': 'piano_music_led_zeppelin_complete!'
                      'Piano music [Led Zeppelin] (Complete)'}]},
       ],
       'related_series_titles_search': [
@@ -4724,8 +4724,8 @@ def test_shortenname(marcfield, expected, make_name_structs):
         'Piano music [Led Zeppelin] (Complete)',
       ],
       'title_series_facet': [
-        'some_series|Some series',
-        'piano_music_led_zeppelin_complete|'
+        'some_series!Some series',
+        'piano_music_led_zeppelin_complete!'
         'Piano music [Led Zeppelin] (Complete)',
       ]}),
 
@@ -4739,10 +4739,10 @@ def test_shortenname(marcfield, expected, make_name_structs):
      {'related_series_titles_json': [
         {'a': 'Some conference (3rd : 1983)',
          'p': [{'d': 'Some series [Some conference]',
-                'v': 'some_series|Some series'}]},
+                'v': 'some_series!Some series'}]},
         {'a': 'Some event, Orchestra',
          'p': [{'d': 'Incidental music [Some event, Orchestra] (Complete)',
-                'v': 'incidental_music_some_event_orchestra_complete|'
+                'v': 'incidental_music_some_event_orchestra_complete!'
                      'Incidental music [Some event, Orchestra] (Complete)'}]},
       ],
       'related_series_titles_search': [
@@ -4750,8 +4750,8 @@ def test_shortenname(marcfield, expected, make_name_structs):
         'Incidental music [Some event, Orchestra] (Complete)',
       ],
       'title_series_facet': [
-        'some_series|Some series',
-        'incidental_music_some_event_orchestra_complete|'
+        'some_series!Some series',
+        'incidental_music_some_event_orchestra_complete!'
         'Incidental music [Some event, Orchestra] (Complete)',
       ]}),
 
@@ -4762,17 +4762,17 @@ def test_shortenname(marcfield, expected, make_name_structs):
       ('830', ['a', 'Piano music.'], ' 0') ],
      {'related_series_titles_json': [
         {'p': [{'d': 'Some series',
-                'v': 'some_series|Some series'}]},
+                'v': 'some_series!Some series'}]},
         {'p': [{'d': 'Piano music (Complete)',
-                'v': 'piano_music_complete|Piano music (Complete)'}]},
+                'v': 'piano_music_complete!Piano music (Complete)'}]},
       ],
       'related_series_titles_search': [
         'Some series',
         'Piano music (Complete)',
       ],
       'title_series_facet': [
-        'some_series|Some series',
-        'piano_music_complete|Piano music (Complete)',
+        'some_series!Some series',
+        'piano_music_complete!Piano music (Complete)',
       ]}),
 
     # 490 (untraced): Untraced 490 => Series titles
@@ -4803,10 +4803,10 @@ def test_shortenname(marcfield, expected, make_name_structs):
      {'related_series_titles_json': [
         {'a': 'Smith, Joe',
          'p': [{'d': 'Some series [by Smith, J.]',
-                'v': 'some_series|Some series'}]},
+                'v': 'some_series!Some series'}]},
         {'a': 'Copeland, Edward',
          'p': [{'d': 'Piano music [of Copeland, E.] (Complete)',
-                'v': 'piano_music_of_copeland_e_complete|'
+                'v': 'piano_music_of_copeland_e_complete!'
                      'Piano music [of Copeland, E.] (Complete)'}]},
       ],
       'related_series_titles_search': [
@@ -4814,8 +4814,8 @@ def test_shortenname(marcfield, expected, make_name_structs):
         'Piano music [of Copeland, E.] (Complete)',
       ],
       'title_series_facet': [
-        'some_series|Some series',
-        'piano_music_of_copeland_e_complete|'
+        'some_series!Some series',
+        'piano_music_of_copeland_e_complete!'
         'Piano music [of Copeland, E.] (Complete)',
       ]}),
 
@@ -4829,13 +4829,13 @@ def test_shortenname(marcfield, expected, make_name_structs):
      {'included_work_titles_json': [
         {'a': 'Smith, Joe',
          'p': [{'d': 'First work [by Smith, J.]',
-                'v': 'first_work|First work'}]},
+                'v': 'first_work!First work'}]},
       ],
       'included_work_titles_search': [
         'First work',
       ],
       'title_series_facet': [
-        'first_work|First work',
+        'first_work!First work',
       ]}),
 
     # 700 (IW): not "Container of" in $i
@@ -4846,13 +4846,13 @@ def test_shortenname(marcfield, expected, make_name_structs):
         {'a': 'Smith, Joe',
          'b': 'Based on:',
          'p': [{'d': 'First work [by Smith, J.]',
-                'v': 'first_work|First work'}]},
+                'v': 'first_work!First work'}]},
       ],
       'included_work_titles_search': [
         'First work',
       ],
       'title_series_facet': [
-        'first_work|First work',
+        'first_work!First work',
       ]}),
 
     # 830: $3 materials specified
@@ -4860,13 +4860,13 @@ def test_shortenname(marcfield, expected, make_name_structs):
      {'related_series_titles_json': [
         {'b': '(1992-93)',
          'p': [{'d': 'Some series',
-                'v': 'some_series|Some series'}]},
+                'v': 'some_series!Some series'}]},
       ],
       'related_series_titles_search': [
         'Some series',
       ],
       'title_series_facet': [
-        'some_series|Some series',
+        'some_series!Some series',
       ]}),
 
     # 830: $3 materials specified and $i
@@ -4874,13 +4874,13 @@ def test_shortenname(marcfield, expected, make_name_structs):
      {'related_series_titles_json': [
         {'b': '(1992-93) Based on:',
          'p': [{'d': 'Some series',
-                'v': 'some_series|Some series'}]},
+                'v': 'some_series!Some series'}]},
       ],
       'related_series_titles_search': [
         'Some series',
       ],
       'title_series_facet': [
-        'some_series|Some series',
+        'some_series!Some series',
       ]}),
 
     # Preferred titles and expression/version info
@@ -4891,17 +4891,17 @@ def test_shortenname(marcfield, expected, make_name_structs):
      {'included_work_titles_json': [
         {'p': [{'d': 'Work title',
                 's': ' > ',
-                'v': 'work_title|Work title'},
+                'v': 'work_title!Work title'},
                {'d': 'First part',
                 's': ' > ',
-                'v': 'work_title_first_part|Work title > First part'},
+                'v': 'work_title_first_part!Work title > First part'},
                {'d': 'Second part',
                 's': ' | ',
-                'v': 'work_title_first_part_second_part|'
+                'v': 'work_title_first_part_second_part!'
                      'Work title > First part > Second part'},
                {'d': 'English, Some version, 1994',
                 'v': 'work_title_first_part_second_part_english_some_version_'
-                     '1994|'
+                     '1994!'
                      'Work title > First part > Second part | '
                      'English, Some version, 1994'}]},
       ],
@@ -4909,11 +4909,11 @@ def test_shortenname(marcfield, expected, make_name_structs):
         'Work title > First part > Second part | English, Some version, 1994',
       ],
       'title_series_facet': [
-        'work_title|Work title',
-        'work_title_first_part|Work title > First part',
-        'work_title_first_part_second_part|'
+        'work_title!Work title',
+        'work_title_first_part!Work title > First part',
+        'work_title_first_part_second_part!'
         'Work title > First part > Second part',
-        'work_title_first_part_second_part_english_some_version_1994|'
+        'work_title_first_part_second_part_english_some_version_1994!'
         'Work title > First part > Second part | English, Some version, 1994'
       ]}),
 
@@ -4924,17 +4924,17 @@ def test_shortenname(marcfield, expected, make_name_structs):
      {'included_work_titles_json': [
         {'p': [{'d': 'Work title',
                 's': ' > ',
-                'v': 'work_title|Work title'},
+                'v': 'work_title!Work title'},
                {'d': 'First part',
                 's': ' > ',
-                'v': 'work_title_first_part|Work title > First part'},
+                'v': 'work_title_first_part!Work title > First part'},
                {'d': 'Second part',
                 's': ' | ',
-                'v': 'work_title_first_part_second_part|'
+                'v': 'work_title_first_part_second_part!'
                      'Work title > First part > Second part'},
                {'d': 'English, Some version, Selections, 1994',
                 'v': 'work_title_first_part_second_part_english_some_version_'
-                     'selections_1994|'
+                     'selections_1994!'
                      'Work title > First part > Second part | '
                      'English, Some version, Selections, 1994'}]},
       ],
@@ -4943,12 +4943,12 @@ def test_shortenname(marcfield, expected, make_name_structs):
         'Selections, 1994',
       ],
       'title_series_facet': [
-        'work_title|Work title',
-        'work_title_first_part|Work title > First part',
-        'work_title_first_part_second_part|'
+        'work_title!Work title',
+        'work_title_first_part!Work title > First part',
+        'work_title_first_part_second_part!'
         'Work title > First part > Second part',
         'work_title_first_part_second_part_english_some_version_selections_'
-        '1994|Work title > First part > Second part | English, Some version, '
+        '1994!Work title > First part > Second part | English, Some version, '
         'Selections, 1994'
       ]}),
 
@@ -4957,17 +4957,17 @@ def test_shortenname(marcfield, expected, make_name_structs):
      {'included_work_titles_json': [
         {'p': [{'d': 'Three little pigs',
                 's': ' | ',
-                'v': 'three_little_pigs|Three little pigs'},
+                'v': 'three_little_pigs!Three little pigs'},
                {'d': 'English & German',
-                'v': 'three_little_pigs_english_german|'
+                'v': 'three_little_pigs_english_german!'
                      'Three little pigs | English & German'}]},
       ],
       'included_work_titles_search': [
         'Three little pigs | English & German',
       ],
       'title_series_facet': [
-        'three_little_pigs|Three little pigs',
-        'three_little_pigs_english_german|Three little pigs | English & German',
+        'three_little_pigs!Three little pigs',
+        'three_little_pigs_english_german!Three little pigs | English & German',
       ]}),
 
     # 830: $v, volume info
@@ -4975,14 +4975,14 @@ def test_shortenname(marcfield, expected, make_name_structs):
      {'related_series_titles_json': [
         {'p': [{'d': 'Some series',
                 's': ' | ',
-                'v': 'some_series|Some series'},
+                'v': 'some_series!Some series'},
                {'d': 'v. 2'}]},
       ],
       'related_series_titles_search': [
         'Some series | v. 2',
       ],
       'title_series_facet': [
-        'some_series|Some series',
+        'some_series!Some series',
       ]}),
 
     # 830: $x, ISSN info
@@ -4990,14 +4990,14 @@ def test_shortenname(marcfield, expected, make_name_structs):
      {'related_series_titles_json': [
         {'p': [{'d': 'Some series',
                 's': ' | ',
-                'v': 'some_series|Some series'},
+                'v': 'some_series!Some series'},
                {'d': 'ISSN: 1234-5678'}]},
       ],
       'related_series_titles_search': [
         'Some series | ISSN: 1234-5678',
       ],
       'title_series_facet': [
-        'some_series|Some series',
+        'some_series!Some series',
       ]}),
 
     # 830: $v and $x, volume + ISSN info
@@ -5005,14 +5005,14 @@ def test_shortenname(marcfield, expected, make_name_structs):
      {'related_series_titles_json': [
         {'p': [{'d': 'Some series',
                 's': ' | ',
-                'v': 'some_series|Some series'},
+                'v': 'some_series!Some series'},
                {'d': 'v. 2, ISSN: 1234-5678'}]},
       ],
       'related_series_titles_search': [
         'Some series | v. 2, ISSN: 1234-5678',
       ],
       'title_series_facet': [
-        'some_series|Some series',
+        'some_series!Some series',
       ]}),
 
     # Main titles and truncation
