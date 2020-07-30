@@ -84,16 +84,16 @@
       <analyzer type="index">
         <tokenizer class="solr.KeywordTokenizerFactory"/>
         <filter class="solr.PatternReplaceFilterFactory" pattern="^(\d+\-?\d*)$" replacement="$1!$1"/>
-        <filter class="solr.PatternReplaceFilterFactory" pattern="9(?=.*\|)" replacement="a"/>
-        <filter class="solr.PatternReplaceFilterFactory" pattern="8(?=.*\|)" replacement="b"/>
-        <filter class="solr.PatternReplaceFilterFactory" pattern="7(?=.*\|)" replacement="c"/>
-        <filter class="solr.PatternReplaceFilterFactory" pattern="6(?=.*\|)" replacement="d"/>
-        <filter class="solr.PatternReplaceFilterFactory" pattern="5(?=.*\|)" replacement="e"/>
-        <filter class="solr.PatternReplaceFilterFactory" pattern="4(?=.*\|)" replacement="f"/>
-        <filter class="solr.PatternReplaceFilterFactory" pattern="3(?=.*\|)" replacement="g"/>
-        <filter class="solr.PatternReplaceFilterFactory" pattern="2(?=.*\|)" replacement="h"/>
-        <filter class="solr.PatternReplaceFilterFactory" pattern="1(?=.*\|)" replacement="i"/>
-        <filter class="solr.PatternReplaceFilterFactory" pattern="0(?=.*\|)" replacement="j"/>
+        <filter class="solr.PatternReplaceFilterFactory" pattern="9(?=.*!)" replacement="a"/>
+        <filter class="solr.PatternReplaceFilterFactory" pattern="8(?=.*!)" replacement="b"/>
+        <filter class="solr.PatternReplaceFilterFactory" pattern="7(?=.*!)" replacement="c"/>
+        <filter class="solr.PatternReplaceFilterFactory" pattern="6(?=.*!)" replacement="d"/>
+        <filter class="solr.PatternReplaceFilterFactory" pattern="5(?=.*!)" replacement="e"/>
+        <filter class="solr.PatternReplaceFilterFactory" pattern="4(?=.*!)" replacement="f"/>
+        <filter class="solr.PatternReplaceFilterFactory" pattern="3(?=.*!)" replacement="g"/>
+        <filter class="solr.PatternReplaceFilterFactory" pattern="2(?=.*!)" replacement="h"/>
+        <filter class="solr.PatternReplaceFilterFactory" pattern="1(?=.*!)" replacement="i"/>
+        <filter class="solr.PatternReplaceFilterFactory" pattern="0(?=.*!)" replacement="j"/>
       </analyzer>
     <analyzer type="query">
         <tokenizer class="solr.KeywordTokenizerFactory"/>
