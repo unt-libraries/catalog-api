@@ -546,6 +546,10 @@ def test_pullfromsubfields_with_pullfunc():
     (['3', 'case files', 'a', 'aperture cards', 'b', '9 x 19 cm.',
       'd', 'microfilm', 'f', '48x'], '. ', None,
       '(case files) aperture cards. 9 x 19 cm. microfilm. 48x'),
+    (['a', 'Register at https://libproxy.library.unt.edu/login?url=https://what'
+           'ever.com'], ' ', None,
+      'Register at https://libproxy.library.unt.edu/login?url=https://whatever.'
+      'com'),
 ])
 def test_genericdisplayfieldparser_parse(subfields, sep, sff, expected):
     """

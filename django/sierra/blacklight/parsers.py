@@ -260,7 +260,7 @@ def normalize_punctuation(data, periods_protected=False, repl_char='~',
         bracket_front_punct_removed = re.sub(r'([\[\{{\(])(\s*{}\s*)+'.format(punctuation_re), r'\1', data)
         bracket_end_punct_removed = re.sub(r'(\s*{}\s*)+([\]\}}\)])'.format(punctuation_re), r'\2', bracket_front_punct_removed)
         empty_brackets_removed = re.sub(r'(\[\s*\]|\(\s*\)|\{\s*\})', r'', bracket_end_punct_removed)
-        multiples_removed = re.sub(r'(\s?)(\s*{0})+\s*({0})'.format(punctuation_re), r'\1\3', empty_brackets_removed)
+        multiples_removed = re.sub(r'(\s?)(\s*{0})+\s*({0})(\s|$)'.format(punctuation_re), r'\1\3\4', empty_brackets_removed)
         periods_after_abbrevs_removed = re.sub(r'{}(\s*\.)(\s*[^.]|$)'.format(repl_char), r'{}\2'.format(repl_char), multiples_removed)
         front_punct_removed = re.sub(r'^(\s*{}\s*)+'.format(punctuation_re), r'', periods_after_abbrevs_removed)
         return front_punct_removed
@@ -272,11 +272,11 @@ def normalize_punctuation(data, periods_protected=False, repl_char='~',
     return compress_punctuation(normalized, left_space_re=r'\.(?!\.\.)|,')
 
 
-def strip_ends(data, periods_protected=False,
+def strip_ends(data, periods_protected=False, end='both',
                end_punctuation_re=settings.MARCDATA.ENDING_PUNCTUATION_REGEX):
     """
-    Strip unnecessary punctuation/whitespace from both ends of the
-    input string (`data`). Retains periods if they belong to an
+    Strip unnecessary punctuation/whitespace from either or both ends
+    of the input string (`data`). Retains periods if they belong to an
     abbreviation.
 
     You'll want periods to be protected (via `protect_periods_and_do`)
@@ -285,9 +285,16 @@ def strip_ends(data, periods_protected=False,
     a call to this function within a `do` function, in which case it
     it will run after periods have already been protected. Set
     `periods_protected` to True when used in this context.
+
+    Use kwarg `end` to specify if you only want to strip from the left
+    or right side. Default is `both`.
     """
     def strip_punctuation(data):
-        return re.sub(r'^({0}|\s)*(.+?)({0}|\s)*$'.format(end_punctuation_re), r'\2', data)
+        if end in ('both', 'left'):
+            data = re.sub(r'^({0}|\s)*(.+?)'.format(end_punctuation_re), r'\2', data)
+        if end in ('both', 'right'):
+            data = re.sub(r'(.+?)({0}|\s)*$'.format(end_punctuation_re), r'\1', data)
+        return data
 
     if periods_protected:
         return strip_punctuation(data)

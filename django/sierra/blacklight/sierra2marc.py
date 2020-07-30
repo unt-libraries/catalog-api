@@ -1032,6 +1032,7 @@ class GenericDisplayFieldParser(SequentialMarcFieldParser):
         self.sf_filter = sf_filter
         self.value_stack = []
         self.materials_specified_stack = []
+        self.sep_is_not_space = bool(re.search(r'\S', separator))
 
     def handle_other_subfields(self, val):
         if len(self.materials_specified_stack):
@@ -1047,11 +1048,19 @@ class GenericDisplayFieldParser(SequentialMarcFieldParser):
             self.handle_other_subfields(val)
 
     def compile_results(self):
-        result = self.separator.join(self.value_stack)
+        value_stack = []
+        for i, val in enumerate(self.value_stack):
+            val = val.strip(self.separator)
+            is_last = i == len(self.value_stack) - 1
+            if self.sep_is_not_space and not is_last:
+                val = p.strip_ends(val, end='right')
+            value_stack.append(val)
+        result = self.separator.join(value_stack)
+
         if len(self.materials_specified_stack):
             ms_str = format_materials_specified(self.materials_specified_stack)
             result = ' '.join((result, ms_str))
-        return p.normalize_punctuation(result)
+        return result
 
 
 class PerformanceMedParser(SequentialMarcFieldParser):

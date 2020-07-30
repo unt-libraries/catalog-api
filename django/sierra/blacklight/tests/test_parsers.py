@@ -91,7 +91,8 @@ def test_compress_punctuation(data, expected):
     ('ed. : test', 'ed. : test'),
     ('ed. . test', 'ed. test'),
     ('ed.. test', 'ed. test'),
-    ('ed. ... test', 'ed. ... test')
+    ('ed. ... test', 'ed. ... test'),
+    ('https://example.com', 'https://example.com')
 ])
 def test_normalize_punctuation_periods_need_protection(data, expected):
     """
@@ -303,6 +304,18 @@ def test_strip_ends_periods_do_not_need_protection(data, expected):
     True
     """
     assert parsers.strip_ends(data, True) == expected
+
+
+@pytest.mark.parametrize('data, end, expected', [
+    (' . . . test . /; ', 'left', 'test . /; '),
+    (' . . . test . /; ', 'right', ' . . . test'),
+])
+def test_strip_ends_left_or_right(data, end, expected):
+    """
+    `strip_ends` should correctly strip whitespace and puncutation from
+    one end or the other based on the value of `end`.
+    """
+    assert parsers.strip_ends(data, end=end) == expected
 
 
 @pytest.mark.parametrize('data, strip_mismatched, expected', [
