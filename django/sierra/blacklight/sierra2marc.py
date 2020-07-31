@@ -574,8 +574,10 @@ class TranscribedTitleParser(SequentialMarcFieldParser):
                 prev_punct = prev_punct or ','
         return '{}{} {}'.format(last_part, prev_punct, part)
 
-    def push_title_part(self, part, prev_punct):
-        part_type = self.analyzer.what_type_is_this_part(prev_punct, self.flags)
+    def push_title_part(self, part, prev_punct, part_type=None):
+        if part_type is None:
+            part_type = self.analyzer.what_type_is_this_part(prev_punct,
+                                                             self.flags)
         part = p.restore_periods(part)
         if self.flags['is_245b'] and re.match('and [A-Z]', part):
             part = part.lstrip('and ')
@@ -643,9 +645,7 @@ class TranscribedTitleParser(SequentialMarcFieldParser):
         while tstring:
             if do_sor_next:
                 sor, end_punct, tstring = self.split_sor_from_tstring(tstring)
-                self.responsibility = p.restore_periods(sor)
-                if self.field.tag != '490':
-                    self.start_next_title()
+                self.push_title_part(sor, self.prev_punct, 'responsibility')
                 self.prev_punct = end_punct
             if tstring:
                 title_part, tstring = self.split_title_and_sor(tstring)
@@ -682,6 +682,16 @@ class TranscribedTitleParser(SequentialMarcFieldParser):
         self.flags = self.get_flags(tag, val)
         if self.flags['is_valid']:
             prot = p.protect_periods(val)
+
+            isbd = r''.join(self.analyzer.isbd_punct_mapping.keys())
+            switchp = r'"\'~\.,;:\/)\]\}}'
+            is_245bc = self.flags['is_245b'] or self.flags['is_subfield_c']
+            if is_245bc or self.field.tag == '490':
+                p_switch_re = r'([{}])(\s*[{}]+)(\s|$)'.format(isbd, switchp)
+            else:
+                p_switch_re = r'([{}])(\s*[{}]+)($)'.format(isbd, switchp)
+            prot = re.sub(p_switch_re, r'\2\1\3', prot)
+
             part, end_punct = self.analyzer.pop_isbd_punct_from_title_part(prot)
             if self.flags['is_materials_specified']:
                 self.materials_specified.append(p.restore_periods(part))

@@ -2670,6 +2670,13 @@ def test_blasmpipeline_getcontributorinfo(marcfields, expected,
          'responsibility': 'by Joe'}],
       'parallel': []}),
 
+    ('245', ['a', 'Quotation marks /', 'c', 'by "Joe."'],
+     {'nonfiling_chars': 0,
+      'transcribed': [
+        {'parts': ['Quotation marks'],
+         'responsibility': 'by "Joe"'}],
+      'parallel': []}),
+
     # Now test cases on more standard data.
 
     ('245', ['a', 'Title :', 'b', 'with subtitle.'],
@@ -3713,6 +3720,40 @@ def test_shortenname(marcfield, expected, make_name_structs):
       ],
       'title_series_facet': [
         'some_series!Some series',
+      ]}),
+
+    # 245 with " char following ISBD period; " char should be kept
+    ([('245', ['a', 'Las Cantigas de Santa Maria /',
+               'c', 'Alfonso X, "el Sabio."'], '1 ')],
+     {'title_display': 'Las Cantigas de Santa Maria',
+      'main_title_search': ['Las Cantigas de Santa Maria'],
+      'title_sort': 'las_cantigas_de_santa_maria',
+      'responsibility_display': 'Alfonso X, "el Sabio"',
+      'responsibility_search': ['Alfonso X, "el Sabio"'],
+      'included_work_titles_json': [{
+        'p': [{'d': 'Las Cantigas de Santa Maria', 
+               'v': 'las_cantigas_de_santa_maria!Las Cantigas de Santa Maria'}]
+      }],
+      'included_work_titles_search': ['Las Cantigas de Santa Maria'],
+      'title_series_facet': [
+        'las_cantigas_de_santa_maria!Las Cantigas de Santa Maria'
+      ]}),
+
+    # 245 with punct following last ISBD period
+    ([('245', ['a', 'Las Cantigas de Santa Maria /',
+               'c', 'Alfonso X, el Sabio. ,...'], '1 ')],
+     {'title_display': 'Las Cantigas de Santa Maria',
+      'main_title_search': ['Las Cantigas de Santa Maria'],
+      'title_sort': 'las_cantigas_de_santa_maria',
+      'responsibility_display': 'Alfonso X, el Sabio,...',
+      'responsibility_search': ['Alfonso X, el Sabio,...'],
+      'included_work_titles_json': [{
+        'p': [{'d': 'Las Cantigas de Santa Maria', 
+               'v': 'las_cantigas_de_santa_maria!Las Cantigas de Santa Maria'}]
+      }],
+      'included_work_titles_search': ['Las Cantigas de Santa Maria'],
+      'title_series_facet': [
+        'las_cantigas_de_santa_maria!Las Cantigas de Santa Maria'
       ]}),
 
     # Basic configurations of MARC Fields => title fields, Included vs
@@ -5366,6 +5407,8 @@ def test_shortenname(marcfield, expected, make_name_structs):
     '700 field with no $t => empty title info',
     '130 but NO 245',
     '830 with $5: control fields should be supressed',
+    '245 with " char following ISBD period; " char should be kept',
+    '245 with punct following last ISBD period',
 
     # Basic configurations of MARC Fields => title fields
     '130/245: No author.',
