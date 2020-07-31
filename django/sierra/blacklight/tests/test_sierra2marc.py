@@ -3702,6 +3702,19 @@ def test_shortenname(marcfield, expected, make_name_structs):
         'duets_violin_viola_op_10_no_3!Duets, violin, viola > Op. 10 > No. 3'
       ]}),
 
+    # 830 with $5: control fields should be supressed
+    ([('830', ['a', 'Some series.', '5', 'TxDN'], ' 0')],
+     {'related_series_titles_json': [
+        {'p': [{'d': 'Some series',
+                'v': 'some_series!Some series'}]},
+      ],
+      'related_series_titles_search': [
+        'Some series',
+      ],
+      'title_series_facet': [
+        'some_series!Some series',
+      ]}),
+
     # Basic configurations of MARC Fields => title fields, Included vs
     # Related works, and how single author vs multiple
     # authors/contributors affects display of short authors.
@@ -5304,6 +5317,7 @@ def test_shortenname(marcfield, expected, make_name_structs):
     'Empty 245 field => empty title info',
     '700 field with no $t => empty title info',
     '130 but NO 245',
+    '830 with $5: control fields should be supressed',
 
     # Basic configurations of MARC Fields => title fields
     '130/245: No author.',

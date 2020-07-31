@@ -755,8 +755,9 @@ class PreferredTitleParser(SequentialMarcFieldParser):
     subpart_tags = 'dgknpr'
     expression_tags = 'flos'
 
-    def __init__(self, field):
+    def __init__(self, field, utils=None):
         super(PreferredTitleParser, self).__init__(field)
+        self.utils = utils or MarcParseUtils()
         self.prev_punct = ''
         self.prev_tag = ''
         self.flags = {}
@@ -854,10 +855,11 @@ class PreferredTitleParser(SequentialMarcFieldParser):
             is_subpart = tag in self.subpart_tags
             self.lock_expression_info = tag in self.expression_tags
         def_to_new_part = tag == 'n' or (tag == 'p' and self.prev_tag != 'n')
+        is_control = tag in self.utils.control_sftags
         return {
             'is_materials_specified': tag == '3',
             'is_display_const': tag == 'i',
-            'is_valid_title_part': self.lock_title and val,
+            'is_valid_title_part': self.lock_title and val and not is_control,
             'is_main_part': tag == self.primary_title_tag,
             'is_subpart': is_subpart,
             'first_subpart': not self.seen_subpart and is_subpart,
