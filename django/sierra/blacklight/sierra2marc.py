@@ -1005,8 +1005,10 @@ def format_title_short_author(title, conjunction, short_author):
 
 def generate_title_key(value, nonfiling_chars=0):
     key = value.lower()
-    if len(value) > nonfiling_chars:
-        key = key[nonfiling_chars:]
+    if nonfiling_chars:
+        last_nfchar_is_nonword = not key[nonfiling_chars - 1].isalnum()
+        if last_nfchar_is_nonword and len(value) > nonfiling_chars:
+            key = key[nonfiling_chars:]
     key = toascii.map_from_unicode(key)
     key = re.sub(r'\W+', r'_', key).rstrip('_')
     return key
@@ -2376,8 +2378,8 @@ class BlacklightASMPipeline(object):
                     author = self._match_name_from_sor(analyzed_entries, sor)
 
                 # needs_author_in_title = num_iw_authors > 1
-                compiled = self.compile_added_ttitle(ttitle, nf_chars, author,
-                                                     True)
+                nfc = nf_chars if is_first else 0
+                compiled = self.compile_added_ttitle(ttitle, nfc, author, True)
                 json, old_json = compiled['json'], json_fields['included']
                 sv, old_sv = compiled['search_vals'], search_fields['included']
                 fv, old_fv = compiled['facet_vals'], title_series_facet

@@ -5185,6 +5185,54 @@ def test_shortenname(marcfield, expected, make_name_structs):
         'title_title_title_title_title_title_title_title',
      }),
 
+    # Non-filing characters
+
+    # 245, multi-title: num of non-filing chars applies only to first
+    ([('100', ['a', 'Smith, Joe'], '1 '),
+      ('245', ['a', 'The first work ;', 'b', 'Second work /',
+               'c', 'by Joe Smith.'], '14')],
+     {'title_display': 'The first work; Second work',
+      'main_title_search': ['The first work; Second work'],
+      'title_sort': 'first_work_second_work',
+      'responsibility_display': 'by Joe Smith',
+      'responsibility_search': ['by Joe Smith'],
+      'included_work_titles_json': [
+        {'a': 'Smith, Joe',
+         'p': [{'d': 'The first work [by Smith, J.]',
+                'v': 'first_work!The first work'}]},
+        {'a': 'Smith, Joe',
+         'p': [{'d': 'Second work [by Smith, J.]',
+                'v': 'second_work!Second work'}]}
+      ],
+      'included_work_titles_search': [
+        'The first work',
+        'Second work'
+      ],
+      'title_series_facet': [
+        'first_work!The first work',
+        'second_work!Second work'
+      ]}),
+
+    # 740, ignore num of non-filing chars if it doesn't make sense
+    # E.g., the nth character should be a non-word character, otherwise
+    # assume the # of non-filing chars is incorrect.
+    ([('740', ['a', 'The first work.'], '42'),
+      ('740', ['a', 'Second work.'], '42')],
+     {'included_work_titles_json': [
+        {'p': [{'d': 'The first work',
+                'v': 'first_work!The first work'}]},
+        {'p': [{'d': 'Second work',
+                'v': 'second_work!Second work'}]},
+      ],
+      'included_work_titles_search': [
+        'The first work',
+        'Second work',
+      ],
+      'title_series_facet': [
+        'first_work!The first work',
+        'second_work!Second work',
+      ]}),
+
     # Variant titles
 
     # 242: Parallel title in 242, w/language ($y)
@@ -5388,6 +5436,10 @@ def test_shortenname(marcfield, expected, make_name_structs):
     '245, multi titles: One title or part > 200 characters',
     '245, with subtitle: Truncation to colon/subtitle',
     '245: Truncation to nearest punctuation',
+
+    # Non-filing characters
+    '245, multi-title: num of non-filing chars applies only to first',
+    '740, ignore num of non-filing chars if it does not make sense',
 
     # Variant titles
     '242: Parallel title in 242, w/language ($y)',
