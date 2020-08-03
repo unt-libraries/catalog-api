@@ -3673,6 +3673,26 @@ def test_shortenname(marcfield, expected, make_name_structs):
     assert set(result) == set(expected)
 
 
+@pytest.mark.parametrize('title, nf_chars, expected', [
+    ('', 0, '-'),
+    ('$', 0, '-'),
+    ('$1000', 0, '1000'),
+    ('1000', 0, '1000'),
+    ('[A] whatever', 0, 'a-whatever'),
+    ('[A] whatever', 4, 'whatever'),
+    ('[A] whatever', 1, 'a-whatever'),
+    ('[A] whatever!', 1, 'a-whatever'),
+    ('Romeo and Juliet', 4, 'romeo-and-juliet'),
+])
+def test_generatetitlekey(title, nf_chars, expected):
+    """
+    The `generate_title_key` function should return the expected key
+    string when passed the given title string and number of non-filing
+    characters (`nf_chars`).
+    """
+    assert s2m.generate_title_key(title, nf_chars) == expected
+
+
 @pytest.mark.parametrize('marcfields, expected', [
     # Edge cases -- empty / missing fields, etc.
 

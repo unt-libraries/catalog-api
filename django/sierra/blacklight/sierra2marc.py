@@ -1020,8 +1020,8 @@ def generate_title_key(value, nonfiling_chars=0, space_char=r'-'):
         if last_nfchar_is_nonword and len(value) > nonfiling_chars:
             key = key[nonfiling_chars:]
     key = toascii.map_from_unicode(key)
-    key = re.sub(r'\W+', space_char, key).rstrip(space_char)
-    return key
+    key = re.sub(r'\W+', space_char, key).strip(space_char)
+    return key or '-'
 
 
 def format_title_facet_value(heading, nonfiling_chars=0):
@@ -2219,12 +2219,12 @@ class BlacklightASMPipeline(object):
             nf_chars = title['parsed']['nonfiling_chars']
 
         non_trunc = '' if non_trunc and display == non_trunc else non_trunc
-        searchable = non_trunc or display
+        search = non_trunc or display or None
         return {
             'display': display,
             'non_truncated': non_trunc or None,
-            'search': [searchable] if searchable else [],
-            'sort': generate_title_key(searchable, nf_chars)
+            'search': [search] if search else [],
+            'sort': generate_title_key(search, nf_chars) if search else None
         }
 
     def needs_ttitle(self, f245_ind1, nth_ttitle, total_ttitles, f130_240,
