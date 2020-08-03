@@ -1013,14 +1013,14 @@ def format_title_short_author(title, conjunction, short_author):
     return '{} [{}]'.format(title, ' '.join(conj_author))
 
 
-def generate_title_key(value, nonfiling_chars=0):
+def generate_title_key(value, nonfiling_chars=0, space_char=r'-'):
     key = value.lower()
     if nonfiling_chars and len(key) > nonfiling_chars:
         last_nfchar_is_nonword = not key[nonfiling_chars - 1].isalnum()
         if last_nfchar_is_nonword and len(value) > nonfiling_chars:
             key = key[nonfiling_chars:]
     key = toascii.map_from_unicode(key)
-    key = re.sub(r'\W+', r'_', key).rstrip('_')
+    key = re.sub(r'\W+', space_char, key).rstrip(space_char)
     return key
 
 
