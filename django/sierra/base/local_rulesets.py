@@ -84,11 +84,18 @@ ITEM_RULES = {
                 'sdvf', 'sdzmr', 'sdzrf', 'sdzrs', 'sdzsd', 'spe', 'spec',
                 'swr', 'szmp', 'szzov', 'szzrf', 'szzrs', 'szzsd', 'tamc',
                 'test', 'twu', 'txsha', 'unt', 'w1grs', 'w1gwt', 'w1ia',
-                'w1ind', 'w2awt', 'w2lan', 'w3dai', 'w3lab', 'w3mfa', 'w3per',
-                'w433a', 'w4422', 'w4438', 'w4fil', 'w4mai', 'w4mav', 'w4mbg',
-                'w4mfb', 'w4mla', 'w4moc', 'w4mr1', 'w4mr2', 'w4mr3', 'w4mrb',
-                'w4mrf', 'w4mrs', 'w4mrx', 'w4mts', 'w4mwf', 'w4mwr', 'w4spe',
-                'w4srf', 'wgrc', 'wlmic', 'wlper', 'xprsv', 'xspe', 'xts'
+                'w1ind', 'w1prs', 'w2awt', 'w2lan', 'w3dai', 'w3lab', 'w3mfa',
+                'w3per', 'w433a', 'w4422', 'w4438', 'w4fil', 'w4mai', 'w4mav',
+                'w4mbg', 'w4mfb', 'w4mla', 'w4moc', 'w4mr1', 'w4mr2', 'w4mr3',
+                'w4mrb', 'w4mrf', 'w4mrs', 'w4mrx', 'w4mts', 'w4mwf', 'w4mwr',
+                'w4spe', 'w4srf', 'wgrc', 'wlmic', 'wlper', 'xprsv', 'xspe',
+                'xts',
+                # These are temporarily disabled due to COVID-19
+                # policies. Simply remove these to re-enable them.
+                'czm', 'mail', 'r', 'rfbks', 'rst', 'rzzpb', 'w', 'w1fdc',
+                'w1idl', 'w1mdc', 'w1mls', 'w1ndc', 'w1upr', 'w3', 'w3big',
+                'w3grn', 'w4m', 'w4mau', 'w4mft', 'w4mov', 'wex', 'wlbig',
+                'xdmic', 'xdmp', 'xmed',
             )
         }, multi=False)),
         ('item_status_id', r.reverse_mapping({
@@ -104,7 +111,11 @@ ITEM_RULES = {
     # be requested through Aeon, not the online catalog.
     'is_requestable_through_aeon': r.Ruleset([
         ('location_id', r.reverse_mapping({
-            True: ('w4mr1', 'w4mr2', 'w4mr3', 'w4mrb', 'w4mrx', 'w4spe')
+            # These are normally active but are disabled for now due to
+            # COVID-19 policies. Add them back to the below entry to
+            # re-enable them:
+            # 'w4mr1', 'w4mr2', 'w4mr3', 'w4mrb', 'w4mrx', 
+            True: ('w4spe',)
         }, multi=False))
     ], default=False),
 

@@ -1072,7 +1072,11 @@ def test_blasmpipeline_getiteminfo_num_items(items_info, exp_items,
 
 
 @pytest.mark.parametrize('items_info, expected_r', [
-    ([({'location_id': 'w3'}, {}),
+    # Note: tests that are commented out represent "normal" policies;
+    # currently due to COVID-19 a lot of requesting is restricted. We
+    # will update these further as policies change.
+    ([({'location_id': 'x'}, {}),
+      # ({'location_id': 'w3'}, {}),
       ({'location_id': 'xmus', 'itype_id': 7}, {})],
      'catalog'),
     ([({'location_id': 'czwww'}, {}),
@@ -1086,12 +1090,12 @@ def test_blasmpipeline_getiteminfo_num_items(items_info, exp_items,
       ],
      None),
     ([({'location_id': 'w4spe'}, {}),
-      ({'location_id': 'w4mr1'}, {}),
-      ({'location_id': 'w4mr2'}, {}),
-      ({'location_id': 'w4mr3'}, {}),
-      ({'location_id': 'w4mrb'}, {}),
-      ({'location_id': 'w4mrx'}, {})],
-     'aeon'),
+      # ({'location_id': 'w4mr1'}, {}),
+      # ({'location_id': 'w4mr2'}, {}),
+      # ({'location_id': 'w4mr3'}, {}),
+      # ({'location_id': 'w4mrb'}, {}),
+      # ({'location_id': 'w4mrx'}, {})
+     ], 'aeon'),
     ([({'location_id': 'jlf'}, {})],
      'jlf'),
 ], ids=[
