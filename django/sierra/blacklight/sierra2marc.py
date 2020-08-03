@@ -684,7 +684,7 @@ class TranscribedTitleParser(SequentialMarcFieldParser):
             prot = p.protect_periods(val)
 
             isbd = r''.join(self.analyzer.isbd_punct_mapping.keys())
-            switchp = r'"\'~\.,;:\/)\]\}}'
+            switchp = r'"\'~\.,\)\]\}}'
             is_245bc = self.flags['is_245b'] or self.flags['is_subfield_c']
             if is_245bc or self.field.tag == '490':
                 p_switch_re = r'([{}])(\s*[{}]+)(\s|$)'.format(isbd, switchp)
@@ -1015,7 +1015,7 @@ def format_title_short_author(title, conjunction, short_author):
 
 def generate_title_key(value, nonfiling_chars=0):
     key = value.lower()
-    if nonfiling_chars:
+    if nonfiling_chars and len(key) > nonfiling_chars:
         last_nfchar_is_nonword = not key[nonfiling_chars - 1].isalnum()
         if last_nfchar_is_nonword and len(value) > nonfiling_chars:
             key = key[nonfiling_chars:]
@@ -2390,14 +2390,15 @@ class BlacklightASMPipeline(object):
                 # needs_author_in_title = num_iw_authors > 1
                 nfc = nf_chars if is_first else 0
                 compiled = self.compile_added_ttitle(ttitle, nfc, author, True)
-                json, old_json = compiled['json'], json_fields['included']
-                sv, old_sv = compiled['search_vals'], search_fields['included']
-                fv, old_fv = compiled['facet_vals'], title_series_facet
+                if compiled is not None:
+                    json, pjson = compiled['json'], json_fields['included']
+                    sv, psv = compiled['search_vals'], search_fields['included']
+                    fv, pfv = compiled['facet_vals'], title_series_facet
 
-                json_fields['included'] = old_json[:i] + [json] + old_json[i:]
-                search_fields['included'] = old_sv[:i] + sv + old_sv[i:]
-                title_series_facet = old_fv[:i] + fv + old_fv[i:]
-                title_keys['included'].add(compiled['title_key'])
+                    json_fields['included'] = pjson[:i] + [json] + pjson[i:]
+                    search_fields['included'] = psv[:i] + sv + psv[i:]
+                    title_series_facet = pfv[:i] + fv + pfv[i:]
+                    title_keys['included'].add(compiled['title_key'])
 
         responsibility_display = '; '.join(responsibility_search)
 

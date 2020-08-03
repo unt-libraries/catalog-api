@@ -2677,6 +2677,13 @@ def test_blasmpipeline_getcontributorinfo(marcfields, expected,
          'responsibility': 'by "Joe"'}],
       'parallel': []}),
 
+    ('245', ['a', 'Multiple ISBD marks / :', 'b', 'subtitle', 'c', 'by Joe.'],
+     {'nonfiling_chars': 0,
+      'transcribed': [
+        {'parts': ['Multiple ISBD marks /: subtitle'],
+         'responsibility': 'by Joe'}],
+      'parallel': []}),
+
     # Now test cases on more standard data.
 
     ('245', ['a', 'Title :', 'b', 'with subtitle.'],
