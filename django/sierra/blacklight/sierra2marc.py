@@ -2192,23 +2192,26 @@ class BlacklightASMPipeline(object):
             'analyzed_entries': analyzed_entries
         }
 
-    def compile_main_title(self, f245, transcribed, nf_chars, parsed_130_240):
+    def truncate_each_ttitle_part(self, ttitle, thresh=200, min_len=80,
+                                  max_len=150):
+        truncator = p.Truncator([r':\s'], True)
+        for i, full_part in enumerate(ttitle.get('parts', [])):
+            disp_part = full_part
+            if i == 0 and len(full_part) > thresh:
+                disp_part = truncator.truncate(full_part, min_len, max_len)
+                disp_part = '{} ...'.format(disp_part)
+            yield (disp_part, full_part)
+
+    def compile_main_title(self, transcribed, nf_chars, parsed_130_240):
         display, non_trunc = '', ''
         sep = self.hierarchical_name_separator
-        # truncation settings:
-        trunc_thresh, min_len, max_len  = 200, 80, 150
-
         if transcribed:
             disp_titles, full_titles = [], []
-            truncator = p.Truncator([r':\s'], True)
             for title in transcribed:
                 disp_parts, full_parts = [], []
-                for i, part in enumerate(title.get('parts', [])):
-                    full_parts.append(part)
-                    if i == 0 and len(part) > trunc_thresh:
-                        part = truncator.truncate(part, min_len, max_len)
-                        part = '{} ...'.format(part)
-                    disp_parts.append(part)
+                for disp, full in self.truncate_each_ttitle_part(title):
+                    disp_parts.append(disp)
+                    full_parts.append(full)
                 disp_titles.append(sep.join(disp_parts))
                 full_titles.append(sep.join(full_parts))
             display = '; '.join(disp_titles)
@@ -2280,7 +2283,8 @@ class BlacklightASMPipeline(object):
         json = {'a': auth_info['full_name']} if auth_info['full_name'] else {}
         json['p'], facet_vals = [], []
 
-        for i, part in enumerate(ttitle['parts']):
+        for i, res in enumerate(self.truncate_each_ttitle_part(ttitle)):
+            part = res[0]
             this_is_first_part = i == 0
             this_is_last_part = i == len(ttitle['parts']) - 1
 
@@ -2371,7 +2375,7 @@ class BlacklightASMPipeline(object):
         transcribed = parsed_245.get('transcribed', [])
         parallel = parsed_245.get('parallel', [])
         nf_chars = parsed_245.get('nonfiling_chars', 0)
-        main_title_info = self.compile_main_title(f245, transcribed, nf_chars,
+        main_title_info = self.compile_main_title(transcribed, nf_chars,
                                                   parsed_130_240)
         sor, author = '', main_author
 

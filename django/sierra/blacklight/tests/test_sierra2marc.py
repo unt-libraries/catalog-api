@@ -5253,6 +5253,59 @@ def test_generatetitlekey(title, nf_chars, expected):
         'title-title-title-title-title-title-title-title',
      }),
 
+    # 245, single title, truncation and title facet values
+    # Essentially, the truncated version of the title is what should be
+    # used in faceting, included works display, etc.
+    ([('245', ['a', 'Title title title title title title title title title '
+                    'title title title title title title title title title '
+                    'title title title title title title title title title '
+                    'title title title title title title title title title '
+                    'title title title title title.'], '1 ')],
+     {'title_display':
+        'Title title title title title title title title title title title '
+        'title title title title title title title title title title title '
+        'title title title ...',
+      'non_truncated_title_display':
+        'Title title title title title title title title title title title '
+        'title title title title title title title title title title title '
+        'title title title title title title title title title title title '
+        'title title title title title title title title',
+      'main_title_search': [
+        'Title title title title title title title title title title title '
+        'title title title title title title title title title title title '
+        'title title title title title title title title title title title '
+        'title title title title title title title title'
+      ],
+      'title_sort': 
+        'title-title-title-title-title-title-title-title-title-title-title-'
+        'title-title-title-title-title-title-title-title-title-title-title-'
+        'title-title-title-title-title-title-title-title-title-title-title-'
+        'title-title-title-title-title-title-title-title',
+      'included_work_titles_json': [
+        {'p': [{'d': 'Title title title title title title title title title '
+                     'title title title title title title title title title '
+                     'title title title title title title title ...',
+                'v': 'title-title-title-title-title-title-title-title-title-'
+                     'title-title-title-title-title-title-title-title-title-'
+                     'title-title-title-title-title-title-title!Title title '
+                     'title title title title title title title title title '
+                     'title title title title title title title title title '
+                     'title title title title title ...'}]}
+      ],
+      'included_work_titles_search': [
+        'Title title title title title title title title title title title '
+        'title title title title title title title title title title title '
+        'title title title ...'
+      ],
+      'title_series_facet': [
+        'title-title-title-title-title-title-title-title-title-title-title-'
+        'title-title-title-title-title-title-title-title-title-title-title-'
+        'title-title-title!Title title title title title title title title '
+        'title title title title title title title title title title title '
+        'title title title title title title ...'
+      ],
+     }),
+
     # Non-filing characters
 
     # 245, multi-title: num of non-filing chars applies only to first
@@ -5506,6 +5559,7 @@ def test_generatetitlekey(title, nf_chars, expected):
     '245, multi titles: One title or part > 200 characters',
     '245, with subtitle: Truncation to colon/subtitle',
     '245: Truncation to nearest punctuation',
+    '245, single title, truncation and title facet values',
 
     # Non-filing characters
     '245, multi-title: num of non-filing chars applies only to first',
