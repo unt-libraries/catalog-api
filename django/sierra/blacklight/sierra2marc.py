@@ -957,7 +957,9 @@ def shorten_name(name_struct):
             first = '{} {}'.format(first, numeration)
 
         if surname and forename:
-            initials = '.'.join([n[0] for n in re.split(r'\W', forename) if n])
+            initials_split_re = r'[\.\-,;\'"\s]'
+            parts = [n[0] for n in re.split(initials_split_re, forename) if n]
+            initials = '.'.join(parts)
             if initials:
                 second = '{}.'.format(initials)
         elif titles:

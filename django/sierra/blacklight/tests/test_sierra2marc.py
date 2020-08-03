@@ -3623,6 +3623,8 @@ def test_preferredtitleparser_parse(tag, subfields, expected):
 
 @pytest.mark.parametrize('marcfield, expected', [
     (('100', ['a', 'Adams, Henry,', 'd', '1838-1918.'], '1 '), ['Adams, H.']),
+    (('100', ['a', 'Chopin, Frédéric', 'd', '1810-1849.'], '1 '),
+     ['Chopin, F.']),
     (('100', ['a', 'Riaño, Juan Facundo,', 'd', '1828-1901.'], '1 '),
      ['Riaño, J.F.']),
     (('100', ['a', 'Fowler, T. M.', 'q', '(Thaddeus Mortimer),',
