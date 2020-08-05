@@ -1097,12 +1097,12 @@ def test_blasmpipeline_getiteminfo_num_items(items_info, exp_items,
       # ({'location_id': 'w4mrx'}, {})
      ], 'aeon'),
     ([({'location_id': 'jlf'}, {})],
-     'jlf'),
+     None),
 ], ids=[
     'items that are requestable through the catalog (Sierra)',
     'items that are not requestable',
     'items that are requestable through Aeon',
-    'items that are at JLF'
+    'items that are at JLF -- temporarily unavailable'
 ])
 def test_blasmpipeline_getiteminfo_requesting(items_info, expected_r,
                                               bl_sierra_test_record,
