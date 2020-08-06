@@ -2591,6 +2591,13 @@ def test_blasmpipeline_getcontributorinfo(marcfields, expected,
         {'parts': ['oops mistake']}],
       'parallel': []}),
 
+    ('246', ['a', '   ', 'i', 'Some blank chars at start:', 'a', 'Oops'],
+     {'display_text': 'Some blank chars at start',
+      'nonfiling_chars': 0,
+      'transcribed': [
+        {'parts': ['Oops']}],
+      'parallel': []}),
+
     ('245 12', ['a', 'A title', 'b', 'no punctuation', 'c', 'by Joe'],
      {'nonfiling_chars': 2,
       'transcribed': [
@@ -3120,6 +3127,18 @@ def test_transcribedtitleparser_parse(tag, subfields, expected):
       'materials_specified': [],
       'display_constants': [],
       'title_parts': ['Selections'],
+      'expression_parts': [],
+      'languages': [],
+      'is_collective': False,
+      'is_music_form': False,
+      'type': 'main'
+     }),
+
+    ('130', ['a', 'A title,', 'm', 'instruments,', 'n', ',', 'r', 'D major.'],
+     {'nonfiling_chars': 0,
+      'materials_specified': [],
+      'display_constants': [],
+      'title_parts': ['A title, instruments, D major'],
       'expression_parts': [],
       'languages': [],
       'is_collective': False,

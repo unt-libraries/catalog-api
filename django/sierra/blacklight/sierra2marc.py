@@ -659,11 +659,11 @@ class TranscribedTitleParser(SequentialMarcFieldParser):
             def_to_newpart = tag == 'n' or (tag == 'p' and self.prev_tag != 'n')
         is_bdates = tag == 'g' and self.field.tag == '245'
         valid_tags = 'alxv3' if self.field.tag == '490' else 'abcfghiknpsxy'
-        is_valid = tag in 'abcfghiknpsxy' and val
+        is_valid = val.strip() and tag in valid_tags
         return {
             'default_to_new_part': def_to_newpart,
             'lock_same_title': tag in 'fgknps',
-            'is_valid': val and tag in valid_tags,
+            'is_valid': is_valid,
             'is_display_text': tag == 'i',
             'is_main_part': tag in 'ab',
             'is_245b': tag == 'b' and self.field.tag == '245',
@@ -693,30 +693,32 @@ class TranscribedTitleParser(SequentialMarcFieldParser):
             prot = re.sub(p_switch_re, r'\2\1\3', prot)
 
             part, end_punct = self.analyzer.pop_isbd_punct_from_title_part(prot)
-            if self.flags['is_materials_specified']:
-                self.materials_specified.append(p.restore_periods(part))
-            elif self.flags['is_display_text']:
-                self.display_text = p.restore_periods(part)
-            elif self.flags['is_main_part']:
-                if self.flags['is_245b']:
-                    self.do_compound_title_part(part, False)
-                elif self.field.tag == '490':
-                    self.do_titles_and_sors(part, False)
-                else:
+            if part:
+                if self.flags['is_materials_specified']:
+                    self.materials_specified.append(p.restore_periods(part))
+                elif self.flags['is_display_text']:
+                    self.display_text = p.restore_periods(part)
+                elif self.flags['is_main_part']:
+                    if self.flags['is_245b']:
+                        self.do_compound_title_part(part, False)
+                    elif self.field.tag == '490':
+                        self.do_titles_and_sors(part, False)
+                    else:
+                        self.push_title_part(part, self.prev_punct)
+                elif self.flags['is_subfield_c']:
+                    self.do_titles_and_sors(part, True)
+                    return True
+                elif self.flags['is_subpart'] and part:
                     self.push_title_part(part, self.prev_punct)
-            elif self.flags['is_subfield_c']:
-                self.do_titles_and_sors(part, True)
-                return True
-            elif self.flags['is_subpart'] and part:
-                self.push_title_part(part, self.prev_punct)
-            elif self.flags['is_issn']:
-                self.issn = part
-            elif self.flags['is_language_code']:
-                self.language_code = part
-            elif self.flags['is_volume']:
-                self.append_volume(part)
-            elif self.flags['is_lccn']:
-                self.lccn = p.restore_periods(p.strip_outer_parentheses(part))
+                elif self.flags['is_issn']:
+                    self.issn = part
+                elif self.flags['is_language_code']:
+                    self.language_code = part
+                elif self.flags['is_volume']:
+                    self.append_volume(part)
+                elif self.flags['is_lccn']:
+                    lccn = p.strip_outer_parentheses(part)
+                    self.lccn = p.restore_periods(lccn)
 
             self.prev_punct = end_punct
             self.prev_tag = tag
@@ -866,10 +868,11 @@ class PreferredTitleParser(SequentialMarcFieldParser):
             self.lock_expression_info = tag in self.expression_tags
         def_to_new_part = tag == 'n' or (tag == 'p' and self.prev_tag != 'n')
         is_control = tag in self.utils.control_sftags
+        is_valid_title_part = self.lock_title and val.strip() and not is_control
         return {
             'is_materials_specified': tag == '3',
             'is_display_const': tag == 'i',
-            'is_valid_title_part': self.lock_title and val and not is_control,
+            'is_valid_title_part': is_valid_title_part,
             'is_main_part': tag == self.primary_title_tag,
             'is_subpart': is_subpart,
             'first_subpart': not self.seen_subpart and is_subpart,
@@ -894,26 +897,27 @@ class PreferredTitleParser(SequentialMarcFieldParser):
         elif self.flags['is_valid_title_part']:
             prot = p.protect_periods(val)
             part, end_punct = self.analyzer.pop_isbd_punct_from_title_part(prot)
-            if self.flags['is_main_part']:
-                self.describe_collective_title(part)
-                self.push_title_part(part, self.prev_punct)
-            elif self.flags['is_perf_medium']:
-                if self.title_is_collective:
-                    self.title_is_music_form = True
-                self.push_title_part(part, self.prev_punct)
-            elif self.flags['is_subpart']:
-                self.push_title_part(part, self.prev_punct)
-                self.seen_subpart = True
-            elif self.flags['is_volume']:
-                self.volume = p.restore_periods(part)
-            elif self.flags['is_issn']:
-                self.issn = p.restore_periods(part)
-            else:
-                if self.flags['is_language']:
-                    self.languages = self.parse_languages(part)
-                if self.flags['is_arrangement'] and part.startswith('arr'):
-                    part = 'arranged'
-                self.expression_parts.append(p.restore_periods(part))
+            if part:
+                if self.flags['is_main_part']:
+                    self.describe_collective_title(part)
+                    self.push_title_part(part, self.prev_punct)
+                elif self.flags['is_perf_medium']:
+                    if self.title_is_collective:
+                        self.title_is_music_form = True
+                    self.push_title_part(part, self.prev_punct)
+                elif self.flags['is_subpart']:
+                    self.push_title_part(part, self.prev_punct)
+                    self.seen_subpart = True
+                elif self.flags['is_volume']:
+                    self.volume = p.restore_periods(part)
+                elif self.flags['is_issn']:
+                    self.issn = p.restore_periods(part)
+                else:
+                    if self.flags['is_language']:
+                        self.languages = self.parse_languages(part)
+                    if self.flags['is_arrangement'] and part.startswith('arr'):
+                        part = 'arranged'
+                    self.expression_parts.append(p.restore_periods(part))
             self.prev_punct = end_punct
         self.prev_tag = tag
 
