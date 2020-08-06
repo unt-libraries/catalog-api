@@ -91,13 +91,33 @@ def test_compress_punctuation(data, expected):
     ('ed. : test', 'ed. : test'),
     ('ed. . test', 'ed. test'),
     ('ed.. test', 'ed. test'),
-    ('ed. ... test', 'ed. ... test')
+    ('ed. ... test', 'ed. ... test'),
+    ('https://example.com', 'https://example.com')
 ])
-def test_normalize_punctuation(data, expected):
+def test_normalize_punctuation_periods_need_protection(data, expected):
     """
-    `normalize_punctuation` should ...
+    `normalize_punctuation` should normalize internal and ending
+    punctuation, resulting in the expected value. This set of tests
+    assumes that periods need protection, i.e. `periods_protected` is
+    False, which is the default.
     """
-    assert parsers.normalize_punctuation(data) == expected
+    assert parsers.normalize_punctuation(data, False) == expected
+
+
+@pytest.mark.parametrize('data, expected', [
+    ('ed. : test', 'ed: test'),
+    ('ed. . test', 'ed. test'),
+    ('ed.. test', 'ed. test'),
+    ('ed. ... test', 'ed. test')
+])
+def test_normalize_punctuation_periods_do_not_need_protection(data, expected):
+    """
+    `normalize_punctuation` should normalize internal and ending
+    punctuation, resulting in the expected value. This set of tests
+    assumes that periods do not need protection, i.e.
+    `periods_protected` is True.
+    """
+    assert parsers.normalize_punctuation(data, True) == expected
 
 
 @pytest.mark.parametrize('data, keep_inner, to_keep_re, to_remove_re, to_protect_re, expected', [
@@ -164,6 +184,7 @@ def test_strip_brackets(data, keep_inner, to_keep_re, to_remove_re, to_protect_r
     ('Remove inner period. Dude', 'Remove inner period Dude'),
     ('Protect period inside a word, like 1.1', 'Protect period inside a word, like 1.1'),
     ('Protect inner period from numeric ordinal 1. Dude', 'Protect inner period from numeric ordinal 1. Dude'),
+    ('Protect inner period from longer number, 1684. followed by lowercase letter', 'Protect inner period from longer number, 1684. followed by lowercase letter'),
     ('Protect inner period from alphabetic ordinal 21st. Dude', 'Protect inner period from alphabetic ordinal 21st. Dude'),
     ('Protect inner period from Roman Numeral XII. Dude', 'Protect inner period from Roman Numeral XII. Dude'),
     ('Protect inner period from abbreviation eds. Dude', 'Protect inner period from abbreviation eds. Dude'),
@@ -257,14 +278,44 @@ def test_reconstruct_bracketed(data, brackets, stripchars, expected):
     (' . . . strip punctuation and whitespace from both ends . /; ', 'strip punctuation and whitespace from both ends'),
     ('(do not strip parentheses or punct inside parentheses...);', '(do not strip parentheses or punct inside parentheses...)'),
     ('do not strip ellipses ...', 'do not strip ellipses ...'),
-    ('weirdness with,                             whitespace.', 'weirdness with,                             whitespace')
+    ('weirdness with,                             whitespace.', 'weirdness with,                             whitespace'),
+    ('abbreviations not stripped A.A.', 'abbreviations not stripped A.A.'),
+    ('abbreviations not stripped A.A. .;', 'abbreviations not stripped A.A.'),
 ])
-def test_strip_ends(data, expected):
+def test_strip_ends_periods_need_protection(data, expected):
     """
     `strip_ends` should correctly strip whitespace and punctuation from
-    both ends of the input data string.
+    both ends of the input data string. This set of tests assumes
+    periods need to be protected, i.e. `periods_protected` is False,
+    which is the default.
     """
-    assert parsers.strip_ends(data) == expected
+    assert parsers.strip_ends(data, False) == expected
+
+
+@pytest.mark.parametrize('data, expected', [
+    ('abbreviations stripped A.A.', 'abbreviations stripped A.A'),
+    ('abbreviations stripped A.A. .;', 'abbreviations stripped A.A'),
+])
+def test_strip_ends_periods_do_not_need_protection(data, expected):
+    """
+    `strip_ends` should correctly strip whitespace and punctuation from
+    both ends of the input data string. This set of tests assumes
+    periods do not need to be protected, i.e. `periods_protected` is
+    True
+    """
+    assert parsers.strip_ends(data, True) == expected
+
+
+@pytest.mark.parametrize('data, end, expected', [
+    (' . . . test . /; ', 'left', 'test . /; '),
+    (' . . . test . /; ', 'right', ' . . . test'),
+])
+def test_strip_ends_left_or_right(data, end, expected):
+    """
+    `strip_ends` should correctly strip whitespace and puncutation from
+    one end or the other based on the value of `end`.
+    """
+    assert parsers.strip_ends(data, end=end) == expected
 
 
 @pytest.mark.parametrize('data, strip_mismatched, expected', [
@@ -487,3 +538,85 @@ def test_person_name(data, first_indicator, exp_forename, exp_surname, exp_famil
     assert name['forename'] == exp_forename
     assert name['surname'] == exp_surname
     assert name['family_name'] == exp_family_name
+
+
+@pytest.mark.parametrize('data, mn, mx, trunc_patterns, trunc_to_punct, exp', [
+    ('abcd', 5, 5, None, True, 'abcd'),
+    ('abcd', 1, 5, None, True, 'a'),
+    ('', 1, 5, None, True, ''),
+    ('', 0, 0, None, True, ''),
+    ('word word: word. word. Word word.', 5, 25, None, True,
+     'word word: word. word'),
+    ('word word: word word. Word word.', 5, 25, None, False,
+     'word word: word word.'),
+    ('word word: word word. Word word.', 5, 20, None, True,
+     'word word'),
+    ('word word: word word. Word word.', 5, 20, None, False,
+     'word word: word'),
+    ('word word: word word. Word word.', 5, 30, (r':\s',), True,
+     'word word'),
+    ('word word word word. Word word.', 5, 30, (r':\s',), True,
+     'word word word word'),
+    ('word word word word; Word word.', 5, 30, (r':\s',), True,
+     'word word word word'),
+    ('word word word word. Word word.', 5, 30, (r':\s',), False,
+     'word word word word. Word'),
+    ('word word: word word. Word word.', 10, 30, (r':\s',), True,
+     'word word'),
+    ('word word: word word. Word word.', 11, 21, None, True,
+     'word word: word'),
+    ('word wo: rd: word word. Word word.', 5, 30, (r':\s',), True,
+     'word wo: rd'),
+])
+def test_truncator_truncate(data, mn, mx, trunc_patterns, trunc_to_punct, exp):
+    """
+    `Truncator.truncate`, when the Truncate obj is instantiated with
+    the given `trunc_patterns` and `trunc_to_punct` args, should return
+    the `expected` result, when passed the given `mn` and `mx` args. 
+    """
+    truncator = parsers.Truncator(trunc_patterns, trunc_to_punct)
+    assert truncator.truncate(data, mn, mx) == exp
+
+
+@pytest.mark.parametrize('data, expected', [
+    ('Isidore of Seville ; translated by Helen Dill Goode and Gertrude C. '
+     'Drake.',
+     [['Isidore', 'Seville'], ['Helen', 'Dill', 'Goode'],
+      ['Gertrude', 'C', 'Drake']]),
+    ('Shakespeare ; traductions de Yves Bonnefoy, Armand Robin, et Pierre '
+     'Jean Jouve',
+     [['Shakespeare'], ['Yves', 'Bonnefoy'], ['Armand', 'Robin'],
+      ['Pierre', 'Jean', 'Jouve']]),
+    ('[music by] Rodgers & [words by] Hammerstein',
+     [['Rodgers'], ['Hammerstein']]),
+    ('Béla Bartók ; arranged for junior string orchestra by Gábor Darvas',
+     [['Béla', 'Bartók'], ['Gábor', 'Darvas']]),
+    ('J.S. Bach', [['J', 'S', 'Bach']]),
+    ('JS Bach', [['J', 'S', 'Bach']]),
+    ('U.S. Navy\'s Military Sealift Command',
+     [['U', 'S', 'Navy\'s', 'Military', 'Sealift', 'Command']])
+])
+def test_findnamesinstring(data, expected):
+    """
+    The `find_names_in_string` function should return the expected
+    names.
+    """
+    assert parsers.find_names_in_string(data) == expected
+
+
+@pytest.mark.parametrize('sor, heading, only_first, expected', [
+    ('Isidore of Seville ; translated by Helen Dill Goode and Gertrude C. '
+     'Drake.', 'Isidore of Seville', True, True),
+    ('Isidore of Seville ; translated by Helen Dill Goode and Gertrude C. '
+     'Drake.', 'Goode, Helen Dill', False, True),
+    ('Isidore of Seville ; translated by Helen Dill Goode and Gertrude C. '
+     'Drake.', 'Goode, Helen Dill', True, False),
+])
+def test_sormatchesnameheading(sor, heading, only_first, expected):
+    """
+    The `sor_matches_name_heading` function should return the expected
+    value given the `sor`, `heading`, and `only_first` input values.
+    """
+    result = parsers.sor_matches_name_heading(sor, heading, only_first)
+    assert result == expected
+

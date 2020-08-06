@@ -179,23 +179,23 @@ def reconstruct_bracketed(data, openchar='(', closechar=')', stripchars=''):
     return ''.join(strings)
 
 
-def protect_periods_and_do(data, do, repl_char='~',
-                           abbreviations_re=settings.MARCDATA.ABBREVIATIONS_REGEX):
+def protect_periods(data, repl_char='~',
+                    abbreviations_re=settings.MARCDATA.ABBREVIATIONS_REGEX):
     """
-    Do something to an input data string, but protect certain periods.
     Periods in MARC data are often used to indicate structure, such as
     the end of the Name portion of a Name/Title heading. But sometimes
     periods are non-structural--used for abbreviations, initials, and
     certain kinds of numbering, e.g.: 1. First thing, 2. Second thing.
-    Often we want to use structural periods while parsing something and
-    then strip them, while ignoring and retaining non-structural
-    periods.
-    This parser will do the `do` function on the `data` string, but it
-    will protect non-structural periods beforehand and restore them
-    afterward. Returns the results.
+    Often we want to use structural periods while parsing something,
+    while ignoring and retaining non-structural periods.
+
+    This parser protects non-structural periods for you in the provided
+    `data` string.
+
     `repl_char` is the character you want to temporarily replace
     non-structural periods with. It should be something that will not
     occur otherwise in your data. ~ is the default.
+
     `abbreviations_re` is a regular-expression to use for recognizing
     abbreviations in your data. Typically it's a large regex group of
     abbreviations separated by r'|'. Any periods following these
@@ -204,44 +204,100 @@ def protect_periods_and_do(data, do, repl_char='~',
     initials = r'([A-Z])'
     ordinal_period_numeric = r'(\d{1,3})'
     ordinal_period_alphabetic = r'(\d+[A-Za-z]+)'
+    ordinal_period_long_number = r'(\d+)(?=\.\W*[a-z])'
     roman_numerals = r'({})'.format(settings.MARCDATA.ROMAN_NUMERAL_REGEX)
-    protect_all = r'\b(({}|{}|{})(?=\.\W)|({}|{}))\.'.format(ordinal_period_numeric, ordinal_period_alphabetic,
-                                                             roman_numerals, initials, abbreviations_re)
+    protect_all = r'\b(({}|{}|{})(?=\.\W)|{}|({}|{}))\.'.format(ordinal_period_numeric, ordinal_period_alphabetic,
+                                                                roman_numerals, ordinal_period_long_number, initials,
+                                                                abbreviations_re)
     periods_in_words_protected = re.sub(r'\.(\w)', r'{}\1'.format(repl_char), data)
     ellipses_protected = re.sub(r'\.{3}', r'{0}{0}{0}'.format(repl_char), periods_in_words_protected)
-    all_protected = re.sub(protect_all, r'\1{}'.format(repl_char), ellipses_protected)
-    processed_data = do(all_protected)
-    periods_restored = re.sub(repl_char, r'.', processed_data)
-    return periods_restored
+    return re.sub(protect_all, r'\1{}'.format(repl_char), ellipses_protected)
 
 
-def normalize_punctuation(data, punctuation_re=settings.MARCDATA.ENDING_PUNCTUATION_REGEX):
+def restore_periods(data, repl_char='~'):
+    """
+    Restore periods in data processed with `protect_periods`. Be sure
+    `repl_char` is the same as what was used when calling
+    `protect_periods`.
+    """
+    return re.sub(repl_char, r'.', data)
+
+
+def protect_periods_and_do(data, do, repl_char='~',
+                           abbreviations_re=settings.MARCDATA.ABBREVIATIONS_REGEX):
+    """
+    Do something to an input data string, but protect certain periods
+    first via `protect_periods`.
+    
+    This parser will do the `do` function on the `data` string, but it
+    will protect non-structural periods beforehand and restore them for
+    you afterward. (The `do` function must return a string. If you need
+    to do anything more complex, call `protect_periods` first yourself
+    and `restore_periods` afterward.)
+    """
+    protected = protect_periods(data, repl_char, abbreviations_re)
+    processed_data = do(protected)
+    return restore_periods(processed_data, repl_char)
+
+
+def normalize_punctuation(data, periods_protected=False, repl_char='~',
+                          punctuation_re=settings.MARCDATA.ENDING_PUNCTUATION_REGEX):
     """
     Normalize punctuation in the input `data` string.
     Normalization entails removing multiple ending punctuation marks
     in a row (perhaps separated by whitespace) and stripping
     punctuation from the beginning of the string or the beginning of an
     opening bracket (parenthetical, square, or curly).
+
+    You'll want periods to be protected (via `protect_periods_and_do`)
+    when the normalization runs; to prevent unnecessary overhead from
+    protecting periods multiple times on the same data, you can include
+    a call to this function within a `do` function, in which case it
+    will run after periods have already been protected. Set
+    `periods_protected` to True when used in this context.
     """
     def _normalize(data):
         bracket_front_punct_removed = re.sub(r'([\[\{{\(])(\s*{}\s*)+'.format(punctuation_re), r'\1', data)
         bracket_end_punct_removed = re.sub(r'(\s*{}\s*)+([\]\}}\)])'.format(punctuation_re), r'\2', bracket_front_punct_removed)
         empty_brackets_removed = re.sub(r'(\[\s*\]|\(\s*\)|\{\s*\})', r'', bracket_end_punct_removed)
-        multiples_removed = re.sub(r'(\s?)(\s*{0})+\s*({0})'.format(punctuation_re), r'\1\3', empty_brackets_removed)
-        periods_after_abbrevs_removed = re.sub(r'~(\s*\.)(\s*[^.]|$)', r'~\2', multiples_removed)
+        multiples_removed = re.sub(r'(\s?)(\s*{0})+\s*({0})(\s|$)'.format(punctuation_re), r'\1\3\4', empty_brackets_removed)
+        periods_after_abbrevs_removed = re.sub(r'{}(\s*\.)(\s*[^.]|$)'.format(repl_char), r'{}\2'.format(repl_char), multiples_removed)
         front_punct_removed = re.sub(r'^(\s*{}\s*)+'.format(punctuation_re), r'', periods_after_abbrevs_removed)
         return front_punct_removed
-    return compress_punctuation(protect_periods_and_do(data.strip(), _normalize, '~'), left_space_re=r'\.(?!\.\.)|,')
+
+    if periods_protected:
+        normalized = _normalize(data.strip())
+    else:
+        normalized = protect_periods_and_do(data.strip(), _normalize, repl_char)
+    return compress_punctuation(normalized, left_space_re=r'\.(?!\.\.)|,')
 
 
-def strip_ends(data, end_punctuation_re=settings.MARCDATA.ENDING_PUNCTUATION_REGEX):
+def strip_ends(data, periods_protected=False, end='both',
+               end_punctuation_re=settings.MARCDATA.ENDING_PUNCTUATION_REGEX):
     """
-    Strip unnecessary punctuation/whitespace from both ends of the
-    input string (`data`). Retains periods if they belong to an
+    Strip unnecessary punctuation/whitespace from either or both ends
+    of the input string (`data`). Retains periods if they belong to an
     abbreviation.
+
+    You'll want periods to be protected (via `protect_periods_and_do`)
+    when the strip function runs; to prevent unnecessary overhead from
+    protecting periods multiple times on the same data, you can include
+    a call to this function within a `do` function, in which case it
+    it will run after periods have already been protected. Set
+    `periods_protected` to True when used in this context.
+
+    Use kwarg `end` to specify if you only want to strip from the left
+    or right side. Default is `both`.
     """
     def strip_punctuation(data):
-        return re.sub(r'^({0}|\s)*(.+?)({0}|\s)*$'.format(end_punctuation_re), r'\2', data)
+        if end in ('both', 'left'):
+            data = re.sub(r'^({0}|\s)*(.+?)'.format(end_punctuation_re), r'\2', data)
+        if end in ('both', 'right'):
+            data = re.sub(r'(.+?)({0}|\s)*$'.format(end_punctuation_re), r'\1', data)
+        return data
+
+    if periods_protected:
+        return strip_punctuation(data)
     return protect_periods_and_do(data, strip_punctuation)
 
 
@@ -456,3 +512,83 @@ def person_name(data, indicators):
     return {'forename': strip_ends(forename) or None,
             'surname': strip_ends(surname) or None,
             'family_name': strip_ends(family_name) or None}
+
+
+class Truncator(object):
+    punct_trunc_pattern = r'[^\w\s]\s+'
+    space_trunc_pattern = r'\s+'
+
+    def __init__(self, trunc_patterns=None, truncate_to_punctuation=True):
+        super(Truncator, self).__init__()
+        trunc_patterns = list(trunc_patterns or [])
+        if truncate_to_punctuation:
+            trunc_patterns.append(self.punct_trunc_pattern)
+        trunc_patterns.append(self.space_trunc_pattern)
+
+        self.trunc_patterns = []
+        for p in trunc_patterns:
+            self.trunc_patterns.append(r'{0}(.(?!{0}))*$'.format(p))
+
+    def truncate(self, text, min_len, max_len):
+        slice_range = (min_len-1, max_len)
+        text_slice = text[slice(*slice_range)]
+        for pattern in self.trunc_patterns:
+            match = re.search(pattern, text_slice)
+            if match:
+                trunc_index = match.start() + slice_range[0]
+                return text[:trunc_index]
+        return text[:min_len]
+
+
+def find_names_in_string(string):
+    """
+    Return a list of word-lists, where each word-list represents a
+    proper name found in the input `string`. This is designed to pull
+    name candidates out of a statement-of-responsibility string for
+    matching against name headings. Names found via this function do
+    not include any lowercase words, e.g., ['Ludwig', 'Beethoven'].
+    """
+    def push_word_to_name(word, name, names):
+        word = ''.join(word)
+        if word.islower():
+            if name and word == 'and':
+                names.append(name)
+                name = []
+        else:
+            name.append(word)
+        return names, name
+
+    names, name, word = [], [], []
+    for ch in string:
+        if ch.isupper():
+            if word:
+                names, name = push_word_to_name(word, name, names)
+            word = [ch]
+        elif ch.isalpha() or ch == '\'' or ord(ch) > 127:
+            word.append(ch)
+        else:
+            if word:
+                names, name = push_word_to_name(word, name, names)
+                word = []
+            if ch not in (' ', '.') and name:
+                names.append(name)
+                name = []
+    if word:
+        names, name = push_word_to_name(word, name, names)
+    if name:
+        names.append(name)
+    return names
+
+
+def sor_matches_name_heading(sor, heading, only_first=True):
+    """
+    Determine whether the provided statement-of-responsibility string
+    `sor` contains a name that matches the provided name `heading`
+    string. Pass True for `only_first` if you want just the first name
+    from the SOR matched (i.e. if you're looking for the main author).
+    """
+    for name in find_names_in_string(sor):
+        found = all((npart in heading for npart in name))
+        if found or only_first:
+            return found
+    return False
