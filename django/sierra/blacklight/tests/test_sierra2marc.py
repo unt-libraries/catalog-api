@@ -5888,6 +5888,96 @@ def test_blasmpipeline_getgeneral5xxinfo(add_marc_fields, blasm_pipeline_class):
         assert v == expected[k]
 
 
+@pytest.mark.parametrize('bib_cn_info, items_info, expected', [
+    ([('c', '050', ['|aTEST BIB CN'])],
+     [({'copy_num': 1}, [])],
+     {'call_numbers_display': ['TEST BIB CN'],
+      'call_numbers_search': ['TEST BIB CN']}),
+
+    ([('c', '050', ['|aTEST BIB CN'])],
+     [({'copy_num': 1}, [('c', None, ['TEST ITEM CN'])])],
+     {'call_numbers_display': ['TEST BIB CN', 'TEST ITEM CN'],
+      'call_numbers_search': ['TEST BIB CN', 'TEST ITEM CN']}),
+
+    ([('c', '050', ['|aTEST CN'])],
+     [({'copy_num': 1}, [('c', None, ['TEST CN'])])],
+     {'call_numbers_display': ['TEST CN'],
+      'call_numbers_search': ['TEST CN']}),
+
+    ([('c', '092', ['|a100.123|aC35 2002'])],
+     [({'copy_num': 1}, [('c', '092', ['|a100.123|aC35 2002 copy 1'])])],
+     {'call_numbers_display': ['100.123 C35 2002',
+                               '100.123 C35 2002 copy 1'],
+      'call_numbers_search': ['100.123C35 2002',
+                              '100.123C35 2002copy1']}),
+
+    ([('c', '050', ['|aMT 100 .C35 2002']),
+      ('c', '090', ['|aC 35.2 .MT100 2002'])],
+     [({'copy_num': 1}, [('c', '050', ['|aMT 100 .C35 2002 vol 1'])]),
+      ({'copy_num': 2}, [('c', '090', ['|aC 35.2 .MT100 2002 vol 1'])])],
+     {'call_numbers_display': ['MT 100 .C35 2002',
+                               'C 35.2 .MT100 2002',
+                               'MT 100 .C35 2002 vol 1',
+                               'C 35.2 .MT100 2002 vol 1'],
+      'call_numbers_search': ['MT100.C35 2002',
+                              'C35.2.MT100 2002',
+                              'MT100.C35 2002vol1',
+                              'C35.2.MT100 2002vol1']}),
+
+    ([('c', '099', ['|aLPCD 100,001-100,050'])],
+     [({'copy_num': 1}, [('c', '099', ['|aLPCD 100,001-100,050 +insert'])])],
+     {'call_numbers_display': ['LPCD 100,001-100,050',
+                               'LPCD 100,001-100,050 +insert'],
+      'call_numbers_search': ['LPCD100001-100050',
+                              'LPCD100001-100050+insert']}),
+
+    ([('c', '086', ['|aA 1.76:643/989|2ordocs'])], [],
+     {'sudocs_display': ['A 1.76:643/989'],
+      'sudocs_search': ['A1.76:643/989']}),
+
+    ([('g', '086', ['|aA 1.76:643/989|2ordocs'])], [],
+     {'sudocs_display': ['A 1.76:643/989'],
+      'sudocs_search': ['A1.76:643/989']}),
+
+    ([('g', '086', ['|aA 1.76:643/989|2ordocs'])],
+     [({'copy_num': 1}, [('c', '090', ['|aC 35.2 .MT100 2002'])])],
+     {'sudocs_display': ['A 1.76:643/989'],
+      'sudocs_search': ['A1.76:643/989'],
+      'call_numbers_display': ['C 35.2 .MT100 2002'],
+      'call_numbers_search': ['C35.2.MT100 2002']}),
+
+], ids=[
+    'Basic test; bib call number by itself',
+    'Bib and item call numbers are included, if they are different',
+    'Duplicate call numbers are de-duplicated',
+    'Dewey CNs in 092 are indexed',
+    'LC CNs in 050 and 090 are indexed',
+    'Local/other CNs in 099 are indexed',
+    'C-tagged sudocs in 086 are indexed (in sudocs fields)',
+    'G-tagged sudocs in 086 are indexed (in sudocs fields)',
+    'Sudoc in 086 and local CN on item is fine--both are indexed'
+])
+def test_blasmpipeline_getcallnumberinfo(bib_cn_info, items_info, expected,
+                                         bl_sierra_test_record,
+                                         blasm_pipeline_class,
+                                         update_test_bib_inst):
+    """
+    The `BlacklightASMPipeline.get_call_number_info` method should
+    return the expected values given the provided `bib_cn_info` fields
+    and `items_info` parameters.
+    """
+    pipeline = blasm_pipeline_class()
+    bib = bl_sierra_test_record('bib_no_items')
+    bib = update_test_bib_inst(bib, varfields=bib_cn_info, items=items_info)
+    val = pipeline.get_call_number_info(bib, None)
+    for k, v in val.items():
+        print k, v
+        if k in expected:
+            assert v == expected[k]
+        else:
+            assert v is None
+
+
 @pytest.mark.parametrize('mapping, bundle, expected', [
     ( (('900', ('name', 'title')),),
       {'name': 'N1', 'title': 'T1'},

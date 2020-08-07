@@ -39,6 +39,36 @@
       </analyzer>
     </fieldType>
 
+    <!-- For most (all?) types of call numbers, the beginning of the CN is going to
+         be a "better" match, and queries including a partial CN are almost always
+         left-anchored. This field-type looks at ONLY the first two tokens, by
+         position, both in the index and query. That way, given these two docs with
+         the following call numbers:
+
+            Doc 1: MT100 .C35 2002
+            Doc 2: C35 .MT100 2002
+
+         Assuming you have the CN indexed using both a `cn_stem` and a `text`
+         field, and you have the `cn_stem` boosted equally to or higher than the
+         `text` field:
+
+         Doc 1 will be a better match for any query beginning with `MT 100` or `MT100`.
+         Doc 2 will be a better match for any query beginning with `C 35` or `C35`.
+
+         (Even though the call numbers otherwise contain the same text.)
+    -->
+    <fieldType name="cn_stem" class="solr.TextField" positionIncrementGap="100">
+      <analyzer>
+        <tokenizer class="solr.WhitespaceTokenizerFactory"/>
+        <filter class="solr.ICUNormalizer2FilterFactory" name="nfkc" mode="compose" />
+        <filter class="solr.ASCIIFoldingFilterFactory" />
+        <filter class="solr.WordDelimiterFilterFactory" generateWordParts="1" generateNumberParts="1" catenateWords="1" catenateNumbers="0" catenateAll="1" splitOnCaseChange="1" preserveOriginal="0"/>
+        <filter class="solr.LowerCaseFilterFactory"/>
+        <filter class="solr.LimitTokenPositionFilterFactory" maxTokenPosition="2" consumeAllTokens="false" />
+        <filter class="solr.RemoveDuplicatesTokenFilterFactory"/>
+      </analyzer>
+    </fieldType>
+
     <fieldType name="stem_text" class="solr.TextField" positionIncrementGap="100">
       <analyzer type="index">
         <tokenizer class="solr.WhitespaceTokenizerFactory"/>
@@ -142,6 +172,9 @@
     <field name="thumbnail_url" type="string" indexed="false" stored="true" multiValued="false"/>
     <!-- URLs -->
     <field name="urls_json" type="string" indexed="false" stored="true" multiValued="true"/>
+    <!-- Call Numbers / Other Standard Numbers -->
+    <field name="call_numbers_display" type="string" indexed="false" stored="true" multiValued="true"/>
+    <field name="sudocs_display" type="string" indexed="false" stored="true" multiValued="true"/>
     <!-- Publication -->
     <field name="publication_year_display" type="string" indexed="false" stored="true" multiValued="false"/>
     <field name="creation_display" type="string" indexed="false" stored="true" multiValued="true"/>
@@ -179,6 +212,8 @@
     <field name="author_contributor_facet" type="string" indexed="true" stored="false" multiValued="true"/>
     <field name="meeting_facet" type="string" indexed="true" stored="false" multiValued="true"/>
     <field name="title_series_facet" type="string" indexed="true" stored="false" multiValued="true"/>
+    <!-- For future use, for CN / browse-the-shelf type features -->
+    <!-- <field name="call_numbers_facet" type="string" indexed="true" stored="false" multiValued="true"/> -->
 
     <!-- GENERAL SEARCH OR SEARCH/DISPLAY FIELDS ========================================================== -->
     <field name="text" type="text" indexed="true" stored="false" multiValued="true"/>
@@ -192,6 +227,16 @@
     <copyField source="media_type_facet" dest="metadata_facets_search"/>
     <field name="building_locations" type="string" indexed="false" stored="true" multiValued="true"/>
     <copyField source="building_facet" dest="building_locations"/>
+
+    <!-- Call Numbers and Other Standard Numbers -->
+    <field name="call_numbers_search" type="text" indexed="true" stored="false" multiValued="true"/>
+    <field name="sudocs_search" type="text" indexed="true" stored="false" multiValued="true"/>
+
+    <field name="cn_stems_search" type="cn_stem" indexed="true" stored="false" multiValued="true"/>
+    <field name="sudoc_stems_search" type="cn_stem" indexed="true" stored="false" multiValued="true"/>
+    <copyField source="call_numbers_search" dest="cn_stems_search"/>
+    <copyField source="sudocs_search" dest="sudoc_stems_search"/>
+
 
     <!-- Publication -->
     <field name="publication_places_search" type="text" indexed="true" stored="false" multiValued="true"/>
@@ -286,6 +331,13 @@
     <field name="series_exact" type="text" indexed="true" stored="true" multiValued="true"/>
     <field name="public_title_facet" type="string" indexed="true" stored="false" multiValued="true" />
     <field name="public_series_facet" type="string" indexed="true" stored="false" multiValued="true" />
+    <field name="main_call_number" type="string" indexed="true" stored="true" multiValued="false" />
+    <field name="main_call_number_sort" type="string" indexed="true" stored="true" multiValued="false" />
+    <field name="loc_call_numbers" type="string" indexed="true" stored="true" multiValued="true" />
+    <field name="dewey_call_numbers" type="string" indexed="true" stored="true" multiValued="true" />
+    <field name="sudoc_numbers" type="string" indexed="true" stored="true" multiValued="true" />
+    <field name="other_call_numbers" type="string" indexed="true" stored="true" multiValued="true" />
+    <!--<field name="call_numbers_search" type="string" indexed="true" stored="false" multiValued="true" />-->
 
 
     <!-- These fields aren't being used anyway so I am removing them. -->
@@ -319,14 +371,6 @@
     <field name="form_terms" type="text" indexed="true" stored="true" multiValued="true"/>
     <field name="other_terms" type="text" indexed="true" stored="true" multiValued="true"/>
 
-    <!-- Call Number Fields -->
-    <field name="main_call_number" type="string" indexed="true" stored="true" multiValued="false" />
-    <field name="main_call_number_sort" type="string" indexed="true" stored="true" multiValued="false" />
-    <field name="loc_call_numbers" type="string" indexed="true" stored="true" multiValued="true" />
-    <field name="dewey_call_numbers" type="string" indexed="true" stored="true" multiValued="true" />
-    <field name="sudoc_numbers" type="string" indexed="true" stored="true" multiValued="true" />
-    <field name="other_call_numbers" type="string" indexed="true" stored="true" multiValued="true" />
-
     <!-- Media Game Facet Fields -->
     <field name="game_facet" type="string" indexed="true" stored="true" multiValued="true" />
 
@@ -336,7 +380,7 @@
     <field name="geographic_terms_facet" type="string" indexed="true" stored="false" multiValued="true" />
     <field name="era_terms_facet" type="string" indexed="true" stored="false" multiValued="true" />
     <field name="public_genre_facet" type="string" indexed="true" stored="false" multiValued="true" />
-    <field name="call_numbers_search" type="string" indexed="true" stored="false" multiValued="true" />
+    
 
     <!-- Commenting out other/default dynamic fields, just to simplify things.
     <dynamicField name="*_i"  type="sint"    indexed="true"  stored="true"/>

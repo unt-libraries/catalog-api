@@ -897,8 +897,10 @@ class BibRecord(MainRecordTypeModel):
              'type': 'lc'},
             {'vf_tag': 'c', 'marc_tags': ['092'], 'type': 'dewey'},
             {'vf_tag': 'c', 'marc_tags': ['099'], 'type': 'other'},
-            {'vf_tag': 'c', 'marc_tags': ['086'], 'sf': '-z', 'type': 'sudoc'},
-            {'vf_tag': 'g', 'marc_tags': ['086'], 'sf': '-z', 'type': 'sudoc'}
+            {'vf_tag': 'c', 'marc_tags': ['086'], 'sf': '-012z',
+             'type': 'sudoc'},
+            {'vf_tag': 'g', 'marc_tags': ['086'], 'sf': '-012z',
+             'type': 'sudoc'}
         ]
 
         cn_tuples = []
@@ -2024,9 +2026,10 @@ class ItemRecord(MainRecordTypeModel):
         item_cn_specs = [
             {'vf_tag': 'c', 'marc_tags': ['050', '055', '090'], 'type': 'lc'},
             {'vf_tag': 'c', 'marc_tags': ['092'], 'type': 'dewey'},
-            {'vf_tag': 'c', 'marc_tags': ['086'], 'sf': '-z', 'type': 'sudoc'},
+            {'vf_tag': 'c', 'marc_tags': ['086'], 'sf': '-012z',
+             'type': 'sudoc'},
             {'vf_tag': 'c', 'marc_tags': ['*'], 'type': 'other'},
-            {'vf_tag': 'g', 'marc_tags': ['*'], 'sf': '-z', 'type': 'sudoc'},
+            {'vf_tag': 'g', 'marc_tags': ['*'], 'sf': '-012z', 'type': 'sudoc'},
         ]
         cn_tuples = []
         varfields = sorted([vf for vf in self.record_metadata.varfield_set.all()

@@ -1006,6 +1006,23 @@ def make_relator_search_variations(base_name, relators):
     return ['{} {}'.format(base_name, r) for r in relators]
 
 
+def make_searchable_callnumber(cn_string):
+    """
+    Pass in a complete `cn_string` and generate a normalized version
+    for searching. Note that the normalization operations here depend
+    heavily on what kinds of fields/analyzers you have set up in Solr.
+    This only removes commas between numbers (100,000 => 100000) and
+    spaces between digits and non-digits (MT 100 .C35 2002 =>
+    MT100.C35 2002). The WordDelimiterFactoryFilter in Solr takes
+    care of generating appropriate lists of terms for searching.
+    """
+    norm = cn_string.strip()
+    norm = re.sub(r'(\d),(\d)', r'\1\2', norm)
+    norm = re.sub(r'(\D)\s+(\d)', r'\1\2', norm)
+    norm = re.sub(r'(\d)\s+(\D)', r'\1\2', norm)
+    return norm
+
+
 def format_materials_specified(materials_specified):
     return '({})'.format(', '.join(materials_specified))
 
@@ -1296,7 +1313,8 @@ class BlacklightASMPipeline(object):
     fields = [
         'id', 'suppressed', 'date_added', 'item_info', 'urls_json',
         'thumbnail_url', 'pub_info', 'access_info', 'resource_type_info',
-        'contributor_info', 'title_info', 'general_3xx_info', 'general_5xx_info'
+        'contributor_info', 'title_info', 'general_3xx_info',
+        'general_5xx_info', 'call_number_info'
     ]
     prefix = 'get_'
     access_online_label = 'Online'
@@ -2692,6 +2710,40 @@ class BlacklightASMPipeline(object):
         ), utils=self.utils)
         return record_parser.parse()
 
+    def get_call_number_info(self, r, marc_record):
+        """
+        Return a dict containing information about call numbers and
+        sudoc numbers to load into Solr fields. Note that bib AND item
+        call numbers are included, but they are deduplicated.
+        """
+        call_numbers_display, call_numbers_search = [], []
+        sudocs_display, sudocs_search = [], []
+
+        call_numbers = r.get_call_numbers() or []
+
+        item_links = [l for l in r.bibrecorditemrecordlink_set.all()]
+        for link in sorted(item_links, key=lambda l: l.items_display_order):
+            item = link.item_record
+            if not item.is_suppressed:
+                call_numbers.extend(item.get_call_numbers() or [])
+
+        for cn, cntype in call_numbers:
+            searchable = make_searchable_callnumber(cn)
+            if cntype == 'sudoc':
+                if cn not in sudocs_display:
+                    sudocs_display.append(cn)
+                    sudocs_search.append(searchable)
+            elif cn not in call_numbers_display:
+                call_numbers_display.append(cn)
+                call_numbers_search.append(searchable)
+
+        return {
+            'call_numbers_display': call_numbers_display or None,
+            'call_numbers_search': call_numbers_search or None,
+            'sudocs_display': sudocs_display or None,
+            'sudocs_search': sudocs_search or None,
+        }
+
 
 class PipelineBundleConverter(object):
     """
@@ -2780,11 +2832,10 @@ class PipelineBundleConverter(object):
         ( '974', ('subject_era_facet',) ),
         ( '974', ('item_genre_facet',) ),
         ( '974', ('subjects_display_jason',) ),
-        ( '975', ('main_call_number', 'main_call_number_sort') ),
-        ( '975', ('loc_call_numbers',) ),
-        ( '975', ('dewey_call_numbers',) ),
-        ( '975', ('sudoc_call_numbers',) ),
-        ( '975', ('other_call_numbers',) ),
+        ( '975', ('call_numbers_display',) ),
+        ( '975', ('call_numbers_search',) ),
+        ( '975', ('sudocs_display',) ),
+        ( '975', ('sudocs_search',) ),
         ( '976', ('publication_sort', 'publication_year_facet',
                   'publication_decade_facet', 'publication_year_display') ),
         ( '976', ('creation_display', 'publication_display',
@@ -2954,36 +3005,6 @@ class S2MarcBatchBlacklightSolrMarc(S2MarcBatch):
         marc_record.remove_fields('001')
         hacked_id = 'a{}'.format(bundle['id'])
         marc_record.add_grouped_field(make_mfield('001', data=hacked_id))
-        
-        material_type = r.bibrecordproperty_set.all()[0].material.code
-        metadata_field = pymarc.field.Field(
-                tag='957',
-                indicators=[' ', ' '],
-                subfields=['d', material_type]
-        )
-        marc_record.add_field(metadata_field)
-
-        # For each call number in the record, add a 909 field.
-        i = 0
-        for cn, ctype in r.get_call_numbers():
-            subfield_data = []
-
-            if i == 0:
-                try:
-                    srt = helpers.NormalizedCallNumber(cn, ctype).normalize()
-                except helpers.CallNumberError:
-                    srt = helpers.NormalizedCallNumber(cn, 'other').normalize()
-                subfield_data = ['a', cn, 'b', srt]
-
-            subfield_data.extend([self.cn_type_subfield_mapping[ctype], cn])
-
-            cn_field = pymarc.field.Field(
-                tag='959',
-                indicators=[' ', ' '],
-                subfields=subfield_data
-            )
-            marc_record.add_field(cn_field)
-            i += 1
 
         # If this record has a media game facet field: clean it up,
         # split by semicolon, and put into 910$a (one 910, and one $a
