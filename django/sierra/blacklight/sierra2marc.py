@@ -1314,7 +1314,8 @@ class BlacklightASMPipeline(object):
         'id', 'suppressed', 'date_added', 'item_info', 'urls_json',
         'thumbnail_url', 'pub_info', 'access_info', 'resource_type_info',
         'contributor_info', 'title_info', 'general_3xx_info',
-        'general_5xx_info', 'call_number_info'
+        'general_5xx_info', 'call_number_info', 'standard_number_info',
+        'control_number_info',
     ]
     prefix = 'get_'
     access_online_label = 'Online'
@@ -2744,6 +2745,25 @@ class BlacklightASMPipeline(object):
             'sudocs_search': sudocs_search or None,
         }
 
+    def get_standard_number_info(self, r, marc_record):
+        isbn_display, issn_display, others_display, search = [], [], [], []
+
+        return {
+            'isbn_display': isbn_display or None,
+            'issn_display': issn_display or None,
+            'other_standard_numbers_display': others_display or None,
+            'standard_numbers_search': search or None,
+        }
+
+    def get_control_number_info(self, r, marc_record):
+        lccn_display, oclc_display, others_display, search = '', [], [], []
+        return {
+            'lccn_display': lccn_display or None,
+            'oclc_numbers_display': oclc_display or None,
+            'other_control_numbers_display': others_display or None,
+            'control_numbers_search': search or None,
+        }
+
 
 class PipelineBundleConverter(object):
     """
@@ -2836,6 +2856,14 @@ class PipelineBundleConverter(object):
         ( '975', ('call_numbers_search',) ),
         ( '975', ('sudocs_display',) ),
         ( '975', ('sudocs_search',) ),
+        ( '975', ('isbns_display',) ),
+        ( '975', ('issns_display',) ),
+        ( '975', ('lccn_display',) ),
+        ( '975', ('oclc_numbers_display',) ),
+        ( '975', ('other_standard_numbers_display',) ),
+        ( '975', ('other_control_numbers_display',) ),
+        ( '975', ('standard_numbers_search',) ),
+        ( '975', ('control_numbers_search',) ),
         ( '976', ('publication_sort', 'publication_year_facet',
                   'publication_decade_facet', 'publication_year_display') ),
         ( '976', ('creation_display', 'publication_display',

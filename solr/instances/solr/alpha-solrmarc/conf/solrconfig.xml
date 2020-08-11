@@ -1933,6 +1933,8 @@
          toc_notes^100
          call_numbers_search^100
          sudocs_search^100
+         standard_numbers_search^100
+         control_numbers_search^100
          text
        </str>
        <str name="pf">
@@ -1943,6 +1945,8 @@
          sudoc_stems_search^45000
          call_numbers_search^40000
          sudocs_search^40000
+         standard_numbers_search^40000
+         control_numbers_search^40000
          responsibility_search^30000
          contributors_search^30000
          variant_titles_search^15000
@@ -2008,7 +2012,7 @@
        </str>
        <str name="cn_qf">
          cn_stems_search^500
-         call_numbers_search^150
+         call_numbers_search^100
        </str>
        <str name="cn_pf">
          cn_stems_search^45000
@@ -2016,11 +2020,23 @@
        </str>
        <str name="sudoc_qf">
          sudoc_stems_search^500
-         sudocs_search^150
+         sudocs_search^100
        </str>
        <str name="sudoc_pf">
          sudoc_stems_search^45000
          sudocs_search^40000
+       </str>
+       <str name="snum_qf">
+         standard_numbers_search^100
+       </str>
+       <str name="snum_pf">
+         standard_numbers_search^40000
+       </str>
+       <str name="cnum_qf">
+         control_numbers_search^100
+       </str>
+       <str name="cnum_pf">
+         control_numbers_search^40000
        </str>
         
        <int name="ps">3</int>
