@@ -181,6 +181,10 @@
     <field name="oclc_numbers_display" type="string" indexed="false" stored="true" multiValued="true"/>
     <field name="other_standard_numbers_display" type="string" indexed="false" stored="true" multiValued="true"/>
     <field name="other_control_numbers_display" type="string" indexed="false" stored="true" multiValued="true"/>
+    <field name="isbn_numbers" type="string" indexed="false" stored="true" multiValued="true"/>
+    <field name="issn_numbers" type="string" indexed="false" stored="true" multiValued="true"/>
+    <field name="lccn_number" type="string" indexed="false" stored="true"/>
+    <field name="oclc_numbers" type="string" indexed="false" stored="true" multiValued="true"/>
     <!-- Publication -->
     <field name="publication_year_display" type="string" indexed="false" stored="true" multiValued="false"/>
     <field name="creation_display" type="string" indexed="false" stored="true" multiValued="true"/>
@@ -345,10 +349,10 @@
     <field name="sudoc_numbers" type="string" indexed="true" stored="true" multiValued="true" />
     <field name="other_call_numbers" type="string" indexed="true" stored="true" multiValued="true" />
     <!--<field name="call_numbers_search" type="string" indexed="true" stored="false" multiValued="true" />-->
-    <field name="isbn_numbers" type="string" indexed="true" stored="true" multiValued="true" />
-    <field name="issn_numbers" type="string" indexed="true" stored="true" multiValued="true" />
-    <field name="lccn_number" type="string" indexed="true" stored="true" />
-    <field name="oclc_numbers" type="string" indexed="true" stored="true" multiValued="true" />
+    <!--<field name="isbn_numbers" type="string" indexed="true" stored="true" multiValued="true" />-->
+    <!--<field name="issn_numbers" type="string" indexed="true" stored="true" multiValued="true" />-->
+    <!--<field name="lccn_number" type="string" indexed="true" stored="true" />-->
+    <!--<field name="oclc_numbers" type="string" indexed="true" stored="true" multiValued="true" />-->
 
 
     <!-- These fields aren't being used anyway so I am removing them. -->
