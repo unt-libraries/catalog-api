@@ -2756,9 +2756,9 @@ class BlacklightASMPipeline(object):
         }
 
     def get_control_number_info(self, r, marc_record):
-        lccn_display, oclc_display, others_display, search = '', [], [], []
+        lccns_display, oclc_display, others_display, search = '', [], [], []
         return {
-            'lccn_display': lccn_display or None,
+            'lccns_display': lccns_display or None,
             'oclc_numbers_display': oclc_display or None,
             'other_control_numbers_display': others_display or None,
             'control_numbers_search': search or None,
@@ -2858,7 +2858,7 @@ class PipelineBundleConverter(object):
         ( '975', ('sudocs_search',) ),
         ( '975', ('isbns_display',) ),
         ( '975', ('issns_display',) ),
-        ( '975', ('lccn_display',) ),
+        ( '975', ('lccns_display',) ),
         ( '975', ('oclc_numbers_display',) ),
         ( '975', ('other_standard_numbers_display',) ),
         ( '975', ('other_control_numbers_display',) ),

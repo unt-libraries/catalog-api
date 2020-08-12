@@ -177,7 +177,7 @@
     <field name="sudocs_display" type="string" indexed="false" stored="true" multiValued="true"/>
     <field name="isbns_display" type="string" indexed="false" stored="true" multiValued="true"/>
     <field name="issns_display" type="string" indexed="false" stored="true" multiValued="true"/>
-    <field name="lccn_display" type="string" indexed="false" stored="true" multiValued="false"/>
+    <field name="lccns_display" type="string" indexed="false" stored="true" multiValued="true"/>
     <field name="oclc_numbers_display" type="string" indexed="false" stored="true" multiValued="true"/>
     <field name="other_standard_numbers_display" type="string" indexed="false" stored="true" multiValued="true"/>
     <field name="other_control_numbers_display" type="string" indexed="false" stored="true" multiValued="true"/>
