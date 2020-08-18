@@ -161,11 +161,7 @@ def test_itemrules_incollections(loc_code, expected, item_rules, mocker):
 
 
 @pytest.mark.parametrize('loc_code, itype_id, item_status_id, expected', [
-    # Note: tests that are commented out represent "normal" policies;
-    # currently due to COVID-19 a lot of requesting is restricted. We
-    # will update these further as policies change.
-    # ('czm', 1, '-', True),
-    ('czm', 1, '-', False),
+    ('czm', 1, '-', True),
     ('czmrf', 1, '-', False),
     ('x', 7, '-', False),
     ('x', 20, '-', False),

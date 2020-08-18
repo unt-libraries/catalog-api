@@ -1642,9 +1642,7 @@ class BlacklightASMPipeline(object):
         """
         item_rules = self.item_rules
         if item_rules['is_at_jlf'].evaluate(item):
-            # requesting from JLF is temporarily unavailable.
-            # return 'jlf'
-            return None
+            return 'jlf'
         if item_rules['is_requestable_through_aeon'].evaluate(item):
             return 'aeon'
         if item_rules['is_requestable_through_catalog'].evaluate(item):

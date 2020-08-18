@@ -1090,7 +1090,7 @@ def test_blasmpipeline_getiteminfo_num_items(items_info, exp_items,
     # currently due to COVID-19 a lot of requesting is restricted. We
     # will update these further as policies change.
     ([({'location_id': 'x'}, {}),
-      # ({'location_id': 'w3'}, {}),
+      ({'location_id': 'w3'}, {}),
       ({'location_id': 'xmus', 'itype_id': 7}, {})],
      'catalog'),
     ([({'location_id': 'czwww'}, {}),
@@ -1111,12 +1111,12 @@ def test_blasmpipeline_getiteminfo_num_items(items_info, exp_items,
       # ({'location_id': 'w4mrx'}, {})
      ], 'aeon'),
     ([({'location_id': 'jlf'}, {})],
-     None),
+     'jlf'),
 ], ids=[
     'items that are requestable through the catalog (Sierra)',
     'items that are not requestable',
     'items that are requestable through Aeon',
-    'items that are at JLF -- temporarily unavailable'
+    'items that are at JLF'
 ])
 def test_blasmpipeline_getiteminfo_requesting(items_info, expected_r,
                                               bl_sierra_test_record,
