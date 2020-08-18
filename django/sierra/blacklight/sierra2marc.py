@@ -1182,7 +1182,7 @@ def generate_title_key(value, nonfiling_chars=0, space_char=r'-'):
             key = key[nonfiling_chars:]
     key = toascii.map_from_unicode(key)
     key = re.sub(r'\W+', space_char, key).strip(space_char)
-    return key or '-'
+    return key or '~'
 
 
 def format_title_facet_value(heading, nonfiling_chars=0):

@@ -3713,8 +3713,9 @@ def test_shortenname(marcfield, expected, make_name_structs):
 
 
 @pytest.mark.parametrize('title, nf_chars, expected', [
-    ('', 0, '-'),
-    ('$', 0, '-'),
+    ('', 0, '~'),
+    ('$', 0, '~'),
+    ('日本食品化学学会誌', 0, '~'),
     ('$1000', 0, '1000'),
     ('1000', 0, '1000'),
     ('[A] whatever', 0, 'a-whatever'),
@@ -3820,6 +3821,20 @@ def test_generatetitlekey(title, nf_chars, expected):
       'included_work_titles_search': ['Las Cantigas de Santa Maria'],
       'title_series_facet': [
         'las-cantigas-de-santa-maria!Las Cantigas de Santa Maria'
+      ]}),
+
+    # 245 with non-roman-charset
+    ([('245', ['a', '日本食品化学学会誌'], '1 ')],
+     {'title_display': '日本食品化学学会誌',
+      'main_title_search': ['日本食品化学学会誌'],
+      'title_sort': '~',
+      'included_work_titles_json': [{
+        'p': [{'d': '日本食品化学学会誌', 
+               'v': '~!日本食品化学学会誌'}]
+      }],
+      'included_work_titles_search': ['日本食品化学学会誌'],
+      'title_series_facet': [
+        '~!日本食品化学学会誌'
       ]}),
 
     # Basic configurations of MARC Fields => title fields, Included vs
@@ -5528,6 +5543,7 @@ def test_generatetitlekey(title, nf_chars, expected):
     '830 with $5: control fields should be supressed',
     '245 with " char following ISBD period; " char should be kept',
     '245 with punct following last ISBD period',
+    '245 with non-roman-charset',
 
     # Basic configurations of MARC Fields => title fields
     '130/245: No author.',
