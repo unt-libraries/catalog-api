@@ -2050,6 +2050,7 @@
          contributors_json,
          isbn_numbers,
          oclc_numbers,
+         sudocs_display,
          languages,
          main_call_number,
          resource_type,
