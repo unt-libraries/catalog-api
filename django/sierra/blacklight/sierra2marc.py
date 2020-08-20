@@ -1147,18 +1147,15 @@ def make_relator_search_variations(base_name, relators):
 def make_searchable_callnumber(cn_string):
     """
     Pass in a complete `cn_string` and generate a normalized version
-    for searching. Note that the normalization operations here depend
-    heavily on what kinds of fields/analyzers you have set up in Solr.
-    This only removes commas between numbers (100,000 => 100000) and
-    spaces between digits and non-digits (MT 100 .C35 2002 =>
-    MT100.C35 2002). The WordDelimiterFactoryFilter in Solr takes
-    care of generating appropriate lists of terms for searching.
+    for searching. Note that the normalization operations we want here
+    depend heavily on what kinds of fields/analyzers we have set up in
+    Solr.
     """
     norm = cn_string.strip()
     norm = re.sub(r'(\d),(\d)', r'\1\2', norm)
     norm = re.sub(r'(\D)\s+(\d)', r'\1\2', norm)
     norm = re.sub(r'(\d)\s+(\D)', r'\1\2', norm)
-    return norm
+    return p.shingle_callnum(norm)
 
 
 def format_materials_specified(materials_specified):
@@ -2898,10 +2895,10 @@ class BlacklightASMPipeline(object):
             if cntype == 'sudoc':
                 if cn not in sudocs_display:
                     sudocs_display.append(cn)
-                    sudocs_search.append(searchable)
+                    sudocs_search.extend(searchable)
             elif cn not in call_numbers_display:
                 call_numbers_display.append(cn)
-                call_numbers_search.append(searchable)
+                call_numbers_search.extend(searchable)
 
         return {
             'call_numbers_display': call_numbers_display or None,
@@ -2913,15 +2910,16 @@ class BlacklightASMPipeline(object):
     def get_standard_number_info(self, r, marc_record):
         isbns_display, issns_display, others_display, search = [], [], [], []
         isbns, issns = [], []
+        all_standard_numbers = []
 
         standard_num_fields = ('020', '022', '024', '025', '026', '027', '028',
                                '030', '074', '088')
         for f in marc_record.get_fields(*standard_num_fields):
             for p in StandardControlNumberParser(f).parse():
-                print p
                 nums = [p[k] for k in ('normalized', 'number') if k in p]
                 for num in nums:
-                    search.append(format_number_search_val(p['type'], num))
+                    search.append(num)
+                    all_standard_numbers.append(num)
                 display = format_number_display_val(p)
                 if p['type'] == 'isbn':
                     isbns_display.append(display)
@@ -2940,19 +2938,22 @@ class BlacklightASMPipeline(object):
             'isbn_numbers': isbns or None,
             'issn_numbers': issns or None,
             'other_standard_numbers_display': others_display or None,
+            'all_standard_numbers': all_standard_numbers or None,
             'standard_numbers_search': search or None,
         }
 
     def get_control_number_info(self, r, marc_record):
         lccns_display, oclc_display, others_display, search = [], [], [], []
-        lccn, oclc_numbers = '', []
+        lccn, oclc_numbers = '', [],
+        all_control_numbers = []
 
         control_num_fields = ('010', '016', '035')
         for f in marc_record.get_fields(*control_num_fields):
             for p in StandardControlNumberParser(f).parse():
                 nums = [p[k] for k in ('normalized', 'number') if k in p]
                 for num in nums:
-                    search.append(format_number_search_val(p['type'], num))
+                    search.append(num)
+                    all_control_numbers.append(num)
                 display = format_number_display_val(p)
                 if p['type'] == 'lccn':
                     lccns_display.append(display)
@@ -2971,6 +2972,7 @@ class BlacklightASMPipeline(object):
             'lccn_number': lccn or None,
             'oclc_numbers': oclc_numbers or None,
             'other_control_numbers_display': others_display or None,
+            'all_control_numbers': all_control_numbers or None,
             'control_numbers_search': search or None,
         }
 
@@ -3074,6 +3076,8 @@ class PipelineBundleConverter(object):
         ( '975', ('issn_numbers',) ),
         ( '975', ('lccn_number',) ),
         ( '975', ('oclc_numbers',) ),
+        ( '975', ('all_standard_numbers',) ),
+        ( '975', ('all_control_numbers',) ),
         ( '975', ('other_standard_numbers_display',) ),
         ( '975', ('other_control_numbers_display',) ),
         ( '975', ('standard_numbers_search',) ),

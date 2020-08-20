@@ -39,40 +39,27 @@
       </analyzer>
     </fieldType>
 
-    <!-- For most (all?) types of call numbers, the beginning of the CN is going to
-         be a "better" match, and queries including a partial CN are almost always
-         left-anchored. This field-type looks at ONLY the first two tokens, by
-         position, both in the index and query. That way, given these two docs with
-         the following call numbers:
+    <!-- `cn_norm` type used for normalizing call numbers or call-number type strings for
+         left-anchored searching. During indexing you'd want to do manual shingling on call
+         numbers and pass the results to this field. I recommend shingling at transitions
+         between alpha, numeric, and non-alphanumeric characters.
 
-            Doc 1: MT100 .C35 2002
-            Doc 2: C35 .MT100 2002
+         E.g.: for call number "LB2328.15.U6 O32 2019", you'd index:
+         ["LB", "LB2328", "LB2328.15", "LB2328.15.U", "LB2328.15.U6", "LB2328.15.U6 O",
+          "LB2328.15.U6 O32", "LB2328.15.U6 O32 2019"]
 
-         Assuming you have the CN indexed using both a `cn_stem` and a `text`
-         field, and you have the `cn_stem` boosted equally to or higher than the
-         `text` field:
-
-         Doc 1 will be a better match for any query beginning with `MT 100` or `MT100`.
-         Doc 2 will be a better match for any query beginning with `C 35` or `C35`.
-
-         (Even though the call numbers otherwise contain the same text.)
+         The PatternReplaceFilterFactory steps will convert each value to a normalized
+         version. At query time, the same steps will be applied to the query value.
     -->
-    <fieldType name="cn_stem" class="solr.TextField" positionIncrementGap="100">
-      <analyzer type="index">
-        <tokenizer class="solr.WhitespaceTokenizerFactory"/>
+    <fieldType name="cn_norm" class="solr.TextField" positionIncrementGap="100">
+      <analyzer>
+        <tokenizer class="solr.KeywordTokenizerFactory"/>
         <filter class="solr.ICUNormalizer2FilterFactory" name="nfkc" mode="compose" />
         <filter class="solr.ASCIIFoldingFilterFactory" />
-        <filter class="solr.WordDelimiterFilterFactory" generateWordParts="1" generateNumberParts="1" catenateWords="1" catenateNumbers="0" catenateAll="1" splitOnCaseChange="1" preserveOriginal="0"/>
         <filter class="solr.LowerCaseFilterFactory"/>
-        <filter class="solr.LimitTokenPositionFilterFactory" maxTokenPosition="2" consumeAllTokens="false" />
-        <filter class="solr.RemoveDuplicatesTokenFilterFactory"/>
-      </analyzer>
-      <analyzer type="query">
-        <tokenizer class="solr.WhitespaceTokenizerFactory"/>
-        <filter class="solr.ICUNormalizer2FilterFactory" name="nfkc" mode="compose" />
-        <filter class="solr.ASCIIFoldingFilterFactory" />
-        <filter class="solr.WordDelimiterFilterFactory" generateWordParts="1" generateNumberParts="1" catenateWords="1" catenateNumbers="0" catenateAll="1" splitOnCaseChange="1" preserveOriginal="0"/>
-        <filter class="solr.LowerCaseFilterFactory"/>
+        <filter class="solr.PatternReplaceFilterFactory" pattern="(\d)[^a-z0-9]+(?=\d)" replacement="$1-"/>
+        <filter class="solr.PatternReplaceFilterFactory" pattern="([a-z])[^a-z0-9]+(?=[a-z])" replacement="$1-"/>
+        <filter class="solr.PatternReplaceFilterFactory" pattern="[^a-z0-9\-]+" replacement=""/>
         <filter class="solr.RemoveDuplicatesTokenFilterFactory"/>
       </analyzer>
     </fieldType>
@@ -193,6 +180,8 @@
     <field name="issn_numbers" type="string" indexed="false" stored="true" multiValued="true"/>
     <field name="lccn_number" type="string" indexed="false" stored="true"/>
     <field name="oclc_numbers" type="string" indexed="false" stored="true" multiValued="true"/>
+    <field name="all_standard_numbers" type="string" indexed="false" stored="true" multiValued="true"/>
+    <field name="all_control_numbers" type="string" indexed="false" stored="true" multiValued="true"/>
     <!-- Publication -->
     <field name="publication_year_display" type="string" indexed="false" stored="true" multiValued="false"/>
     <field name="creation_display" type="string" indexed="false" stored="true" multiValued="true"/>
@@ -247,15 +236,10 @@
     <copyField source="building_facet" dest="building_locations"/>
 
     <!-- Call Numbers and Other Standard Numbers -->
-    <field name="call_numbers_search" type="text" indexed="true" stored="false" multiValued="true"/>
-    <field name="sudocs_search" type="text" indexed="true" stored="false" multiValued="true"/>
-    <field name="cn_stems_search" type="cn_stem" indexed="true" stored="false" multiValued="true"/>
-    <field name="sudoc_stems_search" type="cn_stem" indexed="true" stored="false" multiValued="true"/>
-    <copyField source="call_numbers_search" dest="cn_stems_search"/>
-    <copyField source="sudocs_search" dest="sudoc_stems_search"/>
-    <field name="standard_numbers_search" type="text" indexed="true" stored="false" multiValued="true"/>
-    <field name="control_numbers_search" type="text" indexed="true" stored="false" multiValued="true"/>
-
+    <field name="call_numbers_search" type="cn_norm" indexed="true" stored="false" multiValued="true"/>
+    <field name="sudocs_search" type="cn_norm" indexed="true" stored="false" multiValued="true"/>
+    <field name="standard_numbers_search" type="cn_norm" indexed="true" stored="false" multiValued="true"/>
+    <field name="control_numbers_search" type="cn_norm" indexed="true" stored="false" multiValued="true"/>
 
     <!-- Publication -->
     <field name="publication_places_search" type="text" indexed="true" stored="false" multiValued="true"/>

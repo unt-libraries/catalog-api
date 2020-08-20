@@ -592,3 +592,39 @@ def sor_matches_name_heading(sor, heading, only_first=True):
         if found or only_first:
             return found
     return False
+
+
+def shingle_callnum(cn):
+    """
+    Pass in a call-number (or call-number-like) string and create
+    left-anchored shingles at transitions from alpha to numeric and
+    alphanumeric to formatting: useful for indexing as normalized
+    keywords (for call number searches).
+    """
+    def next_shingle(lastc, c):
+        if not lastc.isalnum():
+            return False
+        if lastc.isalnum() and not c.isalnum():
+            return True
+        if lastc.isalpha() and not c.isalpha():
+            return True
+        if not lastc.isalpha() and c.isalpha():
+            return True
+        return False
+
+    stack, shingles = [], []
+    lastc, last_shingle = '', ''
+    for c in cn:
+        if lastc:
+            if next_shingle(lastc, c):
+                new_shingle = ''.join([last_shingle, ''.join(stack)])
+                shingles.append(new_shingle)
+                last_shingle = new_shingle
+                stack = []
+        stack.append(c)
+        lastc = c
+    if stack:
+        shingles.append(''.join([last_shingle, ''.join(stack)]))
+    return shingles
+
+

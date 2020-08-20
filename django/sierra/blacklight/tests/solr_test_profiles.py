@@ -11,6 +11,7 @@ from utils.test_helpers import solr_test_profiles as tp
 
 SOLR_TYPES = tp.SOLR_TYPES
 SOLR_TYPES['reverse_number'] = {'pytype': unicode, 'emtype': 'string'}
+SOLR_TYPES['cn_norm'] = {'pytype': unicode, 'emtype': 'string'}
 GLOBAL_UNIQUE_FIELDS = ('code', 'id', 'record_number')
 GENS = tp.GENS
 
@@ -21,6 +22,7 @@ ALPHASOLRMARC_FIELDS = (
     'thumbnail_url', 'urls_json', 'call_numbers_display', 'sudocs_display',
     'isbns_display', 'issns_display', 'lccns_display', 'oclc_numbers_display',
     'isbn_numbers', 'issn_numbers', 'lccn_number', 'oclc_numbers',
+    'all_standard_numbers', 'all_control_numbers',
     'other_standard_numbers_display', 'other_control_numbers_display',
     'publication_year_display', 'creation_display', 'publication_display',
     'distribution_display', 'manufacture_display', 'copyright_display',
@@ -114,6 +116,8 @@ ALPHASOLRMARC_GENS = (
     ('issns_display', GENS(tp.copy_field('issn_numbers'))),
     ('lccns_display', GENS(tp.copy_field('lccn_number'))),
     ('oclc_numbers_display', GENS(tp.copy_field('oclc_numbers'))),
+    ('all_standard_numbers', GENS(tp.copy_field('isbn_numbers'))),
+    ('all_control_numbers', GENS(tp.copy_field('oclc_numbers'))),
     ('other_standard_numbers_display', GENS(tp.chance(tp.multi(tp.isbn_number,
                                                                1, 2), 20))),
     ('other_control_numbers_display', GENS(tp.chance(tp.multi(tp.oclc_number,
