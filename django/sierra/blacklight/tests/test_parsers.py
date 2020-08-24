@@ -620,3 +620,20 @@ def test_sormatchesnameheading(sor, heading, only_first, expected):
     result = parsers.sor_matches_name_heading(sor, heading, only_first)
     assert result == expected
 
+
+@pytest.mark.parametrize('callnum, expected', [
+    ('MT100', ['MT', 'MT100']),
+    ('MT 100', ['MT', 'MT 100']),
+    ('MT.100', ['MT', 'MT.100']),
+    ('MT100.1 .A55 1999', ['MT', 'MT100', 'MT100.1', 'MT100.1 .A',
+                           'MT100.1 .A55', 'MT100.1 .A55 1999']),
+    ('MT100.A5.O32', ['MT', 'MT100', 'MT100.A', 'MT100.A5', 'MT100.A5.O',
+                      'MT100.A5.O32']),
+])
+def test_shinglecallnum(callnum, expected):
+    """
+    The `shingle_callnum` function should return the expected list of
+    shingles given the `callnum` value.
+    """
+    assert parsers.shingle_callnum(callnum) == expected
+

@@ -1893,6 +1893,41 @@
 </queryParser>
 
   <!-- Components for Blacklight -->
+
+  <requestHandler name="catalog-numtype-search" class="solr.SearchHandler">
+    <lst name="defaults">
+      <str name="q">*:*</str>
+      <str name="echoParams">explicit</str>
+      <str name="fl">
+         id, 
+         score,
+         author_json,
+         contributors_json,
+         isbn_numbers,
+         oclc_numbers,
+         sudocs_display,
+         call_numbers_display,
+         all_standard_numbers,
+         all_control_numbers,
+         languages,
+         main_call_number,
+         resource_type,
+         publication_year_display,
+         publication_display,
+         creation_display,
+         distribution_display,
+         manufacture_display,
+         copyright_display,
+         title_display,
+         non_truncated_title_display,
+         thumbnail_url,
+         urls_json,
+         items_json,
+         has_more_items
+       </str>
+       <str name="facet.mincount">1</str>
+    </lst>
+  </requestHandler>
  
   <requestHandler name="catalog-search" class="solr.SearchHandler">
     <!-- default values for query parameters can be specified, these
@@ -1907,14 +1942,15 @@
        <str name="mm">2&lt;-1 5&lt;-2 6&lt;90%</str>
  
        <str name="qf">
-         main_title^100000
-         subtitle^50000
-         full_title^25000
+         main_title_search^25000
          publication_dates_search^5000
-         uniform_title^5000
-         alternate_titles^1500
-         series^1500
-         related_titles^500
+         included_work_titles_search^5000
+         variant_titles_search^1500
+         related_series_title_search^1500
+         author_search^1000
+         responsibility_search^1000
+         contributors_search^500
+         related_work_titles_search^500
          resource_type^500
          metadata_facet_text^500
          topic_terms^500
@@ -1923,24 +1959,28 @@
          geographic_terms^300
          era_terms^300
          full_subjects^200
-         author_search^300
-         responsibility_search^275
-         statement_of_responsibility^275
-         contributors_search^250
+         sudocs_search^150
          meetings_search^150
          publishers_search^250
          publication_places_search^100
          toc_notes^100
+         call_numbers_search^100
+         sudocs_search^100
+         standard_numbers_search^100
+         control_numbers_search^100
          text
        </str>
        <str name="pf">
-         main_title^1000000
-         subtitle^500000
-         full_title^250000
-         uniform_title^50000
-         alternate_titles^15000
-         series^15000
-         related_titles^5000
+         main_title_search^250000
+         included_work_titles_search^50000
+         author_search^50000
+         standard_numbers_search^40000
+         control_numbers_search^40000
+         responsibility_search^30000
+         contributors_search^30000
+         variant_titles_search^15000
+         related_series_title_search^15000
+         related_work_titles_search^5000
          resource_type^5000
          metadata_facet_text^5000
          topic_terms^5000
@@ -1949,10 +1989,6 @@
          geographic_terms^3000
          era_terms^3000
          full_subjects^2000
-         author_search^3000
-         responsibility_search^2750
-         statement_of_responsibility^2750
-         contributors_search^2500
          meetings_search^1500
          publishers_search^2500
          publication_places_search^2500
@@ -1962,32 +1998,26 @@
        <str name="creator_qf">
          author_search^1000
          responsibility_search^750
-         statement_of_responsibility^750
          contributors_search^500
        </str>
        <str name="creator_pf">
          author_search^10000
          responsibility_search^7500
-         statement_of_responsibility^7500
          contributors_search^5000
        </str>
        <str name="title_qf">
-         main_title^100000
-         subtitle^50000
-         full_title^25000
-         uniform_title^5000
-         alternate_titles^1500
-         series^1500
-         related_titles^500
+         main_title_search^25000
+         included_work_titles_search^5000
+         variant_titles_search^1500
+         related_series_title_search^1500
+         related_work_titles_search^500
        </str>
        <str name="title_pf">
-         main_title^1000000
-         subtitle^500000
-         full_title^250000
-         uniform_title^50000
-         alternate_titles^15000
-         series^15000
-         related_titles^5000
+         main_title_search^250000
+         included_work_titles_search^50000
+         variant_titles_search^15000
+         related_series_title_search^15000
+         related_work_titles_search^5000
        </str>
        <str name="subject_qf">
          topic_terms^500
@@ -2009,11 +2039,34 @@
          genre_terms^5000
          form_terms^2500
        </str>
+       <str name="cn_qf">
+         call_numbers_search^100
+       </str>
+       <str name="cn_pf">
+         call_numbers_search^40000
+       </str>
+       <str name="sudoc_qf">
+         sudocs_search^100
+       </str>
+       <str name="sudoc_pf">
+         sudocs_search^40000
+       </str>
+       <str name="snum_qf">
+         standard_numbers_search^100
+       </str>
+       <str name="snum_pf">
+         standard_numbers_search^40000
+       </str>
+       <str name="cnum_qf">
+         control_numbers_search^100
+       </str>
+       <str name="cnum_pf">
+         control_numbers_search^40000
+       </str>
         
        <int name="ps">3</int>
        <float name="tie">0.01</float>
  
-       <!-- NOT using marc_display because it is large and will slow things down for search results -->
        <str name="fl">
          id, 
          score,
@@ -2021,6 +2074,10 @@
          contributors_json,
          isbn_numbers,
          oclc_numbers,
+         sudocs_display,
+         call_numbers_display,
+         all_standard_numbers,
+         all_control_numbers,
          languages,
          main_call_number,
          resource_type,
@@ -2030,9 +2087,8 @@
          distribution_display,
          manufacture_display,
          copyright_display,
-         full_title,
-         main_title,
-         subtitle,
+         title_display,
+         non_truncated_title_display,
          thumbnail_url,
          urls_json,
          items_json,

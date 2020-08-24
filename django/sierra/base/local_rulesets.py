@@ -90,12 +90,9 @@ ITEM_RULES = {
                 'w4mrb', 'w4mrf', 'w4mrs', 'w4mrx', 'w4mts', 'w4mwf', 'w4mwr',
                 'w4spe', 'w4srf', 'wgrc', 'wlmic', 'wlper', 'xprsv', 'xspe',
                 'xts',
-                # These are temporarily disabled due to COVID-19
+                # These are still temporarily disabled due to COVID-19
                 # policies. Simply remove these to re-enable them.
-                'czm', 'mail', 'r', 'rfbks', 'rst', 'rzzpb', 'w', 'w1fdc',
-                'w1idl', 'w1mdc', 'w1mls', 'w1ndc', 'w1upr', 'w3', 'w3big',
-                'w3grn', 'w4m', 'w4mau', 'w4mft', 'w4mov', 'wex', 'wlbig',
-                'xdmic', 'xdmp', 'xmed',
+                'xdmic', 'xdmp',
             )
         }, multi=False)),
         ('item_status_id', r.reverse_mapping({

@@ -225,6 +225,7 @@ def pull_from_subfields(pmfield, sftags=None, pull_func=None):
 
 class MarcParseUtils(object):
     marc_relatorcode_map = settings.MARCDATA.RELATOR_CODES
+    marc_sourcecode_map = settings.MARCDATA.STANDARD_ID_SOURCE_CODES
     control_sftags = 'w01256789'
     title_sftags_7xx = 'fhklmoprstvx'
 
@@ -939,6 +940,143 @@ class PreferredTitleParser(SequentialMarcFieldParser):
         return ret_val
 
 
+class StandardControlNumberParser(SequentialMarcFieldParser):
+    standard_num_fields = ('020', '022', '024', '025', '026', '027', '028',
+                           '030', '074', '088')
+    control_num_fields = ('010', '016', '035')
+    f024_ind1_types = {
+        '0': 'isrc',
+        '1': 'upc',
+        '2': 'ismn',
+        '3': 'ean',
+        '4': 'sici',
+        '8': 'unknown',
+    }
+    other_types = {
+        '010': 'lccn',
+        '016': 'lac',
+        '020': 'isbn',
+        '022': 'issn',
+        '025': 'oan',
+        '026': 'fingerprint',
+        '027': 'strn',
+        '030': 'coden',
+        '035': 'oclc',
+        '074': 'gpo',
+        '088': 'report'
+    }
+
+    def __init__(self, field, utils=None):
+        super(StandardControlNumberParser, self).__init__(field)
+        self.utils = utils or MarcParseUtils()
+        self.numbers = []
+        self.qualifiers = []
+        self.publisher_name = ''
+        self.fingerprint_parts = []
+
+        if field.tag == '024':
+            self.ntype = self.f024_ind1_types.get(field.indicator1)
+        elif field.tag == '028':
+            self.ntype = 'dn' if field.indicator1 == '6' else 'pn'
+        else:
+            self.ntype = self.other_types.get(field.tag)
+
+    def clean_isbn(self, isbn):
+        match = re.search(r'(?:^|\s)([\dX\-]+)[^\(]*(?:\((.+)\))?', isbn)
+        if match:
+            number, qstr = match.groups()
+            if number:
+                number = ''.join(number.split('-'))
+                qualifiers = self.clean_qualifier(qstr) if qstr else None
+                return number, qualifiers
+        return None, None
+
+    def clean_oclc_num(self, oclc_num):
+        match = re.search(r'^[^\(]*?(?:\((\w+)\))?\W*(.*)$', oclc_num)
+        if match:
+            ntype, norm = match.groups()
+            if norm:
+                if ntype == 'OCoLC':
+                    ntype = None
+                    norm = re.sub('^[A-Za-z0]+', r'', norm)
+                return norm, ntype
+        return None, None
+
+    def normalize_lccn(self, lccn):
+        lccn = ''.join(lccn.split(' ')).split('/')[0]
+        if '-' in lccn:
+            left, right = lccn.split('-', 1)
+            lccn = ''.join((left, right.zfill(6)))
+        return lccn
+
+    def clean_qualifier(self, qstr):
+        cleaned = re.sub(r'[\(\)]', r'', p.strip_ends(qstr))
+        return re.split(r'\s*[,;:]\s+', cleaned)
+
+    def generate_validity_label(self, tag):
+        if tag == 'z':
+            return 'Canceled' if self.ntype == 'issn' else 'Invalid'
+        return 'Canceled' if tag == 'm' else 'Incorrect' if tag == 'y' else None
+
+    def generate_type_label(self, ntype):
+        label = self.utils.marc_sourcecode_map.get(ntype)
+        if label and self.publisher_name:
+            label = '{}, {}'.format(label, self.publisher_name)
+        return label
+
+    def parse_subfield(self, tag, val):
+        if self.field.tag == '026' and tag in 'abcde':
+            self.fingerprint_parts.append(val)
+        elif tag in 'almyz' or (self.field.tag == '010' and tag == 'b'):
+            entry = {
+                'is_valid': tag in 'abl',
+                'invalid_label': self.generate_validity_label(tag)
+            }
+            val = val.strip()
+            if self.ntype == 'isbn':
+                val, qualifiers = self.clean_isbn(val)
+                if qualifiers:
+                    self.qualifiers.extend(qualifiers)
+            elif self.ntype == 'issn' and tag in 'lm':
+                entry['type'] = 'issnl'
+            elif self.ntype == 'lccn':
+                norm = self.normalize_lccn(val)
+                if norm != val:
+                    entry['normalized'] = norm
+                if tag == 'b':
+                    entry['type'] = 'nucmc'
+            elif self.ntype == 'oclc':
+                val, ntype = self.clean_oclc_num(val)
+                if ntype:
+                    entry['type'] = ntype
+            if val:
+                entry['number'] = val
+                self.numbers.append(entry)
+        elif tag in 'qc':
+            qualifiers = self.clean_qualifier(val)
+            if qualifiers:
+                self.qualifiers.extend(qualifiers)
+        elif tag == 'b' and self.field.tag == '028':
+            self.publisher_name = val
+        elif tag == 'd' and self.field.tag == '024':
+            if self.numbers and 'number' in self.numbers[-1]:
+                num = self.numbers[-1]['number']
+                self.numbers[-1]['number'] = ' '.join([num, val])
+        elif tag == '2' and self.field.tag in ('016', '024'):
+            self.ntype = val
+
+    def compile_results(self):
+        if self.field.tag == '026':
+            self.numbers = [{'number': ' '.join(self.fingerprint_parts),
+                             'is_valid': True,
+                             'invalid_label': None}]
+        for n in self.numbers:
+            n['qualifiers'] = self.qualifiers
+            n['type'] = n.get('type') or self.ntype
+            n['type_label'] = self.generate_type_label(n['type'])
+        return self.numbers
+
+
 def extract_name_structs_from_field(field):
     if field.tag.endswith('00'):
         return [PersonalNameParser(field).parse()]
@@ -1006,6 +1144,20 @@ def make_relator_search_variations(base_name, relators):
     return ['{} {}'.format(base_name, r) for r in relators]
 
 
+def make_searchable_callnumber(cn_string):
+    """
+    Pass in a complete `cn_string` and generate a normalized version
+    for searching. Note that the normalization operations we want here
+    depend heavily on what kinds of fields/analyzers we have set up in
+    Solr.
+    """
+    norm = cn_string.strip()
+    norm = re.sub(r'(\d),(\d)', r'\1\2', norm)
+    norm = re.sub(r'(\D)\s+(\d)', r'\1\2', norm)
+    norm = re.sub(r'(\d)\s+(\D)', r'\1\2', norm)
+    return p.shingle_callnum(norm)
+
+
 def format_materials_specified(materials_specified):
     return '({})'.format(', '.join(materials_specified))
 
@@ -1027,12 +1179,41 @@ def generate_title_key(value, nonfiling_chars=0, space_char=r'-'):
             key = key[nonfiling_chars:]
     key = toascii.map_from_unicode(key)
     key = re.sub(r'\W+', space_char, key).strip(space_char)
-    return key or '-'
+    return key or '~'
 
 
 def format_title_facet_value(heading, nonfiling_chars=0):
     key = generate_title_key(heading, nonfiling_chars)
     return '!'.join((key, heading))
+
+
+def format_number_search_val(numtype, number):
+    exclude = ('unknown',)
+    numtype = '' if numtype in exclude else numtype
+    return ':'.join([v for v in (numtype, number) if v])
+
+
+def format_number_display_val(parsed):
+    normstr, qualstr, sourcestr = '', '', ''
+    if parsed.get('normalized'):
+        normstr = 'i.e., {}'.format(parsed['normalized'])
+    if parsed.get('qualifiers'):
+        qualstr = ', '.join(parsed['qualifiers'])
+    is_other = parsed['type'] not in ('isbn', 'issn', 'lccn', 'oclc')
+    if is_other and not parsed.get('type_label'):
+        sourcestr = 'source: {}'.format(parsed['type'])
+    qualifiers = [s for s in (normstr, qualstr, sourcestr) if s]
+
+    render_stack = []
+    if parsed.get('type_label'):
+        if is_other:
+            render_stack = ['{}:'.format(parsed['type_label'])]
+    render_stack.append(parsed['number'])
+    if qualifiers:
+        render_stack.append('({})'.format('; '.join(qualifiers)))
+    if not parsed['is_valid']:
+        render_stack.append('[{}]'.format(parsed['invalid_label']))
+    return ' '.join(render_stack)
 
 
 class GenericDisplayFieldParser(SequentialMarcFieldParser):
@@ -1296,7 +1477,9 @@ class BlacklightASMPipeline(object):
     fields = [
         'id', 'suppressed', 'date_added', 'item_info', 'urls_json',
         'thumbnail_url', 'pub_info', 'access_info', 'resource_type_info',
-        'contributor_info', 'title_info', 'general_3xx_info', 'general_5xx_info'
+        'contributor_info', 'title_info', 'general_3xx_info',
+        'general_5xx_info', 'call_number_info', 'standard_number_info',
+        'control_number_info',
     ]
     prefix = 'get_'
     access_online_label = 'Online'
@@ -1456,9 +1639,7 @@ class BlacklightASMPipeline(object):
         """
         item_rules = self.item_rules
         if item_rules['is_at_jlf'].evaluate(item):
-            # requesting from JLF is temporarily unavailable.
-            # return 'jlf'
-            return None
+            return 'jlf'
         if item_rules['is_requestable_through_aeon'].evaluate(item):
             return 'aeon'
         if item_rules['is_requestable_through_catalog'].evaluate(item):
@@ -2692,6 +2873,109 @@ class BlacklightASMPipeline(object):
         ), utils=self.utils)
         return record_parser.parse()
 
+    def get_call_number_info(self, r, marc_record):
+        """
+        Return a dict containing information about call numbers and
+        sudoc numbers to load into Solr fields. Note that bib AND item
+        call numbers are included, but they are deduplicated.
+        """
+        call_numbers_display, call_numbers_search = [], []
+        sudocs_display, sudocs_search = [], []
+
+        call_numbers = r.get_call_numbers() or []
+
+        item_links = [l for l in r.bibrecorditemrecordlink_set.all()]
+        for link in sorted(item_links, key=lambda l: l.items_display_order):
+            item = link.item_record
+            if not item.is_suppressed:
+                call_numbers.extend(item.get_call_numbers() or [])
+
+        for cn, cntype in call_numbers:
+            searchable = make_searchable_callnumber(cn)
+            if cntype == 'sudoc':
+                if cn not in sudocs_display:
+                    sudocs_display.append(cn)
+                    sudocs_search.extend(searchable)
+            elif cn not in call_numbers_display:
+                call_numbers_display.append(cn)
+                call_numbers_search.extend(searchable)
+
+        return {
+            'call_numbers_display': call_numbers_display or None,
+            'call_numbers_search': call_numbers_search or None,
+            'sudocs_display': sudocs_display or None,
+            'sudocs_search': sudocs_search or None,
+        }
+
+    def get_standard_number_info(self, r, marc_record):
+        isbns_display, issns_display, others_display, search = [], [], [], []
+        isbns, issns = [], []
+        all_standard_numbers = []
+
+        standard_num_fields = ('020', '022', '024', '025', '026', '027', '028',
+                               '030', '074', '088')
+        for f in marc_record.get_fields(*standard_num_fields):
+            for p in StandardControlNumberParser(f).parse():
+                nums = [p[k] for k in ('normalized', 'number') if k in p]
+                for num in nums:
+                    search.append(num)
+                    all_standard_numbers.append(num)
+                display = format_number_display_val(p)
+                if p['type'] == 'isbn':
+                    isbns_display.append(display)
+                    if p['is_valid'] and nums and nums[0] not in isbns:
+                        isbns.append(nums[0])
+                elif p['type'] in ('issn', 'issnl'):
+                    issns_display.append(display)
+                    if p['is_valid'] and nums and nums[0] not in issns:
+                        issns.append(nums[0])
+                else:
+                    others_display.append(display)
+
+        return {
+            'isbns_display': isbns_display or None,
+            'issns_display': issns_display or None,
+            'isbn_numbers': isbns or None,
+            'issn_numbers': issns or None,
+            'other_standard_numbers_display': others_display or None,
+            'all_standard_numbers': all_standard_numbers or None,
+            'standard_numbers_search': search or None,
+        }
+
+    def get_control_number_info(self, r, marc_record):
+        lccns_display, oclc_display, others_display, search = [], [], [], []
+        lccn, oclc_numbers = '', [],
+        all_control_numbers = []
+
+        control_num_fields = ('010', '016', '035')
+        for f in marc_record.get_fields(*control_num_fields):
+            for p in StandardControlNumberParser(f).parse():
+                nums = [p[k] for k in ('normalized', 'number') if k in p]
+                for num in nums:
+                    search.append(num)
+                    all_control_numbers.append(num)
+                display = format_number_display_val(p)
+                if p['type'] == 'lccn':
+                    lccns_display.append(display)
+                    if p['is_valid'] and nums and not lccn:
+                        lccn = nums[0]
+                elif p['type'] == 'oclc':
+                    oclc_display.append(display)
+                    if p['is_valid'] and nums and nums[0] not in oclc_numbers:
+                        oclc_numbers.append(nums[0])
+                else:
+                    others_display.append(display)
+
+        return {
+            'lccns_display': lccns_display or None,
+            'oclc_numbers_display': oclc_display or None,
+            'lccn_number': lccn or None,
+            'oclc_numbers': oclc_numbers or None,
+            'other_control_numbers_display': others_display or None,
+            'all_control_numbers': all_control_numbers or None,
+            'control_numbers_search': search or None,
+        }
+
 
 class PipelineBundleConverter(object):
     """
@@ -2780,11 +3064,24 @@ class PipelineBundleConverter(object):
         ( '974', ('subject_era_facet',) ),
         ( '974', ('item_genre_facet',) ),
         ( '974', ('subjects_display_jason',) ),
-        ( '975', ('main_call_number', 'main_call_number_sort') ),
-        ( '975', ('loc_call_numbers',) ),
-        ( '975', ('dewey_call_numbers',) ),
-        ( '975', ('sudoc_call_numbers',) ),
-        ( '975', ('other_call_numbers',) ),
+        ( '975', ('call_numbers_display',) ),
+        ( '975', ('call_numbers_search',) ),
+        ( '975', ('sudocs_display',) ),
+        ( '975', ('sudocs_search',) ),
+        ( '975', ('isbns_display',) ),
+        ( '975', ('issns_display',) ),
+        ( '975', ('lccns_display',) ),
+        ( '975', ('oclc_numbers_display',) ),
+        ( '975', ('isbn_numbers',) ),
+        ( '975', ('issn_numbers',) ),
+        ( '975', ('lccn_number',) ),
+        ( '975', ('oclc_numbers',) ),
+        ( '975', ('all_standard_numbers',) ),
+        ( '975', ('all_control_numbers',) ),
+        ( '975', ('other_standard_numbers_display',) ),
+        ( '975', ('other_control_numbers_display',) ),
+        ( '975', ('standard_numbers_search',) ),
+        ( '975', ('control_numbers_search',) ),
         ( '976', ('publication_sort', 'publication_year_facet',
                   'publication_decade_facet', 'publication_year_display') ),
         ( '976', ('creation_display', 'publication_display',
@@ -2954,36 +3251,6 @@ class S2MarcBatchBlacklightSolrMarc(S2MarcBatch):
         marc_record.remove_fields('001')
         hacked_id = 'a{}'.format(bundle['id'])
         marc_record.add_grouped_field(make_mfield('001', data=hacked_id))
-        
-        material_type = r.bibrecordproperty_set.all()[0].material.code
-        metadata_field = pymarc.field.Field(
-                tag='957',
-                indicators=[' ', ' '],
-                subfields=['d', material_type]
-        )
-        marc_record.add_field(metadata_field)
-
-        # For each call number in the record, add a 909 field.
-        i = 0
-        for cn, ctype in r.get_call_numbers():
-            subfield_data = []
-
-            if i == 0:
-                try:
-                    srt = helpers.NormalizedCallNumber(cn, ctype).normalize()
-                except helpers.CallNumberError:
-                    srt = helpers.NormalizedCallNumber(cn, 'other').normalize()
-                subfield_data = ['a', cn, 'b', srt]
-
-            subfield_data.extend([self.cn_type_subfield_mapping[ctype], cn])
-
-            cn_field = pymarc.field.Field(
-                tag='959',
-                indicators=[' ', ' '],
-                subfields=subfield_data
-            )
-            marc_record.add_field(cn_field)
-            i += 1
 
         # If this record has a media game facet field: clean it up,
         # split by semicolon, and put into 910$a (one 910, and one $a

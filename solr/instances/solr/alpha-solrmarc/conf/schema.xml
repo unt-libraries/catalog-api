@@ -39,6 +39,31 @@
       </analyzer>
     </fieldType>
 
+    <!-- `cn_norm` type used for normalizing call numbers or call-number type strings for
+         left-anchored searching. During indexing you'd want to do manual shingling on call
+         numbers and pass the results to this field. I recommend shingling at transitions
+         between alpha, numeric, and non-alphanumeric characters.
+
+         E.g.: for call number "LB2328.15.U6 O32 2019", you'd index:
+         ["LB", "LB2328", "LB2328.15", "LB2328.15.U", "LB2328.15.U6", "LB2328.15.U6 O",
+          "LB2328.15.U6 O32", "LB2328.15.U6 O32 2019"]
+
+         The PatternReplaceFilterFactory steps will convert each value to a normalized
+         version. At query time, the same steps will be applied to the query value.
+    -->
+    <fieldType name="cn_norm" class="solr.TextField" positionIncrementGap="100">
+      <analyzer>
+        <tokenizer class="solr.KeywordTokenizerFactory"/>
+        <filter class="solr.ICUNormalizer2FilterFactory" name="nfkc" mode="compose" />
+        <filter class="solr.ASCIIFoldingFilterFactory" />
+        <filter class="solr.LowerCaseFilterFactory"/>
+        <filter class="solr.PatternReplaceFilterFactory" pattern="(\d)[^a-z0-9]+(?=\d)" replacement="$1-"/>
+        <filter class="solr.PatternReplaceFilterFactory" pattern="([a-z])[^a-z0-9]+(?=[a-z])" replacement="$1-"/>
+        <filter class="solr.PatternReplaceFilterFactory" pattern="[^a-z0-9\-]+" replacement=""/>
+        <filter class="solr.RemoveDuplicatesTokenFilterFactory"/>
+      </analyzer>
+    </fieldType>
+
     <fieldType name="stem_text" class="solr.TextField" positionIncrementGap="100">
       <analyzer type="index">
         <tokenizer class="solr.WhitespaceTokenizerFactory"/>
@@ -83,17 +108,17 @@
     <fieldType name="reverse_number" class="solr.TextField" sortMissingLast="true" omitNorms="true">
       <analyzer type="index">
         <tokenizer class="solr.KeywordTokenizerFactory"/>
-        <filter class="solr.PatternReplaceFilterFactory" pattern="^(\d+\-?\d*)$" replacement="$1|$1"/>
-        <filter class="solr.PatternReplaceFilterFactory" pattern="9(?=.*\|)" replacement="a"/>
-        <filter class="solr.PatternReplaceFilterFactory" pattern="8(?=.*\|)" replacement="b"/>
-        <filter class="solr.PatternReplaceFilterFactory" pattern="7(?=.*\|)" replacement="c"/>
-        <filter class="solr.PatternReplaceFilterFactory" pattern="6(?=.*\|)" replacement="d"/>
-        <filter class="solr.PatternReplaceFilterFactory" pattern="5(?=.*\|)" replacement="e"/>
-        <filter class="solr.PatternReplaceFilterFactory" pattern="4(?=.*\|)" replacement="f"/>
-        <filter class="solr.PatternReplaceFilterFactory" pattern="3(?=.*\|)" replacement="g"/>
-        <filter class="solr.PatternReplaceFilterFactory" pattern="2(?=.*\|)" replacement="h"/>
-        <filter class="solr.PatternReplaceFilterFactory" pattern="1(?=.*\|)" replacement="i"/>
-        <filter class="solr.PatternReplaceFilterFactory" pattern="0(?=.*\|)" replacement="j"/>
+        <filter class="solr.PatternReplaceFilterFactory" pattern="^(\d+\-?\d*)$" replacement="$1!$1"/>
+        <filter class="solr.PatternReplaceFilterFactory" pattern="9(?=.*!)" replacement="a"/>
+        <filter class="solr.PatternReplaceFilterFactory" pattern="8(?=.*!)" replacement="b"/>
+        <filter class="solr.PatternReplaceFilterFactory" pattern="7(?=.*!)" replacement="c"/>
+        <filter class="solr.PatternReplaceFilterFactory" pattern="6(?=.*!)" replacement="d"/>
+        <filter class="solr.PatternReplaceFilterFactory" pattern="5(?=.*!)" replacement="e"/>
+        <filter class="solr.PatternReplaceFilterFactory" pattern="4(?=.*!)" replacement="f"/>
+        <filter class="solr.PatternReplaceFilterFactory" pattern="3(?=.*!)" replacement="g"/>
+        <filter class="solr.PatternReplaceFilterFactory" pattern="2(?=.*!)" replacement="h"/>
+        <filter class="solr.PatternReplaceFilterFactory" pattern="1(?=.*!)" replacement="i"/>
+        <filter class="solr.PatternReplaceFilterFactory" pattern="0(?=.*!)" replacement="j"/>
       </analyzer>
     <analyzer type="query">
         <tokenizer class="solr.KeywordTokenizerFactory"/>
@@ -142,6 +167,21 @@
     <field name="thumbnail_url" type="string" indexed="false" stored="true" multiValued="false"/>
     <!-- URLs -->
     <field name="urls_json" type="string" indexed="false" stored="true" multiValued="true"/>
+    <!-- Call Numbers / Other Standard Numbers -->
+    <field name="call_numbers_display" type="string" indexed="false" stored="true" multiValued="true"/>
+    <field name="sudocs_display" type="string" indexed="false" stored="true" multiValued="true"/>
+    <field name="isbns_display" type="string" indexed="false" stored="true" multiValued="true"/>
+    <field name="issns_display" type="string" indexed="false" stored="true" multiValued="true"/>
+    <field name="lccns_display" type="string" indexed="false" stored="true" multiValued="true"/>
+    <field name="oclc_numbers_display" type="string" indexed="false" stored="true" multiValued="true"/>
+    <field name="other_standard_numbers_display" type="string" indexed="false" stored="true" multiValued="true"/>
+    <field name="other_control_numbers_display" type="string" indexed="false" stored="true" multiValued="true"/>
+    <field name="isbn_numbers" type="string" indexed="false" stored="true" multiValued="true"/>
+    <field name="issn_numbers" type="string" indexed="false" stored="true" multiValued="true"/>
+    <field name="lccn_number" type="string" indexed="false" stored="true"/>
+    <field name="oclc_numbers" type="string" indexed="false" stored="true" multiValued="true"/>
+    <field name="all_standard_numbers" type="string" indexed="false" stored="true" multiValued="true"/>
+    <field name="all_control_numbers" type="string" indexed="false" stored="true" multiValued="true"/>
     <!-- Publication -->
     <field name="publication_year_display" type="string" indexed="false" stored="true" multiValued="false"/>
     <field name="creation_display" type="string" indexed="false" stored="true" multiValued="true"/>
@@ -153,10 +193,19 @@
     <field name="author_json" type="string" indexed="false" stored="true" multiValued="false"/>
     <field name="contributors_json" type="string" indexed="false" stored="true" multiValued="true"/>
     <field name="meetings_json" type="string" indexed="false" stored="true" multiValued="true"/>
+    <field name="responsibility_display" type="string" indexed="false" stored="true" multiValued="false"/>
+    <!-- Titles / Series -->
+    <field name="title_display" type="string" indexed="false" stored="true" multiValued="false"/>
+    <field name="non_truncated_title_display" type="string" indexed="false" stored="true" multiValued="false"/>
+    <field name="included_work_titles_json" type="string" indexed="false" stored="true" multiValued="true"/>
+    <field name="related_work_titles_json" type="string" indexed="false" stored="true" multiValued="true"/>
+    <field name="related_series_titles_json" type="string" indexed="false" stored="true" multiValued="true"/>
+    <field name="variant_titles_notes" type="string" indexed="false" stored="true" multiValued="true"/>
 
     <!-- SORT FIELDS ====================================================================================== -->
     <field name="publication_sort" type="string" indexed="true" stored="false" multiValued="false"/>
     <field name="author_sort" type="norm_string" indexed="true" stored="false" multiValued="false"/>
+    <field name="title_sort" type="string" indexed="true" stored="false" multiValued="false"/>
 
     <!-- FACET FIELDS ===================================================================================== -->
     <field name="publication_decade_facet" type="reverse_number" indexed="true" stored="false" multiValued="true"/>
@@ -169,6 +218,9 @@
     <field name="media_type_facet" type="string" indexed="true" stored="false" multiValued="true"/>
     <field name="author_contributor_facet" type="string" indexed="true" stored="false" multiValued="true"/>
     <field name="meeting_facet" type="string" indexed="true" stored="false" multiValued="true"/>
+    <field name="title_series_facet" type="string" indexed="true" stored="false" multiValued="true"/>
+    <!-- For future use, for CN / browse-the-shelf type features -->
+    <!-- <field name="call_numbers_facet" type="string" indexed="true" stored="false" multiValued="true"/> -->
 
     <!-- GENERAL SEARCH OR SEARCH/DISPLAY FIELDS ========================================================== -->
     <field name="text" type="text" indexed="true" stored="false" multiValued="true"/>
@@ -180,6 +232,14 @@
     <copyField source="collection_facet" dest="metadata_facets_search"/>
     <copyField source="resource_type_facet" dest="metadata_facets_search"/>
     <copyField source="media_type_facet" dest="metadata_facets_search"/>
+    <field name="building_locations" type="string" indexed="false" stored="true" multiValued="true"/>
+    <copyField source="building_facet" dest="building_locations"/>
+
+    <!-- Call Numbers and Other Standard Numbers -->
+    <field name="call_numbers_search" type="cn_norm" indexed="true" stored="false" multiValued="true"/>
+    <field name="sudocs_search" type="cn_norm" indexed="true" stored="false" multiValued="true"/>
+    <field name="standard_numbers_search" type="cn_norm" indexed="true" stored="false" multiValued="true"/>
+    <field name="control_numbers_search" type="cn_norm" indexed="true" stored="false" multiValued="true"/>
 
     <!-- Publication -->
     <field name="publication_places_search" type="text" indexed="true" stored="false" multiValued="true"/>
@@ -192,6 +252,13 @@
     <field name="contributors_search" type="text" indexed="true" stored="false" multiValued="true"/>
     <field name="meetings_search" type="text" indexed="true" stored="false" multiValued="true"/>
     <field name="responsibility_search" type="stem_text" indexed="true" stored="false" multiValued="true"/>
+
+    <!-- Titles / Series -->
+    <field name="main_title_search" type="text" indexed="true" stored="false" multiValued="true"/>
+    <field name="included_work_titles_search" type="text" indexed="true" stored="false" multiValued="true"/>
+    <field name="related_work_titles_search" type="text" indexed="true" stored="false" multiValued="true"/>
+    <field name="related_series_titles_search" type="text" indexed="true" stored="false" multiValued="true"/>
+    <field name="variant_titles_search" type="text" indexed="true" stored="false" multiValued="true"/>
 
     <!-- Description and Notes -->
     <field name="toc_notes" type="stem_text" indexed="true" stored="true" multiValued="true"/>
@@ -255,6 +322,30 @@
     <field name="meetings_facet" type="string" indexed="true" stored="false" multiValued="true" />
     <field name="physical_characteristics" type="text" indexed="true" stored="true" multiValued="true" />
     <field name="context_notes" type="text" indexed="true" stored="true" multiValued="true" />
+    <!-- <field name="title_sort" type="string" indexed="true" stored="true"/> -->
+    <field name="full_title" type="text" indexed="true" stored="true" multiValued="false"/>
+    <field name="main_title" type="text" indexed="true" stored="true" multiValued="false"/>
+    <field name="subtitle" type="text" indexed="true" stored="true" multiValued="false"/>
+    <field name="statement_of_responsibility" type="text" indexed="true" stored="true" multiValued="false"/>
+    <field name="uniform_title" type="text" indexed="true" stored="true" multiValued="false"/>
+    <field name="alternate_titles" type="text" indexed="true" stored="true" multiValued="true"/>
+    <field name="related_titles" type="text" indexed="true" stored="true" multiValued="true"/>
+    <field name="series" type="text" indexed="true" stored="true" multiValued="true"/>
+    <field name="series_exact" type="text" indexed="true" stored="true" multiValued="true"/>
+    <field name="public_title_facet" type="string" indexed="true" stored="false" multiValued="true" />
+    <field name="public_series_facet" type="string" indexed="true" stored="false" multiValued="true" />
+    <field name="main_call_number" type="string" indexed="true" stored="true" multiValued="false" />
+    <field name="main_call_number_sort" type="string" indexed="true" stored="true" multiValued="false" />
+    <field name="loc_call_numbers" type="string" indexed="true" stored="true" multiValued="true" />
+    <field name="dewey_call_numbers" type="string" indexed="true" stored="true" multiValued="true" />
+    <field name="sudoc_numbers" type="string" indexed="true" stored="true" multiValued="true" />
+    <field name="other_call_numbers" type="string" indexed="true" stored="true" multiValued="true" />
+    <!--<field name="call_numbers_search" type="string" indexed="true" stored="false" multiValued="true" />-->
+    <!--<field name="isbn_numbers" type="string" indexed="true" stored="true" multiValued="true" />-->
+    <!--<field name="issn_numbers" type="string" indexed="true" stored="true" multiValued="true" />-->
+    <!--<field name="lccn_number" type="string" indexed="true" stored="true" />-->
+    <!--<field name="oclc_numbers" type="string" indexed="true" stored="true" multiValued="true" />-->
+
 
     <!-- These fields aren't being used anyway so I am removing them. -->
     <!-- <field name="people_facet" type="string" indexed="true" stored="true" multiValued="true" docValues="true" /> -->
@@ -271,24 +362,6 @@
     
     <!-- Language Field -->
     <field name="languages" type="string" indexed="true" stored="true" multiValued="true" />
-    <!-- Standard Number Fields -->
-    <field name="isbn_numbers" type="string" indexed="true" stored="true" multiValued="true" />
-    <field name="issn_numbers" type="string" indexed="true" stored="true" multiValued="true" />
-    <field name="lccn_number" type="string" indexed="true" stored="true" />
-    <field name="oclc_numbers" type="string" indexed="true" stored="true" multiValued="true" />
-    <!-- Title Fields --> 
-    <field name="full_title" type="text" indexed="true" stored="true" multiValued="false"/>
-    <field name="main_title" type="text" indexed="true" stored="true" multiValued="false"/>
-    <field name="subtitle" type="text" indexed="true" stored="true" multiValued="false"/>
-    <field name="statement_of_responsibility" type="text" indexed="true" stored="true" multiValued="false"/>
-    <field name="uniform_title" type="text" indexed="true" stored="true" multiValued="false"/>
-    <field name="alternate_titles" type="text" indexed="true" stored="true" multiValued="true"/>
-    <field name="related_titles" type="text" indexed="true" stored="true" multiValued="true"/>
-    <!-- Title Sort Field -->
-    <field name="title_sort" type="norm_string" indexed="true" stored="true"/>
-    <!-- Series Fields -->
-    <field name="series" type="text" indexed="true" stored="true" multiValued="true"/>
-    <field name="series_exact" type="text" indexed="true" stored="true" multiValued="true"/>
 
     <!-- Subject Search Fields -->
     <field name="full_subjects" type="text" indexed="true" stored="true" multiValued="true"/>
@@ -300,26 +373,16 @@
     <field name="form_terms" type="text" indexed="true" stored="true" multiValued="true"/>
     <field name="other_terms" type="text" indexed="true" stored="true" multiValued="true"/>
 
-    <!-- Call Number Fields -->
-    <field name="main_call_number" type="string" indexed="true" stored="true" multiValued="false" />
-    <field name="main_call_number_sort" type="string" indexed="true" stored="true" multiValued="false" />
-    <field name="loc_call_numbers" type="string" indexed="true" stored="true" multiValued="true" />
-    <field name="dewey_call_numbers" type="string" indexed="true" stored="true" multiValued="true" />
-    <field name="sudoc_numbers" type="string" indexed="true" stored="true" multiValued="true" />
-    <field name="other_call_numbers" type="string" indexed="true" stored="true" multiValued="true" />
-
     <!-- Media Game Facet Fields -->
     <field name="game_facet" type="string" indexed="true" stored="true" multiValued="true" />
 
     <!-- Temporary Fields to remove later: these were dynamic fields, but we want to start making
          sure all our fields are defined explicitly. -->
-    <field name="public_title_facet" type="string" indexed="true" stored="false" multiValued="true" />
-    <field name="public_series_facet" type="string" indexed="true" stored="false" multiValued="true" />
     <field name="public_subject_facet" type="string" indexed="true" stored="false" multiValued="true" />
     <field name="geographic_terms_facet" type="string" indexed="true" stored="false" multiValued="true" />
     <field name="era_terms_facet" type="string" indexed="true" stored="false" multiValued="true" />
     <field name="public_genre_facet" type="string" indexed="true" stored="false" multiValued="true" />
-    <field name="call_numbers_search" type="string" indexed="true" stored="false" multiValued="true" />
+    
 
     <!-- Commenting out other/default dynamic fields, just to simplify things.
     <dynamicField name="*_i"  type="sint"    indexed="true"  stored="true"/>

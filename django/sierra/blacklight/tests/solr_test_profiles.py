@@ -11,6 +11,7 @@ from utils.test_helpers import solr_test_profiles as tp
 
 SOLR_TYPES = tp.SOLR_TYPES
 SOLR_TYPES['reverse_number'] = {'pytype': unicode, 'emtype': 'string'}
+SOLR_TYPES['cn_norm'] = {'pytype': unicode, 'emtype': 'string'}
 GLOBAL_UNIQUE_FIELDS = ('code', 'id', 'record_number')
 GENS = tp.GENS
 
@@ -18,14 +19,20 @@ GENS = tp.GENS
 ALPHASOLRMARC_FIELDS = (
     'id', 'timestamp_of_last_solr_update', 'suppressed', 'date_added',
     'resource_type', 'items_json', 'has_more_items', 'more_items_json',
-    'thumbnail_url', 'urls_json', 'publication_year_display',
-    'creation_display', 'publication_display', 'distribution_display',
-    'manufacture_display', 'copyright_display', 'publication_sort',
-    'publication_decade_facet', 'publication_year_facet', 'access_facet',
-    'building_facet', 'shelf_facet', 'collection_facet', 'resource_type_facet',
-    'media_type_facet', 'metadata_facets_search', 'publication_places_search',
-    'publishers_search', 'publication_dates_search', 'publication_date_notes',
-    'author_json', 'contributors_json', 'meetings_json', 'author_sort',
+    'thumbnail_url', 'urls_json', 'call_numbers_display', 'sudocs_display',
+    'isbns_display', 'issns_display', 'lccns_display', 'oclc_numbers_display',
+    'isbn_numbers', 'issn_numbers', 'lccn_number', 'oclc_numbers',
+    'all_standard_numbers', 'all_control_numbers',
+    'other_standard_numbers_display', 'other_control_numbers_display',
+    'publication_year_display', 'creation_display', 'publication_display',
+    'distribution_display', 'manufacture_display', 'copyright_display',
+    'publication_sort', 'publication_decade_facet', 'publication_year_facet',
+    'access_facet', 'building_facet', 'shelf_facet', 'collection_facet',
+    'resource_type_facet', 'media_type_facet', 'metadata_facets_search',
+    'call_numbers_search', 'sudocs_search', 'standard_numbers_search',
+    'control_numbers_search', 'publication_places_search', 'publishers_search',
+    'publication_dates_search', 'publication_date_notes', 'author_json',
+    'contributors_json', 'meetings_json', 'author_sort',
     'author_contributor_facet', 'meeting_facet', 'author_search',
     'contributors_search', 'meetings_search', 'responsibility_search',
     'responsibility_display', 'title_display', 'non_truncated_title_display',
@@ -40,11 +47,7 @@ ALPHASOLRMARC_FIELDS = (
     'graphic_representation', 'performance_medium', 'performers',
     'language_notes', 'dissertation_notes', 'notes',
     # OLD FIELDS ARE BELOW
-    'game_facet', 'languages', 'isbn_numbers',
-    'issn_numbers', 'lccn_number', 'oclc_numbers', 'dewey_call_numbers',
-    'loc_call_numbers', 'sudoc_numbers', 'other_call_numbers',
-    'main_call_number', 'main_call_number_sort',
-    'era_terms', 'form_terms',
+    'game_facet', 'languages', 'era_terms', 'form_terms',
     'general_terms', 'genre_terms', 'geographic_terms', 'other_terms',
     'topic_terms', 'full_subjects',
     'public_subject_facet',
@@ -107,15 +110,24 @@ ALPHASOLRMARC_GENS = (
     ('languages', 'auto'),
     ('isbn_numbers', GENS(tp.chance(tp.multi(tp.isbn_number, 1, 5), 66))),
     ('issn_numbers', GENS(tp.chance(tp.multi(tp.issn_number, 1, 5), 33))),
-    ('lccn_number', GENS(tp.chance(GENS.type('int', mn=100000,
-                                             mx=999999999999), 80))),
+    ('lccn_number', GENS(tp.chance(GENS.type('int', mn=10000, mx=99999), 80))),
     ('oclc_numbers', GENS(tp.chance(tp.multi(tp.oclc_number, 1, 2), 75))),
-    ('dewey_call_numbers', GENS(tp.chance(tp.multi(tp.dewey_cn, 1, 2), 20))),
-    ('loc_call_numbers', GENS(tp.chance(tp.multi(tp.lc_cn, 1, 2), 80))),
-    ('sudoc_numbers', GENS(tp.chance(tp.multi(tp.sudoc_cn, 1, 2), 20))),
-    ('other_call_numbers', GENS(tp.chance(tp.multi(tp.other_cn, 1, 2), 30))),
-    ('main_call_number', GENS(tp.pick_main_call_number)),
-    ('main_call_number_sort', GENS(tp.main_call_number_sort)),
+    ('isbns_display', GENS(tp.copy_field('isbn_numbers'))),
+    ('issns_display', GENS(tp.copy_field('issn_numbers'))),
+    ('lccns_display', GENS(tp.copy_field('lccn_number'))),
+    ('oclc_numbers_display', GENS(tp.copy_field('oclc_numbers'))),
+    ('all_standard_numbers', GENS(tp.copy_field('isbn_numbers'))),
+    ('all_control_numbers', GENS(tp.copy_field('oclc_numbers'))),
+    ('other_standard_numbers_display', GENS(tp.chance(tp.multi(tp.isbn_number,
+                                                               1, 2), 20))),
+    ('other_control_numbers_display', GENS(tp.chance(tp.multi(tp.oclc_number,
+                                                              1, 2), 20))),
+    ('standard_numbers_search', GENS(tp.copy_field('isbns_display'))),
+    ('control_numbers_search', GENS(tp.copy_field('oclc_numbers_display'))),
+    ('call_numbers_display', GENS(tp.multi(tp.lc_cn, 1, 2))),
+    ('sudocs_display', GENS(tp.chance(tp.multi(tp.sudoc_cn, 1, 2), 20))),
+    ('call_numbers_search', GENS(tp.copy_field('call_numbers_display'))),
+    ('sudocs_search', GENS(tp.copy_field('sudocs_display'))),
     ('title_display', GENS(tp.title_like)),
     ('main_title_search', GENS(tp.copy_field('title_display'))),
     ('non_truncated_title_display',
@@ -163,10 +175,7 @@ ALPHASOLRMARC_GENS = (
     ('public_genre_facet', GENS(tp.copy_field('genre_terms'))),
     ('suppressed', GENS.static(False)),
     ('text', GENS(tp.join_fields([
-        'id', 'languages', 'isbn_numbers', 'issn_numbers',
-        'lccn_number', 'oclc_numbers', 'dewey_call_numbers',
-        'loc_call_numbers', 'sudoc_numbers', 'other_call_numbers',
-        'main_call_number', 'summary_notes', 'toc_notes', 'full_subjects'
+        'id', 'languages', 'summary_notes', 'toc_notes', 'full_subjects'
     ])))
 )
 

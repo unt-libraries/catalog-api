@@ -37,6 +37,7 @@ def bibrecord_to_pymarc(s2mbatch_class):
         return s2m_obj.compile_original_marc(bib)
     return _bibrecord_to_pymarc
 
+
 @pytest.fixture
 def add_marc_fields():
     """
@@ -156,6 +157,19 @@ def make_name_structs():
         f = s2m.make_mfield(tag, subfields=subfields, indicators=indicators)
         return s2m.extract_name_structs_from_field(f)
     return _make_name_structs
+
+
+@pytest.fixture
+def marcfield_strings_to_params():
+    """
+    Pytest fixture. Returns a list you can pass directly to the
+    `add_marc_fields` fixture for the `fields` parameter, given a list
+    of MARC field strings copied/pasted from the LOC or OCLC website.
+    """
+    def _marcfield_strings_to_params(field_strings):
+        utils = s2m.MarcParseUtils()
+        return [utils.parse_marc_display_field(s)[0:3] for s in field_strings]
+    return _marcfield_strings_to_params
 
 
 # TESTS
@@ -1076,7 +1090,7 @@ def test_blasmpipeline_getiteminfo_num_items(items_info, exp_items,
     # currently due to COVID-19 a lot of requesting is restricted. We
     # will update these further as policies change.
     ([({'location_id': 'x'}, {}),
-      # ({'location_id': 'w3'}, {}),
+      ({'location_id': 'w3'}, {}),
       ({'location_id': 'xmus', 'itype_id': 7}, {})],
      'catalog'),
     ([({'location_id': 'czwww'}, {}),
@@ -1097,12 +1111,12 @@ def test_blasmpipeline_getiteminfo_num_items(items_info, exp_items,
       # ({'location_id': 'w4mrx'}, {})
      ], 'aeon'),
     ([({'location_id': 'jlf'}, {})],
-     None),
+     'jlf'),
 ], ids=[
     'items that are requestable through the catalog (Sierra)',
     'items that are not requestable',
     'items that are requestable through Aeon',
-    'items that are at JLF -- temporarily unavailable'
+    'items that are at JLF'
 ])
 def test_blasmpipeline_getiteminfo_requesting(items_info, expected_r,
                                               bl_sierra_test_record,
@@ -3699,8 +3713,9 @@ def test_shortenname(marcfield, expected, make_name_structs):
 
 
 @pytest.mark.parametrize('title, nf_chars, expected', [
-    ('', 0, '-'),
-    ('$', 0, '-'),
+    ('', 0, '~'),
+    ('$', 0, '~'),
+    ('日本食品化学学会誌', 0, '~'),
     ('$1000', 0, '1000'),
     ('1000', 0, '1000'),
     ('[A] whatever', 0, 'a-whatever'),
@@ -3806,6 +3821,20 @@ def test_generatetitlekey(title, nf_chars, expected):
       'included_work_titles_search': ['Las Cantigas de Santa Maria'],
       'title_series_facet': [
         'las-cantigas-de-santa-maria!Las Cantigas de Santa Maria'
+      ]}),
+
+    # 245 with non-roman-charset
+    ([('245', ['a', '日本食品化学学会誌'], '1 ')],
+     {'title_display': '日本食品化学学会誌',
+      'main_title_search': ['日本食品化学学会誌'],
+      'title_sort': '~',
+      'included_work_titles_json': [{
+        'p': [{'d': '日本食品化学学会誌', 
+               'v': '~!日本食品化学学会誌'}]
+      }],
+      'included_work_titles_search': ['日本食品化学学会誌'],
+      'title_series_facet': [
+        '~!日本食品化学学会誌'
       ]}),
 
     # Basic configurations of MARC Fields => title fields, Included vs
@@ -5514,6 +5543,7 @@ def test_generatetitlekey(title, nf_chars, expected):
     '830 with $5: control fields should be supressed',
     '245 with " char following ISBD period; " char should be kept',
     '245 with punct following last ISBD period',
+    '245 with non-roman-charset',
 
     # Basic configurations of MARC Fields => title fields
     '130/245: No author.',
@@ -5886,6 +5916,578 @@ def test_blasmpipeline_getgeneral5xxinfo(add_marc_fields, blasm_pipeline_class):
     assert set(results.keys()) == set(expected.keys())
     for k, v in results.items():
         assert v == expected[k]
+
+
+@pytest.mark.parametrize('bib_cn_info, items_info, expected', [
+    ([('c', '050', ['|aTEST BIB CN'])],
+     [({'copy_num': 1}, [])],
+     {'call_numbers_display': ['TEST BIB CN'],
+      'call_numbers_search': ['TEST', 'TEST BIB', 'TEST BIB CN']}),
+
+    ([('c', '050', ['|aTEST BIB CN'])],
+     [({'copy_num': 1}, [('c', None, ['TEST ITEM CN'])])],
+     {'call_numbers_display': ['TEST BIB CN', 'TEST ITEM CN'],
+      'call_numbers_search': ['TEST', 'TEST BIB', 'TEST BIB CN',
+                              'TEST', 'TEST ITEM', 'TEST ITEM CN']}),
+
+    ([('c', '050', ['|aTEST CN'])],
+     [({'copy_num': 1}, [('c', None, ['TEST CN'])])],
+     {'call_numbers_display': ['TEST CN'],
+      'call_numbers_search': ['TEST', 'TEST CN']}),
+
+    ([('c', '092', ['|a100.123|aC35 2002'])],
+     [({'copy_num': 1}, [('c', '092', ['|a100.123|aC35 2002 copy 1'])])],
+     {'call_numbers_display': ['100.123 C35 2002',
+                               '100.123 C35 2002 copy 1'],
+      'call_numbers_search': ['100', '100.123', '100.123C', '100.123C35',
+                              '100.123C35 2002', '100', '100.123',
+                              '100.123C', '100.123C35', '100.123C35 2002',
+                              '100.123C35 2002copy', '100.123C35 2002copy1']}),
+
+    ([('c', '050', ['|aMT 100 .C35 2002']),
+      ('c', '090', ['|aC 35.2 .MT100 2002'])],
+     [({'copy_num': 1}, [('c', '050', ['|aMT 100 .C35 2002 vol 1'])]),
+      ({'copy_num': 2}, [('c', '090', ['|aC 35.2 .MT100 2002 vol 1'])])],
+     {'call_numbers_display': ['MT 100 .C35 2002',
+                              'C 35.2 .MT100 2002',
+                              'MT 100 .C35 2002 vol 1',
+                              'C 35.2 .MT100 2002 vol 1'],
+      'call_numbers_search': ['MT', 'MT100', 'MT100.C', 'MT100.C35',
+                               'MT100.C35 2002', 'C', 'C35', 'C35.2',
+                               'C35.2.MT', 'C35.2.MT100',
+                               'C35.2.MT100 2002', 'MT', 'MT100',
+                               'MT100.C', 'MT100.C35', 'MT100.C35 2002',
+                               'MT100.C35 2002vol', 'MT100.C35 2002vol1',
+                               'C', 'C35', 'C35.2', 'C35.2.MT', 'C35.2.MT100',
+                               'C35.2.MT100 2002', 'C35.2.MT100 2002vol',
+                               'C35.2.MT100 2002vol1']}),
+
+    ([('c', '099', ['|aLPCD 100,001-100,050'])],
+     [({'copy_num': 1}, [('c', '099', ['|aLPCD 100,001-100,050 +insert'])])],
+     {'call_numbers_display': ['LPCD 100,001-100,050',
+                               'LPCD 100,001-100,050 +insert'],
+      'call_numbers_search': ['LPCD', 'LPCD100001', 'LPCD100001-100050',
+                              'LPCD', 'LPCD100001', 'LPCD100001-100050',
+                              'LPCD100001-100050+insert']}),
+
+    ([('c', '086', ['|aA 1.76:643/989|2ordocs'])], [],
+     {'sudocs_display': ['A 1.76:643/989'],
+      'sudocs_search': ['A', 'A1', 'A1.76', 'A1.76:643', 'A1.76:643/989']}),
+
+    ([('g', '086', ['|aA 1.76:643/989|2ordocs'])], [],
+     {'sudocs_display': ['A 1.76:643/989'],
+      'sudocs_search': ['A', 'A1', 'A1.76', 'A1.76:643', 'A1.76:643/989']}),
+
+    ([('g', '086', ['|aA 1.76:643/989|2ordocs'])],
+     [({'copy_num': 1}, [('c', '090', ['|aC 35.2 .MT100 2002'])])],
+     {'sudocs_display': ['A 1.76:643/989'],
+      'sudocs_search': ['A', 'A1', 'A1.76', 'A1.76:643', 'A1.76:643/989'],
+      'call_numbers_display': ['C 35.2 .MT100 2002'],
+      'call_numbers_search': ['C', 'C35', 'C35.2', 'C35.2.MT', 'C35.2.MT100',
+                              'C35.2.MT100 2002']}),
+
+], ids=[
+    'Basic test; bib call number by itself',
+    'Bib and item call numbers are included, if they are different',
+    'Duplicate call numbers are de-duplicated',
+    'Dewey CNs in 092 are indexed',
+    'LC CNs in 050 and 090 are indexed',
+    'Local/other CNs in 099 are indexed',
+    'C-tagged sudocs in 086 are indexed (in sudocs fields)',
+    'G-tagged sudocs in 086 are indexed (in sudocs fields)',
+    'Sudoc in 086 and local CN on item is fine--both are indexed'
+])
+def test_blasmpipeline_getcallnumberinfo(bib_cn_info, items_info, expected,
+                                         bl_sierra_test_record,
+                                         blasm_pipeline_class,
+                                         update_test_bib_inst):
+    """
+    The `BlacklightASMPipeline.get_call_number_info` method should
+    return the expected values given the provided `bib_cn_info` fields
+    and `items_info` parameters.
+    """
+    pipeline = blasm_pipeline_class()
+    bib = bl_sierra_test_record('bib_no_items')
+    bib = update_test_bib_inst(bib, varfields=bib_cn_info, items=items_info)
+    val = pipeline.get_call_number_info(bib, None)
+    for k, v in val.items():
+        print k, v
+        if k in expected:
+            assert v == expected[k]
+        else:
+            assert v is None
+
+
+@pytest.mark.parametrize('raw_marcfields, expected', [
+    # 020s (ISBN)
+
+    # 020: $a is a valid ISBN.
+    (['020 ## $a0567890123'], {
+        'isbns_display': ['0567890123'],
+        'isbn_numbers': ['0567890123'],
+        'all_standard_numbers': ['0567890123'],
+        'standard_numbers_search': ['0567890123']
+    }),
+
+    # 020: $z is an invalid ISBN.
+    (['020 ## $z0567890123'], {
+        'isbns_display': ['0567890123 [Invalid]'],
+        'all_standard_numbers': ['0567890123'],
+        'standard_numbers_search': ['0567890123']
+    }),
+
+    # 020: $a and $z in same field.
+    (['020 ## $a0567890123$z0567898123'], {
+        'isbns_display': ['0567890123', '0567898123 [Invalid]'],
+        'isbn_numbers': ['0567890123'],
+        'all_standard_numbers': ['0567890123', '0567898123'],
+        'standard_numbers_search': ['0567890123', '0567898123']
+    }),
+
+    # 020: $c and $q apply to both ISBNs, if two are in the same field.
+    (['020 ## $a0877790019$qblack leather$z0877780116 :$c14.00'], {
+        'isbns_display': ['0877790019 (black leather, 14.00)',
+                          '0877780116 (black leather, 14.00) [Invalid]'],
+        'isbn_numbers': ['0877790019'],
+        'all_standard_numbers': ['0877790019', '0877780116'],
+        'standard_numbers_search': ['0877790019', '0877780116']
+    }),
+
+    # 020: Multiple $q's beget multiple qualifiers.
+    (['020 ## $a0394170660$qRandom House$qpaperback$c4.95'], {
+        'isbns_display': ['0394170660 (Random House, paperback, 4.95)'],
+        'isbn_numbers': ['0394170660'],
+        'all_standard_numbers': ['0394170660'],
+        'standard_numbers_search': ['0394170660']
+    }),
+
+    # 020: Non-numeric data is treated as qualifying information.
+    (['020 ## $a0394170660 (Random House ; paperback)'], {
+        'isbns_display': ['0394170660 (Random House, paperback)'],
+        'isbn_numbers': ['0394170660'],
+        'all_standard_numbers': ['0394170660'],
+        'standard_numbers_search': ['0394170660']
+    }),
+
+    # 020: Parentheses around multiple $q's are stripped.
+    (['020 ## $z9780815609520$q(cloth ;$qalk. paper)'], {
+        'isbns_display': ['9780815609520 (cloth, alk. paper) [Invalid]'],
+        'all_standard_numbers': ['9780815609520'],
+        'standard_numbers_search': ['9780815609520']
+    }),
+
+    # 020: Multiple parentheses around $q's are stripped.
+    (['020 ## $a1401250564$q(bk. 1)$q(paperback)'], {
+        'isbns_display': ['1401250564 (bk. 1, paperback)'],
+        'isbn_numbers': ['1401250564'],
+        'all_standard_numbers': ['1401250564'],
+        'standard_numbers_search': ['1401250564']
+    }),
+
+    # 022s (ISSN)
+
+    # 022: $a is a valid ISSN.
+    (['022 ## $a1234-1231'], {
+        'issns_display': ['1234-1231'],
+        'issn_numbers': ['1234-1231'],
+        'all_standard_numbers': ['1234-1231'],
+        'standard_numbers_search': ['1234-1231'],
+    }),
+
+    # 022: $a (ISSN) and $l (ISSN-L) are displayed separately
+    # (Even if they are the same)
+    (['022 ## $a1234-1231$l1234-1231'], {
+        'issns_display': ['1234-1231', 'ISSN-L: 1234-1231'],
+        'issn_numbers': ['1234-1231'],
+        'all_standard_numbers': ['1234-1231', '1234-1231'],
+        'standard_numbers_search': ['1234-1231', '1234-1231'],
+    }),
+
+    # 022: $m is a canceled ISSN-L
+    (['022 ## $a1560-1560$l1234-1231$m1560-1560'], {
+        'issns_display': ['1560-1560', 'ISSN-L: 1234-1231',
+                          'ISSN-L: 1560-1560 [Canceled]'],
+        'issn_numbers': ['1560-1560', '1234-1231'],
+        'all_standard_numbers': ['1560-1560', '1234-1231', '1560-1560'],
+        'standard_numbers_search': ['1560-1560', '1234-1231', '1560-1560'],
+    }),
+
+    # 022: $y is an incorrect ISSN
+    (['022 ## $a0046-225X$y0046-2254'], {
+        'issns_display': ['0046-225X', '0046-2254 [Incorrect]'],
+        'issn_numbers': ['0046-225X'],
+        'all_standard_numbers': ['0046-225X', '0046-2254'],
+        'standard_numbers_search': ['0046-225X', '0046-2254'],
+    }),
+
+    # 022: $z is a canceled ISSN
+    (['022 ## $z0046-2254'], {
+        'issns_display': ['0046-2254 [Canceled]'],
+        'all_standard_numbers': ['0046-2254'],
+        'standard_numbers_search': ['0046-2254'],
+    }),
+
+    # 022: Lots of ISSNs
+    (['022 ## $a1234-1231$l1234-1231',
+      '022 ## $a1560-1560$m1560-1560',
+      '022 ## $a0046-225X$y0046-2254'], {
+        'issns_display': ['1234-1231', 'ISSN-L: 1234-1231', '1560-1560',
+                          'ISSN-L: 1560-1560 [Canceled]', '0046-225X',
+                          '0046-2254 [Incorrect]'],
+        'issn_numbers': ['1234-1231', '1560-1560', '0046-225X'],
+        'all_standard_numbers': ['1234-1231', '1234-1231', '1560-1560',
+                                 '1560-1560', '0046-225X', '0046-2254'],
+        'standard_numbers_search': ['1234-1231', '1234-1231', '1560-1560',
+                                    '1560-1560', '0046-225X', '0046-2254'],
+    }),
+
+    # 024
+
+    # 024: IND1 of 0 ==> type is isrc.
+    (['024 0# $a1234567890'], {
+        'other_standard_numbers_display': [
+            'International Standard Recording Code: 1234567890'],
+        'all_standard_numbers': ['1234567890'],
+        'standard_numbers_search': ['1234567890'],
+    }),
+
+    # 024: IND1 of 1 ==> type is upc.
+    (['024 1# $z1234567890'], {
+        'other_standard_numbers_display': [
+            'Universal Product Code: 1234567890 [Invalid]'],
+        'all_standard_numbers': ['1234567890'],
+        'standard_numbers_search': ['1234567890'],
+    }),
+
+    # 024: IND1 of 2 ==> type is ismn.
+    (['024 2# $a1234567890$qscore$qsewn$cEUR28.50'], {
+        'other_standard_numbers_display': [
+            'International Standard Music Number: 1234567890 (score, sewn, '
+            'EUR28.50)'],
+        'all_standard_numbers': ['1234567890'],
+        'standard_numbers_search': ['1234567890'],
+    }),
+
+    # 024: IND1 of 3 ==> type is ean.
+    (['024 3# $a1234567890$d51000'], {
+        'other_standard_numbers_display': [
+            'International Article Number: 1234567890 51000'],
+        'all_standard_numbers': ['1234567890 51000'],
+        'standard_numbers_search': ['1234567890 51000'],
+    }),
+
+    # 024: IND1 of 4 ==> type is sici.
+    (['024 4# $a1234567890'], {
+        'other_standard_numbers_display': [
+            'Serial Item and Contribution Identifier: 1234567890'],
+        'all_standard_numbers': ['1234567890'],
+        'standard_numbers_search': ['1234567890'],
+    }),
+
+    # 024: IND1 of 7 ==> type is in the $2.
+    (['024 7# $a1234567890$2istc'], {
+        'other_standard_numbers_display': [
+            'International Standard Text Code: 1234567890'],
+        'all_standard_numbers': ['1234567890'],
+        'standard_numbers_search': ['1234567890'],
+    }),
+
+    # 024: IND1 of 8 ==> type is unknown.
+    (['024 8# $a1234567890'], {
+        'other_standard_numbers_display': ['[Unknown Type]: 1234567890'],
+        'all_standard_numbers': ['1234567890'],
+        'standard_numbers_search': ['1234567890'],
+    }),
+
+    # 025: type ==> 'oan'
+    (['025 ## $aAe-F-355$aAe-F-562'], {
+        'other_standard_numbers_display': [
+            'Overseas Acquisition Number: Ae-F-355',
+            'Overseas Acquisition Number: Ae-F-562'],
+        'all_standard_numbers': ['Ae-F-355', 'Ae-F-562'],
+        'standard_numbers_search': ['Ae-F-355', 'Ae-F-562'],
+    }),
+
+    # 026: type ==> 'fingerprint'; ignore control subfields
+    (['026 ## $adete nkck$bvess lodo 3$cAnno Domini MDCXXXVI$d3$2fei$5UkCU'], {
+        'other_standard_numbers_display': [
+            'Fingerprint ID: dete nkck vess lodo 3 Anno Domini MDCXXXVI 3'],
+        'all_standard_numbers': [
+            'dete nkck vess lodo 3 Anno Domini MDCXXXVI 3'],
+        'standard_numbers_search': [
+            'dete nkck vess lodo 3 Anno Domini MDCXXXVI 3'],
+    }),
+
+    # 027: type ==> 'strn'
+    (['027 ## $aFOA--89-40265/C--SE'], {
+        'other_standard_numbers_display': [
+            'Standard Technical Report Number: FOA--89-40265/C--SE'],
+        'all_standard_numbers': ['FOA--89-40265/C--SE'],
+        'standard_numbers_search': ['FOA--89-40265/C--SE'],
+    }),
+
+    # 028: IND1 != 6 ==> publisher number, (publisher name from $b).
+    (['028 02 $a438 953-2$bPhilips Classics$q(set)'], {
+        'other_standard_numbers_display': [
+            'Publisher Number, Philips Classics: 438 953-2 (set)'],
+        'all_standard_numbers': ['438 953-2'],
+        'standard_numbers_search': ['438 953-2'],
+    }),
+
+    # 028: IND1 == 6 ==> distributor number, (distributor name from $b).
+    (['028 62 $aDV98597$bFacets Multimedia'], {
+        'other_standard_numbers_display': [
+            'Distributor Number, Facets Multimedia: DV98597'],
+        'all_standard_numbers': ['DV98597'],
+        'standard_numbers_search': ['DV98597'],
+    }),
+
+    # 030: 030 ==> type coden
+    (['030 ## $aASIRAF$zASITAF'], {
+        'other_standard_numbers_display': [
+            'CODEN: ASIRAF', 'CODEN: ASITAF [Invalid]'],
+        'all_standard_numbers': ['ASIRAF', 'ASITAF'],
+        'standard_numbers_search': ['ASIRAF', 'ASITAF'],
+    }),
+
+    # 074: 074 ==> type gpo
+    (['074 ## $a1022-A$z1012-A'], {
+        'other_standard_numbers_display': [
+            'Government Printing Office Item Number: 1022-A',
+            'Government Printing Office Item Number: 1012-A [Invalid]'],
+        'all_standard_numbers': ['1022-A', '1012-A'],
+        'standard_numbers_search': ['1022-A', '1012-A'],
+    }),
+
+    # 088: 088 ==> type report
+    (['088 ## $aNASA-RP-1124-REV-3$zNASA-RP-1124-REV-2'], {
+        'other_standard_numbers_display': [
+            'Report Number: NASA-RP-1124-REV-3',
+            'Report Number: NASA-RP-1124-REV-2 [Invalid]'],
+        'all_standard_numbers': ['NASA-RP-1124-REV-3', 'NASA-RP-1124-REV-2'],
+        'standard_numbers_search': ['NASA-RP-1124-REV-3', 'NASA-RP-1124-REV-2'],
+    }),
+
+], ids=[
+    # 020s (ISBN)
+    '020: $a is a valid ISBN.',
+    '020: $z is an invalid ISBN.',
+    '020: $a and $z in same field.',
+    '020: $c and $q apply to both ISBNs, if two are in the same field.',
+    '020: Multiple $q\'s beget multiple qualifiers.',
+    '020: Non-numeric data is treated as qualifying information.',
+    '020: Parentheses around multiple $q\'s are stripped.',
+    '020: Multiple parentheses around $q\'s are stripped.',
+
+    # 022s (ISSN)
+    '022: $a is a valid ISSN.',
+    '022: $a (ISSN) and $l (ISSN-L) are displayed separately',
+    '022: $m is a canceled ISSN-L',
+    '022: $y is an incorrect ISSN',
+    '022: $z is a canceled ISSN',
+    '022: Lots of ISSNs',
+
+    # 024-084 (Various)
+    '024: IND1 of 0 ==> type is isrc.',
+    '024: IND1 of 1 ==> type is upc.',
+    '024: IND1 of 2 ==> type is ismn.',
+    '024: IND1 of 3 ==> type is ean.',
+    '024: IND1 of 4 ==> type is sici.',
+    '024: IND1 of 7 ==> type is in the $2.',
+    '024: IND1 of 8 ==> type is unknown.',
+    '025: type ==> oan',
+    '026: type ==> fingerprint; ignore control subfields',
+    '027: type ==> strn',
+    '028: IND1 != 6 ==> publisher number, (publisher name from $b).',
+    '028: IND1 == 6 ==> distributor number, (distributor name from $b).',
+    '030: 030 ==> type coden',
+    '074: 074 ==> type gpo',
+    '088: 088 ==> type report',
+])
+def test_blasmpipeline_getstandardnumberinfo(raw_marcfields, expected,
+                                             bl_sierra_test_record,
+                                             blasm_pipeline_class,
+                                             bibrecord_to_pymarc,
+                                             add_marc_fields,
+                                             marcfield_strings_to_params):
+    """
+    The `BlacklightASMPipeline.get_standard_number_info` method should
+    return the expected values given the provided `marcfields`.
+    """
+    pipeline = blasm_pipeline_class()
+    bib = bl_sierra_test_record('bib_no_items')
+    bibmarc = bibrecord_to_pymarc(bib)
+    bibmarc.remove_fields('020', '022', '024', '025', '026', '027', '028',
+                          '030', '074', '088')
+    marcfields = marcfield_strings_to_params(raw_marcfields)
+    bibmarc = add_marc_fields(bibmarc, marcfields)
+    val = pipeline.get_standard_number_info(bib, bibmarc)
+    for k, v in val.items():
+        print k, v
+        if k in expected:
+            assert v == expected[k]
+        else:
+            assert v is None
+
+
+@pytest.mark.parametrize('raw_marcfields, expected', [
+    # 010 (LCCN)
+
+    # 010: $a is an LCCN, $b is a National Union Catalog number
+    (['010 ## $a   89798632 $bms 89001579'], {
+        'lccns_display': ['89798632'],
+        'lccn_number': '89798632',
+        'all_control_numbers': ['89798632', 'ms89001579', 'ms 89001579'],
+        'other_control_numbers_display': [
+            'National Union Catalog Number: ms 89001579 (i.e., ms89001579)'],
+        'control_numbers_search': ['89798632', 'ms89001579', 'ms 89001579'],
+    }),
+
+    # 010: $z is an invalid LCCN
+    (['010 ## $zsc 76000587'], {
+        'lccns_display': ['sc 76000587 (i.e., sc76000587) [Invalid]'],
+        'all_control_numbers': ['sc76000587', 'sc 76000587'],
+        'control_numbers_search': ['sc76000587', 'sc 76000587'],
+    }),
+
+    # 010: normalization 1
+    (['010 ## $a89-456'], {
+        'lccns_display': ['89-456 (i.e., 89000456)'],
+        'lccn_number': '89000456',
+        'all_control_numbers': ['89000456', '89-456'],
+        'control_numbers_search': ['89000456', '89-456'],
+    }),
+
+    # 010: normalization 2
+    (['010 ## $a2001-1114'], {
+        'lccns_display': ['2001-1114 (i.e., 2001001114)'],
+        'lccn_number': '2001001114',
+        'all_control_numbers': ['2001001114', '2001-1114'],
+        'control_numbers_search': ['2001001114', '2001-1114'],
+    }),
+
+    # 010: normalization 3
+    (['010 ## $agm 71-2450'], {
+        'lccns_display': ['gm 71-2450 (i.e., gm71002450)'],
+        'lccn_number': 'gm71002450',
+        'all_control_numbers': ['gm71002450', 'gm 71-2450'],
+        'control_numbers_search': ['gm71002450', 'gm 71-2450'],
+    }),
+
+    # 010: normalization 4
+    (['010 ## $a   79-139101 /AC/MN'], {
+        'lccns_display': ['79-139101 /AC/MN (i.e., 79139101)'],
+        'lccn_number': '79139101',
+        'all_control_numbers': ['79139101', '79-139101 /AC/MN'],
+        'control_numbers_search': ['79139101', '79-139101 /AC/MN'],
+    }),
+
+    # 016: IND1 != 7 ==> LAC control number
+    (['016 ## $a 730032015  rev'], {
+        'other_control_numbers_display': [
+            'Library and Archives Canada Number: 730032015  rev'],
+        'all_control_numbers': ['730032015  rev'],
+        'control_numbers_search': ['730032015  rev'],
+    }),
+
+    # 016: IND1 == 7 ==> control number source in $2
+    (['016 7# $a94.763966.7$2GyFmDB'], {
+        'other_control_numbers_display': ['94.763966.7 (source: GyFmDB)'],
+        'all_control_numbers': ['94.763966.7'],
+        'control_numbers_search': ['94.763966.7'],
+    }),
+
+    # 016: $z indicates invalid/canceled control number
+    (['016 7# $a890000298$z89000298$2GyFmDB'], {
+        'other_control_numbers_display': [
+            '890000298 (source: GyFmDB)',
+            '89000298 (source: GyFmDB) [Invalid]'],
+        'all_control_numbers': ['890000298', '89000298'],
+        'control_numbers_search': ['890000298', '89000298'],
+    }),
+
+    # 035: non-OCLC number
+    (['035 ## $a(CaOTULAS)41063988'], {
+        'other_control_numbers_display': ['41063988 (source: CaOTULAS)'],
+        'all_control_numbers': ['41063988'],
+        'control_numbers_search': ['41063988'],
+    }),
+
+    # 035: Invalid OCLC number in $z
+    (['035 ## $z(OCoLC)7374506'], {
+        'oclc_numbers_display': ['7374506 [Invalid]'],
+        'all_control_numbers': ['7374506'],
+        'control_numbers_search': ['7374506'],
+    }),
+
+    # 035: OCLC number normalization (ocm)
+    (['035 ## $a(OCoLC)ocm0194068'], {
+        'oclc_numbers_display': ['194068'],
+        'oclc_numbers': ['194068'],
+        'all_control_numbers': ['194068'],
+        'control_numbers_search': ['194068'],
+    }),
+
+    # 035: OCLC number normalization (ocn)
+    (['035 ## $a(OCoLC)ocn0194068'], {
+        'oclc_numbers_display': ['194068'],
+        'oclc_numbers': ['194068'],
+        'all_control_numbers': ['194068'],
+        'control_numbers_search': ['194068'],
+    }),
+
+    # 035: OCLC number normalization (on)
+    (['035 ## $a(OCoLC)on0194068'], {
+        'oclc_numbers_display': ['194068'],
+        'oclc_numbers': ['194068'],
+        'all_control_numbers': ['194068'],
+        'control_numbers_search': ['194068'],
+    }),
+
+], ids=[
+    # 010 (LCCN)
+    '010: $a is an LCCN, $b is a National Union Catalog number',
+    '010: $z is an invalid LCCN',
+    '010: normalization 1',
+    '010: normalization 2',
+    '010: normalization 3',
+    '010: normalization 4',
+
+    # 016 (Other National control numbers)
+    '016: IND1 != 7 ==> LAC control number',
+    '016: IND1 == 7 ==> control number source in $2',
+    '016: $z indicates invalid/canceled control number',
+
+    # 035 (OCLC or other control numbers)
+    '035: non-OCLC number',
+    '035: Invalid OCLC number in $z',
+    '035: OCLC number normalization (ocm)',
+    '035: OCLC number normalization (ocn)',
+    '035: OCLC number normalization (on)',
+])
+def test_blasmpipeline_getcontrolnumberinfo(raw_marcfields, expected,
+                                            bl_sierra_test_record,
+                                            blasm_pipeline_class,
+                                            bibrecord_to_pymarc,
+                                            add_marc_fields,
+                                            marcfield_strings_to_params):
+    """
+    The `BlacklightASMPipeline.get_control_number_info` method should
+    return the expected values given the provided `marcfields`.
+    """
+    pipeline = blasm_pipeline_class()
+    bib = bl_sierra_test_record('bib_no_items')
+    bibmarc = bibrecord_to_pymarc(bib)
+    bibmarc.remove_fields('010', '016', '035')
+    marcfields = marcfield_strings_to_params(raw_marcfields)
+    bibmarc = add_marc_fields(bibmarc, marcfields)
+    val = pipeline.get_control_number_info(bib, bibmarc)
+    for k, v in val.items():
+        print k, v
+        if k in expected:
+            assert v == expected[k]
+        else:
+            assert v is None
 
 
 @pytest.mark.parametrize('mapping, bundle, expected', [
