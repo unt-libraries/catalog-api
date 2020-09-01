@@ -384,10 +384,12 @@ class JobPlan(object):
         bundle = self.get_bundle(chunk_id)
         info = self.get_chunk_info(chunk_id)
         rset_name, op = info['rset_name'], info['op']
-        recs = self.get_records_for_operation(exp, op, prefetch=True)
+        recs = self.get_records_for_operation(exp, op, prefetch=False)
         if rset_name is None:
-            return self.bundler.unpack(bundle, recs)
-        return {rset_name: self.bundler.unpack(bundle, recs[rset_name])}
+            all_recs = recs.model.objects.all()
+            return self.bundler.unpack(bundle, all_recs)
+        all_recs = recs[rset_name].model.objects.all()
+        return {rset_name: self.bundler.unpack(bundle, all_recs)}
 
     def get_bundle(self, chunk_id):
         data = self._get_chunk_obj(chunk_id).get()
@@ -639,8 +641,9 @@ def do_export_chunk(cumulative_vals, instance_pk, export_filter, export_type,
     chunk_label = plan.get_chunk_label(chunk_id)
     exp.log('Info', 'Starting {} ({}).'.format(chunk_id, chunk_label))
     chunk_records = plan.unpack_chunk(exp, chunk_id)
+    if info['op'] == 'export':
+        chunk_records = exp.apply_prefetches_to_queryset(chunk_records)
     vals = plan.get_method_for_operation(exp, info['op'])(chunk_records)
-
     exp.log('Info', 'Finished {} ({}).'.format(chunk_id, chunk_label))
     return vals
 
