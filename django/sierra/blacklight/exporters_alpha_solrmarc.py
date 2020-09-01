@@ -115,7 +115,8 @@ class BibsToAlphaSolrmarc(ToSolrExporter):
         self.options['other_updated_rtype_paths'] = [
             'bibrecorditemrecordlink__item_record'
         ]
-        return super(ToSolrExporter, self).get_records(prefetch)
+        qset = super(ToSolrExporter, self).get_records(prefetch)
+        return qset.distinct()
 
     def final_callback(self, vals=None, status='success'):
         """
@@ -147,7 +148,8 @@ class BibsToAlphaSmAndAttachedToSolr(SameRecSetMultiExporter):
         self.options['other_updated_rtype_paths'] = [
             'bibrecorditemrecordlink__item_record'
         ]
-        return super(SameRecSetMultiExporter, self).get_records(prefetch)
+        qset = super(SameRecSetMultiExporter, self).get_records(prefetch)
+        return qset.distinct()
 
 
 class BuildAlphaSolrmarcSuggest(FromSolrMixin, ToSolrExporter):
