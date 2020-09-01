@@ -111,6 +111,12 @@ class BibsToAlphaSolrmarc(ToSolrExporter):
     ]
     select_related = ['record_metadata', 'record_metadata__record_type']
 
+    def get_records(self, prefetch=True):
+        self.options['other_updated_rtype_paths'] = [
+            'bibrecorditemrecordlink__item_record'
+        ]
+        return super(ToSolrExporter, self).get_records(prefetch)
+
     def final_callback(self, vals=None, status='success'):
         """
         If the export job was successful, the final_callback triggers a
@@ -129,7 +135,6 @@ class BibsToAlphaSolrmarc(ToSolrExporter):
             self.log('Info', 'Skipping bl-suggest build.')
 
 
-
 class BibsToAlphaSmAndAttachedToSolr(SameRecSetMultiExporter):
     Child = SameRecSetMultiExporter.Child
     children_config = (Child('BibsToAlphaSolrmarc'),
@@ -137,6 +142,12 @@ class BibsToAlphaSmAndAttachedToSolr(SameRecSetMultiExporter):
     model = sm.BibRecord
     max_rec_chunk = 500
     app_name = 'blacklight'
+
+    def get_records(self, prefetch=True):
+        self.options['other_updated_rtype_paths'] = [
+            'bibrecorditemrecordlink__item_record'
+        ]
+        return super(SameRecSetMultiExporter, self).get_records(prefetch)
 
 
 class BuildAlphaSolrmarcSuggest(FromSolrMixin, ToSolrExporter):
