@@ -28,16 +28,17 @@ class CustomFilterManager(models.Manager):
         Applies the filter_method and returns the filtered queryset.
         """
         filter_params = filter_method()
-        filter = filter_params['filter']
+        filter_ = filter_params['filter']
         order_by = filter_params['order_by']
-        set = self
-        if filter:
-            set = set.filter(helpers.reduce_filter_kwargs(filter))
-        else:
-            set = set.all()
+        distinct = filter_params.get('distinct', False)
+        qset = self.all()
+        if filter_:
+            qset = qset.filter(helpers.reduce_filter_kwargs(filter_))
         if order_by:
-            set = set.order_by(*order_by)
-        return set
+            qset = qset.order_by(*order_by)
+        if distinct:
+            qset = qset.distinct()
+        return qset
 
     def filter_by(self, filter_method, options=None):
         """
@@ -86,6 +87,7 @@ class RecordManager(CustomFilterManager):
                     '__'.join([fpath, 'lte']): date_to}
 
         options = self.options
+        distinct = False
         is_del = options.get('is_deletion', False)
         model_is_rec_md = self.model._meta.object_name == 'RecordMetadata'
         other_rt_paths = options.get('other_updated_rtype_paths', [])
@@ -104,10 +106,11 @@ class RecordManager(CustomFilterManager):
 
         if not is_del:
             for rt_path in options.get('other_updated_rtype_paths', []):
+                distinct = True
                 prefix = '{}__record_metadata'.format(rt_path)
                 filter_.append(_make_filter(prefix, date_from, date_to))
                 order_by.append(_make_fpath(prefix))
-        return {'filter': filter_, 'order_by': order_by}
+        return {'filter': filter_, 'order_by': order_by, 'distinct': distinct}
 
     def record_range(self):
         """
@@ -165,16 +168,15 @@ class RecordManager(CustomFilterManager):
 
     def location(self):
         """
-        Filters item records by location (code).
+        Filters records by item location (code).
         """
         options = self.options
-        location_code = self.options['location_code']
+        locations = self.options['location_code']
+        f_prefix, distinct = '', False
         if self.model._meta.object_name == 'RecordMetadata':
             f_prefix = 'itemrecord__'
-            o_prefix = ''
-        else:
-            f_prefix = ''
-            o_prefix = 'record_metadata__'
-        filter = [{'{}location__code'.format(f_prefix): location_code}]
-        order_by = ['{}__record_num'.format(o_prefix)]
-        return {'filter': filter, 'order_by': order_by}
+        elif self.model._meta.object_name == 'BibRecord':
+            f_prefix = 'bibrecorditemrecordlink__item_record__'
+            distinct = True
+        filter_ = [{'{}location_id__in'.format(f_prefix): locations}]
+        return {'filter': filter_, 'order_by': ['pk'], 'distinct': distinct}

@@ -77,7 +77,9 @@ def test_exporter_class_versions(et_code, category, new_exporter,
     ('BibsAndAttachedToSolr', 'bib_set', 'record_range'),
     ('BibsAndAttachedToSolr', 'er_bib_set', 'record_range'),
     ('BibsAndAttachedToSolr', 'bib_set', 'updated_date_range'),
-    ('BibsAndAttachedToSolr', 'er_bib_set', 'updated_date_range')
+    ('BibsAndAttachedToSolr', 'er_bib_set', 'updated_date_range'),
+    ('ItemsBibsToSolr', 'item_set', 'location'),
+    ('BibsAndAttachedToSolr', 'bib_set', 'location'),
 ])
 def test_basic_export_get_records(et_code, rset_code, filter_code,
                                   basic_exporter_class,
@@ -98,12 +100,16 @@ def test_basic_export_get_records(et_code, rset_code, filter_code,
         ref_date = expected_recs[0].record_metadata.record_last_updated_gmt
         opts = {'date_range_from': ref_date - datetime.timedelta(days=1),
                 'date_range_to': ref_date + datetime.timedelta(days=1)}
+    elif filter_code == 'location':
+        links = expected_recs[0].bibrecorditemrecordlink_set.all()
+        lcodes = list(set([l.item_record.location_id for l in links]))
+        opts = {'location_code': lcodes}
 
     expclass = basic_exporter_class(et_code)
     exporter = new_exporter(expclass, filter_code, 'waiting', options=opts)
     records = exporter.get_records()
 
-    if filter_code == 'updated_date_range':
+    if filter_code in ('location', 'updated_date_range'):
         assert expected_recs[0].pk in [r.pk for r in records]
     else:
         assert set(records) == set(expected_recs)

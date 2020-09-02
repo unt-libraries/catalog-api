@@ -15,9 +15,12 @@ def validate_iii_record_num(rec_num):
     if re.match(r'^[a-c,e,g,i,j,l,n-p,s,t,v]\d{5,10}$', rec_num) is None:
         raise ValidationError('Not a valid III record number.')
 
-def validate_iii_location_code(code):
-    if {'code': code} not in sierra_models.Location.objects.values('code'):
-        raise ValidationError('Not a valid III location code.')
+def validate_iii_location_codes(user_codes):
+    system_codes = sierra_models.Location.objects.values('code')
+    for ucode in user_codes:
+        if {'code': ucode} not in system_codes:
+            msg = '`{}` is not valid III location code.'.format(ucode)
+            raise ValidationError(msg)
 
 
 # Custom Fields
@@ -29,5 +32,12 @@ class IiiRecordNumField(forms.CharField):
     default_validators = [validate_iii_record_num]
 
 
-class IiiLocationCodeField(forms.CharField):
-    default_validators = [validate_iii_location_code]
+class IiiLocationCodesField(forms.CharField):
+    default_validators = [validate_iii_location_codes]
+
+    def clean(self, value):
+        value = self.to_python(value)
+        self.validate(value)
+        value = value.split(',')
+        self.run_validators(value)
+        return value

@@ -4,7 +4,7 @@ from datetime import date
 from django import forms
 
 from ..models import ExportType, ExportFilter, ExportInstance
-from .components import PastDateField, IiiRecordNumField, IiiLocationCodeField
+from .components import PastDateField, IiiRecordNumField, IiiLocationCodesField
 
 
 class ExportForm(forms.ModelForm):
@@ -12,7 +12,7 @@ class ExportForm(forms.ModelForm):
     date_range_to = PastDateField(required=False)
     record_range_from = IiiRecordNumField(required=False)
     record_range_to = IiiRecordNumField(required=False)
-    location_code = IiiLocationCodeField(required=False)
+    location_code = IiiLocationCodesField(required=False)
     export_filter = forms.ModelChoiceField(
             queryset=ExportFilter.objects.order_by('order'), empty_label=None)
     export_type = forms.ModelChoiceField(
@@ -67,11 +67,11 @@ class ExportForm(forms.ModelForm):
         return cleaned_data
 
     def stringify_params(self):
-        '''
+        """
         Returns a string from any filter parameters given--e.g., a date
         range or record range. The string should be put in the
         ExportInstance.filter_params field.
-        '''
+        """
         params = ''
         data = self.cleaned_data
         if re.search(r'date_range', data.get('export_filter').pk):
@@ -80,6 +80,8 @@ class ExportForm(forms.ModelForm):
         elif re.search(r'record_range', data.get('export_filter').pk):
             params = '{} to {}'.format(data.get('record_range_from'),
                                        data.get('record_range_to'))
+        elif data.get('export_filter').pk == 'location':
+            params = ','.join(data.get('location_code', []))
         return params
     
     class Meta:

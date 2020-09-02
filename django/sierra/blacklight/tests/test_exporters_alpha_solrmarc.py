@@ -142,7 +142,40 @@ def test_asm_export_get_records_updated_range(et_code, rstart, rend, bdate,
         'date_range_to': datetime(*rend, tzinfo=pytz.utc)
     })
     assert (bib.pk in [r.pk for r in exp.get_records()]) == expected
-    
+
+
+@pytest.mark.exports
+@pytest.mark.get_records
+@pytest.mark.parametrize('et_code, test_lcodes, item_lcodes, expected', [
+    ('BibsToAlphaSolrmarc', ['w'], ['w', 'w4m'], True),
+    ('BibsToAlphaSolrmarc', ['x'], ['w', 'w4m'], False),
+    ('BibsToAlphaSolrmarc', ['w', 'x'], ['w', 'w4m'], True),
+    ('BibsToAlphaSolrmarc', ['w', 'x'], ['xdoc', 'w4m'], False),
+    ('BibsToAlphaSolrmarc', ['w', 'x'], ['w', 'x'], True),
+    ('BibsToAlphaSmAndAttachedToSolr', ['w'], ['w', 'w4m'], True),
+    ('BibsToAlphaSmAndAttachedToSolr', ['x'], ['w', 'w4m'], False),
+    ('BibsToAlphaSmAndAttachedToSolr', ['w', 'x'], ['w', 'w4m'], True),
+    ('BibsToAlphaSmAndAttachedToSolr', ['w', 'x'], ['xdoc', 'w4m'], False),
+    ('BibsToAlphaSmAndAttachedToSolr', ['w', 'x'], ['w', 'x'], True),
+])
+def test_asm_export_get_records_location(et_code, test_lcodes, item_lcodes,
+                                         expected, bl_sierra_test_record,
+                                         setattr_model_instance,
+                                         add_items_to_bib, asm_exporter_class,
+                                         new_exporter):
+    """
+    The `get_records` method for alpha-solrmarc exporters should return
+    the expected recordset, when using the `location` filter type.
+    """
+    bib = bl_sierra_test_record('bib_no_items')
+    item_info = [{'attrs': {'location_id': lcode}} for lcode in item_lcodes]
+    bib = add_items_to_bib(bib, item_info)
+
+    expclass = asm_exporter_class(et_code)
+    exp = new_exporter(expclass, 'location', 'waiting', options={
+        'location_code': test_lcodes
+    })
+    assert (bib.pk in [r.pk for r in exp.get_records()]) == expected
 
 
 @pytest.mark.exports
