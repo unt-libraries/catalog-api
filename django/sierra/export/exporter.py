@@ -176,6 +176,17 @@ class Exporter(object):
             select_related=select_related, prefetch_related=prefetch_related,
         )
 
+    def apply_prefetches_to_queryset(self, qset):
+        """
+        Utility method for applying the prefetch_related and
+        select_related parameters for this object to the given `qset`.
+        """
+        if self.select_related:
+            qset = qset.select_related(*self.select_related)
+        if self.prefetch_related:
+            qset = qset.prefetch_related(*self.prefetch_related)
+        return qset
+
     @staticmethod
     def get_filtered_queryset(model, export_filter, filter_options,
                               added_filters=None, select_related=None,
@@ -257,12 +268,12 @@ class Exporter(object):
         """
         options = self.options.copy()
         options['is_deletion'] = False
-        sr = self.select_related if prefetch else None
-        pf = self.prefetch_related if prefetch else None
-        return self.get_filtered_queryset(
-            self.model, self.export_filter, options,
-            added_filters=self.record_filter, select_related=sr,
-            prefetch_related=pf)
+        qset = self.get_filtered_queryset(self.model, self.export_filter,
+                                          options,
+                                          added_filters=self.record_filter)
+        if prefetch:
+            qset = self.apply_prefetches_to_queryset(qset)
+        return qset
 
     def get_deletions(self):
         """

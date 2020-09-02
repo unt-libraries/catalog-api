@@ -3,6 +3,7 @@ Tests classes derived from `export.exporter.Exporter`.
 """
 
 import pytest
+import datetime
 
 # FIXTURES AND TEST DATA
 # Fixtures used in the below tests can be found in
@@ -74,7 +75,11 @@ def test_exporter_class_versions(et_code, category, new_exporter,
     ('LocationsToSolr', 'location_set', 'full_export'),
     ('ItemsBibsToSolr', 'item_set', 'record_range'),
     ('BibsAndAttachedToSolr', 'bib_set', 'record_range'),
-    ('BibsAndAttachedToSolr', 'er_bib_set', 'record_range')
+    ('BibsAndAttachedToSolr', 'er_bib_set', 'record_range'),
+    ('BibsAndAttachedToSolr', 'bib_set', 'updated_date_range'),
+    ('BibsAndAttachedToSolr', 'er_bib_set', 'updated_date_range'),
+    ('ItemsBibsToSolr', 'item_set', 'location'),
+    ('BibsAndAttachedToSolr', 'bib_set', 'location'),
 ])
 def test_basic_export_get_records(et_code, rset_code, filter_code,
                                   basic_exporter_class,
@@ -91,12 +96,23 @@ def test_basic_export_get_records(et_code, rset_code, filter_code,
         start_rnum = expected_recs[0].record_metadata.get_iii_recnum(False)
         end_rnum = expected_recs[-1].record_metadata.get_iii_recnum(False)
         opts = {'record_range_from': start_rnum, 'record_range_to': end_rnum}
+    elif filter_code == 'updated_date_range':
+        ref_date = expected_recs[0].record_metadata.record_last_updated_gmt
+        opts = {'date_range_from': ref_date - datetime.timedelta(days=1),
+                'date_range_to': ref_date + datetime.timedelta(days=1)}
+    elif filter_code == 'location':
+        links = expected_recs[0].bibrecorditemrecordlink_set.all()
+        lcodes = list(set([l.item_record.location_id for l in links]))
+        opts = {'location_code': lcodes}
 
     expclass = basic_exporter_class(et_code)
     exporter = new_exporter(expclass, filter_code, 'waiting', options=opts)
     records = exporter.get_records()
 
-    assert set(records) == set(expected_recs)
+    if filter_code in ('location', 'updated_date_range'):
+        assert expected_recs[0].pk in [r.pk for r in records]
+    else:
+        assert set(records) == set(expected_recs)
 
 
 @pytest.mark.exports

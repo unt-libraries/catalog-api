@@ -460,18 +460,14 @@ def test_bibrules_resourcetype(bcode2, cns, f007s, f008_21, f008_23, f008_26,
                  for i, item in enumerate(items)]
         bib.bibrecorditemrecordlink_set.all.return_value = links
 
-    def side_effect(control_num=None):
-        if control_num == 7:
-            if f007s:
-                return [mocker.Mock(**{'get_data.return_value': f007})
-                        for f007 in f007s]
-            return []
-        if control_num == 8:
-            f008 = '{}{} {}  {}'.format(' ' * 21, f008_21 or ' ',
-                                        f008_23 or ' ', f008_26 or ' ')
-            return [mocker.Mock(**{'get_data.return_value': f008})]
+    f007s = f007s or []
+    f008 = '{}{} {}  {}'.format(' ' * 21, f008_21 or ' ', f008_23 or ' ',
+                                f008_26 or ' ')
+    cfs = [mocker.Mock(**{'get_data.return_value': f007, 'control_num': 7})
+           for f007 in f007s]
+    cfs.append(mocker.Mock(**{'get_data.return_value': f008, 'control_num': 8}))
 
-    bib.record_metadata.controlfield_set.filter.side_effect = side_effect
+    bib.record_metadata.controlfield_set.all.return_value = cfs
 
     if bib_locations is not None:
         rval = [mocker.Mock(code=bl) for bl in bib_locations]

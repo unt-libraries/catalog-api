@@ -28,16 +28,17 @@ class CustomFilterManager(models.Manager):
         Applies the filter_method and returns the filtered queryset.
         """
         filter_params = filter_method()
-        filter = filter_params['filter']
+        filter_ = filter_params['filter']
         order_by = filter_params['order_by']
-        set = self
-        if filter:
-            set = set.filter(helpers.reduce_filter_kwargs(filter))
-        else:
-            set = set.all()
+        distinct = filter_params.get('distinct', False)
+        qset = self.all()
+        if filter_:
+            qset = qset.filter(helpers.reduce_filter_kwargs(filter_))
         if order_by:
-            set = set.order_by(*order_by)
-        return set
+            qset = qset.order_by(*order_by)
+        if distinct:
+            qset = qset.distinct()
+        return qset
 
     def filter_by(self, filter_method, options=None):
         """
@@ -63,8 +64,34 @@ class RecordManager(CustomFilterManager):
         date objects. Options *may* contain `is_deletion`, which is a
         boolean that indicates whether or not this requires "last
         deleted" rather than "last updated".
+
+        For things that are not deletions, Options may also contain a
+        list, `other_updated_rtype_paths`, listing the paths to other
+        record types where, if a record of that type that's attached to
+        the main type was updated within the given range, then the main
+        record should be included in the filtered queryset. For
+        instance, updating an Item record attached to a Bib doesn't
+        update the Bib's `record_last_updated_gmt` date, so if you need
+        to get a list of Bibs where either the Bib or any attached item
+        was updated within a certain date range, then include an
+        `other_updated_rtype_paths` entry pointing to the item_record
+        table.
         """
+        def _make_fpath(prefix, is_del=False):
+            fname = 'deletion_date_gmt' if is_del else 'record_last_updated_gmt'
+            return '__'.join(([prefix] if prefix else []) + [fname])
+
+        def _make_filter(prefix, date_from, date_to, is_del=False):
+            fpath = _make_fpath(prefix, is_del)
+            return {'__'.join([fpath, 'gte']): date_from,
+                    '__'.join([fpath, 'lte']): date_to}
+
         options = self.options
+        distinct = False
+        is_del = options.get('is_deletion', False)
+        model_is_rec_md = self.model._meta.object_name == 'RecordMetadata'
+        other_rt_paths = options.get('other_updated_rtype_paths', [])
+
         date_from = datetime.combine(options['date_range_from'], time(0, 0))
         date_from = tz.make_aware(date_from, tz.get_default_timezone())
         date_from = date_from.astimezone(tz.utc)
@@ -72,23 +99,18 @@ class RecordManager(CustomFilterManager):
                                    time(23, 59, 59, 99))
         date_to = tz.make_aware(date_to, tz.get_default_timezone())
         date_to = date_to.astimezone(tz.utc)
-        if self.model._meta.object_name != 'RecordMetadata':
-            prefix = 'record_metadata__'
-        else:
-            prefix = ''
-        if options.get('is_deletion', False):
-            filter = [{
-                '{}deletion_date_gmt__gte'.format(prefix): date_from,
-                '{}deletion_date_gmt__lte'.format(prefix): date_to,
-            }]
-            order_by = ['{}deletion_date_gmt'.format(prefix)]
-        else:
-            filter = [{
-                '{}record_last_updated_gmt__gte'.format(prefix): date_from,
-                '{}record_last_updated_gmt__lte'.format(prefix): date_to
-            }]
-            order_by = ['{}record_last_updated_gmt'.format(prefix)]
-        return {'filter': filter, 'order_by': order_by}
+
+        prefix = '' if model_is_rec_md else 'record_metadata'
+        filter_ = [_make_filter(prefix, date_from, date_to, is_del)]
+        order_by = [_make_fpath(prefix, is_del)]
+
+        if not is_del:
+            for rt_path in options.get('other_updated_rtype_paths', []):
+                distinct = True
+                prefix = '{}__record_metadata'.format(rt_path)
+                filter_.append(_make_filter(prefix, date_from, date_to))
+                order_by.append(_make_fpath(prefix))
+        return {'filter': filter_, 'order_by': order_by, 'distinct': distinct}
 
     def record_range(self):
         """
@@ -146,16 +168,15 @@ class RecordManager(CustomFilterManager):
 
     def location(self):
         """
-        Filters item records by location (code).
+        Filters records by item location (code).
         """
         options = self.options
-        location_code = self.options['location_code']
+        locations = self.options['location_code']
+        f_prefix, distinct = '', False
         if self.model._meta.object_name == 'RecordMetadata':
             f_prefix = 'itemrecord__'
-            o_prefix = ''
-        else:
-            f_prefix = ''
-            o_prefix = 'record_metadata__'
-        filter = [{'{}location__code'.format(f_prefix): location_code}]
-        order_by = ['{}__record_num'.format(o_prefix)]
-        return {'filter': filter, 'order_by': order_by}
+        elif self.model._meta.object_name == 'BibRecord':
+            f_prefix = 'bibrecorditemrecordlink__item_record__'
+            distinct = True
+        filter_ = [{'{}location_id__in'.format(f_prefix): locations}]
+        return {'filter': filter_, 'order_by': ['pk'], 'distinct': distinct}

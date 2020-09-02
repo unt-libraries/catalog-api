@@ -474,8 +474,8 @@ class ResourceTypeDeterminer(object):
                     yield cn
 
     def get_control_field_from_obj(self, obj, tag):
-        cf = obj.record_metadata.controlfield_set.filter(control_num=int(tag))
-        return [field.get_data() for field in cf]
+        cfs = obj.record_metadata.controlfield_set.all()
+        return [cf.get_data() for cf in cfs if cf.control_num == int(tag)]
 
     def get_bib_location_codes_from_obj(self, obj):
         return (l.code for l in obj.locations.all())
