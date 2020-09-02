@@ -189,6 +189,11 @@ def test_itemrules_incollections(loc_code, expected, item_rules, mocker):
     ('w4mrb', 1, '-', False),
     ('w4mrx', 1, '-', False),
     ('w4spe', 1, '-', False),
+    # Temporary for COVID-19
+    ('w4m', 1, '-', False),
+    ('w4mau', 1, '-', False),
+    ('w4mft', 1, '-', False),
+    ('w4mov', 1, '-', False),
 ])
 def test_itemrules_isrequestablethroughcatalog(loc_code, itype_id,
                                                item_status_id, expected,
@@ -221,6 +226,7 @@ def test_itemrules_isrequestablethroughcatalog(loc_code, itype_id,
     # ('w4mrx', True),
     ('w4mrx', False),
     ('w4spe', True),
+    ('xspe', True),
 ])
 def test_itemrules_isrequestablethroughaeon(loc_code, expected, item_rules,
                                             mocker):

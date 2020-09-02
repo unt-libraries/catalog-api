@@ -92,7 +92,7 @@ ITEM_RULES = {
                 'xts',
                 # These are still temporarily disabled due to COVID-19
                 # policies. Simply remove these to re-enable them.
-                'xdmic', 'xdmp',
+                'w4m', 'w4mau', 'w4mft', 'w4mov', 'xdmic', 'xdmp',
             )
         }, multi=False)),
         ('item_status_id', r.reverse_mapping({
@@ -112,7 +112,7 @@ ITEM_RULES = {
             # COVID-19 policies. Add them back to the below entry to
             # re-enable them:
             # 'w4mr1', 'w4mr2', 'w4mr3', 'w4mrb', 'w4mrx', 
-            True: ('w4spe',)
+            True: ('w4spe', 'xspe')
         }, multi=False))
     ], default=False),
 
