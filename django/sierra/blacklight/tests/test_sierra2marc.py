@@ -135,10 +135,10 @@ def update_test_bib_inst(add_varfields_to_record, add_items_to_bib,
                                           overwrite_existing=True)
         items_to_add = []
         for item in items:
-            try:
-                attrs, item_vfs = item
-            except ValueError:
+            if isinstance(item, dict):
                 attrs, item_vfs = item, []
+            else:
+                attrs, item_vfs = item
             items_to_add.append({'attrs': attrs, 'varfields': item_vfs})
         return add_items_to_bib(bib, items_to_add)
     return _update_test_bib_inst
@@ -1905,9 +1905,11 @@ def test_blasmpipeline_getpubinfo_pub_and_place_search(marcfields, expected,
         assert set(v) == set(val[k])
 
 
-@pytest.mark.parametrize('bib_locations, item_locations, expected', [
+@pytest.mark.parametrize('bib_locations, item_locations, sup_item_locations,'
+                         'expected', [
     ( (('czm', 'Chilton Media Library'),),
       (('czm', 'Chilton Media Library'),),
+      tuple(),
       {'access_facet': ['At the Library'],
        'collection_facet': ['Media Library'],
        'building_facet': ['Chilton Media Library'],
@@ -1915,6 +1917,15 @@ def test_blasmpipeline_getpubinfo_pub_and_place_search(marcfields, expected,
     ),
     ( (('czm', 'Chilton Media Library'),),
       tuple(),
+      tuple(),
+      {'access_facet': ['At the Library'],
+       'collection_facet': ['Media Library'],
+       'building_facet': ['Chilton Media Library'],
+       'shelf_facet': []},
+    ),
+    ( (('czm', 'Chilton Media Library'),),
+      tuple(),
+      (('lwww', 'UNT ONLINE RESOURCES'), ('w3', 'Willis Library-3rd Floor'),),
       {'access_facet': ['At the Library'],
        'collection_facet': ['Media Library'],
        'building_facet': ['Chilton Media Library'],
@@ -1922,13 +1933,31 @@ def test_blasmpipeline_getpubinfo_pub_and_place_search(marcfields, expected,
     ),
     ( (('blah', 'Blah'),),
       (('blah2', 'Blah2'), ('czm', 'Chilton Media Library'),),
+      tuple(),
       {'access_facet': ['At the Library'],
        'collection_facet': ['Media Library'],
        'building_facet': ['Chilton Media Library'],
        'shelf_facet': []}
     ),
+    ( (('czm', 'Chilton Media Library'),),
+      (('w3', 'Willis Library-3rd Floor'),),
+      (('lwww', 'UNT ONLINE RESOURCES'),),
+      {'access_facet': ['At the Library'],
+       'collection_facet': ['General Collection'],
+       'building_facet': ['Willis Library'],
+       'shelf_facet': ['Willis Library-3rd Floor']},
+    ),
+    ( (('czm', 'Chilton Media Library'),),
+      (('w3', 'Willis Library-3rd Floor'),),
+      (('w3', 'Willis Library-3rd Floor'),),
+      {'access_facet': ['At the Library'],
+       'collection_facet': ['General Collection'],
+       'building_facet': ['Willis Library'],
+       'shelf_facet': ['Willis Library-3rd Floor']},
+    ),
     ( (('blah', 'Blah'),),
       (('blah2', 'Blah2'), ('blah', 'Blah'),),
+      tuple(),
       {'access_facet': [],
        'collection_facet': [],
        'building_facet': [],
@@ -1936,12 +1965,14 @@ def test_blasmpipeline_getpubinfo_pub_and_place_search(marcfields, expected,
     ),
     ( (('r', 'Discovery Park Library'),),
       (('lwww', 'UNT ONLINE RESOURCES'),),
+      tuple(),
       {'access_facet': ['Online'],
        'collection_facet': ['General Collection'],
        'building_facet': [],
        'shelf_facet': []}
     ),
     ( (('r', 'Discovery Park Library'), ('lwww', 'UNT ONLINE RESOURCES')),
+      tuple(),
       tuple(),
       {'access_facet': ['At the Library', 'Online'],
        'collection_facet': ['Discovery Park Library', 'General Collection'],
@@ -1950,6 +1981,7 @@ def test_blasmpipeline_getpubinfo_pub_and_place_search(marcfields, expected,
     ),
     ( (('w', 'Willis Library'),),
       (('lwww', 'UNT ONLINE RESOURCES'),),
+      tuple(),
       {'access_facet': ['Online'],
        'collection_facet': ['General Collection'],
        'building_facet': [],
@@ -1957,6 +1989,7 @@ def test_blasmpipeline_getpubinfo_pub_and_place_search(marcfields, expected,
     ),
     ( (('x', 'Remote Storage'),),
       (('xdoc', 'Government Documents Remote Storage'),),
+      tuple(),
       {'access_facet': ['At the Library'],
        'collection_facet': ['Government Documents'],
        'building_facet': ['Remote Storage'],
@@ -1964,6 +1997,7 @@ def test_blasmpipeline_getpubinfo_pub_and_place_search(marcfields, expected,
     ),
     ( (('sd', 'Eagle Commons Library Government Documents'),),
       (('xdoc', 'Government Documents Remote Storage'),),
+      tuple(),
       {'access_facet': ['At the Library'],
        'collection_facet': ['Government Documents'],
        'building_facet': ['Remote Storage'],
@@ -1971,6 +2005,7 @@ def test_blasmpipeline_getpubinfo_pub_and_place_search(marcfields, expected,
     ),
     ( (('w', 'Willis Library'),),
       (('lwww', 'UNT ONLINE RESOURCES'), ('w3', 'Willis Library-3rd Floor'),),
+      tuple(),
       {'access_facet': ['Online', 'At the Library'],
        'collection_facet': ['General Collection'],
        'building_facet': ['Willis Library'],
@@ -1981,6 +2016,7 @@ def test_blasmpipeline_getpubinfo_pub_and_place_search(marcfields, expected,
        ('sdus', 'Eagle Commons Library US Documents'),
        ('rst', 'Discovery Park Library Storage'),
        ('xdoc', 'Government Documents Remote Storage'),),
+      tuple(),
       {'access_facet': ['Online', 'At the Library'],
        'collection_facet': ['Government Documents', 'Discovery Park Library'],
        'building_facet': ['Eagle Commons Library', 'Discovery Park Library',
@@ -1991,7 +2027,10 @@ def test_blasmpipeline_getpubinfo_pub_and_place_search(marcfields, expected,
 ], ids=[
     'czm / same bib and item location',
     'czm / bib loc exists, but no items',
+    'czm / all items are suppressed',
     'czm / unknown bib location and one unknown item location',
+    'w3 / one suppressed item, one unsuppressed item, diff locs',
+    'w3 / one suppressed item, one unsuppressed item, same locs',
     'all bib and item locations are unknown',
     'r, lwww / online-only item with bib location in different collection',
     'r, lwww / two different bib locations, no items',
@@ -2001,7 +2040,8 @@ def test_blasmpipeline_getpubinfo_pub_and_place_search(marcfields, expected,
     'w, lwww, w3 / bib with online and physical locations',
     'sd, gwww, sdus, rst, xdoc / multiple items at multiple locations',
 ])
-def test_blasmpipeline_getaccessinfo(bib_locations, item_locations, expected,
+def test_blasmpipeline_getaccessinfo(bib_locations, item_locations,
+                                     sup_item_locations, expected,
                                      bl_sierra_test_record,
                                      blasm_pipeline_class,
                                      update_test_bib_inst,
@@ -2014,12 +2054,22 @@ def test_blasmpipeline_getaccessinfo(bib_locations, item_locations, expected,
     pipeline = blasm_pipeline_class()
     bib = bl_sierra_test_record('bib_no_items')
 
-    loc_set = list(set(bib_locations) | set(item_locations))
-    loc_info = [{'code': code, 'name': name} for code, name in loc_set]
+    all_ilocs = list(set(item_locations) | set(sup_item_locations))
+    all_blocs = list(set(bib_locations))
+    bloc_info = [{'code': code, 'name': name} for code, name in all_blocs]
+    iloc_info = [{'code': code, 'name': name} for code, name in all_ilocs]
+
     items_info = [{'location_id': code} for code, name in item_locations]
-    locations = get_or_make_location_instances(loc_info)
-    bib = update_test_bib_inst(bib, items=items_info, locations=locations)
+    items_info.extend([{'location_id': code, 'is_suppressed': True}
+                       for code, name in sup_item_locations])
+
+    bib_loc_instances = get_or_make_location_instances(bloc_info)
+    item_loc_instances = get_or_make_location_instances(iloc_info)
+
+    bib = update_test_bib_inst(bib, items=items_info,
+                               locations=bib_loc_instances)
     val = pipeline.get_access_info(bib, None)
+    print val
     for k, v in expected.items():
         assert set(v) == set(val[k])
 

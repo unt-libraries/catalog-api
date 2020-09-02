@@ -1716,11 +1716,12 @@ class BlacklightASMPipeline(object):
 
     def _bib_has_item_with_online_status(self, bib):
         """
-        Return True if there's at least one item attached to this bib
-        with an item status ONLINE (w).
+        Return True if there's at least one unsuppressed item attached
+        to this bib with an item status ONLINE (w).
         """
         for link in bib.bibrecorditemrecordlink_set.all():
-            if link.item_record.item_status_id == 'w':
+            item = link.item_record
+            if not item.is_suppressed and item.item_status_id == 'w':
                 return True
         return False
 
@@ -2029,7 +2030,8 @@ class BlacklightASMPipeline(object):
 
         item_rules = self.item_rules
         item_info = [{'location_id': l.item_record.location_id} 
-                        for l in r.bibrecorditemrecordlink_set.all()]
+                        for l in r.bibrecorditemrecordlink_set.all()
+                        if not l.item_record.is_suppressed]
         if len(item_info) == 0:
             item_info = [{'location_id': l.code} for l in r.locations.all()]
 
