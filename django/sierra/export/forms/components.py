@@ -38,6 +38,7 @@ class IiiLocationCodesField(forms.CharField):
     def clean(self, value):
         value = self.to_python(value)
         self.validate(value)
-        value = value.split(',')
-        self.run_validators(value)
+        if value:
+            value = value.split(',')
+            self.run_validators(value)
         return value
