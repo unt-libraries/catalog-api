@@ -146,6 +146,60 @@ def test_asm_export_get_records_updated_range(et_code, rstart, rend, bdate,
 
 @pytest.mark.exports
 @pytest.mark.get_records
+@pytest.mark.parametrize('et_code, last_dt, bdate, idates, expected', [
+    ('BibsToAlphaSolrmarc', (2020, 8, 14, 1, 15, 00),
+     (2020, 8, 15), [(2019, 9, 1), (2020, 8, 13)], True),
+    ('BibsToAlphaSolrmarc', (2020, 8, 14, 1, 15, 00),
+     (2020, 8, 15), [(2020, 8, 15), (2020, 8, 15)], True),
+    ('BibsToAlphaSolrmarc', (2020, 8, 14, 1, 15, 00),
+     (2019, 9, 1), [(2020, 8, 15), (2020, 8, 13)], True),
+    ('BibsToAlphaSolrmarc', (2020, 8, 14, 1, 15, 00),
+     (2019, 9, 1), [(2020, 8, 15), (2020, 8, 15)], True),
+    ('BibsToAlphaSolrmarc', (2020, 8, 14, 1, 15, 00),
+     (2019, 9, 1), [(2020, 8, 13), (2019, 8, 15)], False),
+    ('BibsToAlphaSmAndAttachedToSolr', (2020, 8, 14, 1, 15, 00),
+     (2020, 8, 15), [(2019, 9, 1), (2020, 8, 13)], True),
+    ('BibsToAlphaSmAndAttachedToSolr', (2020, 8, 14, 1, 15, 00),
+     (2020, 8, 15), [(2020, 8, 15), (2020, 8, 15)], True),
+    ('BibsToAlphaSmAndAttachedToSolr', (2020, 8, 14, 1, 15, 00),
+     (2019, 9, 1), [(2020, 8, 15), (2020, 8, 13)], True),
+    ('BibsToAlphaSmAndAttachedToSolr', (2020, 8, 14, 1, 15, 00),
+     (2019, 9, 1), [(2020, 8, 15), (2020, 8, 15)], True),
+    ('BibsToAlphaSmAndAttachedToSolr', (2020, 8, 14, 1, 15, 00),
+     (2019, 9, 1), [(2020, 8, 13), (2019, 8, 15)], False),
+])
+def test_asm_export_get_records_last_export(et_code, last_dt, bdate, idates,
+                                            expected, bl_sierra_test_record,
+                                            setattr_model_instance,
+                                            add_items_to_bib,
+                                            asm_exporter_class, new_exporter):
+    """
+    The `get_records` method for alpha-solrmarc exporters should return
+    the expected recordset, when using the `last_export` filter type.
+    """
+    bib = bl_sierra_test_record('bib_no_items')
+    setattr_model_instance(bib.record_metadata, 'record_last_updated_gmt',
+                           datetime(*bdate, tzinfo=pytz.utc))
+    item_info = []
+    for idate in idates:
+        item_info.append({
+            'record_metadata': {
+                'record_last_updated_gmt': datetime(*idate, tzinfo=pytz.utc)
+            }
+        })
+    bib = add_items_to_bib(bib, item_info)
+
+    expclass = asm_exporter_class(et_code)
+    last_exp_timestamp = datetime(*last_dt, tzinfo=pytz.utc)
+    last_exp = new_exporter(expclass, 'full_export', 'success')
+    last_exp.instance.timestamp = last_exp_timestamp
+    last_exp.instance.save()
+    exp = new_exporter(expclass, 'last_export', 'waiting', options={})
+    assert (bib.pk in [r.pk for r in exp.get_records()]) == expected
+
+
+@pytest.mark.exports
+@pytest.mark.get_records
 @pytest.mark.parametrize('et_code, test_lcodes, item_lcodes, expected', [
     ('BibsToAlphaSolrmarc', ['w'], ['w', 'w4m'], True),
     ('BibsToAlphaSolrmarc', ['x'], ['w', 'w4m'], False),

@@ -56,14 +56,48 @@ class RecordManager(CustomFilterManager):
     records from the Sierra database, such as the base record types
     (item, bib, patron, etc.)
     """
+    def _do_date_range(self, start, end):
+        def _make_fpath(prefix, is_del=False):
+            fname = 'deletion_date_gmt' if is_del else 'record_last_updated_gmt'
+            return '__'.join(([prefix] if prefix else []) + [fname])
+
+        def _make_filter(prefix, start, end, is_del=False):
+            fparts, fpath = {}, _make_fpath(prefix, is_del)
+            if start:
+                fparts['__'.join([fpath, 'gte'])] = start
+            if end:
+                fparts['__'.join([fpath, 'lte'])] = end
+            return fparts
+
+        options = self.options
+        distinct = False
+        is_del = options.get('is_deletion', False)
+        model_is_rec_md = self.model._meta.object_name == 'RecordMetadata'
+        other_rt_paths = options.get('other_updated_rtype_paths', [])
+
+        prefix = '' if model_is_rec_md else 'record_metadata'
+        filter_ = [_make_filter(prefix, start, end, is_del)]
+        order_by = [_make_fpath(prefix, is_del)]
+
+        if not is_del:
+            for rt_path in options.get('other_updated_rtype_paths', []):
+                distinct = True
+                prefix = '{}__record_metadata'.format(rt_path)
+                filter_.append(_make_filter(prefix, start, end))
+                order_by.append(_make_fpath(prefix))
+        return {'filter': filter_, 'order_by': order_by, 'distinct': distinct}
 
     def updated_date_range(self):
         """
         Filter by a date range for last_updated. Options should contain
-        date_range_from and date_range_to, each of which are simply
-        date objects. Options *may* contain `is_deletion`, which is a
-        boolean that indicates whether or not this requires "last
-        deleted" rather than "last updated".
+        datetime objects date_range_from and date_range_to. Options
+        *may* contain `is_deletion`, which is a boolean that indicates
+        whether or not this requires "last deleted" rather than
+        "last updated".
+
+        Note: This filter forces time-boundaries at midnight on the
+        given start date and 11:59:59 PM on the end date. Even if you
+        provide different times. The TZ will also be forced to UTC.
 
         For things that are not deletions, Options may also contain a
         list, `other_updated_rtype_paths`, listing the paths to other
@@ -77,40 +111,17 @@ class RecordManager(CustomFilterManager):
         `other_updated_rtype_paths` entry pointing to the item_record
         table.
         """
-        def _make_fpath(prefix, is_del=False):
-            fname = 'deletion_date_gmt' if is_del else 'record_last_updated_gmt'
-            return '__'.join(([prefix] if prefix else []) + [fname])
-
-        def _make_filter(prefix, date_from, date_to, is_del=False):
-            fpath = _make_fpath(prefix, is_del)
-            return {'__'.join([fpath, 'gte']): date_from,
-                    '__'.join([fpath, 'lte']): date_to}
+        def _prep_date(date, combine_time):
+            dt = datetime.combine(date, combine_time)
+            dt = tz.make_aware(dt, tz.get_default_timezone())
+            return dt.astimezone(tz.utc)
 
         options = self.options
-        distinct = False
-        is_del = options.get('is_deletion', False)
-        model_is_rec_md = self.model._meta.object_name == 'RecordMetadata'
-        other_rt_paths = options.get('other_updated_rtype_paths', [])
-
-        date_from = datetime.combine(options['date_range_from'], time(0, 0))
-        date_from = tz.make_aware(date_from, tz.get_default_timezone())
-        date_from = date_from.astimezone(tz.utc)
-        date_to = datetime.combine(options['date_range_to'], 
-                                   time(23, 59, 59, 99))
-        date_to = tz.make_aware(date_to, tz.get_default_timezone())
-        date_to = date_to.astimezone(tz.utc)
-
-        prefix = '' if model_is_rec_md else 'record_metadata'
-        filter_ = [_make_filter(prefix, date_from, date_to, is_del)]
-        order_by = [_make_fpath(prefix, is_del)]
-
-        if not is_del:
-            for rt_path in options.get('other_updated_rtype_paths', []):
-                distinct = True
-                prefix = '{}__record_metadata'.format(rt_path)
-                filter_.append(_make_filter(prefix, date_from, date_to))
-                order_by.append(_make_fpath(prefix))
-        return {'filter': filter_, 'order_by': order_by, 'distinct': distinct}
+        midnight = time(0, 0)
+        pre_midnight = time(23, 59, 59, 99)
+        date_from = _prep_date(options['date_range_from'], midnight)
+        date_to = _prep_date(options['date_range_to'], pre_midnight)
+        return self._do_date_range(date_from, date_to)
 
     def record_range(self):
         """
@@ -135,24 +146,9 @@ class RecordManager(CustomFilterManager):
     def last_export(self):
         """
         Filter by a latest updated datetime in options['latest_time'].
+        This value should be a timezone aware datetime obj.
         """
-        options = self.options
-        latest_time = options['latest_time']
-        if self.model._meta.object_name != 'RecordMetadata':
-            prefix = 'record_metadata__'
-        else:
-            prefix = ''
-        if options.get('is_deletion', False):
-            filter = [{
-                '{}deletion_date_gmt__gte'.format(prefix): latest_time
-            }]
-            order_by = ['{}record_last_updated_gmt'.format(prefix)]
-        else:
-            filter = [{
-                '{}record_last_updated_gmt__gte'.format(prefix): latest_time
-            }]
-            order_by = ['{}deletion_date_gmt'.format(prefix)]
-        return {'filter': filter, 'order_by': order_by}
+        return self._do_date_range(self.options['latest_time'], None)
 
     def full_export(self):
         """
