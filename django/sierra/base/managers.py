@@ -84,7 +84,6 @@ class RecordManager(CustomFilterManager):
                 distinct = True
                 prefix = '{}__record_metadata'.format(rt_path)
                 filter_.append(_make_filter(prefix, start, end))
-                order_by.append(_make_fpath(prefix))
         return {'filter': filter_, 'order_by': order_by, 'distinct': distinct}
 
     def updated_date_range(self):
