@@ -1700,7 +1700,7 @@ class BlacklightASMPipeline(object):
         return url.split('.')[-1].lower() in image_extensions
 
     def _make_reserve_url(self, nth=0):
-        recnum = self.bundle['id']
+        recnum = self.bundle['id'].lstrip('.')
         return ('https://iii.library.unt.edu/search~S12?/.{0}/.{0}/1,1,1,B/l962'
                 '~{0}&FF=&1,0,,{1},0'.format(recnum, nth))
 

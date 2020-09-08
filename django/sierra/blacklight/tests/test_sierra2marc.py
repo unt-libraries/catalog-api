@@ -1297,7 +1297,7 @@ def test_blasmpipeline_geturlsjson(marcfields, items_info, expected,
     bibmarc = bibrecord_to_pymarc(bib)
     bibmarc.remove_fields('856', '962')
     bibmarc = add_marc_fields(bibmarc, marcfields)
-    pipeline.bundle['id'] = 'b1'
+    pipeline.bundle['id'] = '.b1'
     val = pipeline.get_urls_json(bib, bibmarc)
     assert_json_matches_expected(val['urls_json'], expected)
 
