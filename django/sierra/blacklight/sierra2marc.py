@@ -1666,12 +1666,17 @@ class BlacklightASMPipeline(object):
                 urls_data.append({'u': url, 'n': note, 'l': label,
                                   't': utype})
 
-        for f962 in marc_record.get_fields('962'):
-            url = f962.get_subfields('u')
-            if url and not self._url_is_media_cover_image(url[0]):
-                title = f962.get_subfields('t') or [None]
-                urls_data.append({'u': url[0], 'n': title[0], 'l': None,
-                                  't': 'media'})
+        for i, f962 in enumerate(marc_record.get_fields('962')):
+            urls = f962.get_subfields('u')
+            if urls:
+                url, utype = urls[0], 'media'
+            else:
+                url, utype = self._make_reserve_url(i), 'fulltext'
+
+            if not self._url_is_image(url):
+                titles = f962.get_subfields('t') or [None]
+                urls_data.append({'u': url, 'n': titles[0], 'l': None,
+                                  't': utype})
 
         urls_json = []
         for ud in urls_data:
@@ -1680,12 +1685,24 @@ class BlacklightASMPipeline(object):
 
         return { 'urls_json': urls_json }
 
-    def _url_is_media_cover_image(self, url):
+    def _url_is_image(self, url):
         """
-        Return True if the given `url` is a UNT Media Library cover
-        image.
+        Return True if the given `url` appears to point to an image
+        file.
         """
-        return 'library.unt.edu/media/covers' in url
+        # The below list of extensions is taken from
+        # https://developer.mozilla.org/en-US/docs/Web/Media/Formats
+        # /Image_types
+        image_extensions = (
+            'apng', 'bmp', 'gif', 'ico', 'cur', 'jpg', 'jpeg', 'jfif', 'pjpeg',
+            'pjp', 'png', 'svg', 'tif', 'tiff', 'webp'
+        )
+        return url.split('.')[-1].lower() in image_extensions
+
+    def _make_reserve_url(self, nth=0):
+        recnum = self.bundle['id']
+        return ('https://iii.library.unt.edu/search~S12?/.{0}/.{0}/1,1,1,B/l962'
+                '~{0}&FF=&1,0,,{1},0'.format(recnum, nth))
 
     def _url_is_from_digital_library(self, url):
         """
@@ -1754,8 +1771,9 @@ class BlacklightASMPipeline(object):
             for f962 in f962s:
                 urls = f962.get_subfields('u')
                 url = self._sanitize_url(urls[0]) if urls else None
-                if url and self._url_is_media_cover_image(url):
-                    return re.sub(r'^(https?):\/\/(www\.)?', 'https://', url)
+                if url and self._url_is_image(url):
+                    sub_pattern = r'^https?:\/\/(www\.(?=library\.unt\.edu))?'
+                    return re.sub(sub_pattern, 'https://', url)
 
         def _try_digital_library_image(f856s):
             for f856 in f856s:

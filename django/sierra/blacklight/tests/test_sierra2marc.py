@@ -1245,9 +1245,15 @@ def test_blasmpipeline_getiteminfo_pseudo_items(bib_locations, bib_cn_info,
                'e', 'http://www.library.unt.edu/media/thumb/thumb.jpg'])],
      [],
      []),
-    ([('962', ['t', 'Media Thing'])],
+    ([('962', ['t', 'Media Thing 1']),
+      ('962', ['t', 'Media Thing 2'])],
      [],
-     []),
+     [{'t': 'fulltext', 'n': 'Media Thing 1',
+       'u': 'https://iii.library.unt.edu/search~S12?/.b1/.b1/1,1,1,B/l962'
+             '~b1&FF=&1,0,,0,0'},
+      {'t': 'fulltext', 'n': 'Media Thing 2',
+       'u': 'https://iii.library.unt.edu/search~S12?/.b1/.b1/1,1,1,B/l962'
+             '~b1&FF=&1,0,,1,0'}]),
     ([('962', ['t', 'Access Online Version', 'u', 'http://example.com'])],
      [],
      [{'t': 'fulltext' }]),
@@ -1272,7 +1278,7 @@ def test_blasmpipeline_getiteminfo_pseudo_items(bib_locations, bib_cn_info,
     '856, type link: item with online status but >1 URLs',
     '962 (media manager) URL, no media cover => urls_json entry',
     '962 (media manager) URL, w/media cover => NO urls_json entry',
-    '962 (media manager) field, no URL => NO urls_json entry',
+    '962 (media manager) fields, no URLs => generate e-reserve URLs',
     '962 (media manager) field, type fulltext based on title',
 ])
 def test_blasmpipeline_geturlsjson(marcfields, items_info, expected,
@@ -1291,6 +1297,7 @@ def test_blasmpipeline_geturlsjson(marcfields, items_info, expected,
     bibmarc = bibrecord_to_pymarc(bib)
     bibmarc.remove_fields('856', '962')
     bibmarc = add_marc_fields(bibmarc, marcfields)
+    pipeline.bundle['id'] = 'b1'
     val = pipeline.get_urls_json(bib, bibmarc)
     assert_json_matches_expected(val['urls_json'], expected)
 
@@ -1307,9 +1314,16 @@ def test_blasmpipeline_geturlsjson(marcfields, items_info, expected,
                     'target="_blank'])],
      'https://library.unt.edu/media/covers/cover.jpg'),
     ([('962', ['t', 'Cover Image',
+               'u', 'https://library.unt.edu/media/factory_assets/cover.jpg',
+               'e', 'https://library.unt.edu/media/factory_assets/thumb.jpg'])],
+     'https://library.unt.edu/media/factory_assets/cover.jpg'),
+    # We don't actually HAVE anything currently that has a 962 field
+    # pointing to an external image, so this is moot. Any images are
+    # treated as cover images now.
+    ([('962', ['t', 'Cover Image',
                'u', 'http://example.com/media/covers/cover.jpg',
                'e', 'http://example.com/media/covers/thumb.jpg'])],
-     None),
+     'https://example.com/media/covers/cover.jpg'),
     ([('856', ['u', 'http://digital.library.unt.edu/ark:/67531/metadc130771',
                'z', 'Connect to online resource'])],
      'https://digital.library.unt.edu/ark:/67531/metadc130771/small/'),
@@ -1331,7 +1345,8 @@ def test_blasmpipeline_geturlsjson(marcfields, items_info, expected,
 ], ids=[
     'standard media library cover',
     'media cover with hacked attribute additions on URLs',
-    'other 962 image(s): ignore non-UNTL media images',
+    'media cover at slightly different URL',
+    'other 962 image(s): non-UNTL media images',
     'standard Digital Library cover',
     'standard Portal cover',
     'strip querystrings when formulating DL/Portal URLs',
