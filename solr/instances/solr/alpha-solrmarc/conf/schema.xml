@@ -210,6 +210,8 @@
     <!-- FACET FIELDS ===================================================================================== -->
     <field name="publication_decade_facet" type="reverse_number" indexed="true" stored="false" multiValued="true"/>
     <field name="publication_year_facet" type="reverse_number" indexed="true" stored="false" multiValued="true"/>
+    <field name="publication_year_range_facet" type="string" indexed="true" stored="true" multiValued="true"/>
+    <copyField source="publication_year_facet" dest="publication_year_range_facet"/>
     <field name="access_facet" type="string" indexed="true" stored="false" multiValued="true"/>
     <field name="building_facet" type="string" indexed="true" stored="false" multiValued="true"/>
     <field name="shelf_facet" type="string" indexed="true" stored="false" multiValued="true"/>
