@@ -6629,6 +6629,109 @@ def test_blasmpipeline_getcontrolnumberinfo(raw_marcfields, expected,
             assert v is None
 
 
+@pytest.mark.parametrize('raw_marcfields, expected', [
+    (['592 ## $aa1'], {
+        'games_ages_facet': ['1 year'],
+    }),
+    (['592 ## $aa2'], {
+        'games_ages_facet': ['2 years'],
+    }),
+    (['592 ## $aa1t4'], {
+        'games_ages_facet': ['1 to 4 years'],
+    }),
+    (['592 ## $aa5t9'], {
+        'games_ages_facet': ['5 to 9 years'],
+    }),
+    (['592 ## $aa14t16'], {
+        'games_ages_facet': ['14 to 16 years'],
+    }),
+    (['592 ## $aa17t100'], {
+        'games_ages_facet': ['17 years and up'],
+    }),
+    (['592 ## $aa1t100'], {
+        'games_ages_facet': ['1 year and up'],
+    }),
+    (['592 ## $ap1'], {
+        'games_players_facet': ['1 player'],
+    }),
+    (['592 ## $ap2to4'], {
+        'games_players_facet': ['2 to 4 players'],
+    }),
+    (['592 ## $ap4to8'], {
+        'games_players_facet': ['4 to 8 players'],
+    }),
+    (['592 ## $ap9to99'], {
+        'games_players_facet': ['more than 8 players'],
+    }),
+    (['592 ## $ap2to99'], {
+        'games_players_facet': ['more than 1 player'],
+    }),
+    (['592 ## $ap1to99'], {
+        'games_players_facet': ['more than 0 players'],
+    }),
+    (['592 ## $ad1to29'], {
+        'games_duration_facet': ['less than 30 minutes'],
+    }),
+    (['592 ## $ad30to59'], {
+        'games_duration_facet': ['30 minutes to 1 hour'],
+    }),
+    (['592 ## $ad60to120'], {
+        'games_duration_facet': ['1 to 2 hours'],
+    }),
+    (['592 ## $ad120to500'], {
+        'games_duration_facet': ['more than 2 hours'],
+    }),
+    (['592 ## $ad180to500'], {
+        'games_duration_facet': ['more than 3 hours'],
+    }),
+    (['592 ## $aa1t4;a5t9;d120t500;p1'], {
+        'games_ages_facet': ['1 to 4 years', '5 to 9 years'],
+        'games_duration_facet': ['more than 2 hours'],
+        'games_players_facet': ['1 player'],
+    }),
+    (['592 ## $aa1t4;a5t9;d120t500;p1;'], {
+        'games_ages_facet': ['1 to 4 years', '5 to 9 years'],
+        'games_duration_facet': ['more than 2 hours'],
+        'games_players_facet': ['1 player'],
+    }),
+    (['592 ## $aa1t4;a5t9',
+      '592 ## $ad120t500',
+      '592 ## $ap1'], {
+        'games_ages_facet': ['1 to 4 years', '5 to 9 years'],
+        'games_duration_facet': ['more than 2 hours'],
+        'games_players_facet': ['1 player'],
+    })
+])
+def test_blasmpipeline_getgamesfacetsinfo(raw_marcfields, expected,
+                                          bl_sierra_test_record,
+                                          get_or_make_location_instances,
+                                          update_test_bib_inst,
+                                          blasm_pipeline_class,
+                                          bibrecord_to_pymarc,
+                                          add_marc_fields,
+                                          marcfield_strings_to_params):
+    """
+    The `BlacklightASMPipeline.get_games_facets_info` method should
+    return the expected values given the provided `raw_marcfields`.
+    """
+    bib = bl_sierra_test_record('bib_no_items')
+    czm = [{'code': 'czm', 'name': 'Chilton Media Library'}]
+    czm_instance = get_or_make_location_instances(czm)
+    bib = update_test_bib_inst(bib, locations=czm_instance)
+    bibmarc = bibrecord_to_pymarc(bib)
+    bibmarc.remove_fields('592')
+    marcfields = marcfield_strings_to_params(raw_marcfields)
+    bibmarc = add_marc_fields(bibmarc, marcfields)
+    pipeline = blasm_pipeline_class()
+    val = pipeline.get_games_facets_info(bib, bibmarc)
+    for k, v in val.items():
+        print k, v
+        if k in expected:
+            assert v == expected[k]
+        else:
+            assert v is None
+
+
 @pytest.mark.parametrize('mapping, bundle, expected', [
     ( (('900', ('name', 'title')),),
       {'name': 'N1', 'title': 'T1'},

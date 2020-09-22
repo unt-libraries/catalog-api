@@ -219,6 +219,10 @@
     <field name="author_contributor_facet" type="string" indexed="true" stored="false" multiValued="true"/>
     <field name="meeting_facet" type="string" indexed="true" stored="false" multiValued="true"/>
     <field name="title_series_facet" type="string" indexed="true" stored="false" multiValued="true"/>
+    <field name="games_ages_facet" type="string" indexed="true" stored="false" multiValued="true" />
+    <field name="games_duration_facet" type="string" indexed="true" stored="false" multiValued="true" />
+    <field name="games_players_facet" type="string" indexed="true" stored="false" multiValued="true" />
+
     <!-- For future use, for CN / browse-the-shelf type features -->
     <!-- <field name="call_numbers_facet" type="string" indexed="true" stored="false" multiValued="true"/> -->
 
@@ -345,6 +349,7 @@
     <!--<field name="issn_numbers" type="string" indexed="true" stored="true" multiValued="true" />-->
     <!--<field name="lccn_number" type="string" indexed="true" stored="true" />-->
     <!--<field name="oclc_numbers" type="string" indexed="true" stored="true" multiValued="true" />-->
+    <field name="game_facet" type="string" indexed="true" stored="true" multiValued="true" />
 
 
     <!-- These fields aren't being used anyway so I am removing them. -->
@@ -372,9 +377,6 @@
     <field name="era_terms" type="text" indexed="true" stored="true" multiValued="true"/>
     <field name="form_terms" type="text" indexed="true" stored="true" multiValued="true"/>
     <field name="other_terms" type="text" indexed="true" stored="true" multiValued="true"/>
-
-    <!-- Media Game Facet Fields -->
-    <field name="game_facet" type="string" indexed="true" stored="true" multiValued="true" />
 
     <!-- Temporary Fields to remove later: these were dynamic fields, but we want to start making
          sure all our fields are defined explicitly. -->

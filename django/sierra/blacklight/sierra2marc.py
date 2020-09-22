@@ -1485,7 +1485,7 @@ class BlacklightASMPipeline(object):
         'thumbnail_url', 'pub_info', 'access_info', 'resource_type_info',
         'contributor_info', 'title_info', 'general_3xx_info',
         'general_5xx_info', 'call_number_info', 'standard_number_info',
-        'control_number_info',
+        'control_number_info', 'games_facets_info',
     ]
     prefix = 'get_'
     access_online_label = 'Online'
@@ -3049,6 +3049,144 @@ class BlacklightASMPipeline(object):
             'control_numbers_search': search or None,
         }
 
+    def get_games_facets_info(self, r, marc_record):
+        """
+        This maps values from a local notes field in the MARC (592) to
+        a set of games-related facets, based on presence of a Media
+        Game Facet token string (e.g., 'p1;p2t4;d30t59').
+        """
+
+        class NumberLabeler(object):
+            def __init__(self, singular, plural):
+                self.singular = singular
+                self.plural = plural
+
+            def label(self, number):
+                if number == 1:
+                    return (str(number), self.singular)
+                return str(number), self.plural
+
+            def same(self, *labels):
+                return all(l in (self.singular, self.plural) for l in labels)
+
+        class MinutesLabeler(object):
+            def label(self, number):
+                if number < 59:
+                    return NumberLabeler('minute', 'minutes').label(number)
+                number = int(round(float(number) / float(60)))
+                return NumberLabeler('hour', 'hours').label(number)
+
+            def same(self, *labels):
+                both_minutes = all(l.startswith('minute') for l in labels)
+                both_hours = all(l.startswith('hour') for l in labels)
+                return both_minutes or both_hours
+
+        class Bound(object):
+            def __init__(self, trigger_value, is_inclusive, template=None):
+                self.trigger_value = trigger_value
+                self.is_inclusive = is_inclusive
+                self.template = template or self.get_default_template()
+
+            def get_default_template(self):
+                pass
+
+            def is_triggered(self, comparison_value):
+                pass
+
+            def do_outer_bound_number(self, number):
+                return number
+
+            def render(self, number, labeler):
+                if not self.is_inclusive:
+                    number = self.do_outer_bound_number(number)
+                number, label = labeler.label(number)
+                to_render = ' '.join((str(number), label))
+                return self.template.format(to_render)
+
+        class UpperBound(Bound):
+            def get_default_template(self):
+                if self.is_inclusive:
+                    return '{} or more'
+                return 'more than {}'
+
+            def is_triggered(self, comparison_value):
+                return comparison_value >= self.trigger_value
+
+            def do_outer_bound_number(self, number):
+                return number - 1
+
+        class LowerBound(Bound):
+            def get_default_template(self):
+                if self.is_inclusive:
+                    return '{} or less'
+                return 'less than {}'
+
+            def is_triggered(self, comparison_value):
+                return comparison_value <= self.trigger_value
+
+            def do_outer_bound_number(self, number):
+                return number + 1
+
+        class RangeRenderer(object):
+            def __init__(self, labeler, lower=None, upper=None):
+                self.labeler = labeler
+                self.lower = lower
+                self.upper = upper
+
+            def render(self, start, end=0):
+                snum_to_render, slabel = self.labeler.label(start)
+                if not end:
+                    return ' '.join((snum_to_render, slabel))
+
+                if self.lower and self.lower.is_triggered(start):
+                    return self.lower.render(end, self.labeler)
+
+                if self.upper and self.upper.is_triggered(end):
+                    return self.upper.render(start, self.labeler)
+
+                render_stack = [snum_to_render]
+                enum_to_render, elabel = self.labeler.label(end)
+                if not self.labeler.same(slabel, elabel):
+                    render_stack.append(slabel)
+                render_stack.extend(['to', enum_to_render, elabel])
+                return ' '.join(render_stack)
+
+        def parse_each_592_token(f592s):
+            for f in f592s:
+                tokenstr = ';'.join(f.get_subfields('a')).lower()
+                token_regex = r'([adp])(\d+)(?:t|to)?(\d+)?(?:;+|\s|$)'
+                for ttype, start, end in re.findall(token_regex, tokenstr):
+                    yield ttype, int(start or 0), int(end or 0)
+
+        values = {'a': [], 'd': [], 'p': []}
+        renderers = {
+            'a': RangeRenderer(
+                NumberLabeler('year', 'years'),
+                upper=UpperBound(100, True, template='{} and up')
+            ),
+            'd': RangeRenderer(
+                MinutesLabeler(),
+                lower=LowerBound(1, False),
+                upper=UpperBound(500, False)
+            ),
+            'p': RangeRenderer(
+                NumberLabeler('player', 'players'),
+                upper=UpperBound(99, False)
+            )
+        }
+        if any([loc.code.startswith('czm') for loc in r.locations.all()]):
+            f592s = marc_record.get_fields('592')
+            for ttype, start, end in parse_each_592_token(f592s):
+                renderer = renderers.get(ttype)
+                if renderer:
+                    values[ttype].append(renderer.render(start, end))
+
+        return {
+            'games_ages_facet': values['a'] or None,
+            'games_duration_facet': values['d'] or None,
+            'games_players_facet': values['p'] or None
+        }
+
 
 class PipelineBundleConverter(object):
     """
@@ -3102,7 +3240,8 @@ class PipelineBundleConverter(object):
         ( '907', ('id',) ),
         ( '970', ('suppressed', 'date_added', 'access_facet', 'building_facet',
                   'shelf_facet', 'collection_facet', 'resource_type',
-                  'resource_type_facet', 'media_type_facet') ),
+                  'resource_type_facet', 'media_type_facet', 'games_ages_facet',
+                  'games_duration_facet', 'games_players_facet') ),
         ( '971', ('items_json',) ),
         ( '971', ('has_more_items',) ),
         ( '971', ('more_items_json',) ),
@@ -3236,22 +3375,6 @@ class S2MarcBatchBlacklightSolrMarc(S2MarcBatch):
     custom_data_pipeline = BlacklightASMPipeline()
     to_9xx_converter = PipelineBundleConverter()
 
-    def _record_get_media_game_facet_tokens(self, r, marc_record):
-        """
-        If this is a Media Library item and has a 592 field with a
-        Media Game Facet token string ("p1;p2t4;d30t59"), it returns
-        the list of tokens. Returns None if no game facet string is
-        found or tokens can't be extracted.
-        """
-        tokens = []
-        if any([loc.code.startswith('czm') for loc in r.locations.all()]):
-            for f in marc_record.get_fields('592'):
-                for sub_a in f.get_subfields('a'):
-                    if re.match(r'^(([adp]\d+(t|to)\d+)|p1)(;|\s|$)', sub_a,
-                                re.IGNORECASE):
-                        tokens += re.split(r'\W+', sub_a.rstrip('. '))
-        return tokens or None
-
     def compile_control_fields(self, r):
         mfields = []
         try:
@@ -3324,21 +3447,6 @@ class S2MarcBatchBlacklightSolrMarc(S2MarcBatch):
         marc_record.remove_fields('001')
         hacked_id = 'a{}'.format(bundle['id'])
         marc_record.add_grouped_field(make_mfield('001', data=hacked_id))
-
-        # If this record has a media game facet field: clean it up,
-        # split by semicolon, and put into 910$a (one 910, and one $a
-        # per token)
-        media_tokens = self._record_get_media_game_facet_tokens(r, marc_record)
-        if media_tokens is not None:
-            mf_subfield_data = []
-            for token in media_tokens:
-                mf_subfield_data += ['a', token]
-            mf_field = pymarc.field.Field(
-                tag='960',
-                indicators=[' ', ' '],
-                subfields = mf_subfield_data
-            )
-            marc_record.add_field(mf_field)
 
         if re.match(r'[0-9]', marc_record.as_marc()[5]):
             raise S2MarcError('Skipped. MARC record exceeds 99,999 bytes.', 
