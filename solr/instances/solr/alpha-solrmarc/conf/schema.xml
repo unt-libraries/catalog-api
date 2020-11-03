@@ -85,6 +85,37 @@
         <filter class="solr.RemoveDuplicatesTokenFilterFactory"/>
       </analyzer>
     </fieldType>
+
+    <fieldType name="full_heading_text" class="solr.TextField" positionIncrementGap="100">
+      <analyzer>
+        <tokenizer class="solr.PatternTokenizerFactory" pattern="(,|[^\p{Punct}\s]+)" group="0" />
+        <filter class="solr.ICUNormalizer2FilterFactory" name="nfkc" mode="compose" />
+        <filter class="solr.ASCIIFoldingFilterFactory" />
+        <filter class="solr.LowerCaseFilterFactory"/>
+        <filter class="solr.RemoveDuplicatesTokenFilterFactory"/>
+      </analyzer>
+    </fieldType>
+
+    <fieldType name="heading_term_text" class="solr.TextField" positionIncrementGap="100">
+      <analyzer>
+        <!--
+          This pattern tokenizer is designed to break the following into separate tokens:
+            - Words (consecutive strings of not-space, not-punctuation)
+            - Commas: `Henry, John` ==> `henry` `,` `john`
+            - Words (not-space, not-punctuation) with internal periods: `1.01` `J.S` `john.smith`, etc.
+          Commas are kept to facilitate searching inverted forms of names. They become their own tokens
+          so that they don't prevent matching on the word before them. `John, Henry` should still match
+          the word `john` on its own, but can provide a good phrase-boost for the query `john, henry`.
+         -->
+        <tokenizer class="solr.PatternTokenizerFactory" pattern="(,|([^\p{Punct}\s]*\.[^\p{Punct}\s]+)+|[^\p{Punct}\s]+)" group="0" />
+        <filter class="solr.ICUNormalizer2FilterFactory" name="nfkc" mode="compose" />
+        <filter class="solr.ASCIIFoldingFilterFactory" />
+        <filter class="solr.WordDelimiterFilterFactory" generateWordParts="1" generateNumberParts="1" catenateWords="1" catenateNumbers="0" catenateAll="1" splitOnCaseChange="1" preserveOriginal="1"/>
+        <filter class="solr.LowerCaseFilterFactory"/>
+        <filter class="solr.PorterStemFilterFactory"/>
+        <filter class="solr.RemoveDuplicatesTokenFilterFactory"/>
+      </analyzer>
+    </fieldType>
     
     <fieldType name="spell_text" class="solr.TextField" positionIncrementGap="100" >
       <analyzer>
@@ -201,6 +232,9 @@
     <field name="related_work_titles_json" type="string" indexed="false" stored="true" multiValued="true"/>
     <field name="related_series_titles_json" type="string" indexed="false" stored="true" multiValued="true"/>
     <field name="variant_titles_notes" type="string" indexed="false" stored="true" multiValued="true"/>
+    <!-- Subjects / Genres -->
+    <field name="subject_headings_json" type="string" indexed="false" stored="true" multiValued="true"/>
+    <field name="genre_headings_json" type="string" indexed="false" stored="true" multiValued="true"/>
 
     <!-- SORT FIELDS ====================================================================================== -->
     <field name="publication_sort" type="string" indexed="true" stored="false" multiValued="false"/>
@@ -224,6 +258,12 @@
     <field name="games_ages_facet" type="string" indexed="true" stored="false" multiValued="true" />
     <field name="games_duration_facet" type="string" indexed="true" stored="false" multiValued="true" />
     <field name="games_players_facet" type="string" indexed="true" stored="false" multiValued="true" />
+    <field name="subject_heading_facet" type="string" indexed="true" stored="false" multiValued="true" />
+    <field name="genre_heading_facet" type="string" indexed="true" stored="false" multiValued="true" />
+    <field name="topic_facet" type="string" indexed="true" stored="false" multiValued="true" />
+    <field name="era_facet" type="string" indexed="true" stored="false" multiValued="true" />
+    <field name="region_facet" type="string" indexed="true" stored="false" multiValued="true" />
+    <field name="genre_facet" type="string" indexed="true" stored="false" multiValued="true" />
 
     <!-- For future use, for CN / browse-the-shelf type features -->
     <!-- <field name="call_numbers_facet" type="string" indexed="true" stored="false" multiValued="true"/> -->
@@ -286,6 +326,15 @@
     <field name="language_notes" type="string" indexed="false" stored="true" multiValued="true"/>
     <field name="dissertation_notes" type="string" indexed="false" stored="true" multiValued="true"/>
     <field name="notes" type="string" indexed="false" stored="true" multiValued="true"/>
+
+    <!-- Subjects / Genres -->
+    <field name="subjects_search_exact_headings" type="full_heading_text" indexed="true" stored="false" multiValued="true"/>
+    <field name="subjects_search_all_terms" type="heading_term_text" indexed="true" stored="false" multiValued="true"/>
+    <field name="subjects_search_main_terms" type="heading_term_text" indexed="true" stored="false" multiValued="true"/>
+    <field name="genres_search_exact_headings" type="full_heading_text" indexed="true" stored="false" multiValued="true"/>
+    <field name="genres_search_all_terms" type="heading_term_text" indexed="true" stored="false" multiValued="true"/>
+    <field name="genres_search_main_terms" type="heading_term_text" indexed="true" stored="false" multiValued="true"/>
+
 
 
     <!-- OLD FIELDS: DONE #################################################################################
@@ -352,6 +401,18 @@
     <!--<field name="lccn_number" type="string" indexed="true" stored="true" />-->
     <!--<field name="oclc_numbers" type="string" indexed="true" stored="true" multiValued="true" />-->
     <field name="game_facet" type="string" indexed="true" stored="true" multiValued="true" />
+    <field name="full_subjects" type="text" indexed="true" stored="true" multiValued="true"/>
+    <field name="topic_terms" type="text" indexed="true" stored="true" multiValued="true"/>
+    <field name="general_terms" type="text" indexed="true" stored="true" multiValued="true"/>
+    <field name="genre_terms" type="text" indexed="true" stored="true" multiValued="true"/>
+    <field name="geographic_terms" type="text" indexed="true" stored="true" multiValued="true"/>
+    <field name="era_terms" type="text" indexed="true" stored="true" multiValued="true"/>
+    <field name="form_terms" type="text" indexed="true" stored="true" multiValued="true"/>
+    <field name="other_terms" type="text" indexed="true" stored="true" multiValued="true"/>
+    <field name="public_subject_facet" type="string" indexed="true" stored="false" multiValued="true" />
+    <field name="geographic_terms_facet" type="string" indexed="true" stored="false" multiValued="true" />
+    <field name="era_terms_facet" type="string" indexed="true" stored="false" multiValued="true" />
+    <field name="public_genre_facet" type="string" indexed="true" stored="false" multiValued="true" />
 
 
     <!-- These fields aren't being used anyway so I am removing them. -->
@@ -369,25 +430,7 @@
     
     <!-- Language Field -->
     <field name="languages" type="string" indexed="true" stored="true" multiValued="true" />
-
-    <!-- Subject Search Fields -->
-    <field name="full_subjects" type="text" indexed="true" stored="true" multiValued="true"/>
-    <field name="topic_terms" type="text" indexed="true" stored="true" multiValued="true"/>
-    <field name="general_terms" type="text" indexed="true" stored="true" multiValued="true"/>
-    <field name="genre_terms" type="text" indexed="true" stored="true" multiValued="true"/>
-    <field name="geographic_terms" type="text" indexed="true" stored="true" multiValued="true"/>
-    <field name="era_terms" type="text" indexed="true" stored="true" multiValued="true"/>
-    <field name="form_terms" type="text" indexed="true" stored="true" multiValued="true"/>
-    <field name="other_terms" type="text" indexed="true" stored="true" multiValued="true"/>
-
-    <!-- Temporary Fields to remove later: these were dynamic fields, but we want to start making
-         sure all our fields are defined explicitly. -->
-    <field name="public_subject_facet" type="string" indexed="true" stored="false" multiValued="true" />
-    <field name="geographic_terms_facet" type="string" indexed="true" stored="false" multiValued="true" />
-    <field name="era_terms_facet" type="string" indexed="true" stored="false" multiValued="true" />
-    <field name="public_genre_facet" type="string" indexed="true" stored="false" multiValued="true" />
     
-
     <!-- Commenting out other/default dynamic fields, just to simplify things.
     <dynamicField name="*_i"  type="sint"    indexed="true"  stored="true"/>
     <dynamicField name="*_s"  type="string"  indexed="true"  stored="true" multiValued="true"/>

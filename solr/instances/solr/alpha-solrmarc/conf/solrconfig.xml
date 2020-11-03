@@ -1953,12 +1953,12 @@
          related_work_titles_search^500
          resource_type^500
          metadata_facet_text^500
-         topic_terms^500
-         genre_terms^300
-         form_terms^300
-         geographic_terms^300
-         era_terms^300
-         full_subjects^200
+         genres_search_main_terms^500
+         subjects_search_main_terms^450
+         genres_search_all_terms^300
+         subjects_search_all_terms^250
+         genres_search_exact_headings^225
+         subjects_search_exact_headings^200
          sudocs_search^150
          meetings_search^150
          publishers_search^250
@@ -1983,12 +1983,12 @@
          related_work_titles_search^5000
          resource_type^5000
          metadata_facet_text^5000
-         topic_terms^5000
-         genre_terms^3000
-         form_terms^3000
-         geographic_terms^3000
-         era_terms^3000
-         full_subjects^2000
+         genres_search_exact_headings^5000
+         genres_search_main_terms^5000
+         subjects_search_exact_headings^4500
+         subjects_search_main_terms^4500
+         genres_search_all_terms^3000
+         subjects_search_all_terms^2500
          meetings_search^1500
          publishers_search^2500
          publication_places_search^2500
@@ -2020,24 +2020,24 @@
          related_work_titles_search^5000
        </str>
        <str name="subject_qf">
-         topic_terms^500
-         geographic_terms^300
-         era_terms^300
-         full_subjects^200
+         subjects_search_main_terms^450
+         subjects_search_all_terms^250
+         subjects_search_exact_headings^200
        </str>
        <str name="subject_pf">
-         topic_terms^5000
-         geographic_terms^3000
-         era_terms^3000
-         full_subjects^2000
+         subjects_search_exact_headings^4500
+         subjects_search_main_terms^4500
+         subjects_search_all_terms^2500
        </str>
        <str name="genre_qf">
-         genre_terms^500
-         form_terms^250
+         genres_search_main_terms^500
+         genres_search_all_terms^300
+         genres_search_exact_headings^225
        </str>
        <str name="genre_pf">
-         genre_terms^5000
-         form_terms^2500
+         genres_search_exact_headings^5000
+         genres_search_main_terms^5000
+         genres_search_all_terms^3000
        </str>
        <str name="cn_qf">
          call_numbers_search^100

@@ -12,6 +12,8 @@ from utils.test_helpers import solr_test_profiles as tp
 SOLR_TYPES = tp.SOLR_TYPES
 SOLR_TYPES['reverse_number'] = {'pytype': unicode, 'emtype': 'string'}
 SOLR_TYPES['cn_norm'] = {'pytype': unicode, 'emtype': 'string'}
+SOLR_TYPES['heading_term_text'] = {'pytype': unicode, 'emtype': 'string'}
+SOLR_TYPES['full_heading_text'] = {'pytype': unicode, 'emtype': 'string'}
 GLOBAL_UNIQUE_FIELDS = ('code', 'id', 'record_number')
 GENS = tp.GENS
 
@@ -46,13 +48,14 @@ ALPHASOLRMARC_FIELDS = (
     'audio_characteristics', 'projection_characteristics',
     'video_characteristics', 'digital_file_characteristics',
     'graphic_representation', 'performance_medium', 'performers',
-    'language_notes', 'dissertation_notes', 'notes',
+    'language_notes', 'dissertation_notes', 'notes', 'subject_headings_json',
+    'genre_headings_json', 'subject_heading_facet', 'genre_heading_facet',
+    'topic_facet', 'era_facet', 'region_facet', 'genre_facet',
+    'subjects_search_exact_headings', 'subjects_search_main_terms',
+    'subjects_search_all_terms', 'genres_search_exact_headings',
+    'genres_search_main_terms', 'genres_search_all_terms',
     # OLD FIELDS ARE BELOW
-    'languages', 'era_terms', 'form_terms',
-    'general_terms', 'genre_terms', 'geographic_terms', 'other_terms',
-    'topic_terms', 'full_subjects',
-    'public_subject_facet',
-    'geographic_terms_facet', 'era_terms_facet', 'public_genre_facet', 'text'
+    'languages', 'text'
 )
 
 # AlphaSolrmarc field specific gen functions
@@ -82,6 +85,11 @@ def title_series_facet(record):
 
 def author_contributor_facet(record):
     fields = ('author_search', 'contributors_search')
+    return _combine_fields(record, fields)
+
+
+def subjects_search_all_terms(record):
+    fields = ('topic_facet', 'region_facet', 'era_facet')
     return _combine_fields(record, fields)
 
 
@@ -158,22 +166,29 @@ ALPHASOLRMARC_GENS = (
     ('responsibility_search', GENS(tp.copy_field('responsibility_display'))),
     ('summary_notes', GENS(tp.chance(tp.multi(tp.sentence_like, 1, 4), 50))),
     ('toc_notes', GENS(tp.chance(tp.multi(tp.sentence_like, 1, 4), 50))),
-    ('era_terms', GENS(tp.chance(tp.multi(tp.year_range_like, 1, 2), 25))),
-    ('form_terms', GENS(tp.chance(tp.multi(tp.keyword_like, 1, 2), 25))),
-    ('general_terms', GENS(tp.chance(tp.multi(tp.keyword_like, 1, 2), 25))),
-    ('genre_terms', GENS(tp.chance(tp.multi(tp.keyword_like, 1, 2), 40))),
-    ('geographic_terms', GENS(tp.chance(tp.multi(tp.place_like, 1, 2), 30))),
-    ('other_terms', GENS(tp.chance(tp.multi(tp.keyword_like, 1, 2), 25))),
-    ('topic_terms', GENS(tp.multi(tp.keyword_like, 1, 5))),
-    ('full_subjects', GENS(tp.subjects)),
+    ('subject_headings_json', None),
+    ('genre_headings_json', None),
+    ('subject_heading_facet', GENS(tp.subjects)),
+    ('genre_heading_facet',
+        GENS(tp.chance(tp.multi(tp.keyword_like, 1, 2), 40))),
+    ('topic_facet', GENS(tp.multi(tp.keyword_like, 1, 5))),
+    ('era_facet', GENS(tp.chance(tp.multi(tp.year_range_like, 1, 2), 25))),
+    ('region_facet', GENS(tp.chance(tp.multi(tp.keyword_like, 1, 2), 25))),
+    ('genre_facet', GENS(tp.copy_field('genre_heading_facet'))),
+    ('subjects_search_exact_headings',
+        GENS(tp.copy_field('subject_heading_facet'))),
+    ('subjects_search_main_terms',
+        GENS(tp.copy_field('topic_facet'))),
+    ('subjects_search_all_terms', GENS(subjects_search_all_terms)),
+    ('genres_search_exact_headings',
+        GENS(tp.copy_field('genre_heading_facet'))),
+    ('genres_search_main_terms',
+        GENS(tp.copy_field('genre_heading_facet'))),
+    ('genres_search_all_terms', GENS(tp.copy_field('genre_heading_facet'))),
     ('timestamp_of_last_solr_update', 'auto'),
     ('title_series_facet', GENS(title_series_facet)),
     ('author_contributor_facet', GENS(author_contributor_facet)),
     ('meeting_facet', GENS(tp.copy_field('meetings_search'))),
-    ('public_subject_facet', GENS(tp.copy_field('full_subjects'))),
-    ('geographic_terms_facet', GENS(tp.copy_field('geographic_terms'))),
-    ('era_terms_facet', GENS(tp.copy_field('era_terms'))),
-    ('public_genre_facet', GENS(tp.copy_field('genre_terms'))),
     ('suppressed', GENS.static(False)),
     ('text', GENS(tp.join_fields([
         'id', 'languages', 'summary_notes', 'toc_notes', 'full_subjects'
