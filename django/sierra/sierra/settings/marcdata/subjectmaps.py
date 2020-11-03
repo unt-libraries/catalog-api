@@ -1263,7 +1263,7 @@ LCSH_SUBDIVISION_TERM_MAP = {
                 'Bioclimatology',
             ],
             'seeds': [
-                'Crops and climates',
+                'Crops and climate',
                 'Meteorology, Agricultural',
             ],
             'storage': [
