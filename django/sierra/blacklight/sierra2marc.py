@@ -223,9 +223,11 @@ def pull_from_subfields(pmfield, sftags=None, pull_func=None):
     return [v2 for v1 in vals for v2 in pull_func(v1)]
 
 
-class MarcParseUtils(object):
+class MarcUtils(object):
     marc_relatorcode_map = settings.MARCDATA.RELATOR_CODES
     marc_sourcecode_map = settings.MARCDATA.STANDARD_ID_SOURCE_CODES
+    subject_sd_pattern_map = settings.MARCDATA.LCSH_SUBDIVISION_PATTERNS
+    subject_sd_term_map = settings.MARCDATA.LCSH_SUBDIVISION_TERM_MAP
     control_sftags = 'w01256789'
     title_sftags_7xx = 'fhklmoprstvx'
 
@@ -265,6 +267,22 @@ class MarcParseUtils(object):
         sf_str = ''.join([''.join(['$', sft[0], sft[1]]) for sft in sf_tuples])
         return '{} {}{}'.format(tag, ind, sf_str)
 
+    def map_subject_subdivision(self, subdivision, sd_parents=[],
+                                default_type='topic'):
+        """
+        Wrapper for:
+        django.settings.MARCDATA.subjectmaps.lcsh_sd_to_facet_values.
+        See the docstring for that function for a description of the
+        parameters and return value.
+
+        You can use class attributes `subject_sd_pattern_map` and
+        `subject_sd_term_map` to change what mappings are used here.
+        (Or just override this method.)
+        """
+        return settings.MARCDATA.lcsh_sd_to_facet_values(
+            subdivision, sd_parents, default_type, self.subject_sd_pattern_map,
+            self.subject_sd_term_map)
+
 
 class SequentialMarcFieldParser(object):
     """
@@ -283,7 +301,7 @@ class SequentialMarcFieldParser(object):
     """
     def __init__(self, field):
         self.field = field
-        self.utils = MarcParseUtils()
+        self.utils = MarcUtils()
 
     def __call__(self):
         return self.parse()
@@ -772,7 +790,7 @@ class PreferredTitleParser(SequentialMarcFieldParser):
 
     def __init__(self, field, utils=None):
         super(PreferredTitleParser, self).__init__(field)
-        self.utils = utils or MarcParseUtils()
+        self.utils = utils or MarcUtils()
         self.prev_punct = ''
         self.prev_tag = ''
         self.flags = {}
@@ -970,7 +988,7 @@ class StandardControlNumberParser(SequentialMarcFieldParser):
 
     def __init__(self, field, utils=None):
         super(StandardControlNumberParser, self).__init__(field)
-        self.utils = utils or MarcParseUtils()
+        self.utils = utils or MarcUtils()
         self.numbers = []
         self.qualifiers = []
         self.publisher_name = ''
@@ -1436,7 +1454,7 @@ class MultiFieldMarcRecordParser(object):
     def __init__(self, record, mapping, utils=None, default_sf_filter=None):
         self.record = record
         self.mapping = mapping
-        self.utils = utils or MarcParseUtils()
+        self.utils = utils or MarcUtils()
         self.default_sf_filter = default_sf_filter or {'exclude':
                                                        utils.control_sftags}
 
@@ -1485,7 +1503,7 @@ class BlacklightASMPipeline(object):
         'thumbnail_url', 'pub_info', 'access_info', 'resource_type_info',
         'contributor_info', 'title_info', 'general_3xx_info',
         'general_5xx_info', 'call_number_info', 'standard_number_info',
-        'control_number_info', 'games_facets_info',
+        'control_number_info', 'games_facets_info', 'subjects_info'
     ]
     prefix = 'get_'
     access_online_label = 'Online'
@@ -1493,8 +1511,8 @@ class BlacklightASMPipeline(object):
     item_rules = local_rulesets.ITEM_RULES
     bib_rules = local_rulesets.BIB_RULES
     hierarchical_name_separator = ' > '
-    hierarchical_subject_separator = ' — '
-    utils = MarcParseUtils()
+    hierarchical_subject_separator = ' > '
+    utils = MarcUtils()
 
     def __init__(self):
         super(BlacklightASMPipeline, self).__init__()
@@ -3186,6 +3204,38 @@ class BlacklightASMPipeline(object):
             'games_duration_facet': values['d'] or None,
             'games_players_facet': values['p'] or None
         }
+
+    def get_subjects_info(self, r, marc_record):
+        """
+        This extracts all subject and genre headings from relevant 6XX
+        fields and generates data for all Solr subject and genre
+        fields.
+        """
+        json = {'subjects': [], 'genres': []}
+        facets = {'subject_heading': [], 'genre_heading': [], 'topic': [],
+                  'era': [], 'region': [], 'genre': []}
+        s_search = {'exact': [], 'main': [], 'all': []}
+        g_search = {'exact': [], 'main': [], 'all': []}
+
+        sh_json = [ujson.dumps(v) for v in json['subjects']]
+        gh_json = [ujson.dumps(v) for v in json['genres']]
+        return {
+            'subject_headings_json': sh_json or None,
+            'genre_headings_json': gh_json or None,
+            'subject_heading_facet': facets['subject_heading'] or None,
+            'genre_heading_facet': facets['genre_heading'] or None,
+            'topic_facet': facets['topic'] or None,
+            'era_facet': facets['era'] or None,
+            'region_facet': facets['region'] or None,
+            'genre_facet': facets['genre'] or None,
+            'subjects_search_exact_headings': s_search['exact'] or None,
+            'subjects_search_main_terms': s_search['main'] or None,
+            'subjects_search_all_terms': s_search['all'] or None,
+            'genres_search_exact_headings': g_search['exact'] or None,
+            'genres_search_main_terms': g_search['main'] or None,
+            'genres_search_all_terms': g_search['all'] or None,
+        }
+
 
 
 class PipelineBundleConverter(object):

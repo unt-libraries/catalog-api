@@ -167,9 +167,67 @@ def marcfield_strings_to_params():
     of MARC field strings copied/pasted from the LOC or OCLC website.
     """
     def _marcfield_strings_to_params(field_strings):
-        utils = s2m.MarcParseUtils()
+        utils = s2m.MarcUtils()
         return [utils.parse_marc_display_field(s)[0:3] for s in field_strings]
     return _marcfield_strings_to_params
+
+
+@pytest.fixture
+def marcutils_for_subjects():
+    """
+    Pytest fixture. Returns a custom s2m.MarcUtils object to use for
+    subject tests, which injects stable pattern/term maps, for testing
+    purposes. (Since the live maps could change over time.)
+    """
+    war_words = '(?:war|revolution)'
+    sample_pattern_map = [
+        [r'annexation to (.+)', 
+            [('topic', 'Annexation (International law)'), ('region', '{}')],
+            'Annexation to the United States'],
+        [r'art and(?: the)? {}'.format(war_words),
+            [('topic','Art and war')],
+            'Art and the war'],
+        [r'dependency on (?!foreign countries)(.+)',
+            [('topic', 'Dependency'), ('region', '{}')],
+            'Dependency on the United States'],
+        [r'(elections, .+)',
+            [('topic', 'Elections'), ('topic', '{}')],
+            'Elections, 2016'],
+        [r'transliteration into (.+)',
+            [('topic', 'Transliteration'), ('topic', '{} language')],
+            'Translisteration into English'],
+    ]
+    sample_term_map = {
+        'abandonment': {
+            'parents': {
+                'nests': [
+                    'Abandonment of nests',
+                ],
+            },
+        },
+        'absorption and adsorption': {
+            'headings': [
+                'Absorption',
+                'Adsorption',
+            ],
+        },
+        'certification': {
+            'headings': [
+                'Certification (Occupations)',
+            ],
+            'parents': {
+                'seeds': [
+                    'Certification (Seeds)',
+                ],
+            },
+        },
+    }
+
+    class MarcUtilsSubjectTests(s2m.MarcUtils):
+        subject_sd_pattern_map = sample_pattern_map
+        subject_sd_term_map = sample_term_map
+
+    return MarcUtilsSubjectTests()
 
 
 # TESTS
@@ -6728,6 +6786,49 @@ def test_blasmpipeline_getgamesfacetsinfo(raw_marcfields, expected,
         print k, v
         if k in expected:
             assert v == expected[k]
+        else:
+            assert v is None
+
+
+@pytest.mark.parametrize('marcfields, expected', [
+    # Edge cases -- empty / missing fields, etc.
+
+    # No 6XXs => empty subject_info
+    ([('100', ['a', 'Churchill, Winston,', 'c', 'Sir,', 'd', '1874-1965.'],
+       '1 ')], {}),
+
+], ids=[
+    # Edge cases
+    'No 6XXs => empty subject_info',
+])
+def test_blasmpipeline_getsubjectsinfo(marcfields, expected,
+                                       bl_sierra_test_record,
+                                       blasm_pipeline_class,
+                                       marcutils_for_subjects,
+                                       bibrecord_to_pymarc,
+                                       add_marc_fields,
+                                       assert_json_matches_expected):
+    """
+    BlacklightASMPipeline.get_subjects_info should return fields
+    matching the expected parameters.
+    """
+    class SubjectTestBLASMPL(blasm_pipeline_class):
+        utils = marcutils_for_subjects
+
+    pipeline = SubjectTestBLASMPL()
+    bib = bl_sierra_test_record('bib_no_items')
+    bibmarc = bibrecord_to_pymarc(bib)
+    bibmarc.remove_fields('600', '610', '611', '630', '647', '648', '650',
+                          '651', '655', '656', '657')
+    bibmarc = add_marc_fields(bibmarc, marcfields)
+    val = pipeline.get_subjects_info(bib, bibmarc)
+    for k, v in val.items():
+        print k, v
+        if k in expected:
+            if k.endswith('_json'):
+                assert_json_matches_expected(v, expected[k], exact=True)
+            else:
+                assert v == expected[k]
         else:
             assert v is None
 
