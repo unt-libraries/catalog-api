@@ -608,10 +608,10 @@ def test_pullfromsubfields_with_pullfunc():
       'aperture cards; 9 x 19 cm.; microfilm; 48x'),
     (['3', 'case files', 'a', 'aperture cards', 'b', '9 x 19 cm.',
       '3', 'microfilm', 'f', '48x'], '; ', None,
-      '(case files) aperture cards; 9 x 19 cm.; (microfilm) 48x'),
+      '(case files) aperture cards; 9 x 19 cm.; 48x'),
     (['a', 'aperture cards', 'b', '9 x 19 cm.', 'd', 'microfilm',
       'f', '48x', '3', 'case files'], '; ', None,
-      'aperture cards; 9 x 19 cm.; microfilm; 48x (case files)'),
+      'aperture cards; 9 x 19 cm.; microfilm; 48x'),
     (['3', 'case files', '3', 'aperture cards', 'b', '9 x 19 cm.',
       'd', 'microfilm', 'f', '48x'], '; ', None,
       '(case files, aperture cards) 9 x 19 cm.; microfilm; 48x'),
@@ -2486,7 +2486,7 @@ def test_blasmpipeline_getresourcetypeinfo(bcode2,
              'v': 'Democratic Party (Tex.), State Convention '
                   '(1857 : Waco, Tex.)'}]}
      }),
-    ([('110', ['a', 'United States.', 'b', 'Congress', 
+    ([('110', ['a', 'United States.', 'b', 'Congress',
                'n', '(97th, 2nd session :', 'd', '1982).',
                'b', 'House.'], '1 ')],
      {'author_search': ['United States Congress > House'],
@@ -3258,7 +3258,7 @@ def test_transcribedtitleparser_parse(tag, subfields, expected):
     assert s2m.TranscribedTitleParser(field).parse() == expected
 
 
-@pytest.mark.parametrize('tag, subfields, expected', [    
+@pytest.mark.parametrize('tag, subfields, expected', [
     # Start with edge cases: missing data, non-ISBD punctuation, etc.
 
     ('130', [],
@@ -3909,7 +3909,7 @@ def test_generatetitlekey(title, nf_chars, expected):
       'title_sort': 'duets-violin-viola-op-10-no-3',
       'included_work_titles_json': [{
         'p': [{'d': 'Duets, violin, viola',
-               's': ' > ', 
+               's': ' > ',
                'v': 'duets-violin-viola!Duets, violin, viola'},
               {'d': 'Op. 10',
                's': ' > ',
@@ -3947,7 +3947,7 @@ def test_generatetitlekey(title, nf_chars, expected):
       'responsibility_display': 'Alfonso X, "el Sabio"',
       'responsibility_search': ['Alfonso X, "el Sabio"'],
       'included_work_titles_json': [{
-        'p': [{'d': 'Las Cantigas de Santa Maria', 
+        'p': [{'d': 'Las Cantigas de Santa Maria',
                'v': 'las-cantigas-de-santa-maria!Las Cantigas de Santa Maria'}]
       }],
       'included_work_titles_search': ['Las Cantigas de Santa Maria'],
@@ -3964,7 +3964,7 @@ def test_generatetitlekey(title, nf_chars, expected):
       'responsibility_display': 'Alfonso X, el Sabio,...',
       'responsibility_search': ['Alfonso X, el Sabio,...'],
       'included_work_titles_json': [{
-        'p': [{'d': 'Las Cantigas de Santa Maria', 
+        'p': [{'d': 'Las Cantigas de Santa Maria',
                'v': 'las-cantigas-de-santa-maria!Las Cantigas de Santa Maria'}]
       }],
       'included_work_titles_search': ['Las Cantigas de Santa Maria'],
@@ -3978,7 +3978,7 @@ def test_generatetitlekey(title, nf_chars, expected):
       'main_title_search': ['日本食品化学学会誌'],
       'title_sort': '~',
       'included_work_titles_json': [{
-        'p': [{'d': '日本食品化学学会誌', 
+        'p': [{'d': '日本食品化学学会誌',
                'v': '~!日本食品化学学会誌'}]
       }],
       'included_work_titles_search': ['日本食品化学学会誌'],
@@ -4004,7 +4004,7 @@ def test_generatetitlekey(title, nf_chars, expected):
       'responsibility_search': ['[various authors]'],
       'included_work_titles_json': [{
         'p': [{'d': 'Duets, violin, viola',
-               's': ' > ', 
+               's': ' > ',
                'v': 'duets-violin-viola!Duets, violin, viola'},
               {'d': 'Op. 10',
                's': ' > ',
@@ -4549,7 +4549,7 @@ def test_generatetitlekey(title, nf_chars, expected):
     # 710: Coll title (jurisdiction), with parts.
     # Short author in facet and display. Top-level facet remains as-is.
     # "Complete" facet is NOT generated. No short auth conj.
-    ([('710', ['a', 'France.', 't', 'Treaties, etc.', 'g', 'Poland,', 
+    ([('710', ['a', 'France.', 't', 'Treaties, etc.', 'g', 'Poland,',
                'd', '1948 Mar. 2.', 'k', 'Protocols, etc.,',
                'd', '1951 Mar. 6.'], '12')],
      {'included_work_titles_json': [
@@ -5364,7 +5364,7 @@ def test_generatetitlekey(title, nf_chars, expected):
         'title title title title title title title title title title title '
         'title title title title title title title title'
       ],
-      'title_sort': 
+      'title_sort':
         'title-title-title-title-title-title-title-title-title-title-title-'
         'title-title-title-title-title-title-title-title-title-title-title-'
         'title-title-title-title-title-title-title-title-title-title-title-'
@@ -5393,7 +5393,7 @@ def test_generatetitlekey(title, nf_chars, expected):
         'title title title title title title title title title title title '
         'title title title title title title title title; Second title'
       ],
-      'title_sort': 
+      'title_sort':
         'title-title-title-title-title-title-title-title-title-title-title-'
         'title-title-title-title-title-title-title-title-title-title-title-'
         'title-title-title-title-title-title-title-title-title-title-title-'
@@ -5421,7 +5421,7 @@ def test_generatetitlekey(title, nf_chars, expected):
         'title title title title title title title title title title title '
         'title title title title title title title title'
       ],
-      'title_sort': 
+      'title_sort':
         'title-title-title-title-title-title-title-title-title-title-title-'
         'title-title-title-title-title-title-title-title-title-title-title-'
         'title-title-title-title-title-title-title-title-title-title-title-'
@@ -5449,7 +5449,7 @@ def test_generatetitlekey(title, nf_chars, expected):
         'title title title title title title title title title title title '
         'title title title title title title title title'
       ],
-      'title_sort': 
+      'title_sort':
         'title-title-title-title-title-title-title-title-title-title-title-'
         'title-title-title-title-title-title-title-title-title-title-title-'
         'title-title-title-title-title-title-title-title-title-title-title-'
@@ -5479,7 +5479,7 @@ def test_generatetitlekey(title, nf_chars, expected):
         'title title title title title title title title title title title '
         'title title title title title title title title'
       ],
-      'title_sort': 
+      'title_sort':
         'title-title-title-title-title-title-title-title-title-title-title-'
         'title-title-title-title-title-title-title-title-title-title-title-'
         'title-title-title-title-title-title-title-title-title-title-title-'

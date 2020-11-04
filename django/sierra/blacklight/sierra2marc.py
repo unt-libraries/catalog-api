@@ -302,6 +302,7 @@ class SequentialMarcFieldParser(object):
     def __init__(self, field):
         self.field = field
         self.utils = MarcUtils()
+        self.materials_specified = []
 
     def __call__(self):
         return self.parse()
@@ -315,6 +316,12 @@ class SequentialMarcFieldParser(object):
         out of the loop.
         """
         pass
+
+    def parse_materials_specified(self, val):
+        """
+        Default method for handling materials specified ($3).
+        """
+        return p.strip_ends(val)
 
     def do_post_parse(self):
         """
@@ -336,7 +343,14 @@ class SequentialMarcFieldParser(object):
         This is the "main" method for objects of this type. This is
         what should be called in order to parse a field.
         """
+        look_for_materials_specified = True
         for tag, val in self.field:
+            if look_for_materials_specified:
+                if tag == '3':
+                    ms_val = self.parse_materials_specified(val)
+                    self.materials_specified.append(ms_val)
+                else:
+                    look_for_materials_specified = False
             if self.parse_subfield(tag, val):
                 break
         self.do_post_parse()
@@ -346,7 +360,7 @@ class SequentialMarcFieldParser(object):
 class PersonalNameParser(SequentialMarcFieldParser):
     relator_sftags = 'e4'
     done_sftags = 'fhklmoprstvxz'
-    ignore_sftags = 'iw01256789'
+    ignore_sftags = 'iw012356789'
 
     def __init__(self, field):
         super(PersonalNameParser, self).__init__(field)
@@ -392,14 +406,15 @@ class PersonalNameParser(SequentialMarcFieldParser):
             'surname': self.parsed_name.get('surname', None),
             'numeration': self.numeration or None,
             'person_titles': self.titles or None,
-            'type': 'person'
+            'type': 'person',
+            'materials_specified': self.materials_specified or None
         }
 
 
 class OrgEventNameParser(SequentialMarcFieldParser):
     event_info_sftags = 'cdgn'
     done_sftags = 'fhklmoprstvxz'
-    ignore_sftags = 'i'
+    ignore_sftags = '3i'
 
     def __init__(self, field):
         super(OrgEventNameParser, self).__init__(field)
@@ -490,7 +505,8 @@ class OrgEventNameParser(SequentialMarcFieldParser):
                     'relations': relators,
                     'heading_parts': self.parts[part_type],
                     'type': 'organization' if part_type == 'org' else 'event',
-                    'is_jurisdiction': self.is_jurisdiction
+                    'is_jurisdiction': self.is_jurisdiction,
+                    'materials_specified': self.materials_specified or None
                 })
                 relators = None
         return ret_val
@@ -531,14 +547,13 @@ class TranscribedTitleParser(SequentialMarcFieldParser):
         }
     fields_with_nonfiling_chars = ('242', '245')
     f247_display_text = 'Former title'
-    
+
     def __init__(self, field):
         super(TranscribedTitleParser, self).__init__(field)
         self.prev_punct = ''
         self.prev_tag = ''
         self.part_type = ''
         self.flags = {}
-        self.materials_specified = []
         self.lock_parallel = False
         self.title_parts = []
         self.responsibility = ''
@@ -694,7 +709,6 @@ class TranscribedTitleParser(SequentialMarcFieldParser):
             'is_lccn': tag == 'l' and self.field.tag == '490',
             'is_issn': tag == 'x',
             'is_volume': tag == 'v' and self.field.tag == '490',
-            'is_materials_specified': tag == '3' and self.field.tag == '490',
             'is_language_code': tag == 'y',
             'is_bulk_following_incl_dates': is_bdates and self.prev_tag == 'f',
             'subpart_may_need_formatting': tag in 'fgkps'
@@ -716,9 +730,7 @@ class TranscribedTitleParser(SequentialMarcFieldParser):
 
             part, end_punct = self.analyzer.pop_isbd_punct_from_title_part(prot)
             if part:
-                if self.flags['is_materials_specified']:
-                    self.materials_specified.append(p.restore_periods(part))
-                elif self.flags['is_display_text']:
+                if self.flags['is_display_text']:
                     self.display_text = p.restore_periods(part)
                 elif self.flags['is_main_part']:
                     if self.flags['is_245b']:
@@ -798,7 +810,6 @@ class PreferredTitleParser(SequentialMarcFieldParser):
         self.lock_expression_info = False
         self.seen_subpart = False
         self.primary_title_tag = 't'
-        self.materials_specified = []
         self.display_constants = []
         self.title_parts = []
         self.expression_parts = []
@@ -888,10 +899,9 @@ class PreferredTitleParser(SequentialMarcFieldParser):
             is_subpart = tag in self.subpart_tags
             self.lock_expression_info = tag in self.expression_tags
         def_to_new_part = tag == 'n' or (tag == 'p' and self.prev_tag != 'n')
-        is_control = tag in self.utils.control_sftags
+        is_control = tag in self.utils.control_sftags or tag == '3'
         is_valid_title_part = self.lock_title and val.strip() and not is_control
         return {
-            'is_materials_specified': tag == '3',
             'is_display_const': tag == 'i',
             'is_valid_title_part': is_valid_title_part,
             'is_main_part': tag == self.primary_title_tag,
@@ -907,9 +917,7 @@ class PreferredTitleParser(SequentialMarcFieldParser):
 
     def parse_subfield(self, tag, val):
         self.flags = self.get_flags(tag, val)
-        if self.flags['is_materials_specified']:
-            self.materials_specified.append(p.strip_ends(val))
-        elif self.flags['is_display_const']:
+        if self.flags['is_display_const']:
             display_val = p.strip_ends(p.strip_wemi(val))
             if display_val.lower() == 'container of':
                 self.title_type = 'analytic'
@@ -1247,7 +1255,8 @@ class GenericDisplayFieldParser(SequentialMarcFieldParser):
     following improvements: you can specify a custom `separator` (space
     is the default); you can specify an optional `sf_filter` to include
     or exclude certain subfields; subfield 3 (materials specified) is
-    handled automatically, wherever it occurs in the field.
+    handled automatically, assuming it occurs at the beginning of the
+    field.
     """
     def __init__(self, field, separator=' ', sf_filter=None):
         filtered = field.filter_subfields(**sf_filter) if sf_filter else field
@@ -1256,21 +1265,15 @@ class GenericDisplayFieldParser(SequentialMarcFieldParser):
         self.original_field = field
         self.sf_filter = sf_filter
         self.value_stack = []
-        self.materials_specified_stack = []
         self.sep_is_not_space = bool(re.search(r'\S', separator))
 
-    def handle_other_subfields(self, val):
-        if len(self.materials_specified_stack):
-            ms_str = format_materials_specified(self.materials_specified_stack)
-            val = ' '.join((ms_str, val))
-            self.materials_specified_stack = []
-        self.value_stack.append(val)
-
     def parse_subfield(self, tag, val):
-        if tag == '3':
-            self.materials_specified_stack.append(val)
-        else:
-            self.handle_other_subfields(val)
+        if tag != '3':
+            if len(self.materials_specified):
+                ms_str = format_materials_specified(self.materials_specified)
+                val = ' '.join((ms_str, val))
+                self.materials_specified = []
+            self.value_stack.append(val)
 
     def compile_results(self):
         value_stack = []
@@ -1281,10 +1284,6 @@ class GenericDisplayFieldParser(SequentialMarcFieldParser):
                 val = p.strip_ends(val, end='right')
             value_stack.append(val)
         result = self.separator.join(value_stack)
-
-        if len(self.materials_specified_stack):
-            ms_str = format_materials_specified(self.materials_specified_stack)
-            result = ' '.join((result, ms_str))
         return result
 
 
@@ -1297,7 +1296,6 @@ class PerformanceMedParser(SequentialMarcFieldParser):
         self.last_part_type = ''
         self.total_performers = None
         self.total_ensembles = None
-        self.materials_specified_stack = []
 
     def push_instrument(self, instrument, number=None, notes=None):
         number = number or '1'
@@ -1329,9 +1327,7 @@ class PerformanceMedParser(SequentialMarcFieldParser):
             self.push_instrument(instrument, number, notes)
 
     def parse_subfield(self, tag, val):
-        if tag == '3':
-            self.materials_specified_stack.append(val)
-        elif tag in 'abdp':
+        if tag in 'abdp':
             if tag in 'ab':
                 self.push_part_stack()
                 part_type = 'primary' if tag == 'a' else 'solo'
@@ -1356,7 +1352,7 @@ class PerformanceMedParser(SequentialMarcFieldParser):
 
     def compile_results(self):
         return {
-            'materials_specified': self.materials_specified_stack,
+            'materials_specified': self.materials_specified,
             'parts': self.parts,
             'total_performers': self.total_performers,
             'total_ensembles': self.total_ensembles
@@ -1775,7 +1771,7 @@ class BlacklightASMPipeline(object):
         item attached with status 'ONLINE' (w) and it's the only URL,
         then it's fulltext. Otherwise, keep whatever soft determination
         was made in the `get_urls_json` method.
-        """ 
+        """
         if self._url_is_from_media_booking_system(url_data['u']):
             return 'booking'
         if url_data['n'] and self._url_note_indicates_fulltext(url_data['n']):
@@ -1828,7 +1824,7 @@ class BlacklightASMPipeline(object):
         ptype = ind2_type_map.get(f26x.indicator2, 'publication')
         statements = []
         for gr in group_subfields(f26x, 'abc', end='c'):
-            if f26x.tag == '260':                
+            if f26x.tag == '260':
                 d = pull_from_subfields(gr, 'c', p.split_pdate_and_cdate)
                 pdate, cdate = tuple(d[0:2]) if len(d) > 1 else ('', '')
                 pdate = p.normalize_punctuation(pdate)
@@ -1842,7 +1838,7 @@ class BlacklightASMPipeline(object):
             statement = _clean_pub_statement(' '.join(parts))
             if statement:
                 statements.append((ptype, statement))
-                
+
         for group in group_subfields(f26x, 'efg'):
             statement = _clean_pub_statement(group.format_field())
             statements.append(('manufacture', statement))
@@ -1904,7 +1900,7 @@ class BlacklightASMPipeline(object):
                     return '?'
                 return '{}{}'.format(the, year)
             return year
-        
+
         disp_y1, disp_y2 = _format_year(year1, the), _format_year(year2, the)
         if disp_y1 is None:
             return ''
@@ -2049,7 +2045,7 @@ class BlacklightASMPipeline(object):
             year_display = self._format_years_for_display(sort)
 
         yfacet, dfacet, sdates = self._make_pub_limit_years(described_years)
-        
+
         ret_val = {'{}_display'.format(k): v for k, v in pub_info.items()}
         ret_val.update({
             'publication_sort': sort.replace('u', '-'),
@@ -2071,7 +2067,7 @@ class BlacklightASMPipeline(object):
         # locations.
 
         item_rules = self.item_rules
-        item_info = [{'location_id': l.item_record.location_id} 
+        item_info = [{'location_id': l.item_record.location_id}
                         for l in r.bibrecorditemrecordlink_set.all()
                         if not l.item_record.is_suppressed]
         if len(item_info) == 0:
@@ -2115,7 +2111,7 @@ class BlacklightASMPipeline(object):
         heading, relations = name_struct['heading'], name_struct['relations']
         json = {'r': relations} if relations else {}
         json['p'] = [{'d': heading}]
-        fn, sn, pt = [name_struct[k] for k in ('forename', 'surname', 
+        fn, sn, pt = [name_struct[k] for k in ('forename', 'surname',
                                                'person_titles')]
         search_vals = [heading] + make_personal_name_variations(fn, sn, pt)
         base_name = '{} {}'.format(fn, sn) if (fn and sn) else (sn or fn)
@@ -2278,7 +2274,7 @@ class BlacklightASMPipeline(object):
             'facet_vals': facet_vals
         }
 
-    def parse_name_title_fields(self, marc_record):
+    def parse_nametitle_field(self, f, names=None, title=None, try_title=True):
         def gather_name_info(field, name):
             ctype = 'person' if name['type'] == 'person' else 'org_or_event'
             compiled = getattr(self, 'compile_{}'.format(ctype))(name)
@@ -2290,20 +2286,30 @@ class BlacklightASMPipeline(object):
             if compiled and compiled['heading']:
                 return {'field': field, 'parsed': title, 'compiled': compiled}
 
+        entry = {'names': names or [], 'title': title}
+        if not names:
+            names = extract_name_structs_from_field(f)
+            name_info = [gather_name_info(f, n) for n in names]
+            entry['names'] = [n for n in name_info if n is not None]
+
+        if try_title and not title:
+            title = extract_title_struct_from_field(f)
+            if title:
+                entry['title'] = gather_title_info(f, title, entry['names'])
+        return entry
+
+    def parse_nonsubject_name_titles(self, marc_record):
         if self.name_titles:
             for entry in self.name_titles:
                 yield entry
         else:
             entry = {'names': [], 'title': None}
             for f in marc_record.get_fields('100', '110', '111'):
-                names = extract_name_structs_from_field(f)
-                name_info = [gather_name_info(f, n) for n in names]
-                entry['names'] = [n for n in name_info if n is not None]
+                entry = self.parse_nametitle_field(f, try_title=False)
                 break
 
             for f in marc_record.get_fields('130', '240', '243'):
-                title = extract_title_struct_from_field(f)
-                entry['title'] = gather_title_info(f, title, entry['names'])
+                entry = self.parse_nametitle_field(f, names=entry['names'])
                 break
 
             self.name_titles = [entry]
@@ -2313,13 +2319,7 @@ class BlacklightASMPipeline(object):
                                                   '740', '800', '810', '811',
                                                   '830')
             for f in added_fields:
-                entry = {'names': [], 'title': None}
-                names = extract_name_structs_from_field(f)
-                title = extract_title_struct_from_field(f)
-                name_info = [gather_name_info(f, n) for n in names]
-                entry['names'] = [n for n in name_info if n is not None]
-                if title:
-                    entry['title'] = gather_title_info(f, title, entry['names'])
+                entry = self.parse_nametitle_field(f)
                 self.name_titles.append(entry)
                 yield entry
 
@@ -2336,7 +2336,7 @@ class BlacklightASMPipeline(object):
         author_sort = None
         headings_set = set()
 
-        for entry in self.parse_name_title_fields(marc_record):
+        for entry in self.parse_nonsubject_name_titles(marc_record):
             for name in entry['names']:
                 compiled = name['compiled']
                 field = name['field']
@@ -2511,7 +2511,7 @@ class BlacklightASMPipeline(object):
                 general_forms = ('Complete', 'Selections')
                 if len(tp) > 2 or len(tp) == 2 and tp[1] not in general_forms:
                     return False
-            
+
             # If we're here it means there's either no 130/240 or it's
             # a useless generic collective title. At this point we add
             # the first/only title from the 245 if it's probably not
@@ -2521,7 +2521,7 @@ class BlacklightASMPipeline(object):
             # it. (If there were, it would probably be the 130/240.)
             # Or, if there multiple titles in the 245 but there are not
             # enough added analytical titles on the record to cover all
-            # the individual titles in the 245, then the later titles 
+            # the individual titles in the 245, then the later titles
             # are more likely than the first to be covered, so we
             # should go ahead and add the first.
             return total_ttitles == 1 or total_ttitles > total_analytic_titles
@@ -2591,8 +2591,8 @@ class BlacklightASMPipeline(object):
         """
         This is responsible for using the 130, 240, 242, 243, 245, 246,
         247, 490, 700, 710, 711, 730, 740, 800, 810, 811, and 830 to
-        determine the entirety of title and series fields. 
-        """ 
+        determine the entirety of title and series fields.
+        """
         main_title_info = {}
         json_fields = {'included': [], 'related': [], 'series': []}
         search_fields = {'included': [], 'related': [], 'series': []}
@@ -2603,7 +2603,7 @@ class BlacklightASMPipeline(object):
         responsibility_display, responsibility_search = '', []
         hold_740s = []
 
-        name_titles = self.parse_name_title_fields(marc_record)
+        name_titles = self.parse_nonsubject_name_titles(marc_record)
         analyzed_name_titles = self.analyze_name_titles(name_titles)
         num_iw_authors = analyzed_name_titles['num_included_works_authors']
         num_cont_at = analyzed_name_titles['num_controlled_analytic_titles']
@@ -2770,7 +2770,7 @@ class BlacklightASMPipeline(object):
             'responsibility_display': responsibility_display or None
         }
 
-    def compile_performance_medium(self, parsed_pm): 
+    def compile_performance_medium(self, parsed_pm):
         def _render_instrument(entry):
             instrument, number = entry[:2]
             render_stack = [instrument]
@@ -2959,7 +2959,7 @@ class BlacklightASMPipeline(object):
                                ('502', '505', '508', '511', '520', '546',
                                 '592'),
                 },
-                'parse_func': parse_all_other_notes    
+                'parse_func': parse_all_other_notes
             })
         ), utils=self.utils)
         return record_parser.parse()
@@ -3205,6 +3205,14 @@ class BlacklightASMPipeline(object):
             'games_players_facet': values['p'] or None
         }
 
+    def extract_subject_main_terms(self, f, is_nametitle):
+        main_terms = []
+        if is_nametitle:
+            nt_entry = self.parse_nametitle_field(f)
+        else:
+            pass
+        return main_terms
+
     def get_subjects_info(self, r, marc_record):
         """
         This extracts all subject and genre headings from relevant 6XX
@@ -3216,6 +3224,19 @@ class BlacklightASMPipeline(object):
                   'era': [], 'region': [], 'genre': []}
         s_search = {'exact': [], 'main': [], 'all': []}
         g_search = {'exact': [], 'main': [], 'all': []}
+
+        sg_field_tags = ('600', '610', '611', '630', '647', '648', '650', '651',
+                         '655', '656', '657')
+        for f in marc_record.get_fields(sg_field_tags):
+            main_terms, subdivisions = [], []
+            is_nametitle = f.tag in ('600', '610', '611', '630')
+            is_genre = f.tag == '655'
+            is_concept = not is_nametitle and not is_genre
+
+            # First task is to pull out the "main terms" (mt), which
+            # could be a name, name/title, title, or concept/topic.
+            main_terms = self.extract_subject_main_terms(f, is_nametitle)
+
 
         sh_json = [ujson.dumps(v) for v in json['subjects']]
         gh_json = [ujson.dumps(v) for v in json['genres']]
@@ -3235,7 +3256,6 @@ class BlacklightASMPipeline(object):
             'genres_search_main_terms': g_search['main'] or None,
             'genres_search_all_terms': g_search['all'] or None,
         }
-
 
 
 class PipelineBundleConverter(object):
@@ -3508,7 +3528,7 @@ class S2MarcBatchBlacklightSolrMarc(S2MarcBatch):
         marc_record.add_grouped_field(make_mfield('001', data=hacked_id))
 
         if re.match(r'[0-9]', marc_record.as_marc()[5]):
-            raise S2MarcError('Skipped. MARC record exceeds 99,999 bytes.', 
+            raise S2MarcError('Skipped. MARC record exceeds 99,999 bytes.',
                               str(r))
 
         return marc_record
