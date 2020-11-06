@@ -1203,7 +1203,7 @@ def format_translation(translated_text):
     return '[translated: {}]'.format(translated_text)
 
 
-def generate_title_key(value, nonfiling_chars=0, space_char=r'-'):
+def generate_facet_key(value, nonfiling_chars=0, space_char=r'-'):
     key = value.lower()
     if nonfiling_chars and len(key) > nonfiling_chars:
         last_nfchar_is_nonword = not key[nonfiling_chars - 1].isalnum()
@@ -1214,8 +1214,8 @@ def generate_title_key(value, nonfiling_chars=0, space_char=r'-'):
     return key or '~'
 
 
-def format_title_facet_value(heading, nonfiling_chars=0):
-    key = generate_title_key(heading, nonfiling_chars)
+def format_key_facet_value(heading, nonfiling_chars=0):
+    key = generate_facet_key(heading, nonfiling_chars)
     return '!'.join((key, heading))
 
 
@@ -1508,6 +1508,7 @@ class BlacklightASMPipeline(object):
     bib_rules = local_rulesets.BIB_RULES
     hierarchical_name_separator = ' > '
     hierarchical_subject_separator = ' > '
+    ignore_fast_headings = True
     utils = MarcUtils()
 
     def __init__(self):
@@ -2110,15 +2111,16 @@ class BlacklightASMPipeline(object):
     def compile_person(self, name_struct):
         heading, relations = name_struct['heading'], name_struct['relations']
         json = {'r': relations} if relations else {}
-        json['p'] = [{'d': heading}]
+        fval = format_key_facet_value(heading) if heading else None
+        json['p'] = [{'d': heading, 'v': fval}]
         fn, sn, pt = [name_struct[k] for k in ('forename', 'surname',
                                                'person_titles')]
-        search_vals = [heading] + make_personal_name_variations(fn, sn, pt)
+        search_vals = make_personal_name_variations(fn, sn, pt)
         base_name = '{} {}'.format(fn, sn) if (fn and sn) else (sn or fn)
         rel_search_vals = make_relator_search_variations(base_name, relations)
         return {'heading': heading, 'json': json, 'search_vals': search_vals,
                 'relator_search_vals': rel_search_vals,
-                'facet_vals': [heading],
+                'facet_vals': [fval],
                 'short_author': shorten_name(name_struct)}
 
     def compile_org_or_event(self, name_struct):
@@ -2134,9 +2136,10 @@ class BlacklightASMPipeline(object):
                 heading = part['name']
             else:
                 heading = sep.join((heading, part['name']))
-                json_entry['v'] = heading
+            fval = format_key_facet_value(heading)
+            json_entry['v'] = fval
             json['p'].append(json_entry)
-            facet_vals.append(heading)
+            facet_vals.append(fval)
             if 'event_info' in part:
                 ev_info = part['event_info']
                 need_punct_before_ev_info = bool(re.match(r'^\w', ev_info))
@@ -2145,14 +2148,15 @@ class BlacklightASMPipeline(object):
                     json['p'][-1]['s'] = ', '
                 else:
                     heading = ' '.join((heading, ev_info))
-                json_entry = {'d': ev_info, 'v': heading}
+                ev_fval = format_key_facet_value(heading)
+                json_entry = {'d': ev_info, 'v': ev_fval}
                 json['p'].append(json_entry)
-                facet_vals.append(heading)
+                facet_vals.append(ev_fval)
             if not this_is_last_part:
                 json['p'][-1]['s'] = sep
         base_name = ' '.join([h['name'] for h in name_struct['heading_parts']])
         rel_search_vals = make_relator_search_variations(base_name, relations)
-        return {'heading': heading, 'json': json, 'search_vals': [heading],
+        return {'heading': heading, 'json': json, 'search_vals': [],
                 'relator_search_vals': rel_search_vals,
                 'facet_vals': facet_vals,
                 'short_author': shorten_name(name_struct)}
@@ -2236,11 +2240,11 @@ class BlacklightASMPipeline(object):
                     next_part = '({})'.format(next_part)
                     d_part = ' '.join((d_part, next_part))
                     if not is_coll or is_mform or auth_info['is_jd']:
-                        fval = format_title_facet_value(heading, nf_chars)
+                        fval = format_key_facet_value(heading, nf_chars)
                         facet_vals.append(fval)
                     heading = ' '.join((heading, next_part))
 
-                fval = format_title_facet_value(heading, nf_chars)
+                fval = format_key_facet_value(heading, nf_chars)
                 facet_vals.append(fval)
                 json['p'].append({'d': d_part, 'v': fval, 's': sep})
 
@@ -2253,7 +2257,7 @@ class BlacklightASMPipeline(object):
         if eparts:
             exp_str = ', '.join(eparts)
             heading = ' | '.join((heading, exp_str))
-            fval = format_title_facet_value(heading, nf_chars)
+            fval = format_key_facet_value(heading, nf_chars)
             json_entry = {'d': exp_str, 'v': fval}
             if end_info:
                 json_entry['s'] = ' | '
@@ -2333,7 +2337,7 @@ class BlacklightASMPipeline(object):
         author_search, contributors_search, meetings_search = [], [], []
         author_contributor_facet, meeting_facet = [], []
         responsibility_search = []
-        author_sort = None
+        a_sort = None
         headings_set = set()
 
         for entry in self.parse_nonsubject_name_titles(marc_record):
@@ -2347,6 +2351,7 @@ class BlacklightASMPipeline(object):
                 this_is_8XX = field.tag.startswith('8')
                 if compiled['heading'] not in headings_set:
                     if this_is_event:
+                        meetings_search.append(compiled['heading'])
                         meetings_search.extend(compiled['search_vals'])
                         meeting_facet.extend(compiled['facet_vals'])
                         meetings_json.append(compiled['json'])
@@ -2354,15 +2359,18 @@ class BlacklightASMPipeline(object):
                         have_seen_author = bool(author_contributor_facet)
                         if not have_seen_author:
                             if this_is_1XX or this_is_7XX:
-                                author_sort = compiled['heading'].lower()
+                                a_sort = generate_facet_key(compiled['heading'])
                             if this_is_1XX:
                                 author_json = compiled['json']
+                                author_search.append(compiled['heading'])
                                 author_search.extend(compiled['search_vals'])
                         if have_seen_author or this_is_7XX or this_is_8XX:
+                            contributors_search.append(compiled['heading'])
                             contributors_search.extend(compiled['search_vals'])
                             contributors_json.append(compiled['json'])
                         author_contributor_facet.extend(compiled['facet_vals'])
-                    responsibility_search.extend(compiled['relator_search_vals'])
+                    rel_search_vals = compiled['relator_search_vals']
+                    responsibility_search.extend(rel_search_vals)
                     headings_set.add(compiled['heading'])
 
         return {
@@ -2376,7 +2384,7 @@ class BlacklightASMPipeline(object):
             'meetings_search': meetings_search or None,
             'author_contributor_facet': author_contributor_facet or None,
             'meeting_facet': meeting_facet or None,
-            'author_sort': author_sort,
+            'author_sort': a_sort,
             'responsibility_search': responsibility_search or None
         }
 
@@ -2482,7 +2490,7 @@ class BlacklightASMPipeline(object):
             'display': display,
             'non_truncated': non_trunc or None,
             'search': search,
-            'sort': generate_title_key(sortable, nf_chars) if sortable else None
+            'sort': generate_facet_key(sortable, nf_chars) if sortable else None
         }
 
     def needs_added_ttitle(self, f245_ind1, nth_ttitle, total_ttitles, f130_240,
@@ -2552,7 +2560,7 @@ class BlacklightASMPipeline(object):
             else:
                 heading = sep.join((heading, part))
 
-            facet_val = format_title_facet_value(heading, nf_chars)
+            facet_val = format_key_facet_value(heading, nf_chars)
             json_entry = {'d': part, 'v': facet_val}
             if not this_is_last_part:
                 json_entry['s'] = sep
@@ -2566,7 +2574,7 @@ class BlacklightASMPipeline(object):
             if ptstr:
                 search.append(ptstr)
                 ptitles.append(ptstr)
-                facet_vals.append(format_title_facet_value(ptstr))
+                facet_vals.append(format_key_facet_value(ptstr))
 
         if ptitles:
             translation = format_translation('; '.join(ptitles))
@@ -3228,15 +3236,18 @@ class BlacklightASMPipeline(object):
         sg_field_tags = ('600', '610', '611', '630', '647', '648', '650', '651',
                          '655', '656', '657')
         for f in marc_record.get_fields(sg_field_tags):
-            main_terms, subdivisions = [], []
+            all_terms, main_terms, subdivisions = [], [], []
             is_nametitle = f.tag in ('600', '610', '611', '630')
             is_genre = f.tag == '655'
             is_concept = not is_nametitle and not is_genre
+            is_fast = 'fast' in f.get_subfields('2')
 
-            # First task is to pull out the "main terms" (mt), which
-            # could be a name, name/title, title, or concept/topic.
+            # First task is to pull out the "main terms" (mt) -- which
+            # could be a name, name/title, title, or concept/topic --
+            # and deal with them.
             main_terms = self.extract_subject_main_terms(f, is_nametitle)
 
+            # Second task is to deal with heading subdivisions.
 
         sh_json = [ujson.dumps(v) for v in json['subjects']]
         gh_json = [ujson.dumps(v) for v in json['genres']]
