@@ -1156,25 +1156,6 @@ def shorten_name(name_struct):
     return ''
 
 
-def make_personal_name_variations(forename, surname, ptitles):
-    alts = []
-    if forename and surname:
-        alts.append('{} {}'.format(forename, surname))
-    if ptitles:
-        if alts:
-            namestr = alts.pop()
-            alts.append('{}, {}'.format(namestr, ', '.join(ptitles)))
-        else:
-            namestr = surname or forename
-        for i, title in enumerate(ptitles):
-            altstr = '{} {}'.format(title, namestr)
-            if len(ptitles) > 1:
-                other_titles = ', '.join(ptitles[0:i] + ptitles[i+1:])
-                altstr = '{}, {}'.format(altstr, other_titles)
-            alts.append(altstr)
-    return alts
-
-
 class PersonalNamePermutator(object):
     """
     This is a one-off class designed to help create variations of
@@ -1224,7 +1205,7 @@ class PersonalNamePermutator(object):
         with a corresponding token from `cmp_tokens`.
 
         Returns the list of tokens representing the fully expanded
-        name, or None if no match is found. 
+        name, or None if no match is found.
 
         Examples:
 
@@ -1448,7 +1429,7 @@ class PersonalNamePermutator(object):
                 compressed.append(cumulative)
                 cumulative = perm
             else:
-                cumulative = ''.join([cumulative, remainder])            
+                cumulative = ''.join([cumulative, remainder])
         compressed.append(cumulative)
         return compressed
 
@@ -1495,7 +1476,7 @@ class PersonalNamePermutator(object):
         else:
             fullest_first = self.render_name_part(self.fullest_name['forename'])
             fullest_last = None
-        
+
         fullest_fl = [prefix_title, fullest_first, fullest_last,
                       self.original_name['numeration']] + suffix_titles
         permutations.append(' '.join([p for p in fullest_fl if p]))
@@ -2454,10 +2435,9 @@ class BlacklightASMPipeline(object):
         json = {'r': relations} if relations else {}
         fval = format_key_facet_value(heading) if heading else None
         json['p'] = [{'d': heading, 'v': fval}]
-        fn, sn, pt = [name_struct[k] for k in ('forename', 'surname',
-                                               'person_titles')]
-        search_vals = make_personal_name_variations(fn, sn, pt)
-        base_name = '{} {}'.format(fn, sn) if (fn and sn) else (sn or fn)
+        permutator = PersonalNamePermutator(name_struct)
+        search_vals = permutator.get_search_permutations()
+        base_name = (search_vals or [''])[-1]
         rel_search_vals = make_relator_search_variations(base_name, relations)
         return {'heading': heading, 'json': json, 'search_vals': search_vals,
                 'relator_search_vals': rel_search_vals,
@@ -2703,8 +2683,10 @@ class BlacklightASMPipeline(object):
                                 a_sort = generate_facet_key(compiled['heading'])
                             if this_is_1XX:
                                 author_json = compiled['json']
-                                author_search.append(compiled['heading'])
-                                author_search.extend(compiled['search_vals'])
+                                search_vals = [compiled['heading']]
+                                search_vals.extend(compiled['search_vals'])
+                                author_search.extend(search_vals)
+                                contributors_search.extend(search_vals)
                         if have_seen_author or this_is_7XX or this_is_8XX:
                             contributors_search.append(compiled['heading'])
                             contributors_search.extend(compiled['search_vals'])

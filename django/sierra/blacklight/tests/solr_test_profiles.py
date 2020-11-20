@@ -13,6 +13,7 @@ SOLR_TYPES = tp.SOLR_TYPES
 SOLR_TYPES['reverse_number'] = {'pytype': unicode, 'emtype': 'string'}
 SOLR_TYPES['cn_norm'] = {'pytype': unicode, 'emtype': 'string'}
 SOLR_TYPES['heading_term_text'] = {'pytype': unicode, 'emtype': 'string'}
+SOLR_TYPES['heading_term_text_stem'] = {'pytype': unicode, 'emtype': 'string'}
 SOLR_TYPES['full_heading_text'] = {'pytype': unicode, 'emtype': 'string'}
 GLOBAL_UNIQUE_FIELDS = ('code', 'id', 'record_number')
 GENS = tp.GENS
