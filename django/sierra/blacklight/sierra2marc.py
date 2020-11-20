@@ -328,7 +328,7 @@ class SequentialMarcFieldParser(object):
 class PersonalNameParser(SequentialMarcFieldParser):
     relator_sftags = 'e4'
     done_sftags = 'fhklmoprstvxz'
-    ignore_sftags = 'i'
+    ignore_sftags = 'iw01256789'
 
     def __init__(self, field):
         super(PersonalNameParser, self).__init__(field)
