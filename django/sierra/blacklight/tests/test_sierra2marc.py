@@ -826,6 +826,70 @@ def test_dissertationnotesfieldparser_parse(subfields, expected):
     assert s2m.DissertationNotesFieldParser(field).parse() == expected
 
 
+@pytest.mark.parametrize('raw_marcfields, expected', [
+    (['100 0#$aH. D.$q(Hilda Doolittle),$d1886-1961.'],
+     ['H.D', 'Hilda Doolittle', 'Hilda Doolittle', 'H.D']),
+    (['100 1#$aGresham, G. A.$q(Geoffrey Austin)'],
+     ['Gresham, Geoffrey Austin Gresham, G.A Gresham', 'Geoffrey Gresham',
+      'G.A Gresham']),
+    (['100 1#$aSmith, Elizabeth$q(Ann Elizabeth)'],
+     ['Smith, Elizabeth', 'Smith, E', 'Smith, Ann Elizabeth Smith, A.E Smith',
+      'Ann Smith', 'Elizabeth Smith']),
+    (['700 1#$aE., Sheila$q(Escovedo),$d1959-'],
+     ['E, Sheila E, S.E', 'Escovedo, Sheila Escovedo, S Escovedo',
+      'Sheila Escovedo', 'Sheila E']),
+    (['100 1#$aBeeton,$cMrs.$q(Isabella Mary),$d1836-1865.'],
+     ['Beeton, Isabella Mary Beeton, I.M Beeton', 'Mrs Isabella Beeton',
+      'Mrs Beeton']),
+    (['100 1#$aHutchison, Thomas W.$q(Thomas William),$eauthor$4aut'],
+     ['Hutchison, Thomas W Hutchison, Thomas William Hutchison, T.W Hutchison',
+      'Thomas Hutchison', 'Thomas W Hutchison']),
+    (['600 10$aKoh, Tommy T. B.$q(Tommy Thong Bee),$d1937-'],
+     ['Koh, Tommy T.B Koh, Tommy Thong Bee Koh, T.T.B Koh', 'Tommy Koh',
+      'Tommy T.B Koh']),
+    (['600 11$aMagellan, Ferdinand,$dd 1521.'],
+     ['Magellan, Ferdinand Magellan, F Magellan', 'Ferdinand Magellan',
+      'Ferdinand Magellan']),
+    (['600 00$aGautama Buddha$vEarly works to 1800.'],
+     ['Gautama Buddha', 'Gautama Buddha', 'Gautama Buddha']),
+    (['100 00$aThomas,$cAquinas, Saint,$d1225?-1274.'],
+     ['Thomas', 'Saint Thomas Aquinas', 'Saint Thomas Aquinas']),
+    (['100 1#$aSeuss,$cDr.'],
+     ['Seuss', 'Dr Seuss', 'Dr Seuss']),
+    (['100 1#$aBeethoven, Ludwig van,$d1770-1827$c(Spirit)'],
+     ['Beethoven, Ludwig van Beethoven, L.v Beethoven',
+      'Ludwig Beethoven Spirit', 'Ludwig van Beethoven Spirit']),
+    (['100 1#$aMasséna, André,$cprince d\'Essling,$d1758-1817.'],
+     ['Masséna, André Masséna, A Masséna', 'André Masséna prince d Essling',
+      'André Masséna prince d Essling']),
+    (['100 1#$aWalle-Lissnijder,$cvan de.'],
+     ['Walle-Lissnijder', 'van de Walle-Lissnijder',
+      'van de Walle-Lissnijder']),
+    (['700 0#$aCharles Edward,$cPrince, grandson of James II, King of England,'
+      '$d1720-1788.'],
+     ['Charles Edward',
+      'Prince Charles Edward grandson of James II King of England',
+      'Prince Charles Edward grandson of James II King of England']),
+    (['100 0#$aJohn Paul$bII,$cPope,$d1920-'],
+     ['John Paul', 'Pope John Paul II', 'Pope John Paul II']),
+    (['100 0#$aJohn$bII Comnenus,$cEmperor of the East,$d1088-1143.'],
+     ['John', 'John II Comnenus Emperor of the East',
+      'John II Comnenus Emperor of the East']),
+])
+def test_personalnamepermutator_getsearchperms(raw_marcfields, expected,
+                                               marcfield_strings_to_params):
+    """
+    The `get_search_permutations` method of the PersonalNamePermutator
+    class should return the expected list of search permutations for
+    the name in the give MARC field input.
+    """
+    tag, sf, indicators = marcfield_strings_to_params(raw_marcfields)[0]
+    field = s2m.make_mfield(tag, indicators=indicators, subfields=sf)
+    parsed_name = s2m.PersonalNameParser(field).parse()
+    permutator = s2m.PersonalNamePermutator(parsed_name)
+    assert permutator.get_search_permutations() == expected
+
+
 def test_blasmpipeline_do_creates_compiled_dict(blasm_pipeline_class):
     """
     The `do` method of BlacklightASMPipeline should return a dict

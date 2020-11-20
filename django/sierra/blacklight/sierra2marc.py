@@ -369,6 +369,7 @@ class PersonalNameParser(SequentialMarcFieldParser):
         self.parsed_name = {}
         self.titles = []
         self.numeration = ''
+        self.fuller_form_of_name = ''
 
     def do_relators(self, tag, val):
         for relator_term in self.utils.compile_relator_terms(tag, val):
@@ -383,6 +384,10 @@ class PersonalNameParser(SequentialMarcFieldParser):
     def do_numeration(self, tag, val):
         self.numeration = p.strip_ends(val)
 
+    def do_fuller_form_of_name(self, tag, val):
+        ffn = p.strip_outer_parentheses(p.strip_ends(val))
+        self.fuller_form_of_name = p.strip_ends(ffn)
+
     def parse_subfield(self, tag, val):
         if tag in self.done_sftags:
             return True
@@ -396,6 +401,8 @@ class PersonalNameParser(SequentialMarcFieldParser):
                 self.do_numeration(tag, val)
             elif tag == 'c':
                 self.do_titles(tag, val)
+            elif tag == 'q':
+                self.do_fuller_form_of_name(tag, val)
 
     def compile_results(self):
         heading = p.normalize_punctuation(' '.join(self.heading_parts))
@@ -407,6 +414,7 @@ class PersonalNameParser(SequentialMarcFieldParser):
             'numeration': self.numeration or None,
             'person_titles': self.titles or None,
             'type': 'person',
+            'fuller_form_of_name': self.fuller_form_of_name or None,
             'materials_specified': self.materials_specified or None
         }
 
@@ -1165,6 +1173,339 @@ def make_personal_name_variations(forename, surname, ptitles):
                 altstr = '{}, {}'.format(altstr, other_titles)
             alts.append(altstr)
     return alts
+
+
+class PersonalNamePermutator(object):
+    """
+    This is a one-off class designed to help create variations of
+    personal names, particularly for searching.
+
+    To use: first, generate a parsed personal name (e.g. from an X00
+    field) via the PersonalNameParser class. Pass that to `__init__`.
+    The original name structure will be accessible via the attribute
+    `original_name`. Access standardized/tokenized versions of the
+    forename, surname, and forename initials via the `authorized_name`
+    dictionary attribute. If there is a "fuller_form_of_name" (e.g.
+    from X00$q), you can access the expanded version of the full name
+    via the `fullest_name` attribute.
+
+    Several methods are included for working with name parts as sets of
+    tokens. At this time the primary purpose is to generate search
+    permutations, which you can get via the `get_search_permutations`
+    method.
+    """
+
+    def __init__(self, name):
+        """
+        `name` must be a name structure output from using the
+        PersonalNameParser class.
+        """
+        self.original_name = name
+        self._authorized_name = None
+        self._fullest_name = None
+
+    def tokenize_name_part(self, np):
+        """
+        Split part of a name (`np`), such as a forename or surname,
+        into individual tokens. Handles initials given in various
+        forms: 'JJ', 'J J', 'J.J.', and 'J. J.' all return ['J', 'J'].
+        """
+        if np:
+            return [t for t in re.split(r'([A-Z](?=[A-Z]))|[\.\s]+', np) if t]
+        return []
+
+    def _try_name_expansion(self, fuller_tokens, cmp_tokens):
+        """
+        Name expansion (from X00$q) works by generating a regex pattern
+        from the authorized form of the heading (`cmp_tokens`), which
+        tries to find anchor points for the tokens from the fuller form
+        of name in the set of comparison tokens--basically looking to
+        find a point where each `fuller_token` consecutively starts
+        with a corresponding token from `cmp_tokens`.
+
+        Returns the list of tokens representing the fully expanded
+        name, or None if no match is found. 
+
+        Examples:
+
+        # "H. D." => "Hilda Doolittle" -- returns ['Hilda', 'Doolittle']
+        cmp_tokens = ['H', 'D']
+        fuller_tokens = ['Hilda', 'Doolittle']
+
+        # "Elizabeth" => "Ann Elizabeth" -- returns ['Ann', 'Elizabeth']
+        cmp_tokens = ['Elizabeth']
+        fuller_tokens = ['Ann', 'Elizabeth']
+        """
+        parts_pattern = r'\s'.join([r'({}\S*)'.format(t) for t in cmp_tokens])
+        cmp_pattern = r'(?:^|(.+)\s){}(?:\s(.+)|$)'.format(parts_pattern)
+        matches = re.match(cmp_pattern, ' '.join(fuller_tokens))
+        if matches:
+            return [m for m in matches.groups() if m]
+
+    def _expand_name(self):
+        expanded = {}
+        name = self.original_name
+        ftokens = self.tokenize_name_part(name['fuller_form_of_name'])
+        expansion_done = False
+        for key in ('forename', 'surname'):
+            name_tokens = self.authorized_name[key]
+            if name_tokens and not expansion_done:
+                expanded[key] = self._try_name_expansion(ftokens, name_tokens)
+            if expanded.get(key):
+                expansion_done = True
+            else:
+                expanded[key] = name_tokens
+        if not expanded.get('forename') and not expansion_done:
+            if self.authorized_name['surname']:
+                expanded['forename'] = ftokens
+        return expanded['forename'], expanded['surname']
+
+    @property
+    def authorized_name(self):
+        if self._authorized_name is None:
+            name = self.original_name
+            forename_tokens = self.tokenize_name_part(name['forename'])
+            surname_tokens = self.tokenize_name_part(name['surname'])
+            auth_name = {
+                'forename': forename_tokens,
+                'forename_initials': [f[0] for f in forename_tokens],
+                'surname': surname_tokens
+            }
+            self._authorized_name = auth_name
+        return self._authorized_name
+
+    @property
+    def fullest_name(self):
+        if self._fullest_name is None:
+            name = self.original_name
+            exp_forename_tokens, exp_surname_tokens = self._expand_name()
+            fullest_name = {
+                'forename': exp_forename_tokens,
+                'forename_initials': [f[0] for f in exp_forename_tokens],
+                'surname': exp_surname_tokens,
+            }
+            self._fullest_name = fullest_name
+        return self._fullest_name
+
+    def split_n_prefix_titles(self, n):
+        """
+        Use `settings.MARCDATA.PERSON_PRETITLES` to help subdivide a
+        list of personal titles (X00$c) into `n` prefix titles and the
+        rest suffix titles. This is to identify titles (e.g.
+        honorifics) that should be placed as a prefix, such as
+        "Sir Ian McKellan" or "Saint Thomas, Aquinas." Returns a tuple,
+        list of prefixes and list of suffixes.
+        """
+        prefixes, suffixes = [], []
+        pretitles = settings.MARCDATA.PERSON_PRETITLES
+        for i, t in enumerate(self.original_name['person_titles'] or []):
+            t = toascii.map_from_unicode(t)
+            t = re.sub(r'\W+', ' ', t).strip(' ')
+            if t.lower() in pretitles and len(prefixes) < n:
+                prefixes.append(t)
+            else:
+                suffixes.append(t)
+        return prefixes, suffixes
+
+    def is_initial(self, token):
+        """
+        Is the given token an initial?
+        """
+        return token == token[0]
+
+    def render_name_part(self, tokens, for_search=True):
+        """
+        Join a list of name-part `tokens` back into a string--basically
+        the converse of `tokenize_name_part`.
+
+        Tokens that aren't initials are joined using a space character.
+        Strings of initials are rendered differently depending on
+        whether the string is meant for searching (`for_search` is
+        True) or not. If `for_search` is True, e.g.
+        ['J', 'T', 'Thomas'] returns 'J.T Thomas'. If False, it returns
+        'J. T. Thomas' (i.e. to use as a display value).
+
+        The formatting for searching is intended to work well with the
+        WordDelimiterFilterFactory settings in Solr we're using for
+        searchable text, to ensure flexible matching of initials.
+        """
+        render_stack, prev_token = [], ''
+        for token in (tokens or []):
+            if prev_token:
+                if self.is_initial(prev_token):
+                    if for_search and self.is_initial(token):
+                        render_stack.append('.')
+                    elif not for_search:
+                        render_stack.extend(['.', ' '])
+                    else:
+                        render_stack.append(' ')
+                else:
+                    render_stack.append(' ')
+            render_stack.append(token)
+            prev_token = token
+        return ''.join(render_stack)
+
+    def render_name(self, fore_tokens, sur_tokens, inverted=False,
+                    for_search=True):
+        """
+        Render a name (forename and surname only). Set `inverted` to
+        True if you want an inverted name (Last, First). `for_search`
+        should be True if you're rendering the name to use as a search
+        value (see `render_name_part` for more information).
+
+        Returns the name rendered as a string. If either `foretokens`
+        or `sur_tokens` is empty, then it just returns the rendered
+        forename or surname.
+        """
+        fore = self.render_name_part(fore_tokens, for_search)
+        sur = self.render_name_part(sur_tokens, for_search)
+        if inverted:
+            return ', '.join([p for p in (sur, fore) if p])
+        return self.render_name_part([p for p in (fore, sur) if p])
+
+    def get_standard_permutations(self, name):
+        """
+        This generates standard permutations of names (forenames and/or
+        surnames) used primarily when generating search permutations.
+        It generates each applicable of:
+            inverted name,
+            forward name,
+            inverted name (using forename initials),
+            forward name (using forename initials)
+
+        Initials for forenames without surnames are not included, nor
+        are duplicative permutations.
+        """
+        inv = self.render_name(name['forename'], name['surname'], True)
+        fwd = self.render_name(name['forename'], name['surname'])
+        permutations = [inv] if inv == fwd else [inv, fwd]
+        if (name['forename_initials'] != name['forename']) and name['surname']:
+            inv_initials = self.render_name(name['forename_initials'],
+                                            name['surname'], True)
+            fwd_initials = self.render_name(name['forename_initials'],
+                                            name['surname'])
+            for initials in (inv_initials, fwd_initials):
+                if initials not in permutations:
+                    permutations.append(initials)
+        return permutations
+
+    def dedupe_search_permutations(self, perms1, perms2):
+        """
+        This method deduplicates sets of search permutations (generated
+        via `get_standard_permutations`) against each other. Generally,
+        `perms1` should be a set of permutations generated from the
+        `authorized_name` and `perms2` is generated from
+        `fullest_name`. A permutation from `perms1` where a permutation
+        in `perms2` ends with that string is considered a duplicate,
+        because the phrase is repeated in the second set of perms.
+
+        Example:
+        perms1 = ['Elizabeth Smith', 'Smith, Elizabeth']
+        perms2 = ['Ann Elizabeth Smith', 'Smith, Ann Elizabeth']
+
+        perms1[0] is eliminated because it duplicates a phrase found in
+        perms2[0]. All others are unique.
+        """
+        result = []
+        for p1 in perms1:
+            if all([not p2.endswith(p1) for p2 in perms2]):
+                result.append(p1)
+        return result
+
+    def _find_perm_overlap(self, perm, cumulative):
+        test_str = ''
+        for nextchunk in re.split(r'([, \.])', perm):
+            if nextchunk:
+                test_str = ''.join([test_str, nextchunk])
+                match = re.search(r'(?:^|.*\s){}$'.format(test_str), cumulative)
+                if match:
+                    return test_str, perm[len(test_str):]
+        return None, None
+
+    def compress_search_permutations(self, permutations):
+        """
+        For searching, sets of (standard) permutations are compressed
+        into a form that enables good phrase matching while
+        de-emphasizing parts of the name (first, middle) that are less
+        important. Compression involves finding overlapping
+        permutations and creating one long overlapping string.
+
+        Example:
+        permutations = ['Smith, Ann Elizabeth', 'Ann Elizabeth Smith']
+        compressed => 'Smith, Ann Elizabeth Smith'
+
+        The compressed form matches searches on both the inverted and
+        forward forms of the name; the first and middle name are only
+        included once (tf=1) and the last name twice (tf=2). Combined
+        with other techniques, this is effective at disambiguating e.g.
+        names used as first, middle, or last names (William, John,
+        Henry, etc.).
+        """
+        compressed, cumulative = [], permutations[0]
+        for perm in permutations[1:]:
+            match, remainder = self._find_perm_overlap(perm, cumulative)
+            if match is None or remainder is None:
+                compressed.append(cumulative)
+                cumulative = perm
+            else:
+                cumulative = ''.join([cumulative, remainder])            
+        compressed.append(cumulative)
+        return compressed
+
+    def get_search_permutations(self):
+        """
+        Generate/return all permutations of a name for searching. This
+        includes:
+
+        - Compressed standard permutations for the authorized name.
+            E.g.:
+            ['Smith, Elizabeth Smith, E Smith']
+
+        - Compressed standard permutations for the fullest form of the
+        name. E.g.:
+            ['Smith, Ann Elizabeth Smith, A.E Smith']
+
+        - Note the above two examples would be deduplicated and again
+        compressed, so the actual values would be:
+            ['Smith, Elizabeth', 'Smith, E',
+             'Smith, Ann Elizabeth Smith, A.E Smith']
+
+        - The fullest first name (only) and last name, including titles
+          and numeration, if present. E.g.:
+            ['Mrs Ann Smith']
+
+        - The "best" form of the authorized name, in forward form, also
+        including titles and numeration, if present. E.g.:
+            ['Mrs Elizabeth Smith']
+        """
+        std_perm = self.get_standard_permutations(self.authorized_name)
+
+        if self.fullest_name != self.authorized_name:
+            full_std_perm = self.get_standard_permutations(self.fullest_name)
+            std_perm = self.dedupe_search_permutations(std_perm, full_std_perm)
+            std_perm.extend(full_std_perm)
+
+        permutations = self.compress_search_permutations(std_perm)
+        prefix_titles, suffix_titles = self.split_n_prefix_titles(1)
+        prefix_title = (prefix_titles or [None])[0]
+
+        if self.fullest_name['surname']:
+            fullest_first = (self.fullest_name['forename'] or [None])[0]
+            fullest_last = self.render_name_part(self.fullest_name['surname'])
+        else:
+            fullest_first = self.render_name_part(self.fullest_name['forename'])
+            fullest_last = None
+        
+        fullest_fl = [prefix_title, fullest_first, fullest_last,
+                      self.original_name['numeration']] + suffix_titles
+        permutations.append(' '.join([p for p in fullest_fl if p]))
+
+        best_forward = [prefix_title,
+                        self.render_name(self.authorized_name['forename'],
+                                         self.authorized_name['surname']),
+                        self.original_name['numeration']] + suffix_titles
+        permutations.append(' '.join([p for p in best_forward if p]))
+        return permutations
 
 
 def make_relator_search_variations(base_name, relators):
