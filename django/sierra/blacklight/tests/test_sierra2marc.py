@@ -2717,41 +2717,35 @@ def test_blasmpipeline_getcontributorinfo(marcfields, expected,
 
     ('245', [],
      {'nonfiling_chars': 0,
-      'transcribed': [],
-      'parallel': []}),
+      'transcribed': []}),
 
     ('245', ['a', ''],
      {'nonfiling_chars': 0,
-      'transcribed': [],
-      'parallel': []}),
+      'transcribed': []}),
 
     ('245', ['a', '', 'b', 'oops mistake /'],
      {'nonfiling_chars': 0,
       'transcribed': [
-        {'parts': ['oops mistake']}],
-      'parallel': []}),
+        {'parts': ['oops mistake']}]}),
 
     ('246', ['a', '   ', 'i', 'Some blank chars at start:', 'a', 'Oops'],
      {'display_text': 'Some blank chars at start',
       'nonfiling_chars': 0,
       'transcribed': [
-        {'parts': ['Oops']}],
-      'parallel': []}),
+        {'parts': ['Oops']}]}),
 
     ('245 12', ['a', 'A title', 'b', 'no punctuation', 'c', 'by Joe'],
      {'nonfiling_chars': 2,
       'transcribed': [
         {'parts': ['A title no punctuation'],
-         'responsibility': 'by Joe'}],
-      'parallel': []}),
+         'responsibility': 'by Joe'}]}),
 
     ('245 12', ['a', 'A title', 'b', 'no punctuation', 'n', 'Part 1',
              'p', 'the quickening', 'c', 'by Joe'],
      {'nonfiling_chars': 2,
       'transcribed': [
         {'parts': ['A title no punctuation', 'Part 1, the quickening'],
-         'responsibility': 'by Joe'}],
-      'parallel': []}),
+         'responsibility': 'by Joe'}]}),
 
     ('245 12', ['a', 'A title', 'b', 'no punctuation', 'p', 'The quickening',
              'p', 'Subpart A', 'c', 'by Joe'],
@@ -2759,36 +2753,31 @@ def test_blasmpipeline_getcontributorinfo(marcfields, expected,
       'transcribed': [
         {'parts': ['A title no punctuation', 'The quickening',
                    'Subpart A'],
-         'responsibility': 'by Joe'}],
-      'parallel': []}),
+         'responsibility': 'by Joe'}]}),
 
     ('245 12', ['a', 'A title,', 'b', 'non-ISBD punctuation;', 'n', 'Part 1,',
              'p', 'the quickening', 'c', 'by Joe'],
      {'nonfiling_chars': 2,
       'transcribed': [
         {'parts': ['A title, non-ISBD punctuation', 'Part 1, the quickening'],
-         'responsibility': 'by Joe'}],
-      'parallel': []}),
+         'responsibility': 'by Joe'}]}),
 
     ('245', ['a', 'A title!', 'b', 'Non-ISBD punctuation;',
              'p', 'The quickening', 'c', 'by Joe'],
      {'nonfiling_chars': 0,
       'transcribed': [
         {'parts': ['A title! Non-ISBD punctuation', 'The quickening'],
-         'responsibility': 'by Joe'}],
-      'parallel': []}),
+         'responsibility': 'by Joe'}]}),
 
     ('245 12', ['a', 'A title : with punctuation, all in $a. Part 1 / by Joe'],
      {'nonfiling_chars': 2,
       'transcribed': [
-        {'parts': ['A title: with punctuation, all in $a. Part 1 / by Joe']}],
-      'parallel': []}),
+        {'parts': ['A title: with punctuation, all in $a. Part 1 / by Joe']}]}),
 
     ('245', ['b', ' = A parallel title missing a main title'],
      {'nonfiling_chars': 0,
       'transcribed': [
-        {'parts': ['A parallel title missing a main title']}],
-      'parallel': []}),
+        {'parts': ['A parallel title missing a main title']}]}),
 
     ('245', ['a', '1. One thing, 2. Another, 3. A third :',
              'b', 'This is like some Early English Books Online titles / '
@@ -2797,11 +2786,12 @@ def test_blasmpipeline_getcontributorinfo(marcfields, expected,
      {'nonfiling_chars': 0,
       'transcribed': [
         {'parts': ['1. One thing, 2. Another, 3. A third: This is like some '
-                   'Early English Books Online titles / by Joe']}],
-      'parallel': [
-        {'parts': ['1. One thing, 2. Another, 3. A third: Plus long subtitle '
-                   'etc.']}
-    ]}),
+                   'Early English Books Online titles / by Joe'],
+         'parallel': [
+            {'parts': ['1. One thing, 2. Another, 3. A third: Plus long subtitle '
+                       'etc.']}
+         ]}],
+    }),
 
     ('245', ['a', '1. This is like another Early English Books Online title :',
              'b', 'something: 2. Something else: 3. About the 22th. of June, '
@@ -2810,129 +2800,112 @@ def test_blasmpipeline_getcontributorinfo(marcfields, expected,
       'transcribed': [
         {'parts': ['1. This is like another Early English Books Online title: '
                    'something: 2. Something else: 3. About the 22th. of June, '
-                   '1678. by Richard Greene of Dilwin, etc.']}],
-      'parallel': []}),
+                   '1678. by Richard Greene of Dilwin, etc.']}]}),
 
     ('245', ['a', 'A forward slash somewhere in the title / before sf c /',
              'c', 'by Joe.'],
      {'nonfiling_chars': 0,
       'transcribed': [
         {'parts': ['A forward slash somewhere in the title / before sf c'],
-         'responsibility': 'by Joe'}],
-      'parallel': []}),
+         'responsibility': 'by Joe'}]}),
 
     ('245', ['a', 'Quotation marks /', 'c', 'by "Joe."'],
      {'nonfiling_chars': 0,
       'transcribed': [
         {'parts': ['Quotation marks'],
-         'responsibility': 'by "Joe"'}],
-      'parallel': []}),
+         'responsibility': 'by "Joe"'}]}),
 
     ('245', ['a', 'Multiple ISBD marks / :', 'b', 'subtitle', 'c', 'by Joe.'],
      {'nonfiling_chars': 0,
       'transcribed': [
         {'parts': ['Multiple ISBD marks /: subtitle'],
-         'responsibility': 'by Joe'}],
-      'parallel': []}),
+         'responsibility': 'by Joe'}]}),
 
     # Now test cases on more standard data.
 
     ('245', ['a', 'Title :', 'b', 'with subtitle.'],
      {'nonfiling_chars': 0,
-      'transcribed': [{'parts': ['Title: with subtitle']}],
-      'parallel': []}),
+      'transcribed': [{'parts': ['Title: with subtitle']}]}),
 
     ('245', ['a', 'First title ;', 'b', 'Second title.'],
      {'nonfiling_chars': 0,
-      'transcribed': [{'parts': ['First title']}, {'parts': ['Second title']}],
-      'parallel': []}),
+      'transcribed': [{'parts': ['First title']},
+                      {'parts': ['Second title']}]}),
 
     ('245', ['a', 'First title ;', 'b', 'Second title ; Third title'],
      {'nonfiling_chars': 0,
       'transcribed': [{'parts': ['First title']}, {'parts': ['Second title']},
-                      {'parts': ['Third title']}],
-      'parallel': []}),
+                      {'parts': ['Third title']}]}),
 
     ('245', ['a', 'First title ;', 'b', 'and Second title'],
      {'nonfiling_chars': 0,
-      'transcribed': [{'parts': ['First title']}, {'parts': ['Second title']}],
-      'parallel': []}),
+      'transcribed': [{'parts': ['First title']},
+                      {'parts': ['Second title']}]}),
 
     ('245', ['a', 'First title,', 'b', 'and Second title'],
      {'nonfiling_chars': 0,
-      'transcribed': [{'parts': ['First title']}, {'parts': ['Second title']}],
-      'parallel': []}),
+      'transcribed': [{'parts': ['First title']},
+                      {'parts': ['Second title']}]}),
 
     ('245', ['a', 'Title /', 'c', 'by Author.'],
      {'nonfiling_chars': 0,
       'transcribed': [
         {'parts': ['Title'],
-         'responsibility': 'by Author'}],
-      'parallel': []}),
+         'responsibility': 'by Author'}]}),
 
     ('245', ['a', 'Title /', 'c', 'Author 1 ; Author 2 ; Author 3.'],
      {'nonfiling_chars': 0,
       'transcribed': [
         {'parts': ['Title'],
-         'responsibility': 'Author 1; Author 2; Author 3'}],
-      'parallel': []}),
+         'responsibility': 'Author 1; Author 2; Author 3'}]}),
 
     ('245', ['a', 'Title!', 'b', 'What ending punctuation should we keep?'],
      {'nonfiling_chars': 0,
       'transcribed': [
-        {'parts': ['Title! What ending punctuation should we keep?']}],
-      'parallel': []}),
+        {'parts': ['Title! What ending punctuation should we keep?']}]}),
 
     # Titles that include parts ($n and $p).
 
     ('245', ['a', 'Title.', 'n', 'Part 1.'],
      {'nonfiling_chars': 0,
       'transcribed': [
-        {'parts': ['Title', 'Part 1']}],
-      'parallel': []}),
+        {'parts': ['Title', 'Part 1']}]}),
 
     ('245', ['a', 'Title.', 'p', 'Name of a part.'],
      {'nonfiling_chars': 0,
       'transcribed': [
-        {'parts': ['Title', 'Name of a part']}],
-      'parallel': []}),
+        {'parts': ['Title', 'Name of a part']}]}),
 
     ('245', ['a', 'Title.', 'n', 'Part 1,', 'p', 'Name of a part.'],
      {'nonfiling_chars': 0,
       'transcribed': [
-        {'parts': ['Title', 'Part 1, Name of a part']}],
-      'parallel': []}),
+        {'parts': ['Title', 'Part 1, Name of a part']}]}),
 
     ('245', ['a', 'Title.', 'n', 'Part 1', 'p', 'Name of a part.'],
      {'nonfiling_chars': 0,
       'transcribed': [
-        {'parts': ['Title', 'Part 1, Name of a part']}],
-      'parallel': []}),
+        {'parts': ['Title', 'Part 1, Name of a part']}]}),
 
     ('245', ['a', 'Title.', 'n', 'Part 1.', 'p', 'Name of a part.'],
      {'nonfiling_chars': 0,
       'transcribed': [
-        {'parts': ['Title', 'Part 1', 'Name of a part']}],
-      'parallel': []}),
+        {'parts': ['Title', 'Part 1', 'Name of a part']}]}),
 
     ('245', ['a', 'Title.', 'n', '1. Part', 'p', 'Name of a part.'],
      {'nonfiling_chars': 0,
       'transcribed': [
-        {'parts': ['Title', '1. Part, Name of a part']}],
-      'parallel': []}),
+        {'parts': ['Title', '1. Part, Name of a part']}]}),
 
     ('245', ['a', 'Title.', 'n', '1. Part A', 'n', '2. Part B'],
      {'nonfiling_chars': 0,
       'transcribed': [
-        {'parts': ['Title', '1. Part A', '2. Part B']}],
-      'parallel': []}),
+        {'parts': ['Title', '1. Part A', '2. Part B']}]}),
 
     ('245', ['a', 'Title :', 'b', 'subtitle.', 'n', '1. Part A',
              'n', '2. Part B'],
      {'nonfiling_chars': 0,
       'transcribed': [
-        {'parts': ['Title: subtitle', '1. Part A', '2. Part B']}],
-      'parallel': []}),
+        {'parts': ['Title: subtitle', '1. Part A', '2. Part B']}]}),
 
     ('245', ['a', 'Title one.', 'n', 'Book 2.', 'n', 'Chapter V /',
              'c', 'Author One. Title two. Book 3. Chapter VI / Author Two.'],
@@ -2941,8 +2914,7 @@ def test_blasmpipeline_getcontributorinfo(marcfields, expected,
         {'parts': ['Title one', 'Book 2', 'Chapter V'],
          'responsibility': 'Author One'},
         {'parts': ['Title two', 'Book 3. Chapter VI'],
-         'responsibility': 'Author Two'}],
-      'parallel': []}),
+         'responsibility': 'Author Two'}]}),
 
     # Fun with parallel titles!
 
@@ -2951,9 +2923,11 @@ def test_blasmpipeline_getcontributorinfo(marcfields, expected,
      {'nonfiling_chars': 0,
       'transcribed': [
         {'parts': ['Title in French'],
-         'responsibility': 'by Author'}],
-      'parallel': [
-        {'parts': ['Title in English']}]}),
+         'responsibility': 'by Author',
+         'parallel': [
+            {'parts': ['Title in English']}]
+        }],
+     }),
 
     ('245', ['a', 'Title in French /',
              'c', 'by Author in French = Title in English / by Author in '
@@ -2961,148 +2935,148 @@ def test_blasmpipeline_getcontributorinfo(marcfields, expected,
      {'nonfiling_chars': 0,
       'transcribed': [
         {'parts': ['Title in French'],
-         'responsibility': 'by Author in French'}],
-      'parallel': [
-        {'parts': ['Title in English'],
-         'responsibility': 'by Author in English'}]}),
+         'responsibility': 'by Author in French',
+         'parallel': [
+            {'parts': ['Title in English'],
+             'responsibility': 'by Author in English'}]
+        }],
+     }),
 
     ('245', ['a', 'Title in French =',
              'b', 'Title in English = Title in German /', 'c', 'by Author.'],
      {'nonfiling_chars': 0,
       'transcribed': [
         {'parts': ['Title in French'],
-         'responsibility': 'by Author'}],
-      'parallel': [
-        {'parts': ['Title in English']},
-        {'parts': ['Title in German']}]}),
+         'responsibility': 'by Author',
+         'parallel': [
+            {'parts': ['Title in English']},
+            {'parts': ['Title in German']}],
+        }],
+     }),
 
     ('245', ['a', 'First title in French =',
              'b', 'First title in English ; Second title in French = Second '
                   'title in English.'],
      {'nonfiling_chars': 0,
       'transcribed': [
-        {'parts': ['First title in French']},
-        {'parts': ['Second title in French']}],
-      'parallel': [
-        {'parts': ['First title in English']},
-        {'parts': ['Second title in English']}
-      ]}),
+        {'parts': ['First title in French'],
+         'parallel': [
+            {'parts': ['First title in English']}]
+        },
+        {'parts': ['Second title in French'],
+         'parallel': [
+            {'parts': ['Second title in English']}]
+        }],
+     }),
 
     ('245', ['a', 'Title in French.', 'p',  'Part One =',
              'b', 'Title in English.', 'p', 'Part One.'],
      {'nonfiling_chars': 0,
       'transcribed': [
-        {'parts': ['Title in French', 'Part One']}],
-      'parallel': [
-        {'parts': ['Title in English', 'Part One']}]}),
+        {'parts': ['Title in French', 'Part One'],
+         'parallel': [
+            {'parts': ['Title in English', 'Part One']}]
+        }],
+     }),
 
     ('245', ['a', 'Title in French.', 'p',  'Part One :',
              'b', 'subtitle = Title in English.', 'p', 'Part One : subtitle.'],
      {'nonfiling_chars': 0,
       'transcribed': [
-        {'parts': ['Title in French', 'Part One: subtitle']}],
-      'parallel': [
-        {'parts': ['Title in English', 'Part One: subtitle']}]}),
+        {'parts': ['Title in French', 'Part One: subtitle'],
+         'parallel': [
+            {'parts': ['Title in English', 'Part One: subtitle']}]
+        }],
+     }),
 
     # $h (medium) is ignored, except for ISBD punctuation
 
     ('245', ['a', 'First title', 'h', '[sound recording] ;',
              'b', 'Second title.'],
      {'nonfiling_chars': 0,
-      'transcribed': [{'parts': ['First title']}, {'parts': ['Second title']}],
-      'parallel': []}),
+      'transcribed': [{'parts': ['First title']},
+                      {'parts': ['Second title']}]}),
 
     ('245', ['a', 'Title in French.', 'p',  'Part One',
              'h', '[sound recording] =', 'b', 'Title in English.',
              'p', 'Part One.'],
      {'nonfiling_chars': 0,
       'transcribed': [
-        {'parts': ['Title in French', 'Part One']}],
-      'parallel': [
-        {'parts': ['Title in English', 'Part One']}]}),
+        {'parts': ['Title in French', 'Part One'],
+         'parallel': [
+            {'parts': ['Title in English', 'Part One']}]
+        }],
+     }),
 
     # Subfields for archives and archival collections (fgks)
 
     ('245', ['a', 'Smith family papers,', 'f', '1800-1920.'],
      {'nonfiling_chars': 0,
       'transcribed': [
-        {'parts': ['Smith family papers, 1800-1920']}],
-      'parallel': []}),
+        {'parts': ['Smith family papers, 1800-1920']}]}),
 
     ('245', ['a', 'Smith family papers', 'f', '1800-1920.'],
      {'nonfiling_chars': 0,
       'transcribed': [
-        {'parts': ['Smith family papers, 1800-1920']}],
-      'parallel': []}),
+        {'parts': ['Smith family papers, 1800-1920']}]}),
 
     ('245', ['a', 'Smith family papers', 'f', '1800-1920', 'g', '1850-1860.'],
      {'nonfiling_chars': 0,
       'transcribed': [
-        {'parts': ['Smith family papers, 1800-1920 (bulk 1850-1860)']}],
-      'parallel': []}),
+        {'parts': ['Smith family papers, 1800-1920 (bulk 1850-1860)']}]}),
 
     ('245', ['a', 'Smith family papers', 'g', '1850-1860.'],
      {'nonfiling_chars': 0,
       'transcribed': [
-        {'parts': ['Smith family papers, 1850-1860']}],
-      'parallel': []}),
+        {'parts': ['Smith family papers, 1850-1860']}]}),
 
     ('245', ['a', 'Smith family papers', 'f', '1800-1920,', 'g', '1850-1860.'],
      {'nonfiling_chars': 0,
       'transcribed': [
-        {'parts': ['Smith family papers, 1800-1920 (bulk 1850-1860)']}],
-      'parallel': []}),
+        {'parts': ['Smith family papers, 1800-1920 (bulk 1850-1860)']}]}),
 
     ('245', ['a', 'Smith family papers', 'f', '1800-1920,',
              'g', '(1850-1860).'],
      {'nonfiling_chars': 0,
       'transcribed': [
-        {'parts': ['Smith family papers, 1800-1920, (1850-1860)']}],
-      'parallel': []}),
+        {'parts': ['Smith family papers, 1800-1920, (1850-1860)']}]}),
 
     ('245', ['a', 'Smith family papers', 'f', '1800-1920', 'g', '(1850-1860).'],
      {'nonfiling_chars': 0,
       'transcribed': [
-        {'parts': ['Smith family papers, 1800-1920 (1850-1860)']}],
-      'parallel': []}),
+        {'parts': ['Smith family papers, 1800-1920 (1850-1860)']}]}),
 
     ('245', ['a', 'Some title :', 'k', 'typescript', 'f', '1800.'],
      {'nonfiling_chars': 0,
       'transcribed': [
-        {'parts': ['Some title: typescript, 1800']}],
-      'parallel': []}),
+        {'parts': ['Some title: typescript, 1800']}]}),
 
     ('245', ['a', 'Hearing Files', 'k', 'Case Files', 'f', '1800',
              'p', 'District 6.'],
      {'nonfiling_chars': 0,
       'transcribed': [
-        {'parts': ['Hearing Files, Case Files, 1800', 'District 6']}],
-      'parallel': []}),
+        {'parts': ['Hearing Files, Case Files, 1800', 'District 6']}]}),
 
     ('245', ['a', 'Hearing Files.', 'k', 'Case Files', 'f', '1800',
              'p', 'District 6.'],
      {'nonfiling_chars': 0,
       'transcribed': [
-        {'parts': ['Hearing Files', 'Case Files, 1800', 'District 6']}],
-      'parallel': []}),
+        {'parts': ['Hearing Files', 'Case Files, 1800', 'District 6']}]}),
 
     ('245', ['a', 'Report.', 's', 'Executive summary.'],
      {'nonfiling_chars': 0,
       'transcribed': [
-        {'parts': ['Report', 'Executive summary']}],
-      'parallel': []}),
+        {'parts': ['Report', 'Executive summary']}]}),
 
     ('245', ['a', 'Title', 'k', 'Form', 's', 'Version', 'f', '1990'],
      {'nonfiling_chars': 0,
       'transcribed': [
-        {'parts': ['Title, Form, Version, 1990']}],
-      'parallel': []}),
+        {'parts': ['Title, Form, Version, 1990']}]}),
 
     ('245', ['k', 'Form', 's', 'Version', 'f', '1990'],
      {'nonfiling_chars': 0,
       'transcribed': [
-        {'parts': ['Form, Version, 1990']}],
-      'parallel': []}),
+        {'parts': ['Form, Version, 1990']}]}),
 
     # 242s (Translated titles)
 
@@ -3112,8 +3086,7 @@ def test_blasmpipeline_getcontributorinfo(marcfields, expected,
       'nonfiling_chars': 4,
       'transcribed': [
         {'parts': ['The Annals of chemistry',
-                   'Series C, Organic chemistry and biochemistry']}],
-      'parallel': []}),
+                   'Series C, Organic chemistry and biochemistry']}]}),
 
     # 246s (Variant titles)
 
@@ -3122,38 +3095,33 @@ def test_blasmpipeline_getcontributorinfo(marcfields, expected,
      {'nonfiling_chars': 0,
       'transcribed': [
         {'parts': ['Archives for meteorology, geophysics, and bioclimatology',
-                   'Serie A, Meteorology and geophysics']}],
-      'parallel': []}),
+                   'Serie A, Meteorology and geophysics']}]}),
 
     ('246 12', ['a', 'Creating jobs', 'f', '1980'],
      {'display_text': 'Issue title',
       'nonfiling_chars': 0,
       'transcribed': [
-        {'parts': ['Creating jobs, 1980']}],
-      'parallel': []}),
+        {'parts': ['Creating jobs, 1980']}]}),
 
     ('246 12', ['a', 'Creating jobs', 'g', '(varies slightly)', 'f', '1980'],
      {'display_text': 'Issue title',
       'nonfiling_chars': 0,
       'transcribed': [
-        {'parts': ['Creating jobs (varies slightly) 1980']}],
-      'parallel': []}),
+        {'parts': ['Creating jobs (varies slightly) 1980']}]}),
 
     ('246 1 ', ['i', 'At head of title:', 'a', 'Science and public affairs',
                 'f', 'Jan. 1970-Apr. 1974'],
      {'display_text': 'At head of title',
       'nonfiling_chars': 0,
       'transcribed': [
-        {'parts': ['Science and public affairs, Jan. 1970-Apr. 1974']}],
-      'parallel': []}),
+        {'parts': ['Science and public affairs, Jan. 1970-Apr. 1974']}]}),
 
     ('247', ['a', 'Industrial medicine and surgery', 'x', '0019-8536'],
      {'issn': '0019-8536',
       'display_text': 'Former title',
       'nonfiling_chars': 0,
       'transcribed': [
-        {'parts': ['Industrial medicine and surgery']}],
-      'parallel': []}),
+        {'parts': ['Industrial medicine and surgery']}]}),
 
     # Testing 490s: similar to 245s but less (differently?) structured
 
@@ -3161,54 +3129,51 @@ def test_blasmpipeline_getcontributorinfo(marcfields, expected,
      {'nonfiling_chars': 0,
       'transcribed': [
         {'parts': ['Series statement'],
-         'responsibility': 'responsibility'}],
-      'parallel': []}),
+         'responsibility': 'responsibility'}]}),
 
     ('490', ['a', 'Series statement =', 'a', 'Series statement in English'],
      {'nonfiling_chars': 0,
       'transcribed': [
-        {'parts': ['Series statement']}],
-      'parallel': [
-        {'parts': ['Series statement in English']}
-      ]}),
+        {'parts': ['Series statement'],
+         'parallel': [
+            {'parts': ['Series statement in English']}]
+        }],
+     }),
 
     ('490', ['a', 'Series statement ;', 'v', 'v. 1 =',
              'a', 'Series statement in English ;', 'v', 'v. 1'],
      {'nonfiling_chars': 0,
       'transcribed': [
-        {'parts': ['Series statement; v. 1']}],
-      'parallel': [
-        {'parts': ['Series statement in English; v. 1']}
-      ]}),
+        {'parts': ['Series statement; v. 1'],
+         'parallel': [
+            {'parts': ['Series statement in English; v. 1']}]
+        }],
+     }),
 
     ('490', ['3', 'Vol. 1:', 'a', 'Series statement'],
      {'nonfiling_chars': 0,
       'materials_specified': ['Vol. 1'],
       'transcribed': [
-        {'parts': ['Series statement']}],
-      'parallel': []}),
+        {'parts': ['Series statement']}]}),
 
     ('490', ['a', 'Series statement,', 'x', '1234-5678 ;', 'v', 'v. 1'],
      {'nonfiling_chars': 0,
       'issn': '1234-5678',
       'transcribed': [
-        {'parts': ['Series statement; v. 1']}],
-      'parallel': []}),
+        {'parts': ['Series statement; v. 1']}]}),
 
     ('490', ['a', 'Series statement ;', 'v', 'v. 1.',
              'a', 'Sub-series / Responsibility ;', 'v', 'v. 36'],
      {'nonfiling_chars': 0,
       'transcribed': [
         {'parts': ['Series statement; v. 1', 'Sub-series; v. 36'],
-         'responsibility': 'Responsibility'}],
-      'parallel': []}),
+         'responsibility': 'Responsibility'}]}),
 
     ('490', ['a', 'Series statement ;', 'v', 'v. 1.', 'l', '(LC12345)'],
      {'nonfiling_chars': 0,
       'lccn': 'LC12345',
       'transcribed': [
-        {'parts': ['Series statement; v. 1']}],
-      'parallel': []}),
+        {'parts': ['Series statement; v. 1']}]}),
 
     # ('', [],
     #  {'nonfiling_chars': 0,
@@ -5562,10 +5527,11 @@ def test_generatetitlekey(title, nf_chars, expected):
       }),
 
     # 245: Parallel title in 245, no separate responsibilty
-    ([('245', ['a', 'Title =', 'b', 'Title in English /',
-               'c', 'by Joe Smith.'], '00')],
-     {'title_display': 'Title',
-      'main_title_search': ['Title'],
+    ([('100', ['a', 'Smith, Joe'], '1 '),
+      ('245', ['a', 'Title =', 'b', 'Title in English /',
+               'c', 'by Joe Smith.'], '10')],
+     {'title_display': 'Title [translated: Title in English]',
+      'main_title_search': ['Title', 'Title in English'],
       'title_sort': 'title',
       'responsibility_display': 'by Joe Smith',
       'responsibility_search': ['by Joe Smith'],
@@ -5573,24 +5539,70 @@ def test_generatetitlekey(title, nf_chars, expected):
         'Title translation: Title in English'],
       'variant_titles_search': [
         'Title in English'],
+      'included_work_titles_json': [
+        {'a': 'Smith, Joe',
+         'p': [{'d': 'Title [by Smith, J.]',
+                'v': 'title!Title'},
+                {'s': ' ',
+                 'd': '[translated: Title in English]'}]},
+      ],
+      'included_work_titles_search': ['Title', 'Title in English'],
+      'title_series_facet': ['title!Title',
+                             'title-in-english!Title in English'],
       }),
 
     # 245: Parallel title in 245 with its own SOR
-    ([('245', ['a', 'Title in German /',
+    ([('100', ['a', 'Author, German'], '1 '),
+      ('245', ['a', 'Title in German /',
                'c', 'by German Author = Title in English / by Joe Smith.'],
-       '00')],
-     {'title_display': 'Title in German',
-      'main_title_search': ['Title in German'],
+       '10')],
+     {'title_display': 'Title in German [translated: Title in English]',
+      'main_title_search': ['Title in German', 'Title in English'],
       'title_sort': 'title-in-german',
-      'responsibility_display': 'by German Author',
-      'responsibility_search': [
-        'by German Author',
-        'by Joe Smith'
-      ],
+      'responsibility_display': 'by German Author [translated: by Joe Smith]',
+      'responsibility_search': ['by German Author', 'by Joe Smith'],
       'variant_titles_notes': [
         'Title translation: Title in English'],
       'variant_titles_search': [
         'Title in English'],
+      'included_work_titles_json': [
+        {'a': 'Author, German',
+         'p': [{'d': 'Title in German [by Author, G.]',
+                'v': 'title-in-german!Title in German'},
+               {'s': ' ',
+                'd': '[translated: Title in English]'}]},
+      ],
+      'included_work_titles_search': ['Title in German', 'Title in English'],
+      'title_series_facet': ['title-in-german!Title in German',
+                             'title-in-english!Title in English']
+      }),
+
+    # 245: Multiple parallel titles in 245
+    ([('100', ['a', 'Smith, Joe'], '1 '),
+      ('245', ['a', 'Title =', 'b', 'Title in English = Title in Spanish /',
+               'c', 'by Joe Smith.'], '10')],
+     {'title_display': 'Title [translated: Title in English; Title in Spanish]',
+      'main_title_search': ['Title', 'Title in English', 'Title in Spanish'],
+      'title_sort': 'title',
+      'responsibility_display': 'by Joe Smith',
+      'responsibility_search': ['by Joe Smith'],
+      'variant_titles_notes': [
+        'Title translation: Title in English',
+        'Title translation: Title in Spanish'],
+      'variant_titles_search': [
+        'Title in English', 'Title in Spanish'],
+      'included_work_titles_json': [
+        {'a': 'Smith, Joe',
+         'p': [{'d': 'Title [by Smith, J.]',
+                'v': 'title!Title'},
+               {'s': ' ',
+                'd': '[translated: Title in English; Title in Spanish]'}]},
+      ],
+      'included_work_titles_search': [
+        'Title', 'Title in English', 'Title in Spanish'],
+      'title_series_facet': ['title!Title',
+                             'title-in-english!Title in English',
+                             'title-in-spanish!Title in Spanish'],
       }),
 
     # 242/245: Parallel title in 242 and 245 (duplicates)
@@ -5598,10 +5610,10 @@ def test_generatetitlekey(title, nf_chars, expected):
       ('245', ['a', 'Title in German /',
                'c', 'by German Author = Title in English / by Joe Smith.'],
        '00')],
-     {'title_display': 'Title in German',
-      'main_title_search': ['Title in German'],
+     {'title_display': 'Title in German [translated: Title in English]',
+      'main_title_search': ['Title in German', 'Title in English'],
       'title_sort': 'title-in-german',
-      'responsibility_display': 'by German Author',
+      'responsibility_display': 'by German Author [translated: by Joe Smith]',
       'responsibility_search': [
         'by German Author',
         'by Joe Smith'
@@ -5617,10 +5629,10 @@ def test_generatetitlekey(title, nf_chars, expected):
                'c', 'by German Author = Title in English / by Joe Smith.'],
        '00'),
       ('246', ['a', 'Title in English'], '01'),],
-     {'title_display': 'Title in German',
-      'main_title_search': ['Title in German'],
+     {'title_display': 'Title in German [translated: Title in English]',
+      'main_title_search': ['Title in German', 'Title in English'],
       'title_sort': 'title-in-german',
-      'responsibility_display': 'by German Author',
+      'responsibility_display': 'by German Author [translated: by Joe Smith]',
       'responsibility_search': [
         'by German Author',
         'by Joe Smith'
@@ -5752,6 +5764,7 @@ def test_generatetitlekey(title, nf_chars, expected):
     '242: Parallel title w/responsibility',
     '245: Parallel title in 245, no separate responsibilty',
     '245: Parallel title in 245 with its own SOR',
+    '245: Multiple parallel titles in 245',
     '242/245: Parallel title in 242 and 245 (duplicates)',
     '245/246: Parallel title in 246 (duplicates)',
     '246: Variant title in 246 w/$i',

@@ -560,7 +560,10 @@ class TranscribedTitleParser(SequentialMarcFieldParser):
             self.responsibility = ''
         if title:
             if is_parallel and self.titles:
-                self.parallel_titles.append(title)
+                last_title = self.titles[-1]
+                last_title['parallel'] = last_title.get('parallel', [])
+                last_title['parallel'].append(title)
+                self.titles[-1] = last_title
             else:
                 self.titles.append(title)
         self.lock_parallel = False
@@ -744,7 +747,6 @@ class TranscribedTitleParser(SequentialMarcFieldParser):
 
         ret_val = {
             'transcribed': self.titles,
-            'parallel': self.parallel_titles,
             'nonfiling_chars': self.nonfiling_chars
         }
         if self.materials_specified:
@@ -1169,6 +1171,10 @@ def format_display_constants(display_constants):
 def format_title_short_author(title, conjunction, short_author):
     conj_author = ([conjunction] if conjunction else []) + [short_author]
     return '{} [{}]'.format(title, ' '.join(conj_author))
+
+
+def format_translation(translated_text):
+    return '[translated: {}]'.format(translated_text)
 
 
 def generate_title_key(value, nonfiling_chars=0, space_char=r'-'):
@@ -2412,35 +2418,57 @@ class BlacklightASMPipeline(object):
             yield (disp_part, full_part)
 
     def compile_main_title(self, transcribed, nf_chars, parsed_130_240):
-        display, non_trunc = '', ''
+        display, non_trunc, search, sortable = '', '', [], ''
         sep = self.hierarchical_name_separator
+        has_truncation = False
         if transcribed:
-            disp_titles, full_titles = [], []
+            disp_titles, raw_disp_titles, full_titles = [], [], []
             for title in transcribed:
                 disp_parts, full_parts = [], []
                 for disp, full in self.truncate_each_ttitle_part(title):
                     disp_parts.append(disp)
                     full_parts.append(full)
-                disp_titles.append(sep.join(disp_parts))
-                full_titles.append(sep.join(full_parts))
+                    if not has_truncation and disp != full:
+                        has_truncation = True
+
+                raw_disp_title = sep.join(disp_parts)
+                full_title = sep.join(full_parts)
+
+                ptitles = []
+                for ptitle in title.get('parallel', []):
+                    rendered = sep.join(ptitle.get('parts', []))
+                    search.append(rendered)
+                    ptitles.append(rendered)
+                if ptitles:
+                    translation = format_translation('; '.join(ptitles))
+                    disp_title = ' '.join([raw_disp_title, translation])
+                else:
+                    disp_title = raw_disp_title
+
+                disp_titles.append(disp_title)
+                raw_disp_titles.append(raw_disp_title)
+                full_titles.append(full_title)
+
             display = '; '.join(disp_titles)
-            non_trunc = '; '.join(full_titles)
+            raw_display = '; '.join(raw_disp_titles)
+            non_trunc = '; '.join(full_titles) if has_truncation else None
+            search = [non_trunc or raw_display or []] + search
+            sortable = non_trunc or raw_display
         elif parsed_130_240:
             title = parsed_130_240['title']
             display = title['compiled']['heading']
             nf_chars = title['parsed']['nonfiling_chars']
+            search, sortable = [display], display
 
-        non_trunc = '' if non_trunc and display == non_trunc else non_trunc
-        search = non_trunc or display or None
         return {
             'display': display,
             'non_truncated': non_trunc or None,
-            'search': [search] if search else [],
-            'sort': generate_title_key(search, nf_chars) if search else None
+            'search': search,
+            'sort': generate_title_key(sortable, nf_chars) if sortable else None
         }
 
-    def needs_ttitle(self, f245_ind1, nth_ttitle, total_ttitles, f130_240,
-                     total_analytic_titles):
+    def needs_added_ttitle(self, f245_ind1, nth_ttitle, total_ttitles, f130_240,
+                           total_analytic_titles):
         # If 245 ind1 is 0, then we explicitly don't create an added
         # entry (i.e. facet value) for it.
         if f245_ind1 == '0':
@@ -2488,7 +2516,7 @@ class BlacklightASMPipeline(object):
 
         auth_info = self._prep_author_summary_info([author])
         sep = self.hierarchical_name_separator
-        heading = ''
+        search, heading = [], ''
         json = {'a': auth_info['full_name']} if auth_info['full_name'] else {}
         json['p'], facet_vals = [], []
 
@@ -2514,11 +2542,23 @@ class BlacklightASMPipeline(object):
             json['p'].append(json_entry)
             facet_vals.append(facet_val)
 
+        search, ptitles = [heading], []
+        for ptitle in ttitle.get('parallel', []):
+            ptstr = sep.join(ptitle.get('parts', []))
+            if ptstr:
+                search.append(ptstr)
+                ptitles.append(ptstr)
+                facet_vals.append(format_title_facet_value(ptstr))
+
+        if ptitles:
+            translation = format_translation('; '.join(ptitles))
+            json['p'].append({'s': ' ', 'd': translation})
+
         return {
             'heading': heading,
             'title_key': '' if not len(facet_vals) else facet_vals[-1],
             'json': json,
-            'search_vals': [heading],
+            'search_vals': search,
             'facet_vals': facet_vals
         }
 
@@ -2582,21 +2622,45 @@ class BlacklightASMPipeline(object):
             parsed_245 = TranscribedTitleParser(f).parse()
             break
         transcribed = parsed_245.get('transcribed', [])
-        parallel = parsed_245.get('parallel', [])
         nf_chars = parsed_245.get('nonfiling_chars', 0)
         main_title_info = self.compile_main_title(transcribed, nf_chars,
                                                   parsed_130_240)
-        sor, author = '', main_author
-
+        sor_display_values, author = [], main_author
         for i, ttitle in enumerate(transcribed):
+            sor = ''
             is_first = i == 0
             if 'responsibility' in ttitle:
                 author = '' if (sor or not is_first) else main_author
                 sor = ttitle['responsibility']
                 responsibility_search.append(sor)
 
-            if self.needs_ttitle(f245.indicator1, i, len(transcribed),
-                                 parsed_130_240, num_cont_at):
+            psor_display_values = []
+            for ptitle in ttitle.get('parallel', []):
+                if 'parts' in ptitle:
+                    vt = self.hierarchical_name_separator.join(ptitle['parts'])
+                    display_text = TranscribedTitleParser.variant_types['1']
+                    note = '{}: {}'.format(display_text, vt)
+                    variant_titles_notes.append(note)
+                    variant_titles_search.append(vt)
+
+                if 'responsibility' in ptitle:
+                    psor = ptitle['responsibility']
+                    if psor not in responsibility_search:
+                        responsibility_search.append(psor)
+                    psor_display_values.append(psor)
+
+            if sor:
+                if psor_display_values:
+                    psor = '; '.join(psor_display_values)
+                    psor_translation = format_translation(psor)
+                    sor_display_values.append(' '.join([sor, psor_translation]))
+                else:
+                    sor_display_values.append(sor)
+
+            # `if needs_added_ttitle()` means, "If an added entry needs
+            # to be created for this transcribed title" ...
+            if self.needs_added_ttitle(f245.indicator1, i, len(transcribed),
+                                       parsed_130_240, num_cont_at):
                 if not author and sor:
                     author = self._match_name_from_sor(analyzed_entries, sor)
 
@@ -2613,7 +2677,7 @@ class BlacklightASMPipeline(object):
                     title_series_facet = pfv[:i] + fv + pfv[i:]
                     title_keys['included'].add(compiled['title_key'])
 
-        responsibility_display = '; '.join(responsibility_search)
+        responsibility_display = '; '.join(sor_display_values)
 
         for entry in hold_740s:
             if entry['title_key'] not in title_keys[entry['title_type']]:
@@ -2631,29 +2695,18 @@ class BlacklightASMPipeline(object):
             for vtitle in parsed.get('transcribed', []):
                 if 'parts' in vtitle:
                     t = self.hierarchical_name_separator.join(vtitle['parts'])
-                    variant_titles_search.append(t)
+                    if t not in variant_titles_search:
+                        variant_titles_search.append(t)
                     if add_notes:
                         if display_text:
                             note = '{}: {}'.format(display_text, t)
                         else:
                             note = t
-                        variant_titles_notes.append(note)
+                        if note not in variant_titles_notes:
+                            variant_titles_notes.append(note)
                 if 'responsibility' in vtitle:
-                    responsibility_search.append(vtitle['responsibility'])
-
-        for ptitle in parallel:
-            if 'parts' in ptitle:
-                tstr = self.hierarchical_name_separator.join(ptitle['parts'])
-                if tstr not in variant_titles_search:
-                    display_text = TranscribedTitleParser.variant_types['1']
-                    note = '{}: {}'.format(display_text, tstr)
-                    variant_titles_notes = [note] + variant_titles_notes
-                    variant_titles_search.append(tstr)
-
-            if 'responsibility' in ptitle:
-                sor = ptitle['responsibility']
-                if sor not in responsibility_search:
-                    responsibility_search.append(ptitle['responsibility'])
+                    if vtitle['responsibility'] not in responsibility_search:
+                        responsibility_search.append(vtitle['responsibility'])
 
         for f in marc_record.get_fields('490'):
             if f.indicator1 == '0':
