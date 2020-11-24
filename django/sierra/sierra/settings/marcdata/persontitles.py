@@ -13,9 +13,6 @@ Contains data related to personal titles
 #   See https://en.wikipedia.org/wiki/English_honorifics
 # - Imperial, royal, and noble titles: 'King', 'Baron', 'Sir'
 #   See https://en.wikipedia.org/wiki/Imperial,_royal_and_noble_ranks
-# - Nobiliary particle, for names that are surnames only, such as
-#   100 1#$aWalle-Lissnijder,$cvan de -- (van de Walle-Lissnijder)
-#   See https://en.wikipedia.org/wiki/Nobiliary_particle
 # 
 # Before comparing to a value in this list, normalize the comparison
 # value by stripping punctuation and converting to lower case.
@@ -40,21 +37,31 @@ PERSON_PRETITLES = set([
     'grand rabbi', 'rebbetzin', 'imam', 'imām', 'shaykh', 'muftī', 'mufti',
     'hāfiz', 'hafiz', 'hāfizah', 'hafizah', 'qārī', 'qari', 'mawlānā',
     'mawlana', 'hājī', 'haji', 'sayyid', 'sayyidah', 'sharif', 'venerable',
-    'ven', 'eminent', 'emi', 'of', 'af', 'von', 'de', 'd', 'du', 'des', 'zu',
-    'van', 'den', 'der', 'van de', 'van der', 'van den', 'emperor', 'empress',
-    'king emperor', 'queen empress', 'kaiser', 'tsar', 'tsarina', 'high king',
-    'high queen', 'great king', 'great queen' 'king', 'queen', 'archduke',
-    'archduchess', 'tsesarevich', 'grand prince', 'grand princess',
-    'grand duke', 'grand duchess', 'prince-elector', 'prince', 'princess',
-    'crown prince', 'crown princess', 'foreign prince', 'prince du sang',
-    'infante', 'infanta', 'dauphin', 'dauphine', 'królewicz', 'krolewicz',
-    'królewna', 'krolewna', 'jarl', 'tsarevich', 'tsarevna', 'duke', 'duchess',
-    'herzog', 'knyaz', 'princely count', 'sovereign prince',
-    'sovereign princess', 'fürst', 'furst', 'fürstin', 'furstin', 'boyar',
-    'marquess', 'marquis', 'marchioness', 'margrave', 'marcher lord',
-    'landgrave', 'count palatine', 'count', 'countess', 'earl', 'graf',
-    'châtelain', 'chatelain', 'castellan', 'burgrave', 'burggrave', 'viscount',
-    'viscountess', 'vidame', 'baron', 'baroness', 'freiherr', 'advocatus',
-    'thane', 'lendmann', 'baronet', 'baronetess', 'seigneur', 'laird',
-    'lord of the manor', 'gentleman', 'maid', 'don',
+    'ven', 'eminent', 'emi', 'emperor', 'empress', 'king emperor',
+    'queen empress', 'kaiser', 'tsar', 'tsarina', 'high king', 'high queen',
+    'great king', 'great queen' 'king', 'queen', 'archduke', 'archduchess',
+    'tsesarevich', 'grand prince', 'grand princess', 'grand duke',
+    'grand duchess', 'prince-elector', 'prince', 'princess', 'crown prince',
+    'crown princess', 'foreign prince', 'prince du sang', 'infante', 'infanta',
+    'dauphin', 'dauphine', 'królewicz', 'krolewicz', 'królewna', 'krolewna',
+    'jarl', 'tsarevich', 'tsarevna', 'duke', 'duchess', 'herzog', 'knyaz',
+    'princely count', 'sovereign prince', 'sovereign princess', 'fürst',
+    'furst', 'fürstin', 'furstin', 'boyar', 'marquess', 'marquis',
+    'marchioness', 'margrave', 'marcher lord', 'landgrave', 'count palatine',
+    'count', 'countess', 'earl', 'graf', 'châtelain', 'chatelain', 'castellan',
+    'burgrave', 'burggrave', 'viscount', 'viscountess', 'vidame', 'baron',
+    'baroness', 'freiherr', 'advocatus', 'thane', 'lendmann', 'baronet',
+    'baronetess', 'seigneur', 'laird', 'lord of the manor', 'gentleman',
+    'maid', 'don',
+])
+
+
+# PERSON_NOBILIARY_PARTICLES includes a list of prepositions that might
+# precede a last name, which *could* be put into a MARC 100$c and
+# (for surname-only names) should be treated as a prefix title. E.g.:
+#   100 1#$aWalle-Lissnijder,$cvan de -- (van de Walle-Lissnijder)
+# See https://en.wikipedia.org/wiki/Nobiliary_particle
+PERSON_NOBILIARY_PARTICLES = set([
+    'of', 'of the', 'af', 'von', 'de', 'd', 'du', 'des', 'zu', 'van', 'den',
+    'der', 'van de', 'van der', 'van den', 
 ])

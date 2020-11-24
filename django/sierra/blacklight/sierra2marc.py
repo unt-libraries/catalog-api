@@ -1276,17 +1276,26 @@ class PersonalNamePermutator(object):
         honorifics) that should be placed as a prefix, such as
         "Sir Ian McKellan" or "Saint Thomas, Aquinas." Returns a tuple,
         list of prefixes and list of suffixes.
+
+        In some cases a full suffix implies a shorter prefix title:
+        "King of England" implies the prefix "King." When these are
+        found, assuming `n` hasn't been reached, the prefix "King"
+        is added as a prefix and the full suffix "King of England" is
+        added as a suffix. (Terms are deduplicated, as well.)
         """
-        prefixes, suffixes = [], []
+        prefixes, suffixes = OrderedDict(), OrderedDict()
         pretitles = settings.MARCDATA.PERSON_PRETITLES
+        nparticles = settings.MARCDATA.PERSON_NOBILIARY_PARTICLES
         for i, t in enumerate(self.original_name['person_titles'] or []):
             t = toascii.map_from_unicode(t)
             t = re.sub(r'\W+', ' ', t).strip(' ')
-            if t.lower() in pretitles and len(prefixes) < n:
-                prefixes.append(t)
+            if t.lower() in pretitles | nparticles and len(prefixes) < n:
+                prefixes[t] = None
             else:
-                suffixes.append(t)
-        return prefixes, suffixes
+                if t.lower().split(' ')[0] in pretitles and len(prefixes) < n:
+                    prefixes[t.split(' ')[0]] = None
+                suffixes[t] = None
+        return prefixes.keys(), suffixes.keys()
 
     def is_initial(self, token):
         """
@@ -1451,13 +1460,17 @@ class PersonalNamePermutator(object):
             ['Smith, Elizabeth', 'Smith, E',
              'Smith, Ann Elizabeth Smith, A.E Smith']
 
-        - The fullest first name (only) and last name, including titles
-          and numeration, if present. E.g.:
-            ['Mrs Ann Smith']
+        - The fullest first name (only) and last name, including
+          titles and numeration, if present. Commas are stripped from
+          the titles-suffixes listing. E.g.:
+            ['Ann Smith'] or
+            ['Emperor John Comnenus II Emperor of the East']
 
         - The "best" form of the authorized name, in forward form, also
-        including titles and numeration, if present. E.g.:
-            ['Mrs Elizabeth Smith']
+        included titles and numeration, if present. For names with
+        titles as suffixes, commas are included.
+            ['Mrs Elizabeth Smith'] or
+            ['Emperor John Comnenus II, Emperor of the East']
         """
         std_perm = self.get_standard_permutations(self.authorized_name)
 
@@ -1471,21 +1484,36 @@ class PersonalNamePermutator(object):
         prefix_title = (prefix_titles or [None])[0]
 
         if self.fullest_name['surname']:
-            fullest_first = (self.fullest_name['forename'] or [None])[0]
+            ffn = self.fullest_name['forename'] or [None]
+            fullest_first = (ffn)[0]
+
+            rev_prepositions = []
+            for name in reversed(ffn[1:]):
+                if name[0].islower():
+                    rev_prepositions.append(name)
+                else:
+                    break
+            if rev_prepositions:
+                prepositions = [n for n in reversed(rev_prepositions)]
+                fullest_first = ' '.join([fullest_first] + prepositions)
+
             fullest_last = self.render_name_part(self.fullest_name['surname'])
         else:
             fullest_first = self.render_name_part(self.fullest_name['forename'])
             fullest_last = None
 
-        fullest_fl = [prefix_title, fullest_first, fullest_last,
-                      self.original_name['numeration']] + suffix_titles
-        permutations.append(' '.join([p for p in fullest_fl if p]))
+        fullest_fl_parts = [prefix_title, fullest_first, fullest_last,
+                            self.original_name['numeration']] + suffix_titles
+        fullest_fl = ' '.join([p for p in fullest_fl_parts if p])
 
-        best_forward = [prefix_title,
-                        self.render_name(self.authorized_name['forename'],
-                                         self.authorized_name['surname']),
-                        self.original_name['numeration']] + suffix_titles
-        permutations.append(' '.join([p for p in best_forward if p]))
+        best_fwd_parts  = [prefix_title,
+                           self.render_name(self.authorized_name['forename'],
+                                            self.authorized_name['surname']),
+                           self.original_name['numeration']]
+        best_fwd = ' '.join([p for p in best_fwd_parts if p])
+        best_fwd = ', '.join([best_fwd] + suffix_titles)
+
+        permutations.extend([fullest_fl, best_fwd])
         return permutations
 
 
