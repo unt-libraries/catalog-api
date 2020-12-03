@@ -435,8 +435,8 @@ class OrgEventNameParser(SequentialMarcFieldParser):
             self.subunit_sftag = 'e'
             self.relator_sftags = 'j4'
             self.field_type = 'X11'
-        self.parts = {'org': [], 'event': []}
-        self._stacks = {'org': [], 'event': []}
+        self.parts = {'org': [], 'event': [], 'combined': []}
+        self._stacks = {'org': [], 'event': [], 'combined': []}
         self._event_info, self._prev_part_name, self._prev_tag = [], '', ''
         self.is_jurisdiction = self.field.indicator1 == '1'
 
@@ -463,9 +463,12 @@ class OrgEventNameParser(SequentialMarcFieldParser):
 
     def do_unit(self):
         org_parts, event_parts = [], []
+        event_info = None
         if self._event_info:
+            event_info = self._build_event_info()
             event_parts.append({'name': self._build_unit_name('event'),
-                                'event_info': self._build_event_info()})
+                                'event_info': event_info})
+
             # Even if this is clearly an event, if it's the first thing
             # in an X10 field, record it as an org as well.
             if self.field_type == 'X10' and not self.parts['org']:
@@ -473,10 +476,16 @@ class OrgEventNameParser(SequentialMarcFieldParser):
                 if self._stacks['org']:
                     self._stacks['org'].pop()
         elif self.field_type == 'X11' and not self.parts['event']:
-            event_parts.append({'name': self._build_unit_name('event')})
+            part = {'name': self._build_unit_name('event')}
+            event_parts.append(part)
         else:
-            org_parts.append({'name': self._build_unit_name('org')})
-        return org_parts, event_parts
+            part = {'name': self._build_unit_name('org')}
+            org_parts.append(part)
+
+        combined_part = {'name': self._prev_part_name}
+        if event_info:
+            combined_part['event_info'] = event_info
+        return org_parts, event_parts, [combined_part]
 
     def parse_subfield(self, tag, val):
         if tag in self.done_sftags:
@@ -489,30 +498,34 @@ class OrgEventNameParser(SequentialMarcFieldParser):
         elif tag == 'a':
             self._prev_part_name = p.strip_ends(val)
         elif self.sf_is_first_subunit_of_jd_field(tag):
-            self._prev_part_name = '{} {}'.format(self._prev_part_name,
-                                                  p.strip_ends(val))
+            part = '{} {}'.format(self._prev_part_name, p.strip_ends(val))
+            self._prev_part_name = part
         elif tag == self.subunit_sftag:
-            new_org_parts, new_event_parts = self.do_unit()
+            new_org_parts, new_event_parts, new_combined_parts = self.do_unit()
             self.parts['org'].extend(new_org_parts)
             self.parts['event'].extend(new_event_parts)
+            self.parts['combined'].extend(new_combined_parts)
             self._event_info = []
             self._prev_part_name = p.strip_ends(val)
         self._prev_tag = tag
 
     def do_post_parse(self):
-        new_org_parts, new_event_parts = self.do_unit()
+        new_org_parts, new_event_parts, new_combined_parts = self.do_unit()
         self.parts['org'].extend(new_org_parts)
         self.parts['event'].extend(new_event_parts)
+        self.parts['combined'].extend(new_combined_parts)
 
     def compile_results(self):
         ret_val = []
         relators = self.relator_terms.keys() or None
-        for part_type in ('org', 'event'):
-            if self.parts[part_type]:
+        needs_combined = self.parts['org'] and self.parts['event']
+        for part_type in ('org', 'event', 'combined'):
+            do_it = part_type in ('org', 'event') or needs_combined
+            if do_it and self.parts[part_type]:
                 ret_val.append({
                     'relations': relators,
                     'heading_parts': self.parts[part_type],
-                    'type': 'organization' if part_type == 'org' else 'event',
+                    'type': 'organization' if part_type == 'org' else part_type,
                     'is_jurisdiction': self.is_jurisdiction,
                     'materials_specified': self.materials_specified or None
                 })
@@ -2510,15 +2523,23 @@ class BlacklightASMPipeline(object):
                 'facet_vals': facet_vals,
                 'short_author': shorten_name(name_struct)}
 
-    def _prep_author_summary_info(self, names):
+    def select_best_name(self, names, org_event_default='combined'):
+        if len(names) == 1:
+            return names[0]
+
         for name in names:
-            if name and name['compiled']['heading']:
-                return {
-                    'full_name': name['compiled']['heading'],
-                    'short_name': name['compiled']['short_author'],
-                    'is_jd': name['parsed'].get('is_jurisdiction', False),
-                    'ntype': name['parsed']['type']
-                }
+            if name['parsed']['type'] == org_event_default:
+                return name
+
+    def _prep_author_summary_info(self, names, org_event_default='combined'):
+        name = self.select_best_name(names, org_event_default)
+        if name and name['compiled']['heading']:
+            return {
+                'full_name': name['compiled']['heading'],
+                'short_name': name['compiled']['short_author'],
+                'is_jd': name['parsed'].get('is_jurisdiction', False),
+                'ntype': name['parsed']['type']
+            }
         return {'full_name': '', 'short_name': '', 'is_jd': False, 'ntype': ''}
 
     def _prep_coll_title_parts(self, orig_title_parts, auth_info, is_mform):
@@ -2541,7 +2562,7 @@ class BlacklightASMPipeline(object):
         if not title_struct['title_parts']:
             return None
 
-        auth_info = self._prep_author_summary_info(names)
+        auth_info = self._prep_author_summary_info(names, 'organization')
         sep = self.hierarchical_name_separator
         heading = ''
         json = {'a': auth_info['full_name']} if auth_info['full_name'] else {}
@@ -2698,7 +2719,9 @@ class BlacklightASMPipeline(object):
                 this_is_1XX = field.tag.startswith('1')
                 this_is_7XX = field.tag.startswith('7')
                 this_is_8XX = field.tag.startswith('8')
-                if compiled['heading'] not in headings_set:
+                is_combined = parsed['type'] == 'combined'
+
+                if compiled['heading'] not in headings_set and not is_combined:
                     if this_is_event:
                         meetings_search.append(compiled['heading'])
                         meetings_search.extend(compiled['search_vals'])
@@ -2750,11 +2773,10 @@ class BlacklightASMPipeline(object):
             analyzed_entry = entry
 
             if not main_author:
-                for name in entry['names']:
-                    if name['compiled']['heading']:
-                        if name['field'].tag in ('100', '110', '111'):
-                            main_author = name
-                            break
+                name = self.select_best_name(entry['names'], 'organization')
+                if name and name['compiled']['heading']:
+                    if name['field'].tag in ('100', '110', '111'):
+                        main_author = name
 
             title = entry['title']
             if title:
@@ -3564,13 +3586,63 @@ class BlacklightASMPipeline(object):
             'games_players_facet': values['p'] or None
         }
 
-    def extract_subject_main_terms(self, f, is_nametitle):
-        main_terms = []
+    def parse_and_compile_subject_field(self, f):
+        heading = ''
+        json = {'p': []}
+        facets = {'heading': [], 'topic': [], 'era': [], 'region': [],
+                  'genre': []}
+        main_search, secondary_search = [], []
+
+        is_nametitle = f.tag in ('600', '610', '611', '630')
+        is_genre = f.tag == '655'
+        is_concept = not is_nametitle and not is_genre
+        is_geographic = f.tag in ('651', '691')
+        is_fast = 'fast' in f.get_subfields('2')
+        is_uncontrolled = f.tag == '653'
+        is_for_search_only = f.tag == '692'
+
+        sep = self.hierarchical_name_separator
+
         if is_nametitle:
             nt_entry = self.parse_nametitle_field(f)
+            has_names = bool(nt_entry['names'])
+            has_title = bool(nt_entry['title'])
+
+            if has_names:
+                name = self.select_best_name(nt_entry['names'], 'compiled')
+                name_search = []
+                compiled = name['compiled']
+                if heading:
+                    heading = sep.join([heading, compiled['heading']])
+                else:
+                    heading = compiled['heading']
+                facets['topic'].extend(compiled.get('facet_vals', []))
+                name_search.extend(compiled.get('search_vals', []))
+                json['p'].extend(compiled.get('json', {'p': []})['p'])
+                names_search = names_search or [heading]
+                if has_title:
+                    secondary_search.extend(names_search)
+                else:
+                    main_search.extend(names_search)
+
+            if has_title:
+                compiled = nt_entry['title']['compiled']
+
         else:
             pass
-        return main_terms
+        return {
+            'heading': heading,
+            'json': json,
+            'facets': facets,
+            'search': search,
+            'is_nametitle': is_nametitle,
+            'is_genre': is_genre,
+            'is_concept': is_concept,
+            'is_geographic': is_geographic,
+            'is_fast': is_fast,
+            'is_uncontrolled': is_uncontrolled,
+            'is_for_search_only': is_for_search_only
+        }
 
     def get_subjects_info(self, r, marc_record):
         """
@@ -3585,20 +3657,18 @@ class BlacklightASMPipeline(object):
         g_search = {'exact': [], 'main': [], 'all': []}
 
         sg_field_tags = ('600', '610', '611', '630', '647', '648', '650', '651',
-                         '655', '656', '657')
+                         '653', '655', '656', '657', '690', '691', '692')
         for f in marc_record.get_fields(sg_field_tags):
             all_terms, main_terms, subdivisions = [], [], []
-            is_nametitle = f.tag in ('600', '610', '611', '630')
-            is_genre = f.tag == '655'
-            is_concept = not is_nametitle and not is_genre
-            is_fast = 'fast' in f.get_subfields('2')
+            parsed = self.parse_subject_field(f)
 
             # First task is to pull out the "main terms" (mt) -- which
-            # could be a name, name/title, title, or concept/topic --
-            # and deal with them.
+            # could be a name, name/title, title, or topic -- and deal
+            # with them.
             main_terms = self.extract_subject_main_terms(f, is_nametitle)
 
             # Second task is to deal with heading subdivisions.
+
 
         sh_json = [ujson.dumps(v) for v in json['subjects']]
         gh_json = [ujson.dumps(v) for v in json['genres']]
