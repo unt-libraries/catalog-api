@@ -812,14 +812,17 @@ class TranscribedTitleParser(SequentialMarcFieldParser):
 
 
 class PreferredTitleParser(SequentialMarcFieldParser):
-    title_only_fields = ('130', '240', '243', '730', '740', '830')
-    name_title_fields = ('700', '710', '711', '800', '810', '811')
+    title_only_fields = ('130', '240', '243', '630', '730', '740', '830')
+    name_title_fields = ('600', '610', '611', '700', '710', '711', '800',
+                         '810', '811')
     main_title_fields = ('130', '240', '243')
-    nonfiling_char_ind1_fields = ('130', '730', '740')
+    subject_fields = ('600', '610', '611', '630')
+    nonfiling_char_ind1_fields = ('130', '630', '730', '740')
     nonfiling_char_ind2_fields = ('240', '243', '830')
     nt_title_tags = 'tfklmoprs'
     subpart_tags = 'dgknpr'
     expression_tags = 'flos'
+    subject_sd_tags = 'vxyz'
 
     def __init__(self, field, utils=None):
         super(PreferredTitleParser, self).__init__(field)
@@ -867,6 +870,8 @@ class PreferredTitleParser(SequentialMarcFieldParser):
                 self.title_type = 'analytic'
             else:
                 self.title_type = 'related'
+        elif field.tag in self.subject_fields:
+            self.title_type = 'subject'
         elif field.tag in self.main_title_fields:
             self.title_type = 'main'
 
@@ -937,6 +942,8 @@ class PreferredTitleParser(SequentialMarcFieldParser):
         }
 
     def parse_subfield(self, tag, val):
+        if self.title_type == 'subject' and tag in self.subject_sd_tags:
+            return True
         self.flags = self.get_flags(tag, val)
         if self.flags['is_display_const']:
             display_val = p.strip_ends(p.strip_wemi(val))
