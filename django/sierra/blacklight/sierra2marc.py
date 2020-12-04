@@ -2474,7 +2474,7 @@ class BlacklightASMPipeline(object):
     def compile_person(self, name_struct):
         heading, relations = name_struct['heading'], name_struct['relations']
         json = {'r': relations} if relations else {}
-        fval = format_key_facet_value(heading) if heading else None
+        fval = heading or None
         json['p'] = [{'d': heading, 'v': fval}]
         permutator = PersonalNamePermutator(name_struct)
         search_vals = permutator.get_search_permutations()
@@ -2498,7 +2498,7 @@ class BlacklightASMPipeline(object):
                 heading = part['name']
             else:
                 heading = sep.join((heading, part['name']))
-            fval = format_key_facet_value(heading)
+            fval = heading
             json_entry['v'] = fval
             json['p'].append(json_entry)
             facet_vals.append(fval)
@@ -2510,7 +2510,7 @@ class BlacklightASMPipeline(object):
                     json['p'][-1]['s'] = ', '
                 else:
                     heading = ' '.join((heading, ev_info))
-                ev_fval = format_key_facet_value(heading)
+                ev_fval = heading
                 json_entry = {'d': ev_info, 'v': ev_fval}
                 json['p'].append(json_entry)
                 facet_vals.append(ev_fval)
@@ -2531,6 +2531,24 @@ class BlacklightASMPipeline(object):
             if name['parsed']['type'] == org_event_default:
                 return name
 
+    def do_facet_keys(self, struct, nf_chars=0):
+        try:
+            struct.get('p')
+        except AttributeError:
+            new_facet_vals = []
+            for fval in struct:
+                new_facet_vals.append(format_key_facet_value(fval, nf_chars))
+            return new_facet_vals
+
+        new_p = []
+        for entry in struct.get('p', []):
+            new_entry = entry
+            if 'v' in new_entry:
+                new_entry['v'] = format_key_facet_value(entry['v'], nf_chars)
+            new_p.append(new_entry)
+        struct['p'] = new_p
+        return struct
+
     def _prep_author_summary_info(self, names, org_event_default='combined'):
         name = self.select_best_name(names, org_event_default)
         if name and name['compiled']['heading']:
@@ -2542,110 +2560,152 @@ class BlacklightASMPipeline(object):
             }
         return {'full_name': '', 'short_name': '', 'is_jd': False, 'ntype': ''}
 
-    def _prep_coll_title_parts(self, orig_title_parts, auth_info, is_mform):
+    def _prep_coll_title_parts(self, orig_title_parts, author_info, is_mform,
+                               for_subject=False):
         title_parts = []
         p1 = orig_title_parts[0]
         num_parts = len(orig_title_parts)
-        if auth_info['short_name']:
-            is_org_event = auth_info['ntype'] != 'person'
+        if author_info['short_name'] and not for_subject:
+            is_org_event = author_info['ntype'] != 'person'
             conj = 'by' if is_mform else '' if is_org_event else 'of'
-            p1 = format_title_short_author(p1, conj, auth_info['short_name'])
+            p1 = format_title_short_author(p1, conj, author_info['short_name'])
         title_parts.append(p1)
         if num_parts == 1:
-            if not auth_info['is_jd']:
+            if not author_info['is_jd']:
                 title_parts.append('Complete')
         else:
             title_parts.extend(orig_title_parts[1:])
         return title_parts
 
-    def compile_added_title(self, field, title_struct, names):
-        if not title_struct['title_parts']:
-            return None
-
-        auth_info = self._prep_author_summary_info(names, 'organization')
+    def prerender_authorized_title(self, title, names, for_subject=False):
+        best_author_type = 'combined' if for_subject else 'organization'
+        auth_info = self._prep_author_summary_info(names, best_author_type)
         sep = self.hierarchical_name_separator
-        heading = ''
-        json = {'a': auth_info['full_name']} if auth_info['full_name'] else {}
-        json['p'], facet_vals = [], []
+        components = []
 
-        ms = title_struct['materials_specified']
-        dc = title_struct['display_constants']
+        is_coll = title['is_collective']
+        is_mform = title['is_music_form']
+        tparts = title['title_parts']
+        eparts = title['expression_parts']
+        volume = title.get('volume', '')
+        issn = title.get('issn', '')
+        ms = title['materials_specified']
+        dc = title['display_constants']
+
         ms_str = format_materials_specified(ms) if ms else ''
         dc_str = format_display_constants(dc) if dc else ''
         before = ([ms_str] if ms_str else []) + ([dc_str] if dc_str else [])
-        if before:
-            json['b'] = ' '.join(before)
-
-        nf_chars = title_struct['nonfiling_chars']
-        is_coll = title_struct['is_collective']
-        is_mform = title_struct['is_music_form']
-        tparts = title_struct['title_parts']
-        eparts = title_struct['expression_parts']
-        volume = title_struct.get('volume', '')
-        issn = title_struct.get('issn', '')
-        end_info = [volume] if volume else []
-        end_info += ['ISSN: {}'.format(issn)] if issn else []
 
         if is_coll:
-            tparts = self._prep_coll_title_parts(tparts, auth_info, is_mform)
-
+            tparts = self._prep_coll_title_parts(tparts, auth_info, is_mform,
+                                                 for_subject)
         for i, part in enumerate(tparts):
             this_is_first_part = i == 0
             this_is_last_part = i == len(tparts) - 1
             next_part = None if this_is_last_part else tparts[i + 1]
             d_part = part
             skip = part in ('Complete', 'Selections')
+            skip_next = False
 
             if this_is_first_part:
-                heading = part
-                if not is_coll and auth_info['short_name']:
+                if not is_coll and auth_info['short_name'] and not for_subject:
                     conj = 'by' if auth_info['ntype'] == 'person' else ''
                     d_part = format_title_short_author(part, conj,
                                                        auth_info['short_name'])
             if not skip:
-                if not this_is_first_part:
-                    heading = sep.join((heading, part))
-
+                component = {'facet': part, 'display': d_part, 'sep': sep}
                 if next_part in ('Complete', 'Selections'):
                     next_part = '({})'.format(next_part)
                     d_part = ' '.join((d_part, next_part))
                     if not is_coll or is_mform or auth_info['is_jd']:
-                        fval = format_key_facet_value(heading, nf_chars)
-                        facet_vals.append(fval)
-                    heading = ' '.join((heading, next_part))
+                        components.append({'facet': part, 'display': '',
+                                           'sep': ' '})
+                        next_facet_part = next_part
+                    else:
+                        next_facet_part = ' '.join((part, next_part))
 
-                fval = format_key_facet_value(heading, nf_chars)
-                facet_vals.append(fval)
-                json['p'].append({'d': d_part, 'v': fval, 's': sep})
+                    component = {'facet': next_facet_part, 'display': d_part,
+                                 'sep': sep}
+                    skip_next = True
+                components.append(component)
 
-            if json['p'] and this_is_last_part:
-                if eparts or end_info:
-                    json['p'][-1]['s'] = ' | '
-                else:
-                    del(json['p'][-1]['s'])
+            if this_is_last_part and components:
+                components[-1]['sep'] = None
 
-        if eparts:
-            exp_str = ', '.join(eparts)
-            heading = ' | '.join((heading, exp_str))
-            fval = format_key_facet_value(heading, nf_chars)
-            json_entry = {'d': exp_str, 'v': fval}
-            if end_info:
-                json_entry['s'] = ' | '
-            json['p'].append(json_entry)
-            facet_vals.append(fval)
-
-        if end_info:
-            end_info_str = ', '.join(end_info)
-            heading = ' | '.join((heading, end_info_str))
-            json['p'].append({'d': end_info_str})
+        end_info = [volume] if volume else []
+        end_info += ['ISSN: {}'.format(issn)] if issn else []
 
         return {
-            'auth_info': auth_info,
-            'heading': heading,
-            'title_key': '' if not len(facet_vals) else facet_vals[-1],
+            'author_info': auth_info,
+            'before_string': ' '.join(before),
+            'title_components': components,
+            'expression_string': ', '.join(eparts) if eparts else None,
+            'end_info_string': ', '.join(end_info) if end_info else None
+        }
+
+    def render_authorized_title(self, title, names, for_subject=False):
+        pre_info = self.prerender_authorized_title(title, names, for_subject)
+        heading, json, facet_vals = '', {'p': []}, []
+        author_info = pre_info['author_info']
+
+        if not for_subject and author_info['full_name']:
+            json['a'] = author_info['full_name']
+
+        if pre_info['before_string']:
+            json['b'] = pre_info['before_string']
+
+        prev_comp = {}
+        for comp in pre_info['title_components']:
+            prev_s = prev_comp.get('sep', '')
+            heading = prev_s.join((heading, comp['facet']))
+            facet_vals.append(heading)
+            if comp['display']:
+                json['p'].append({'d': comp['display'], 'v': heading})
+                if json['p'] and comp['sep']:
+                    json['p'][-1]['s'] = comp['sep']
+            prev_comp = comp
+
+        if pre_info['expression_string']:
+            if json['p']:
+                json['p'][-1]['s'] = ' | '
+            heading = ' | '.join((heading, pre_info['expression_string']))
+            json['p'].append({'d': pre_info['expression_string'], 'v': heading})
+            facet_vals.append(heading)
+
+        if pre_info['end_info_string']:
+            if json['p']:
+                json['p'][-1]['s'] = ' | '
+            heading = ' | '.join((heading, pre_info['end_info_string']))
+            json['p'].append({'d': pre_info['end_info_string']})
+
+        return {
             'json': json,
-            'search_vals': [heading],
-            'facet_vals': facet_vals
+            'facet_vals': facet_vals,
+            'heading': heading,
+            'author_info': author_info
+        }
+
+    def compile_added_title(self, field, title_struct, names):
+        if not title_struct['title_parts']:
+            return None
+
+        rendered = self.render_authorized_title(title_struct, names)
+        s_rendered = None
+        if field.tag.startswith('6'):
+            s_rendered = self.render_authorized_title(title_struct, names, True)
+
+        title_key = ''
+        if len(rendered['facet_vals']):
+            title_key = rendered['facet_vals'][-1]
+
+        return {
+            'author_info': rendered['author_info'],
+            'heading': rendered['heading'],
+            'title_key': title_key,
+            'json': rendered['json'],
+            'search_vals': [rendered['heading']],
+            'facet_vals': rendered['facet_vals'],
+            'as_subject': s_rendered
         }
 
     def parse_nametitle_field(self, f, names=None, title=None, try_title=True):
@@ -2715,6 +2775,8 @@ class BlacklightASMPipeline(object):
                 compiled = name['compiled']
                 field = name['field']
                 parsed = name['parsed']
+                json = self.do_facet_keys(compiled['json'])
+                facet_vals = self.do_facet_keys(compiled['facet_vals'])
                 this_is_event = parsed['type'] == 'event'
                 this_is_1XX = field.tag.startswith('1')
                 this_is_7XX = field.tag.startswith('7')
@@ -2725,15 +2787,15 @@ class BlacklightASMPipeline(object):
                     if this_is_event:
                         meetings_search.append(compiled['heading'])
                         meetings_search.extend(compiled['search_vals'])
-                        meeting_facet.extend(compiled['facet_vals'])
-                        meetings_json.append(compiled['json'])
+                        meeting_facet.extend(facet_vals)
+                        meetings_json.append(json)
                     else:
                         have_seen_author = bool(author_contributor_facet)
                         if not have_seen_author:
                             if this_is_1XX or this_is_7XX:
                                 a_sort = generate_facet_key(compiled['heading'])
                             if this_is_1XX:
-                                author_json = compiled['json']
+                                author_json = json
                                 search_vals = [compiled['heading']]
                                 search_vals.extend(compiled['search_vals'])
                                 author_search.extend(search_vals)
@@ -2741,8 +2803,8 @@ class BlacklightASMPipeline(object):
                         if have_seen_author or this_is_7XX or this_is_8XX:
                             contributors_search.append(compiled['heading'])
                             contributors_search.extend(compiled['search_vals'])
-                            contributors_json.append(compiled['json'])
-                        author_contributor_facet.extend(compiled['facet_vals'])
+                            contributors_json.append(json)
+                        author_contributor_facet.extend(facet_vals)
                     rel_search_vals = compiled['relator_search_vals']
                     responsibility_search.extend(rel_search_vals)
                     headings_set.add(compiled['heading'])
@@ -2786,9 +2848,9 @@ class BlacklightASMPipeline(object):
                 analyzed_entry['is_740'] = title['field'].tag == '740'
                 if title['parsed']['type'] in ('analytic', 'main'):
                     analyzed_entry['title_type'] = 'included'
-                    auth_info = title['compiled']['auth_info']
-                    if auth_info['full_name']:
-                        incl_authors.add(auth_info['full_name'])
+                    author_info = title['compiled']['author_info']
+                    if author_info['full_name']:
+                        incl_authors.add(author_info['full_name'])
                     if title['parsed']['type'] == 'analytic':
                         if analyzed_entry['is_740']:
                             num_uncontrolled_at += 1
@@ -2997,10 +3059,11 @@ class BlacklightASMPipeline(object):
             if entry['title']:
                 compiled = entry['title']['compiled']
                 parsed = entry['title']['parsed']
-                json = compiled['json']
+                nfc = parsed['nonfiling_chars']
+                json = self.do_facet_keys(compiled['json'], nfc)
                 search_vals = compiled['search_vals']
-                facet_vals = compiled['facet_vals']
-                title_key = compiled['title_key']
+                facet_vals = self.do_facet_keys(compiled['facet_vals'], nfc)
+                title_key = format_key_facet_value(compiled['title_key'], nfc)
                 if entry['is_740']:
                     hold_740s.append({
                         'title_type': entry['title_type'],
