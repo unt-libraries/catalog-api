@@ -823,10 +823,12 @@ class PreferredTitleParser(SequentialMarcFieldParser):
     subpart_tags = 'dgknpr'
     expression_tags = 'flos'
     subject_sd_tags = 'vxyz'
+    relator_sftags = 'e4'
 
     def __init__(self, field, utils=None):
         super(PreferredTitleParser, self).__init__(field)
         self.utils = utils or MarcUtils()
+        self.relator_terms = OrderedDict()
         self.prev_punct = ''
         self.prev_tag = ''
         self.flags = {}
@@ -874,6 +876,10 @@ class PreferredTitleParser(SequentialMarcFieldParser):
             self.title_type = 'subject'
         elif field.tag in self.main_title_fields:
             self.title_type = 'main'
+
+    def do_relators(self, tag, val):
+        for relator_term in self.utils.compile_relator_terms(tag, val):
+            self.relator_terms[relator_term] = None
 
     def join_parts(self, last_part, part, prev_punct):
         if re.match(r'\w', last_part[-1]) and re.match(r'\w', part[0]):
@@ -943,9 +949,12 @@ class PreferredTitleParser(SequentialMarcFieldParser):
 
     def parse_subfield(self, tag, val):
         if self.title_type == 'subject' and tag in self.subject_sd_tags:
-            return True
+            return None
         self.flags = self.get_flags(tag, val)
-        if self.flags['is_display_const']:
+        if tag in (self.relator_sftags):
+            for relator_term in self.utils.compile_relator_terms(tag, val):
+                self.relator_terms[relator_term] = None
+        elif self.flags['is_display_const']:
             display_val = p.strip_ends(p.strip_wemi(val))
             if display_val.lower() == 'container of':
                 self.title_type = 'analytic'
@@ -980,6 +989,7 @@ class PreferredTitleParser(SequentialMarcFieldParser):
 
     def compile_results(self):
         ret_val = {
+            'relations': self.relator_terms.keys() or None,
             'nonfiling_chars': self.nonfiling_chars,
             'materials_specified': self.materials_specified,
             'display_constants': self.display_constants,
