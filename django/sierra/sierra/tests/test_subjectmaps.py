@@ -33,6 +33,45 @@ SAMPLE_PATTERN_MAP = [
 
 # SAMPLE_TERM_MAP, like subjectmaps.LCSH_SUBDIVISION_TERM_MAP
 SAMPLE_TERM_MAP = {
+    '20th century': {
+        'parents': {
+            'civilization': [
+                'Civilization, Modern',
+            ],
+            'economic conditions': [
+                'Economic history',
+            ],
+            'history': [
+                'History, Modern',
+            ],
+            'history military': [
+                'Military history, Modern',
+            ],
+            'history naval': [
+                'Naval history, Modern',
+            ],
+            'history of doctrines': [
+                'Theology, Doctrinal',
+                'History',
+            ],
+            'intellectual life': [
+                'Intellectual life',
+                'History',
+            ],
+            'politics and government': [
+                'World politics',
+            ],
+            'religion': [
+                'Religious history',
+            ],
+            'social conditions': [
+                'Social history',
+            ],
+            'social life and customs': [
+                'Manners and customs',
+            ],
+        },
+    },
     'abandonment': {
         'parents': {
             'nests': [
@@ -110,6 +149,9 @@ SAMPLE_TERM_MAP = {
     (SAMPLE_PATTERN_MAP, SAMPLE_TERM_MAP, 'form', [],
         'Early works',
         [('form', 'Early works')]),
+    (SAMPLE_PATTERN_MAP, SAMPLE_TERM_MAP, 'era', ['History'],
+        '20th Century',
+        [('topic', 'History, Modern'), ('era', '20th Century')]),
 
 ])
 def test_lcshsdtofacetvalues_output(pmap, tmap, dtype, sd_parents, sd,

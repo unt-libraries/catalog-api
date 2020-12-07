@@ -2,6 +2,7 @@
 Map subject headings to subject facet values.
 """
 
+from __future__ import unicode_literals
 import re
 
 
@@ -6575,11 +6576,13 @@ def lcsh_sd_to_facet_values(subdivision, sd_parents=[], default_type='topic',
                     return_values.append((ftype, term))
                 return return_values
 
-    return_values = by_mapping(subdivision, sd_parents)
-    if return_values:
-        return [(default_type, v) for v in return_values]
+    mapped = by_mapping(subdivision, sd_parents)
+    if mapped:
+        if default_type == 'era':
+            return [('topic', v) for v in mapped] + [('era', subdivision)]
+        return [(default_type, v) for v in mapped]
 
-    return_values = by_pattern(subdivision)
-    if return_values:
-        return return_values
+    mapped = by_pattern(subdivision)
+    if mapped:
+        return mapped
     return [(default_type, subdivision)]
