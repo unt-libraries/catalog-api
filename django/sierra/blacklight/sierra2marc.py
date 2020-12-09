@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*- 
+# -*- coding: utf-8 -*-
 
 """
 Sierra2Marc module for catalog-api `blacklight` app.
@@ -823,7 +823,6 @@ class PreferredTitleParser(SequentialMarcFieldParser):
     subpart_tags = 'dgknpr'
     expression_tags = 'flos'
     subject_sd_tags = 'vxyz'
-    relator_sftags = 'e4'
 
     def __init__(self, field, utils=None):
         super(PreferredTitleParser, self).__init__(field)
@@ -851,6 +850,11 @@ class PreferredTitleParser(SequentialMarcFieldParser):
             ',': 'same_part',
             '.': 'new_part'
         })
+
+        if field.tag.endswith('11'):
+            self.relator_sftags = 'j4'
+        else:
+            self.relator_sftags = 'e4'
 
         if field.tag in self.title_only_fields:
             self.lock_title = True
@@ -2678,7 +2682,7 @@ class BlacklightASMPipeline(object):
             facet_vals.append(heading)
             if comp['display']:
                 json['p'].append({'d': comp['display'], 'v': heading})
-                if json['p'] and comp['sep']:
+                if json['p'] and comp['sep'] and comp['sep'] != ' ':
                     json['p'][-1]['s'] = comp['sep']
             prev_comp = comp
 
@@ -3666,62 +3670,273 @@ class BlacklightASMPipeline(object):
             'games_players_facet': values['p'] or None
         }
 
-    def parse_and_compile_subject_field(self, f):
-        heading = ''
-        json = {'p': []}
-        facets = {'heading': [], 'topic': [], 'era': [], 'region': [],
-                  'genre': []}
-        main_search, secondary_search = [], []
+    def find_phrases_x_not_in_phrases_y(self, phr_x, phr_y, accessor=None,
+                                        finder=None):
+        def get(phrase):
+            if accessor:
+                return accessor(phrase)
+            return phrase
 
+        def find_in(wordstr1, wordstr2):
+            if finder:
+                return finder(wordstr1, wordstr2)
+            sc = ' '
+            w1 = generate_facet_key(wordstr1, space_char=sc).split(sc)
+            w2 = generate_facet_key(wordstr2, space_char=sc).split(sc)
+            for i in range(len(w2)):
+                if w2[i] == w1[0] and w2[i:i+len(w1)] == w1:
+                    return True
+            return False
+
+        deduped = []
+        for px in phr_x:
+            is_dupe = any((py for py in phr_y if find_in(get(px), get(py))))
+            if not is_dupe:
+                deduped.append(px)
+        return deduped
+
+    def combine_phrases(self, phr1, phr2, accessor=None, finder=None):
+        """
+        Combine two lists of phrases to remove duplicative terms,
+        comparing ONLY the two lists against each other, not against
+        themselves.
+
+        The purpose of this method is to try to normalize lists of
+        search terms to minimize TF inflation from generating search
+        terms automatically.
+
+        A duplicative term is one that is fully contained within
+        another. "Seeds" is contained in "Certification (Seeds)" and
+        so is considered duplicative and would be removed.
+
+        De-duplication happens between the two lists, not within a
+        single list. If "Seeds" and "Certification (Seeds)" are in the
+        same list they are not compared against each other and thus
+        nothing is changed.
+
+        By default, terms are converted to lower case before being
+        compared. Punctuation is ignored. Phrases are only compared
+        against full words, so "Apple seed" is a duplicate of "Plant
+        an apple seed" but not "Apple seeds." If you need different
+        behavior, supply your own `finder` function that takes a
+        phrase from each list as args and returns True if the first
+        is found in the second.
+
+        `phr1` and `phr2` may be lists of data structures, where terms
+        to compare are in some sub-element or can be derived. In that
+        case, supply the `accessor` function defining how to get terms
+        from each element in each list.
+
+        Returns one list of phrases or phrase data structures resulting
+        from deduplicating the first against the second and the second
+        against the unique phrases from the first.
+        """
+        xy = self.find_phrases_x_not_in_phrases_y(phr1, phr2, accessor, finder)
+        yx = self.find_phrases_x_not_in_phrases_y(phr2, xy, accessor, finder)
+        return xy + yx
+
+    def _add_subject_term(self, out_vals, t_heading, t_heading_fvals, t_fvals,
+                          t_json, t_search_vals, nf_chars=0, base_t_heading='',
+                          allow_search_duplicates=True):
+        sep = self.hierarchical_subject_separator
+        if out_vals['heading']:
+            out_vals['heading'] = sep.join([out_vals['heading'], t_heading])
+        else:
+            out_vals['heading'] = t_heading
+
+        for ftype, fval in t_fvals:
+            fval = format_key_facet_value(fval, nf_chars)
+            out_vals['facets'][ftype].add(fval)
+
+        heading_fvals = []
+        for fval in t_heading_fvals:
+            if base_t_heading:
+                fval = sep.join([base_t_heading, fval])
+            heading_fvals.append(format_key_facet_value(fval, nf_chars))
+        out_vals['facets']['heading'] |= set(heading_fvals)
+        new_jsonp = []
+        for entry in t_json.get('p', []):
+            new_entry = {}
+            for key in ('s', 'd', 'v'):
+                if key in entry:
+                    val = entry[key]
+                    if key == 'v':
+                        if base_t_heading:
+                            val = sep.join([base_t_heading, val])
+                        val = format_key_facet_value(val, nf_chars)
+                    new_entry[key] = val
+            new_jsonp.append(new_entry)
+        if out_vals['json'].get('p'):
+            out_vals['json']['p'][-1]['s'] = sep
+            out_vals['json']['p'].extend(new_jsonp)
+        elif new_jsonp:
+            out_vals['json'] = {'p': new_jsonp}
+
+        for fieldtype, level, term in t_search_vals:
+            if allow_search_duplicates:
+                out_vals['search'][fieldtype][level].append(term)
+            else:
+                terms = out_vals['search'][fieldtype][level]
+                new_terms = self.combine_phrases([term], terms)
+                out_vals['search'][fieldtype][level] = new_terms
+        return out_vals
+
+    def parse_and_compile_subject_field(self, f):
+        out_vals = {
+            'heading': '',
+            'json': {},
+            'facets': {'heading': set(), 'topic': set(), 'era': set(),
+                       'region': set(), 'genre': set()},
+            'search': {'subjects': {'main': [], 'secondary': []},
+                       'genres': {'main': [], 'secondary': []}}
+        }
+
+        main_term, relators = '', []
         is_nametitle = f.tag in ('600', '610', '611', '630')
-        is_genre = f.tag == '655'
-        is_concept = not is_nametitle and not is_genre
-        is_geographic = f.tag in ('651', '691')
         is_fast = 'fast' in f.get_subfields('2')
         is_uncontrolled = f.tag == '653'
         is_for_search_only = f.tag == '692'
+        is_genre = f.tag == '655'
+        needs_json = not is_for_search_only
+        needs_facets = not is_uncontrolled and not is_for_search_only
+        nf_chars = f.indicator1 if f.tag == '630' else 0
+        main_term_subfields = 'ab' if is_genre else 'abcdg'
+        subdivision_subfields = 'vxyz'
+        relator_subfields = 'e4'
+        sd_types = {'v': 'genre', 'x': 'topic', 'y': 'era', 'z': 'region'}
 
-        sep = self.hierarchical_name_separator
+        main_term_type = 'topic'
+        if is_genre:
+            main_term_type = 'genre'
+        elif f.tag in ('651', '691'):
+            main_term_type = 'region'
+        elif f.tag == '648':
+            main_term_type ='era'
+
+        sep = self.hierarchical_subject_separator
+
+        # Skip this if it's a FAST heading in 600-630.
+        if is_nametitle and is_fast:
+            return {
+                'heading': None,
+                'json': None,
+                'facets': None,
+                'search': None,
+                'is_genre': is_genre,
+            }
 
         if is_nametitle:
             nt_entry = self.parse_nametitle_field(f)
             has_names = bool(nt_entry['names'])
             has_title = bool(nt_entry['title'])
+            name_heading = ''
 
             if has_names:
-                name = self.select_best_name(nt_entry['names'], 'compiled')
-                name_search = []
+                name = self.select_best_name(nt_entry['names'], 'combined')
                 compiled = name['compiled']
+                heading = compiled['heading']
+                hfvals = compiled.get('facet_vals', [])
+                tfvals = [('topic', v) for v in hfvals]
+                tjson = compiled.get('json', {'p': []})
+                search = compiled.get('search_vals', []) or [heading]
+                level = 'main' if not has_title else 'secondary'
+                search = [('subjects', level, v) for v in search]
+                params = [out_vals, heading, hfvals, tfvals, tjson, search]
+
                 if heading:
-                    heading = sep.join([heading, compiled['heading']])
-                else:
-                    heading = compiled['heading']
-                facets['topic'].extend(compiled.get('facet_vals', []))
-                name_search.extend(compiled.get('search_vals', []))
-                json['p'].extend(compiled.get('json', {'p': []})['p'])
-                names_search = names_search or [heading]
-                if has_title:
-                    secondary_search.extend(names_search)
-                else:
-                    main_search.extend(names_search)
+                    out_vals = self._add_subject_term(*params)
+                    name_heading = out_vals['heading']
+                    relators = name['parsed']['relations']
 
             if has_title:
                 compiled = nt_entry['title']['compiled']
-
+                as_subject = compiled['as_subject']
+                heading = as_subject['heading']
+                hfvals = as_subject.get('facet_vals', [])
+                tfvals = [('topic', v) for v in compiled.get('facet_vals', [])]
+                tjson = as_subject.get('json', {'p': []})
+                search = [('subjects', 'main', heading)]
+                params = [out_vals, heading, hfvals, tfvals, tjson, search]
+                kwargs = {'nf_chars': nf_chars, 'base_t_heading': name_heading}
+                if compiled['heading']:
+                    out_vals = self._add_subject_term(*params, **kwargs)
+                    relators = nt_entry['title']['parsed']['relations']
+            main_term = out_vals['heading']
         else:
-            pass
+            main_term = ' '.join(pull_from_subfields(f, main_term_subfields))
+            main_term = p.strip_ends(main_term)
+            tjson, hfvals, tfvals, search = {}, [], [], []
+
+            if main_term:
+                if needs_json:
+                    if needs_facets:
+                        tjson = {'p': [{'d': main_term, 'v': main_term}]}
+                    else:
+                        tjson = {'p': [{'d': main_term}]}
+
+                if needs_facets:
+                    hfvals = [main_term]
+                    tfvals = [(main_term_type, main_term)]
+
+                sftype = 'genres' if is_genre else 'subjects'
+                slevel = 'secondary' if is_uncontrolled else 'main'
+                if main_term not in out_vals['search'][sftype][slevel]:
+                    search.append((sftype, slevel, main_term))
+
+                params = [out_vals, main_term, hfvals, tfvals, tjson, search]
+                out_vals = self._add_subject_term(*params)
+                rel_terms = OrderedDict()
+                for tag, val in f.filter_subfields(relator_subfields):
+                    for rel_term in self.utils.compile_relator_terms(tag, val):
+                        rel_terms[rel_term] = None
+                relators = rel_terms.keys()
+
+        sd_parents = [main_term] if main_term else []
+        for tag, val in f.filter_subfields(subdivision_subfields):
+            tjson, hfvals, tfvals, search = {}, [], [], []
+            sd_term = p.strip_ends(val)
+            sd_type = sd_types[tag]
+            if sd_term:
+                alts = self.utils.map_subject_subdivision(sd_term, sd_parents,
+                                                          sd_type)
+                sd_parents.append(sd_term)
+
+                if needs_json:
+                    if needs_facets:
+                        tjson = {'p': [{'d': sd_term, 'v': sd_term}]}
+                    else:
+                        tjson = {'p': [{'d': sd_term}]}
+
+                if needs_facets:
+                    hfvals = [sd_term]
+                    tfvals = alts
+                    if is_genre and main_term and sd_type == 'topic':
+                        tfvals = list(set(tfvals) - set([('topic', sd_term)]))
+                        term = ', '.join((main_term, sd_term))
+                        tfvals.append(('genre', term))
+
+                terms = self.combine_phrases([(sd_type, sd_term)], alts,
+                                             accessor=lambda x: x[1])
+                for ttype, term in terms:
+                    if ttype == 'genre' or is_genre:
+                        sftype = 'genres'
+                    else:
+                        sftype = 'subjects'
+                    search.append((sftype, 'secondary', term))
+
+                params = [out_vals, sd_term, hfvals, tfvals, tjson, search]
+                kwargs = {'base_t_heading': out_vals['heading'],
+                          'allow_search_duplicates': False}
+                out_vals = self._add_subject_term(*params, **kwargs)
+        if relators:
+            out_vals['json']['r'] = relators
+
         return {
-            'heading': heading,
-            'json': json,
-            'facets': facets,
-            'search': search,
-            'is_nametitle': is_nametitle,
+            'heading': out_vals['heading'],
+            'json': out_vals['json'],
+            'facets': {k: list(v) for k, v in out_vals['facets'].items()},
+            'search': out_vals['search'],
             'is_genre': is_genre,
-            'is_concept': is_concept,
-            'is_geographic': is_geographic,
-            'is_fast': is_fast,
-            'is_uncontrolled': is_uncontrolled,
-            'is_for_search_only': is_for_search_only
         }
 
     def get_subjects_info(self, r, marc_record):
@@ -3731,32 +3946,59 @@ class BlacklightASMPipeline(object):
         fields.
         """
         json = {'subjects': [], 'genres': []}
-        facets = {'subject_heading': [], 'genre_heading': [], 'topic': [],
-                  'era': [], 'region': [], 'genre': []}
-        s_search = {'exact': [], 'main': [], 'all': []}
-        g_search = {'exact': [], 'main': [], 'all': []}
+        facets = {'topic': [], 'era': [], 'region': [], 'genre': []}
+        heading_facets = {'subjects': [], 'genres': []}
+        search = {
+            'subjects': {'exact': [], 'main': [], 'all': []},
+            'genres': {'exact': [], 'main': [], 'all': []}
+        }
+
+        heading_sets = {'subjects': set(), 'genres': set()}
+        hf_sets = {'subjects': set(), 'genres': set()}
+        f_sets = {'topic': set(), 'era': set(), 'region': set(), 'genre': set()}
 
         sg_field_tags = ('600', '610', '611', '630', '647', '648', '650', '651',
                          '653', '655', '656', '657', '690', '691', '692')
-        for f in marc_record.get_fields(sg_field_tags):
-            all_terms, main_terms, subdivisions = [], [], []
-            parsed = self.parse_subject_field(f)
+        for f in marc_record.get_fields(*sg_field_tags):
+            compiled = self.parse_and_compile_subject_field(f)
+            heading = compiled['heading']
+            ftype_key = 'genres' if compiled['is_genre'] else 'subjects'
+            if heading and heading not in heading_sets[ftype_key]:
+                if compiled['json']:
+                    json[ftype_key].append(compiled['json'])
+                for facet_key, fvals in compiled['facets'].items():
+                    if facet_key == 'heading':
+                        vals = [v for v in fvals if v not in hf_sets[ftype_key]]
+                        heading_facets[ftype_key].extend(vals)
+                    else:
+                        vals = [v for v in fvals if v not in f_sets[facet_key]]
+                        facets[facet_key].extend(vals)
+                search[ftype_key]['exact'].append(heading)
 
-            # First task is to pull out the "main terms" (mt) -- which
-            # could be a name, name/title, title, or topic -- and deal
-            # with them.
-            main_terms = self.extract_subject_main_terms(f, is_nametitle)
+                for sftype, sval_groups in compiled['search'].items():
+                    groups = {
+                        'main': sval_groups['main'],
+                        'all': self.combine_phrases(sval_groups['main'],
+                                                    sval_groups['secondary'])
+                    }
+                    for slvl, svals in groups.items():
+                        vals = self.combine_phrases(svals, search[sftype][slvl])
+                        search[sftype][slvl] = vals
 
-            # Second task is to deal with heading subdivisions.
-
+                heading_sets[ftype_key].add(heading)
+                for facet_type in f_sets.keys():
+                    f_sets[facet_type] = set(facets[facet_type])
+                for field_type in hf_sets.keys():
+                    hf_sets[field_type] = set(heading_facets[field_type])
 
         sh_json = [ujson.dumps(v) for v in json['subjects']]
         gh_json = [ujson.dumps(v) for v in json['genres']]
+        s_search, g_search = search['subjects'], search['genres']
         return {
             'subject_headings_json': sh_json or None,
             'genre_headings_json': gh_json or None,
-            'subject_heading_facet': facets['subject_heading'] or None,
-            'genre_heading_facet': facets['genre_heading'] or None,
+            'subject_heading_facet': heading_facets['subjects'] or None,
+            'genre_heading_facet': heading_facets['genres'] or None,
             'topic_facet': facets['topic'] or None,
             'era_facet': facets['era'] or None,
             'region_facet': facets['region'] or None,

@@ -198,6 +198,45 @@ def marcutils_for_subjects():
             'Translisteration into English'],
     ]
     sample_term_map = {
+        '20th century': {
+            'parents': {
+                'civilization': [
+                    'Civilization, Modern',
+                ],
+                'economic conditions': [
+                    'Economic history',
+                ],
+                'history': [
+                    'History, Modern',
+                ],
+                'history military': [
+                    'Military history, Modern',
+                ],
+                'history naval': [
+                    'Naval history, Modern',
+                ],
+                'history of doctrines': [
+                    'Theology, Doctrinal',
+                    'History',
+                ],
+                'intellectual life': [
+                    'Intellectual life',
+                    'History',
+                ],
+                'politics and government': [
+                    'World politics',
+                ],
+                'religion': [
+                    'Religious history',
+                ],
+                'social conditions': [
+                    'Social history',
+                ],
+                'social life and customs': [
+                    'Manners and customs',
+                ],
+            },
+        },
         'abandonment': {
             'parents': {
                 'nests': [
@@ -220,6 +259,12 @@ def marcutils_for_subjects():
                     'Certification (Seeds)',
                 ],
             },
+        },
+        'juvenile literature': {
+            'headings': [
+                "Children's literature",
+                'Juvenile literature',
+            ],
         },
     }
 
@@ -7084,18 +7129,1797 @@ def test_blasmpipeline_getgamesfacetsinfo(raw_marcfields, expected,
             assert v is None
 
 
-@pytest.mark.parametrize('marcfields, expected', [
+@pytest.mark.parametrize('raw_marcfields, expected', [
     # Edge cases -- empty / missing fields, etc.
 
     # No 6XXs => empty subject_info
-    ([('100', ['a', 'Churchill, Winston,', 'c', 'Sir,', 'd', '1874-1965.'],
-       '1 ')], {}),
+    (['100 1#$aChurchill, Winston,$cSir,$d1874-1965.'], {}),
 
+    # Empty 600 field => empty subjects_info
+    (['600 ##$a'], {}),
+
+    # Empty 650 field => empty subjects_info
+    (['650 ##$a'], {}),
+
+    # Empty 655 field => empty subjects_info
+    (['655 ##$a'], {}),
+
+    # 650 with relator but no heading => empty subjects_info
+    (['650 ##$edepicted'], {}),
+
+    # $0 should be ignored (600)
+    (['600 1#$aChurchill, Winston,$cSir,$d1874-1965.$0http://example.com'], {
+        'subject_headings_json': {
+            'p': [{'d': 'Churchill, Winston, Sir, 1874-1965',
+                   'v': 'churchill-winston-sir-1874-1965!'
+                        'Churchill, Winston, Sir, 1874-1965'}]
+        },
+        'subject_heading_facet': [
+            'churchill-winston-sir-1874-1965!'
+            'Churchill, Winston, Sir, 1874-1965'
+        ],
+        'topic_facet': [
+            'churchill-winston-sir-1874-1965!'
+            'Churchill, Winston, Sir, 1874-1965'
+        ],
+        'subjects_search_exact_headings': [
+            'Churchill, Winston, Sir, 1874-1965'
+        ],
+        'subjects_search_main_terms': [
+            'Churchill, Winston Churchill, W Churchill',
+            'Sir Winston Churchill',
+            'Sir Winston Churchill'
+        ],
+        'subjects_search_all_terms': [
+            'Churchill, Winston Churchill, W Churchill',
+            'Sir Winston Churchill',
+            'Sir Winston Churchill'
+        ]
+    }),
+
+    # 600 with name but empty $t => ignore empty $t
+    (['600 1#$aChurchill, Winston,$cSir,$d1874-1965.$t'], {
+        'subject_headings_json': {
+            'p': [{'d': 'Churchill, Winston, Sir, 1874-1965',
+                   'v': 'churchill-winston-sir-1874-1965!'
+                        'Churchill, Winston, Sir, 1874-1965'}]
+        },
+        'subject_heading_facet': [
+            'churchill-winston-sir-1874-1965!'
+            'Churchill, Winston, Sir, 1874-1965'
+        ],
+        'topic_facet': [
+            'churchill-winston-sir-1874-1965!'
+            'Churchill, Winston, Sir, 1874-1965'
+        ],
+        'subjects_search_exact_headings': [
+            'Churchill, Winston, Sir, 1874-1965'
+        ],
+        'subjects_search_main_terms': [
+            'Churchill, Winston Churchill, W Churchill',
+            'Sir Winston Churchill',
+            'Sir Winston Churchill'
+        ],
+        'subjects_search_all_terms': [
+            'Churchill, Winston Churchill, W Churchill',
+            'Sir Winston Churchill',
+            'Sir Winston Churchill'
+        ]
+    }),
+
+    # Tests for different kinds of main terms (different field types)
+    # 600, name (no title)
+    (['600 00$aElijah,$c(Biblical prophet)'], {
+        'subject_headings_json': {
+            'p': [{'d': 'Elijah, (Biblical prophet)',
+                   'v': 'elijah-biblical-prophet!'
+                        'Elijah, (Biblical prophet)'}]
+        },
+        'subject_heading_facet': [
+            'elijah-biblical-prophet!'
+            'Elijah, (Biblical prophet)'
+        ],
+        'topic_facet': [
+            'elijah-biblical-prophet!'
+            'Elijah, (Biblical prophet)'
+        ],
+        'subjects_search_exact_headings': [
+            'Elijah, (Biblical prophet)'
+        ],
+        'subjects_search_main_terms': [
+            'Elijah',
+            'Elijah Biblical prophet',
+            'Elijah, Biblical prophet'
+        ],
+        'subjects_search_all_terms': [
+            'Elijah',
+            'Elijah Biblical prophet',
+            'Elijah, Biblical prophet'
+        ]
+    }),
+
+    # 600, name/title -- single part title
+    (['600 10Surname, Forename,$d1900-2000$tSingle title'], {
+        'subject_headings_json': {
+            'p': [{'d': 'Surname, Forename, 1900-2000',
+                   'v': 'surname-forename-1900-2000!'
+                        'Surname, Forename, 1900-2000',
+                   's': ' > '},
+                  {'d': 'Single title',
+                   'v': 'surname-forename-1900-2000-single-title!'
+                        'Surname, Forename, 1900-2000 > Single title'}]
+        },
+        'subject_heading_facet': [
+            'surname-forename-1900-2000!'
+            'Surname, Forename, 1900-2000',
+            'surname-forename-1900-2000-single-title!'
+            'Surname, Forename, 1900-2000 > Single title'
+        ],
+        'topic_facet': [
+            'surname-forename-1900-2000!'
+            'Surname, Forename, 1900-2000',
+            'single-title!Single title'
+        ],
+        'subjects_search_exact_headings': [
+            'Surname, Forename, 1900-2000 > Single title',
+        ],
+        'subjects_search_main_terms': [
+            'Single title'
+        ],
+        'subjects_search_all_terms': [
+            'Single title',
+            'Surname, Forename Surname, F Surname',
+            'Forename Surname',
+            'Forename Surname'
+        ]
+    }),
+
+    # 600, name/title -- multi-part title
+    (['600 10Surname, Forename,$d1900-2000$tMulti-title$pPart 1'], {
+        'subject_headings_json': {
+            'p': [{'d': 'Surname, Forename, 1900-2000',
+                   'v': 'surname-forename-1900-2000!'
+                        'Surname, Forename, 1900-2000',
+                   's': ' > '},
+                  {'d': 'Multi-title',
+                   'v': 'surname-forename-1900-2000-multi-title!'
+                        'Surname, Forename, 1900-2000 > Multi-title',
+                   's': ' > '},
+                  {'d': 'Part 1',
+                   'v': 'surname-forename-1900-2000-multi-title-part-1!'
+                        'Surname, Forename, 1900-2000 > Multi-title > Part 1'}]
+        },
+        'subject_heading_facet': [
+            'surname-forename-1900-2000!'
+            'Surname, Forename, 1900-2000',
+            'surname-forename-1900-2000-multi-title!'
+            'Surname, Forename, 1900-2000 > Multi-title',
+            'surname-forename-1900-2000-multi-title-part-1!'
+            'Surname, Forename, 1900-2000 > Multi-title > Part 1',
+        ],
+        'topic_facet': [
+            'surname-forename-1900-2000!'
+            'Surname, Forename, 1900-2000',
+            'multi-title!Multi-title',
+            'multi-title-part-1!Multi-title > Part 1'
+        ],
+        'subjects_search_exact_headings': [
+            'Surname, Forename, 1900-2000 > Multi-title > Part 1',
+        ],
+        'subjects_search_main_terms': [
+            'Multi-title > Part 1'
+        ],
+        'subjects_search_all_terms': [
+            'Multi-title > Part 1',
+            'Surname, Forename Surname, F Surname',
+            'Forename Surname',
+            'Forename Surname'
+        ]
+    }),
+
+    # 600, name/title -- collective title
+    (['600 10Surname, Forename,$d1900-2000$tWorks'], {
+        'subject_headings_json': {
+            'p': [{'d': 'Surname, Forename, 1900-2000',
+                   'v': 'surname-forename-1900-2000!'
+                        'Surname, Forename, 1900-2000',
+                   's': ' > '},
+                  {'d': 'Works (Complete)',
+                   'v': 'surname-forename-1900-2000-works-complete!'
+                        'Surname, Forename, 1900-2000 > Works (Complete)'}]
+        },
+        'subject_heading_facet': [
+            'surname-forename-1900-2000!'
+            'Surname, Forename, 1900-2000',
+            'surname-forename-1900-2000-works-complete!'
+            'Surname, Forename, 1900-2000 > Works (Complete)'
+        ],
+        'topic_facet': [
+            'surname-forename-1900-2000!'
+            'Surname, Forename, 1900-2000',
+            'works-of-surname-f-complete!Works [of Surname, F.] (Complete)'
+        ],
+        'subjects_search_exact_headings': [
+            'Surname, Forename, 1900-2000 > Works (Complete)',
+        ],
+        'subjects_search_main_terms': [
+            'Works (Complete)'
+        ],
+        'subjects_search_all_terms': [
+            'Works (Complete)',
+            'Surname, Forename Surname, F Surname',
+            'Forename Surname',
+            'Forename Surname'
+        ]
+    }),
+
+    # 600, name/title -- multi-part musical work title
+    (['600 10Surname, Forename,$d1900-2000$tSymphonies,$nno. 4, op. 98,'
+      '$rE minor$pAndante moderato'], {
+        'subject_headings_json': {
+            'p': [{'d': 'Surname, Forename, 1900-2000',
+                   'v': 'surname-forename-1900-2000!'
+                        'Surname, Forename, 1900-2000',
+                   's': ' > '},
+                  {'d': 'Symphonies',
+                   'v': 'surname-forename-1900-2000-symphonies!'
+                        'Surname, Forename, 1900-2000 > Symphonies',
+                   's': ' > '},
+                  {'d': 'No. 4, op. 98, E minor',
+                   'v': 'surname-forename-1900-2000-symphonies-'
+                        'no-4-op-98-e-minor!'
+                        'Surname, Forename, 1900-2000 > Symphonies > '
+                        'No. 4, op. 98, E minor',
+                   's': ' > '},
+                  {'d': 'Andante moderato',
+                   'v': 'surname-forename-1900-2000-symphonies-'
+                        'no-4-op-98-e-minor-andante-moderato!'
+                        'Surname, Forename, 1900-2000 > Symphonies > '
+                        'No. 4, op. 98, E minor > Andante moderato'}
+                   ]
+        },
+        'subject_heading_facet': [
+            'surname-forename-1900-2000!'
+            'Surname, Forename, 1900-2000',
+            'surname-forename-1900-2000-symphonies!'
+            'Surname, Forename, 1900-2000 > Symphonies',
+            'surname-forename-1900-2000-symphonies-no-4-op-98-e-minor!'
+            'Surname, Forename, 1900-2000 > Symphonies > '
+            'No. 4, op. 98, E minor',
+            'surname-forename-1900-2000-symphonies-'
+            'no-4-op-98-e-minor-andante-moderato!'
+            'Surname, Forename, 1900-2000 > Symphonies > '
+            'No. 4, op. 98, E minor > Andante moderato'
+        ],
+        'topic_facet': [
+            'surname-forename-1900-2000!'
+            'Surname, Forename, 1900-2000',
+            'symphonies-by-surname-f!Symphonies [by Surname, F.]',
+            'symphonies-by-surname-f-no-4-op-98-e-minor!'
+            'Symphonies [by Surname, F.] > No. 4, op. 98, E minor',
+            'symphonies-by-surname-f-no-4-op-98-e-minor-andante-moderato!'
+            'Symphonies [by Surname, F.] > No. 4, op. 98, E minor > '
+            'Andante moderato',
+        ],
+        'subjects_search_exact_headings': [
+            'Surname, Forename, 1900-2000 > Symphonies > '
+            'No. 4, op. 98, E minor > Andante moderato',
+        ],
+        'subjects_search_main_terms': [
+            'Symphonies > No. 4, op. 98, E minor > Andante moderato'
+        ],
+        'subjects_search_all_terms': [
+            'Symphonies > No. 4, op. 98, E minor > Andante moderato',
+            'Surname, Forename Surname, F Surname',
+            'Forename Surname',
+            'Forename Surname'
+        ]
+    }),
+
+    # 610, name (no title)
+    (['610 10$aUnited States.$bArmy.'], {
+        'subject_headings_json': {
+            'p': [{'d': 'United States Army',
+                   'v': 'united-states-army!United States Army'}]
+        },
+        'subject_heading_facet': [
+            'united-states-army!United States Army'
+        ],
+        'topic_facet': [
+            'united-states-army!United States Army'
+        ],
+        'subjects_search_exact_headings': [
+            'United States Army'
+        ],
+        'subjects_search_main_terms': [
+            'United States Army'
+        ],
+        'subjects_search_all_terms': [
+            'United States Army'
+        ]
+    }),
+
+    # 610, name (no title) -- multi-level org
+    (['610 10$aUnited States.$bArmy.$bCavalry, 7th.$bCompany E.'], {
+        'subject_headings_json': {
+            'p': [{'d': 'United States Army',
+                   'v': 'united-states-army!United States Army',
+                   's': ' > '},
+                  {'d': 'Cavalry, 7th',
+                   'v': 'united-states-army-cavalry-7th!'
+                        'United States Army > Cavalry, 7th',
+                   's': ' > '},
+                  {'d': 'Company E.',
+                   'v': 'united-states-army-cavalry-7th-company-e!'
+                        'United States Army > Cavalry, 7th > Company E.'}
+                 ]
+        },
+        'subject_heading_facet': [
+            'united-states-army!United States Army',
+            'united-states-army-cavalry-7th!United States Army > Cavalry, 7th',
+            'united-states-army-cavalry-7th-company-e!'
+            'United States Army > Cavalry, 7th > Company E.'
+        ],
+        'topic_facet': [
+            'united-states-army!United States Army',
+            'united-states-army-cavalry-7th!United States Army > Cavalry, 7th',
+            'united-states-army-cavalry-7th-company-e!'
+            'United States Army > Cavalry, 7th > Company E.'
+        ],
+        'subjects_search_exact_headings': [
+            'United States Army > Cavalry, 7th > Company E.'
+        ],
+        'subjects_search_main_terms': [
+            'United States Army > Cavalry, 7th > Company E.'
+        ],
+        'subjects_search_all_terms': [
+            'United States Army > Cavalry, 7th > Company E.'
+        ]
+    }),
+
+    # 610, name (no title) -- org + meeting
+    (['610 10$aUnited States.$bArmy.$bConvention$d(1962).'], {
+        'subject_headings_json': {
+            'p': [{'d': 'United States Army',
+                   'v': 'united-states-army!United States Army',
+                   's': ' > '},
+                  {'d': 'Convention',
+                   'v': 'united-states-army-convention!'
+                        'United States Army > Convention'},
+                  {'d': '(1962)',
+                   'v': 'united-states-army-convention-1962!'
+                        'United States Army > Convention (1962)'}
+                 ]
+        },
+        'subject_heading_facet': [
+            'united-states-army!United States Army',
+            'united-states-army-convention!United States Army > Convention',
+            'united-states-army-convention-1962!'
+            'United States Army > Convention (1962)'
+        ],
+        'topic_facet': [
+            'united-states-army!United States Army',
+            'united-states-army-convention!United States Army > Convention',
+            'united-states-army-convention-1962!'
+            'United States Army > Convention (1962)'
+        ],
+        'subjects_search_exact_headings': [
+            'United States Army > Convention (1962)'
+        ],
+        'subjects_search_main_terms': [
+            'United States Army > Convention (1962)'
+        ],
+        'subjects_search_all_terms': [
+            'United States Army > Convention (1962)'
+        ]
+    }),
+
+    # 610, name/title
+    (['610 10$aUnited States.$bArmy.$bCavalry, 7th.$bCompany E.'
+            '$tRules and regulations.'], {
+        'subject_headings_json': {
+            'p': [{'d': 'United States Army',
+                   'v': 'united-states-army!United States Army',
+                   's': ' > '},
+                  {'d': 'Cavalry, 7th',
+                   'v': 'united-states-army-cavalry-7th!'
+                        'United States Army > Cavalry, 7th',
+                   's': ' > '},
+                  {'d': 'Company E.',
+                   'v': 'united-states-army-cavalry-7th-company-e!'
+                        'United States Army > Cavalry, 7th > Company E.',
+                   's': ' > '},
+                  {'d': 'Rules and regulations',
+                   'v': 'united-states-army-cavalry-7th-company-e-'
+                        'rules-and-regulations!'
+                        'United States Army > Cavalry, 7th > Company E. > '
+                        'Rules and regulations'}
+                 ]
+        },
+        'subject_heading_facet': [
+            'united-states-army!United States Army',
+            'united-states-army-cavalry-7th!United States Army > Cavalry, 7th',
+            'united-states-army-cavalry-7th-company-e!'
+            'United States Army > Cavalry, 7th > Company E.',
+            'united-states-army-cavalry-7th-company-e-rules-and-regulations!'
+            'United States Army > Cavalry, 7th > Company E. > '
+            'Rules and regulations'
+        ],
+        'topic_facet': [
+            'united-states-army!United States Army',
+            'united-states-army-cavalry-7th!United States Army > Cavalry, 7th',
+            'united-states-army-cavalry-7th-company-e!'
+            'United States Army > Cavalry, 7th > Company E.',
+            'rules-and-regulations!Rules and regulations'
+        ],
+        'subjects_search_exact_headings': [
+            'United States Army > Cavalry, 7th > Company E. > '
+            'Rules and regulations'
+        ],
+        'subjects_search_main_terms': [
+            'Rules and regulations',
+        ],
+        'subjects_search_all_terms': [
+            'Rules and regulations',
+            'United States Army > Cavalry, 7th > Company E.'
+        ]
+    }),
+
+    # 611, name (no title)
+    (['611 20$aSome Festival$n(1st :$d1985 :$cTexas).'], {
+        'subject_headings_json': {
+            'p': [{'d': 'Some Festival',
+                   'v': 'some-festival!Some Festival'},
+                  {'d': '(1st : 1985 : Texas)',
+                   'v': 'some-festival-1st-1985-texas!'
+                        'Some Festival (1st : 1985 : Texas)'}]
+        },
+        'subject_heading_facet': [
+            'some-festival!Some Festival',
+            'some-festival-1st-1985-texas!Some Festival (1st : 1985 : Texas)'
+        ],
+        'topic_facet': [
+            'some-festival!Some Festival',
+            'some-festival-1st-1985-texas!Some Festival (1st : 1985 : Texas)'
+        ],
+        'subjects_search_exact_headings': [
+            'Some Festival (1st : 1985 : Texas)'
+        ],
+        'subjects_search_main_terms': [
+            'Some Festival (1st : 1985 : Texas)'
+        ],
+        'subjects_search_all_terms': [
+            'Some Festival (1st : 1985 : Texas)'
+        ]
+    }),
+
+    # 611, name (no title) -- multi-level meeting
+    (['611 20$aSome Festival$ePlanning meeting$n(1st :$d1985 :$cTexas).'], {
+        'subject_headings_json': {
+            'p': [{'d': 'Some Festival',
+                   'v': 'some-festival!Some Festival',
+                   's': ' > '},
+                  {'d': 'Planning meeting',
+                   'v': 'some-festival-planning-meeting!'
+                        'Some Festival > Planning meeting'},
+                  {'d': '(1st : 1985 : Texas)',
+                   'v': 'some-festival-planning-meeting-1st-1985-texas!'
+                        'Some Festival > Planning meeting '
+                        '(1st : 1985 : Texas)'}]
+        },
+        'subject_heading_facet': [
+            'some-festival!Some Festival',
+            'some-festival-planning-meeting!'
+            'Some Festival > Planning meeting',
+            'some-festival-planning-meeting-1st-1985-texas!'
+            'Some Festival > Planning meeting (1st : 1985 : Texas)'
+        ],
+        'topic_facet': [
+            'some-festival!Some Festival',
+            'some-festival-planning-meeting!'
+            'Some Festival > Planning meeting',
+            'some-festival-planning-meeting-1st-1985-texas!'
+            'Some Festival > Planning meeting (1st : 1985 : Texas)'
+        ],
+        'subjects_search_exact_headings': [
+            'Some Festival > Planning meeting (1st : 1985 : Texas)'
+        ],
+        'subjects_search_main_terms': [
+            'Some Festival > Planning meeting (1st : 1985 : Texas)'
+        ],
+        'subjects_search_all_terms': [
+            'Some Festival > Planning meeting (1st : 1985 : Texas)'
+        ]
+    }),
+
+    # 611, name (no title) -- meeting + org
+    (['611 20$aSome Festival$eOrchestra.'], {
+        'subject_headings_json': {
+            'p': [{'d': 'Some Festival',
+                   'v': 'some-festival!Some Festival',
+                   's': ' > '},
+                  {'d': 'Orchestra',
+                   'v': 'some-festival-orchestra!'
+                        'Some Festival > Orchestra'}]
+        },
+        'subject_heading_facet': [
+            'some-festival!Some Festival',
+            'some-festival-orchestra!Some Festival > Orchestra'
+        ],
+        'topic_facet': [
+            'some-festival!Some Festival',
+            'some-festival-orchestra!Some Festival > Orchestra'
+        ],
+        'subjects_search_exact_headings': [
+            'Some Festival > Orchestra'
+        ],
+        'subjects_search_main_terms': [
+            'Some Festival > Orchestra'
+        ],
+        'subjects_search_all_terms': [
+            'Some Festival > Orchestra'
+        ]
+    }),
+
+    # 611, name/title
+    (['611 20$aSome Festival$eOrchestra.$tProgram.'], {
+        'subject_headings_json': {
+            'p': [{'d': 'Some Festival',
+                   'v': 'some-festival!Some Festival',
+                   's': ' > '},
+                  {'d': 'Orchestra',
+                   'v': 'some-festival-orchestra!'
+                        'Some Festival > Orchestra',
+                   's': ' > '},
+                  {'d': 'Program',
+                   'v': 'some-festival-orchestra-program!'
+                        'Some Festival > Orchestra > Program'}
+                 ]
+        },
+        'subject_heading_facet': [
+            'some-festival!Some Festival',
+            'some-festival-orchestra!Some Festival > Orchestra',
+            'some-festival-orchestra-program!'
+            'Some Festival > Orchestra > Program'
+        ],
+        'topic_facet': [
+            'some-festival!Some Festival',
+            'some-festival-orchestra!Some Festival > Orchestra',
+            'program!Program'
+        ],
+        'subjects_search_exact_headings': [
+            'Some Festival > Orchestra > Program'
+        ],
+        'subjects_search_main_terms': [
+            'Program'
+        ],
+        'subjects_search_all_terms': [
+            'Program',
+            'Some Festival > Orchestra'
+        ]
+    }),
+
+    # 630, title
+    (['630 00$aStudio magazine.$pContemporary paintings.'], {
+        'subject_headings_json': {
+            'p': [{'d': 'Studio magazine',
+                   'v': 'studio-magazine!Studio magazine',
+                   's': ' > '},
+                  {'d': 'Contemporary paintings',
+                   'v': 'studio-magazine-contemporary-paintings!'
+                        'Studio magazine > Contemporary paintings'}
+                 ]
+        },
+        'subject_heading_facet': [
+            'studio-magazine!Studio magazine',
+            'studio-magazine-contemporary-paintings!'
+            'Studio magazine > Contemporary paintings'
+        ],
+        'topic_facet': [
+            'studio-magazine!Studio magazine',
+            'studio-magazine-contemporary-paintings!'
+            'Studio magazine > Contemporary paintings'
+        ],
+        'subjects_search_exact_headings': [
+            'Studio magazine > Contemporary paintings'
+        ],
+        'subjects_search_main_terms': [
+            'Studio magazine > Contemporary paintings'
+        ],
+        'subjects_search_all_terms': [
+            'Studio magazine > Contemporary paintings'
+        ]
+    }),
+
+    # 630, title plus expression info
+    (['630 00$aStudio magazine.$pContemporary paintings.$lEnglish.'], {
+        'subject_headings_json': {
+            'p': [{'d': 'Studio magazine',
+                   'v': 'studio-magazine!Studio magazine',
+                   's': ' > '},
+                  {'d': 'Contemporary paintings',
+                   'v': 'studio-magazine-contemporary-paintings!'
+                        'Studio magazine > Contemporary paintings',
+                   's': ' | '},
+                  {'d': 'English',
+                   'v': 'studio-magazine-contemporary-paintings-english!'
+                        'Studio magazine > Contemporary paintings | English'},
+                 ]
+        },
+        'subject_heading_facet': [
+            'studio-magazine!Studio magazine',
+            'studio-magazine-contemporary-paintings!'
+            'Studio magazine > Contemporary paintings',
+            'studio-magazine-contemporary-paintings-english!'
+            'Studio magazine > Contemporary paintings | English'
+        ],
+        'topic_facet': [
+            'studio-magazine!Studio magazine',
+            'studio-magazine-contemporary-paintings!'
+            'Studio magazine > Contemporary paintings',
+            'studio-magazine-contemporary-paintings-english!'
+            'Studio magazine > Contemporary paintings | English'
+        ],
+        'subjects_search_exact_headings': [
+            'Studio magazine > Contemporary paintings | English'
+        ],
+        'subjects_search_main_terms': [
+            'Studio magazine > Contemporary paintings | English'
+        ],
+        'subjects_search_all_terms': [
+            'Studio magazine > Contemporary paintings | English'
+        ]
+    }),
+
+    # 647, event (local, non-LCSH, non-FAST)
+    (['647 #7$aBunker Hill, Battle of$c(Boston, Massachusetts :$d1775)'], {
+        'subject_headings_json': {
+            'p': [{'d': 'Bunker Hill, Battle of (Boston, Massachusetts : 1775)',
+                   'v': 'bunker-hill-battle-of-boston-massachusetts-1775!'
+                        'Bunker Hill, Battle of (Boston, Massachusetts : 1775)'}
+                 ]
+        },
+        'subject_heading_facet': [
+            'bunker-hill-battle-of-boston-massachusetts-1775!'
+            'Bunker Hill, Battle of (Boston, Massachusetts : 1775)',
+        ],
+        'topic_facet': [
+            'bunker-hill-battle-of-boston-massachusetts-1775!'
+            'Bunker Hill, Battle of (Boston, Massachusetts : 1775)'
+        ],
+        'subjects_search_exact_headings': [
+            'Bunker Hill, Battle of (Boston, Massachusetts : 1775)'
+        ],
+        'subjects_search_main_terms': [
+            'Bunker Hill, Battle of (Boston, Massachusetts : 1775)'
+        ],
+        'subjects_search_all_terms': [
+            'Bunker Hill, Battle of (Boston, Massachusetts : 1775)'
+        ]
+    }),
+
+    # 648, chronological term (local, non-LCSH, non-FAST)
+    (['648 #7$a1900-1999$2local'], {
+        'subject_headings_json': {
+            'p': [{'d': '1900-1999',
+                   'v': '1900-1999!1900-1999'}]
+        },
+        'subject_heading_facet': [
+            '1900-1999!1900-1999'
+        ],
+        'era_facet': [
+            '1900-1999!1900-1999'
+        ],
+        'subjects_search_exact_headings': [
+            '1900-1999'
+        ],
+        'subjects_search_main_terms': [
+            '1900-1999'
+        ],
+        'subjects_search_all_terms': [
+            '1900-1999'
+        ]
+    }),
+
+    # 650, topical term (main term only)
+    (['650 #0$aAstronauts.'], {
+        'subject_headings_json': {
+            'p': [{'d': 'Astronauts',
+                   'v': 'astronauts!Astronauts'}]
+        },
+        'subject_heading_facet': [
+            'astronauts!Astronauts'
+        ],
+        'topic_facet': [
+            'astronauts!Astronauts'
+        ],
+        'subjects_search_exact_headings': [
+            'Astronauts'
+        ],
+        'subjects_search_main_terms': [
+            'Astronauts'
+        ],
+        'subjects_search_all_terms': [
+            'Astronauts'
+        ]
+    }),
+
+    # 651, geographic term (main term only)
+    (['651 #0$aKing Ranch (Tex.)'], {
+        'subject_headings_json': {
+            'p': [{'d': 'King Ranch (Tex.)',
+                   'v': 'king-ranch-tex!King Ranch (Tex.)'}]
+        },
+        'subject_heading_facet': [
+            'king-ranch-tex!King Ranch (Tex.)'
+        ],
+        'region_facet': [
+            'king-ranch-tex!King Ranch (Tex.)'
+        ],
+        'subjects_search_exact_headings': [
+            'King Ranch (Tex.)'
+        ],
+        'subjects_search_main_terms': [
+            'King Ranch (Tex.)'
+        ],
+        'subjects_search_all_terms': [
+            'King Ranch (Tex.)'
+        ]
+    }),
+
+    # 653, uncontrolled keyword term
+    (['653 ##$aStamp collecting (United States)'], {
+        'subject_headings_json': {
+            'p': [{'d': 'Stamp collecting (United States)'}]
+        },
+        'subjects_search_exact_headings': [
+            'Stamp collecting (United States)'
+        ],
+        'subjects_search_all_terms': [
+            'Stamp collecting (United States)'
+        ]
+    }),
+
+    # 655, genre term (main term only), LCSH
+    (['655 #4$aAudiobooks.'], {
+        'genre_headings_json': {
+            'p': [{'d': 'Audiobooks',
+                   'v': 'audiobooks!Audiobooks'}]
+        },
+        'genre_heading_facet': [
+            'audiobooks!Audiobooks'
+        ],
+        'genre_facet': [
+            'audiobooks!Audiobooks'
+        ],
+        'genres_search_exact_headings': [
+            'Audiobooks'
+        ],
+        'genres_search_main_terms': [
+            'Audiobooks'
+        ],
+        'genres_search_all_terms': [
+            'Audiobooks'
+        ]
+    }),
+
+    # 655, genre term, AAT-style
+    (['655 07$ck$bLaminated$cm$bmarblewood$cv$abust.$2aat'], {
+        'genre_headings_json': {
+            'p': [{'d': 'Laminated marblewood bust',
+                   'v': 'laminated-marblewood-bust!Laminated marblewood bust'}]
+        },
+        'genre_heading_facet': [
+            'laminated-marblewood-bust!Laminated marblewood bust'
+        ],
+        'genre_facet': [
+            'laminated-marblewood-bust!Laminated marblewood bust'
+        ],
+        'genres_search_exact_headings': [
+            'Laminated marblewood bust'
+        ],
+        'genres_search_main_terms': [
+            'Laminated marblewood bust'
+        ],
+        'genres_search_all_terms': [
+            'Laminated marblewood bust'
+        ]
+    }),
+
+    # 656, occupation term, local
+    (['656 #7$aAstronauts.$2local'], {
+        'subject_headings_json': {
+            'p': [{'d': 'Astronauts',
+                   'v': 'astronauts!Astronauts'}]
+        },
+        'subject_heading_facet': [
+            'astronauts!Astronauts'
+        ],
+        'topic_facet': [
+            'astronauts!Astronauts'
+        ],
+        'subjects_search_exact_headings': [
+            'Astronauts'
+        ],
+        'subjects_search_main_terms': [
+            'Astronauts'
+        ],
+        'subjects_search_all_terms': [
+            'Astronauts'
+        ]
+    }),
+
+    # 657, function term, local
+    (['657 #7$aAstronauts.$2local'], {
+        'subject_headings_json': {
+            'p': [{'d': 'Astronauts',
+                   'v': 'astronauts!Astronauts'}]
+        },
+        'subject_heading_facet': [
+            'astronauts!Astronauts'
+        ],
+        'topic_facet': [
+            'astronauts!Astronauts'
+        ],
+        'subjects_search_exact_headings': [
+            'Astronauts'
+        ],
+        'subjects_search_main_terms': [
+            'Astronauts'
+        ],
+        'subjects_search_all_terms': [
+            'Astronauts'
+        ]
+    }),
+
+    # 690, local topical term
+    (['690 #7$aAstronauts.$2local'], {
+        'subject_headings_json': {
+            'p': [{'d': 'Astronauts',
+                   'v': 'astronauts!Astronauts'}]
+        },
+        'subject_heading_facet': [
+            'astronauts!Astronauts'
+        ],
+        'topic_facet': [
+            'astronauts!Astronauts'
+        ],
+        'subjects_search_exact_headings': [
+            'Astronauts'
+        ],
+        'subjects_search_main_terms': [
+            'Astronauts'
+        ],
+        'subjects_search_all_terms': [
+            'Astronauts'
+        ]
+    }),
+
+    # 691, local geographic term
+    (['691 #7$aKing Ranch (Tex.)$2local'], {
+        'subject_headings_json': {
+            'p': [{'d': 'King Ranch (Tex.)',
+                   'v': 'king-ranch-tex!King Ranch (Tex.)'}]
+        },
+        'subject_heading_facet': [
+            'king-ranch-tex!King Ranch (Tex.)'
+        ],
+        'region_facet': [
+            'king-ranch-tex!King Ranch (Tex.)'
+        ],
+        'subjects_search_exact_headings': [
+            'King Ranch (Tex.)'
+        ],
+        'subjects_search_main_terms': [
+            'King Ranch (Tex.)'
+        ],
+        'subjects_search_all_terms': [
+            'King Ranch (Tex.)'
+        ]
+    }),
+
+    # 692, defunct heading or other term used for search only
+    (['692 #0$aAstronauts.'], {
+        'subjects_search_exact_headings': [
+            'Astronauts'
+        ],
+        'subjects_search_main_terms': [
+            'Astronauts'
+        ],
+        'subjects_search_all_terms': [
+            'Astronauts'
+        ]
+    }),
+
+
+    # Tests for handling subdivisions
+    # $v on a non-genre field => genre
+    (['650 #0$aAstronauts$vJuvenile films.'], {
+        'subject_headings_json': {
+            'p': [{'d': 'Astronauts',
+                   'v': 'astronauts!Astronauts',
+                   's': ' > '},
+                  {'d': 'Juvenile films',
+                   'v': 'astronauts-juvenile-films!Astronauts > Juvenile films'}
+                 ]
+        },
+        'subject_heading_facet': [
+            'astronauts!Astronauts',
+            'astronauts-juvenile-films!Astronauts > Juvenile films'
+        ],
+        'topic_facet': [
+            'astronauts!Astronauts'
+        ],
+        'genre_facet': [
+            'juvenile-films!Juvenile films'
+        ],
+        'subjects_search_exact_headings': [
+            'Astronauts > Juvenile films'
+        ],
+        'subjects_search_main_terms': [
+            'Astronauts'
+        ],
+        'subjects_search_all_terms': [
+            'Astronauts'
+        ],
+        'genres_search_all_terms': [
+            'Juvenile films'
+        ]
+    }),
+
+    # $v on a 655 (genre) => genre
+    (['655 #4$aAudiobooks$vBiography.'], {
+        'genre_headings_json': {
+            'p': [{'d': 'Audiobooks',
+                   'v': 'audiobooks!Audiobooks',
+                   's': ' > '},
+                  {'d': 'Biography',
+                   'v': 'audiobooks-biography!Audiobooks > Biography'}
+                 ]
+        },
+        'genre_heading_facet': [
+            'audiobooks!Audiobooks',
+            'audiobooks-biography!Audiobooks > Biography'
+        ],
+        'genre_facet': [
+            'audiobooks!Audiobooks',
+            'biography!Biography'
+        ],
+        'genres_search_exact_headings': [
+            'Audiobooks > Biography'
+        ],
+        'genres_search_main_terms': [
+            'Audiobooks'
+        ],
+        'genres_search_all_terms': [
+            'Audiobooks',
+            'Biography'
+        ]
+    }),
+
+    # $x on non-genre field => topic
+    (['650 #0$aAstronauts$xHistory.'], {
+        'subject_headings_json': {
+            'p': [{'d': 'Astronauts',
+                   'v': 'astronauts!Astronauts',
+                   's': ' > '},
+                  {'d': 'History',
+                   'v': 'astronauts-history!Astronauts > History'}
+                 ]
+        },
+        'subject_heading_facet': [
+            'astronauts!Astronauts',
+            'astronauts-history!Astronauts > History'
+        ],
+        'topic_facet': [
+            'astronauts!Astronauts',
+            'history!History'
+        ],
+        'subjects_search_exact_headings': [
+            'Astronauts > History'
+        ],
+        'subjects_search_main_terms': [
+            'Astronauts'
+        ],
+        'subjects_search_all_terms': [
+            'Astronauts',
+            'History'
+        ]
+    }),
+
+    # $x on a 655 (genre) immediately after $ab => compound term
+    (['655 #4$aAudiobooks$xFrench.'], {
+        'genre_headings_json': {
+            'p': [{'d': 'Audiobooks',
+                   'v': 'audiobooks!Audiobooks',
+                   's': ' > '},
+                  {'d': 'French',
+                   'v': 'audiobooks-french!Audiobooks > French'}
+                 ]
+        },
+        'genre_heading_facet': [
+            'audiobooks!Audiobooks',
+            'audiobooks-french!Audiobooks > French'
+        ],
+        'genre_facet': [
+            'audiobooks!Audiobooks',
+            'audiobooks-french!Audiobooks, French'
+        ],
+        'genres_search_exact_headings': [
+            'Audiobooks > French'
+        ],
+        'genres_search_main_terms': [
+            'Audiobooks'
+        ],
+        'genres_search_all_terms': [
+            'Audiobooks',
+            'French'
+        ]
+    }),
+
+    # $x on a 655 (genre) after $ab, with sf between => compound term
+    (['655 #4$aAudiobooks$y1990-2000$xFrench.'], {
+        'genre_headings_json': {
+            'p': [{'d': 'Audiobooks',
+                   'v': 'audiobooks!Audiobooks',
+                   's': ' > '},
+                  {'d': '1990-2000',
+                   'v': 'audiobooks-1990-2000!Audiobooks > 1990-2000',
+                   's': ' > '},
+                  {'d': 'French',
+                   'v': 'audiobooks-1990-2000-french!'
+                        'Audiobooks > 1990-2000 > French'}
+                 ]
+        },
+        'genre_heading_facet': [
+            'audiobooks!Audiobooks',
+            'audiobooks-1990-2000!Audiobooks > 1990-2000',
+            'audiobooks-1990-2000-french!Audiobooks > 1990-2000 > French'
+        ],
+        'genre_facet': [
+            'audiobooks!Audiobooks',
+            'audiobooks-french!Audiobooks, French'
+        ],
+        'era_facet': [
+            '1990-2000!1990-2000'
+        ],
+        'genres_search_exact_headings': [
+            'Audiobooks > 1990-2000 > French'
+        ],
+        'genres_search_main_terms': [
+            'Audiobooks'
+        ],
+        'genres_search_all_terms': [
+            'Audiobooks',
+            '1990-2000',
+            'French'
+        ]
+    }),
+
+    # $y => era
+    (['650 #0$aAstronauts$y20th century.'], {
+        'subject_headings_json': {
+            'p': [{'d': 'Astronauts',
+                   'v': 'astronauts!Astronauts',
+                   's': ' > '},
+                  {'d': '20th century',
+                   'v': 'astronauts-20th-century!Astronauts > 20th century'}
+                 ]
+        },
+        'subject_heading_facet': [
+            'astronauts!Astronauts',
+            'astronauts-20th-century!Astronauts > 20th century'
+        ],
+        'topic_facet': [
+            'astronauts!Astronauts'
+        ],
+        'era_facet': [
+            '20th-century!20th century'
+        ],
+        'subjects_search_exact_headings': [
+            'Astronauts > 20th century'
+        ],
+        'subjects_search_main_terms': [
+            'Astronauts'
+        ],
+        'subjects_search_all_terms': [
+            'Astronauts',
+            '20th century'
+        ]
+    }),
+
+    # $z => region
+    (['650 #0$aAstronauts$zUnited States.'], {
+        'subject_headings_json': {
+            'p': [{'d': 'Astronauts',
+                   'v': 'astronauts!Astronauts',
+                   's': ' > '},
+                  {'d': 'United States',
+                   'v': 'astronauts-united-states!Astronauts > United States'}
+                 ]
+        },
+        'subject_heading_facet': [
+            'astronauts!Astronauts',
+            'astronauts-united-states!Astronauts > United States'
+        ],
+        'topic_facet': [
+            'astronauts!Astronauts'
+        ],
+        'region_facet': [
+            'united-states!United States'
+        ],
+        'subjects_search_exact_headings': [
+            'Astronauts > United States'
+        ],
+        'subjects_search_main_terms': [
+            'Astronauts'
+        ],
+        'subjects_search_all_terms': [
+            'Astronauts',
+            'United States'
+        ]
+    }),
+
+    # SD mapping (simple) -- search term deduplication
+    # Note that both of the terms the subdivision maps to are fully
+    # contained within the subdivision name, so they are deduplicated
+    # when generating search terms (so as not to artificially inflate
+    # TF scores for those terms)
+    (['650 #0$aChemicals$xAbsorption and adsorption.'], {
+        'subject_headings_json': {
+            'p': [{'d': 'Chemicals',
+                   'v': 'chemicals!Chemicals',
+                   's': ' > '},
+                  {'d': 'Absorption and adsorption',
+                   'v': 'chemicals-absorption-and-adsorption!'
+                        'Chemicals > Absorption and adsorption'}
+                 ]
+        },
+        'subject_heading_facet': [
+            'chemicals!Chemicals',
+            'chemicals-absorption-and-adsorption!'
+            'Chemicals > Absorption and adsorption'
+        ],
+        'topic_facet': [
+            'chemicals!Chemicals',
+            'absorption!Absorption',
+            'adsorption!Adsorption'
+        ],
+        'subjects_search_exact_headings': [
+            'Chemicals > Absorption and adsorption'
+        ],
+        'subjects_search_main_terms': [
+            'Chemicals'
+        ],
+        'subjects_search_all_terms': [
+            'Chemicals',
+            'Absorption and adsorption',
+        ]
+    }),
+
+    # SD mapping (pattern)
+    (['650 #0$aChinese language$xTransliteration into English.'], {
+        'subject_headings_json': {
+            'p': [{'d': 'Chinese language',
+                   'v': 'chinese-language!Chinese language',
+                   's': ' > '},
+                  {'d': 'Transliteration into English',
+                   'v': 'chinese-language-transliteration-into-english!'
+                        'Chinese language > Transliteration into English'}
+                 ]
+        },
+        'subject_heading_facet': [
+            'chinese-language!Chinese language',
+            'chinese-language-transliteration-into-english!'
+            'Chinese language > Transliteration into English'
+        ],
+        'topic_facet': [
+            'chinese-language!Chinese language',
+            'transliteration!Transliteration',
+            'english-language!English language'
+        ],
+        'subjects_search_exact_headings': [
+            'Chinese language > Transliteration into English'
+        ],
+        'subjects_search_main_terms': [
+            'Chinese language'
+        ],
+        'subjects_search_all_terms': [
+            'Chinese language',
+            'Transliteration into English',
+            'English language'
+        ]
+    }),
+
+    # SD mapping (simple/parents)
+    (['650 #0$aSeeds$xCertification.'], {
+        'subject_headings_json': {
+            'p': [{'d': 'Seeds',
+                   'v': 'seeds!Seeds',
+                   's': ' > '},
+                  {'d': 'Certification',
+                   'v': 'seeds-certification!Seeds > Certification'}
+                 ]
+        },
+        'subject_heading_facet': [
+            'seeds!Seeds',
+            'seeds-certification!Seeds > Certification'
+        ],
+        'topic_facet': [
+            'seeds!Seeds',
+            'certification-seeds!Certification (Seeds)'
+        ],
+        'subjects_search_exact_headings': [
+            'Seeds > Certification'
+        ],
+        'subjects_search_main_terms': [
+            'Seeds'
+        ],
+        'subjects_search_all_terms': [
+            # Note: 'Seeds' is not included because it's duplicated
+            # in the phrase 'Certification (Seeds)'
+            'Certification (Seeds)',
+        ]
+    }),
+
+    # SD mapping ($v genres)
+    (['650 #0$aAstronauts$vJuvenile literature.'], {
+        'subject_headings_json': {
+            'p': [{'d': 'Astronauts',
+                   'v': 'astronauts!Astronauts',
+                   's': ' > '},
+                  {'d': 'Juvenile literature',
+                   'v': 'astronauts-juvenile-literature!'
+                        'Astronauts > Juvenile literature'}
+                 ]
+        },
+        'subject_heading_facet': [
+            'astronauts!Astronauts',
+            'astronauts-juvenile-literature!Astronauts > Juvenile literature'
+        ],
+        'topic_facet': [
+            'astronauts!Astronauts'
+        ],
+        'genre_facet': [
+            "children-s-literature!Children's literature",
+            'juvenile-literature!Juvenile literature'
+        ],
+        'subjects_search_exact_headings': [
+            'Astronauts > Juvenile literature'
+        ],
+        'subjects_search_main_terms': [
+            'Astronauts'
+        ],
+        'subjects_search_all_terms': [
+            'Astronauts'
+        ],
+        'genres_search_all_terms': [
+            "Children's literature",
+            'Juvenile literature'
+        ]
+    }),
+
+    # SD mapping ($y eras)
+    (['650 #0$aAstronauts$xHistory$y20th century.'], {
+        'subject_headings_json': {
+            'p': [{'d': 'Astronauts',
+                   'v': 'astronauts!Astronauts',
+                   's': ' > '},
+                  {'d': 'History',
+                   'v': 'astronauts-history!Astronauts > History',
+                   's': ' > '},
+                  {'d': '20th century',
+                   'v': 'astronauts-history-20th-century!'
+                        'Astronauts > History > 20th century'}
+                 ]
+        },
+        'subject_heading_facet': [
+            'astronauts!Astronauts',
+            'astronauts-history!Astronauts > History',
+            'astronauts-history-20th-century!'
+            'Astronauts > History > 20th century'
+        ],
+        'topic_facet': [
+            'astronauts!Astronauts',
+            'history!History',
+            'history-modern!History, Modern'
+        ],
+        'era_facet': [
+            '20th-century!20th century'
+        ],
+        'subjects_search_exact_headings': [
+            'Astronauts > History > 20th century'
+        ],
+        'subjects_search_main_terms': [
+            'Astronauts'
+        ],
+        'subjects_search_all_terms': [
+            'Astronauts',
+            'History, Modern',
+            '20th century'
+        ]
+    }),
+
+    # 600 name-only plus SD
+    (['600 1#$aChurchill, Winston,$cSir,$d1874-1965$vFiction.'], {
+        'subject_headings_json': {
+            'p': [{'d': 'Churchill, Winston, Sir, 1874-1965',
+                   'v': 'churchill-winston-sir-1874-1965!'
+                        'Churchill, Winston, Sir, 1874-1965',
+                   's': ' > '},
+                  {'d': 'Fiction',
+                   'v': 'churchill-winston-sir-1874-1965-fiction!'
+                        'Churchill, Winston, Sir, 1874-1965 > Fiction'}
+                 ]
+        },
+        'subject_heading_facet': [
+            'churchill-winston-sir-1874-1965!'
+            'Churchill, Winston, Sir, 1874-1965',
+            'churchill-winston-sir-1874-1965-fiction!'
+            'Churchill, Winston, Sir, 1874-1965 > Fiction'
+        ],
+        'topic_facet': [
+            'churchill-winston-sir-1874-1965!'
+            'Churchill, Winston, Sir, 1874-1965'
+        ],
+        'genre_facet': [
+            'fiction!Fiction'
+        ],
+        'subjects_search_exact_headings': [
+            'Churchill, Winston, Sir, 1874-1965 > Fiction'
+        ],
+        'subjects_search_main_terms': [
+            'Churchill, Winston Churchill, W Churchill',
+            'Sir Winston Churchill',
+            'Sir Winston Churchill'
+        ],
+        'subjects_search_all_terms': [
+            'Churchill, Winston Churchill, W Churchill',
+            'Sir Winston Churchill',
+            'Sir Winston Churchill'
+        ],
+        'genres_search_all_terms': [
+            'Fiction'
+        ]
+    }),
+
+    # 600 name/title plus SD
+    (['600 10$aSurname, Forename,$d1900-2000$tSingle title'
+            '$xCriticism and interpretation'], {
+        'subject_headings_json': {
+            'p': [{'d': 'Surname, Forename, 1900-2000',
+                   'v': 'surname-forename-1900-2000!'
+                        'Surname, Forename, 1900-2000',
+                   's': ' > '},
+                  {'d': 'Single title',
+                   'v': 'surname-forename-1900-2000-single-title!'
+                        'Surname, Forename, 1900-2000 > Single title',
+                   's': ' > '},
+                  {'d': 'Criticism and interpretation',
+                   'v': 'surname-forename-1900-2000-single-title-'
+                        'criticism-and-interpretation!'
+                        'Surname, Forename, 1900-2000 > Single title > '
+                        'Criticism and interpretation'}
+                 ]
+        },
+        'subject_heading_facet': [
+            'surname-forename-1900-2000!'
+            'Surname, Forename, 1900-2000',
+            'surname-forename-1900-2000-single-title!'
+            'Surname, Forename, 1900-2000 > Single title',
+            'surname-forename-1900-2000-single-title-'
+            'criticism-and-interpretation!'
+            'Surname, Forename, 1900-2000 > Single title > '
+            'Criticism and interpretation'
+        ],
+        'topic_facet': [
+            'surname-forename-1900-2000!'
+            'Surname, Forename, 1900-2000',
+            'single-title!Single title',
+            'criticism-and-interpretation!Criticism and interpretation'
+        ],
+        'subjects_search_exact_headings': [
+            'Surname, Forename, 1900-2000 > Single title > '
+            'Criticism and interpretation',
+        ],
+        'subjects_search_main_terms': [
+            'Single title'
+        ],
+        'subjects_search_all_terms': [
+            'Single title',
+            'Surname, Forename Surname, F Surname',
+            'Forename Surname',
+            'Forename Surname',
+            'Criticism and interpretation'
+        ]
+    }),
+
+    # 630 title plus SD
+    (['630 00$aStudio magazine.$pContemporary paintings$xHistory'], {
+        'subject_headings_json': {
+            'p': [{'d': 'Studio magazine',
+                   'v': 'studio-magazine!Studio magazine',
+                   's': ' > '},
+                  {'d': 'Contemporary paintings',
+                   'v': 'studio-magazine-contemporary-paintings!'
+                        'Studio magazine > Contemporary paintings',
+                   's': ' > '},
+                  {'d': 'History',
+                   'v': 'studio-magazine-contemporary-paintings-history!'
+                        'Studio magazine > Contemporary paintings > History'}
+                 ]
+        },
+        'subject_heading_facet': [
+            'studio-magazine!Studio magazine',
+            'studio-magazine-contemporary-paintings!'
+            'Studio magazine > Contemporary paintings',
+            'studio-magazine-contemporary-paintings-history!'
+            'Studio magazine > Contemporary paintings > History'
+        ],
+        'topic_facet': [
+            'studio-magazine!Studio magazine',
+            'studio-magazine-contemporary-paintings!'
+            'Studio magazine > Contemporary paintings',
+            'history!History'
+        ],
+        'subjects_search_exact_headings': [
+            'Studio magazine > Contemporary paintings > History'
+        ],
+        'subjects_search_main_terms': [
+            'Studio magazine > Contemporary paintings'
+        ],
+        'subjects_search_all_terms': [
+            'Studio magazine > Contemporary paintings',
+            'History'
+        ]
+    }),
+
+
+    # Relator tests
+    # Relators appear as json['r']
+    (['651 #0$aKing Ranch (Tex.),$edepicted'], {
+        'subject_headings_json': {
+            'p': [{'d': 'King Ranch (Tex.)',
+                   'v': 'king-ranch-tex!King Ranch (Tex.)'}],
+            'r': ['depicted']
+        },
+        'subject_heading_facet': [
+            'king-ranch-tex!King Ranch (Tex.)'
+        ],
+        'region_facet': [
+            'king-ranch-tex!King Ranch (Tex.)'
+        ],
+        'subjects_search_exact_headings': [
+            'King Ranch (Tex.)'
+        ],
+        'subjects_search_main_terms': [
+            'King Ranch (Tex.)'
+        ],
+        'subjects_search_all_terms': [
+            'King Ranch (Tex.)'
+        ]
+    }),
+
+    # Multiple relators are deduplicated
+    (['651 #0$aKing Ranch (Tex.),$edepicted$4dpc'], {
+        'subject_headings_json': {
+            'p': [{'d': 'King Ranch (Tex.)',
+                   'v': 'king-ranch-tex!King Ranch (Tex.)'}],
+            'r': ['depicted']
+        },
+        'subject_heading_facet': [
+            'king-ranch-tex!King Ranch (Tex.)'
+        ],
+        'region_facet': [
+            'king-ranch-tex!King Ranch (Tex.)'
+        ],
+        'subjects_search_exact_headings': [
+            'King Ranch (Tex.)'
+        ],
+        'subjects_search_main_terms': [
+            'King Ranch (Tex.)'
+        ],
+        'subjects_search_all_terms': [
+            'King Ranch (Tex.)'
+        ]
+    }),
+
+    # URIs in $4 do not display
+    (['651 #0$aKing Ranch (Tex.),$edepicted$4http://example.com'], {
+        'subject_headings_json': {
+            'p': [{'d': 'King Ranch (Tex.)',
+                   'v': 'king-ranch-tex!King Ranch (Tex.)'}],
+            'r': ['depicted']
+        },
+        'subject_heading_facet': [
+            'king-ranch-tex!King Ranch (Tex.)'
+        ],
+        'region_facet': [
+            'king-ranch-tex!King Ranch (Tex.)'
+        ],
+        'subjects_search_exact_headings': [
+            'King Ranch (Tex.)'
+        ],
+        'subjects_search_main_terms': [
+            'King Ranch (Tex.)'
+        ],
+        'subjects_search_all_terms': [
+            'King Ranch (Tex.)'
+        ]
+    }),
+
+
+    # Multi-field tests
+    # Multiple 6XXs, genres, etc.
+    (['600 1#$aChurchill, Winston,$cSir,$d1874-1965$vFiction.',
+      '650 #0$aAstronauts$xHistory$y20th century.',
+      '650 #0$aAstronauts$vJuvenile films.',
+      '655 #4$aAudiobooks$xFrench.',
+      '692 #0$aSpacemen.'
+      ], {
+        'subject_headings_json': [{
+            'p': [{'d': 'Churchill, Winston, Sir, 1874-1965',
+                   'v': 'churchill-winston-sir-1874-1965!'
+                        'Churchill, Winston, Sir, 1874-1965',
+                   's': ' > '},
+                  {'d': 'Fiction',
+                   'v': 'churchill-winston-sir-1874-1965-fiction!'
+                        'Churchill, Winston, Sir, 1874-1965 > Fiction'},
+                 ]
+        }, {
+            'p': [{'d': 'Astronauts',
+                   'v': 'astronauts!Astronauts',
+                   's': ' > '},
+                  {'d': 'History',
+                   'v': 'astronauts-history!Astronauts > History',
+                   's': ' > '},
+                  {'d': '20th century',
+                   'v': 'astronauts-history-20th-century!'
+                        'Astronauts > History > 20th century'}
+                 ]
+        }, {
+            'p': [{'d': 'Astronauts',
+                   'v': 'astronauts!Astronauts',
+                   's': ' > '},
+                  {'d': 'Juvenile films',
+                   'v': 'astronauts-juvenile-films!Astronauts > Juvenile films'}
+                 ]
+        }],
+        'genre_headings_json': [{
+            'p': [{'d': 'Audiobooks',
+                   'v': 'audiobooks!Audiobooks',
+                   's': ' > '},
+                  {'d': 'French',
+                   'v': 'audiobooks-french!Audiobooks > French'}
+                 ]
+        }],
+        'subject_heading_facet': [
+            'churchill-winston-sir-1874-1965!'
+            'Churchill, Winston, Sir, 1874-1965',
+            'churchill-winston-sir-1874-1965-fiction!'
+            'Churchill, Winston, Sir, 1874-1965 > Fiction',
+            'astronauts!Astronauts',
+            'astronauts-history!Astronauts > History',
+            'astronauts-history-20th-century!'
+            'Astronauts > History > 20th century',
+            'astronauts-juvenile-films!Astronauts > Juvenile films'
+        ],
+        'genre_heading_facet': [
+            'audiobooks!Audiobooks',
+            'audiobooks-french!Audiobooks > French'
+        ],
+        'topic_facet': [
+            'churchill-winston-sir-1874-1965!'
+            'Churchill, Winston, Sir, 1874-1965',
+            'astronauts!Astronauts',
+            'history!History',
+            'history-modern!History, Modern'
+        ],
+        'genre_facet': [
+            'fiction!Fiction',
+            'juvenile-films!Juvenile films',
+            'audiobooks!Audiobooks',
+            'audiobooks-french!Audiobooks, French'
+        ],
+        'era_facet': [
+            '20th-century!20th century'
+        ],
+        'subjects_search_exact_headings': [
+            'Churchill, Winston, Sir, 1874-1965 > Fiction',
+            'Astronauts > History > 20th century',
+            'Astronauts > Juvenile films',
+            'Spacemen'
+        ],
+        'genres_search_exact_headings': [
+            'Audiobooks > French'
+        ],
+        'subjects_search_main_terms': [
+            'Churchill, Winston Churchill, W Churchill',
+            'Sir Winston Churchill',
+            'Sir Winston Churchill',
+            'Astronauts',
+            'Spacemen'
+        ],
+        'genres_search_main_terms': [
+            'Audiobooks'
+        ],
+        'subjects_search_all_terms': [
+            'Churchill, Winston Churchill, W Churchill',
+            'Sir Winston Churchill',
+            'Sir Winston Churchill',
+            'Astronauts',
+            'History, Modern',
+            '20th century',
+            'Spacemen'
+        ],
+        'genres_search_all_terms': [
+            'Fiction',
+            'Juvenile films',
+            'Audiobooks',
+            'French'
+        ]
+    }),
+
+    # Duplicate headings are deduplicated
+    # This example illustrates a few things. 1) FAST headings in
+    # 600-630 fields are ignored completely. 2) Exactly duplicate
+    # headings are ignored. 3) For headings such as:
+    #     "Military education -- History" and "Military education"
+    # The latter currently is not considered a duplicate of the former,
+    # even though it is redundant. (This behavior is subject to
+    # change.)
+    (['610 17$aUnited States.$bArmy.$2fast',
+      '610 10$aUnited States.$bArmy.$xHistory.',
+      '650 #0$aMilitary uniforms.',
+      '650 #7$aMilitary uniforms.$2fast',
+      '650 #0$aMilitary education$xHistory',
+      '650 #0$aMilitary education$2fast',
+      '655 07$aHistory.$2fast',
+      ], {
+        'subject_headings_json': [{
+            'p': [{'d': 'United States Army',
+                   'v': 'united-states-army!United States Army',
+                   's': ' > '},
+                  {'d': 'History',
+                   'v': 'united-states-army-history!'
+                        'United States Army > History'}
+                 ]
+        }, {
+            'p': [{'d': 'Military uniforms',
+                   'v': 'military-uniforms!Military uniforms'}
+                 ]
+        }, {
+            'p': [{'d': 'Military education',
+                   'v': 'military-education!Military education',
+                   's': ' > '},
+                  {'d': 'History',
+                   'v': 'military-education-history!'
+                        'Military education > History'}
+                 ]
+        }, {
+            'p': [{'d': 'Military education',
+                   'v': 'military-education!Military education'}
+                 ]
+        }],
+        'genre_headings_json': [{
+            'p': [{'d': 'History',
+                   'v': 'history!History'}
+                 ]
+
+        }],
+        'subject_heading_facet': [
+            'united-states-army!United States Army',
+            'united-states-army-history!United States Army > History',
+            'military-uniforms!Military uniforms',
+            'military-education!Military education',
+            'military-education-history!Military education > History'
+        ],
+        'genre_heading_facet': [
+            'history!History'
+        ],
+        'topic_facet': [
+            'united-states-army!United States Army',
+            'history!History',
+            'military-uniforms!Military uniforms',
+            'military-education!Military education'
+        ],
+        'genre_facet': [
+            'history!History'
+        ],
+        'subjects_search_exact_headings': [
+            'United States Army > History',
+            'Military uniforms',
+            'Military education > History',
+            'Military education'
+        ],
+        'genres_search_exact_headings': [
+            'History'
+        ],
+        'subjects_search_main_terms': [
+            'United States Army',
+            'Military uniforms',
+            'Military education'
+        ],
+        'genres_search_main_terms': [
+            'History'
+        ],
+        'subjects_search_all_terms': [
+            'United States Army',
+            'History',
+            'Military uniforms',
+            'Military education'
+        ],
+        'genres_search_all_terms': [
+            'History'
+        ]
+    }),
 ], ids=[
     # Edge cases
-    'No 6XXs => empty subject_info',
+    'No 6XXs => empty subjects_info',
+    'Empty 600 field => empty subjects_info',
+    'Empty 650 field => empty subjects_info',
+    'Empty 655 field => empty subjects_info',
+    '650 with relator but no heading => empty subjects_info',
+    '$0 should be ignored (600)',
+    '600 with name but empty $t => ignore empty $t',
+
+    # Tests for different kinds of main terms (different field types)
+    '600, name (no title)',
+    '600, name/title -- single part title',
+    '600, name/title -- multi-part title',
+    '600, name/title -- collective title',
+    '600, name/title -- multi-part musical work title',
+    '610, name (no title)',
+    '610, name (no title) -- multi-level org',
+    '610, name (no title) -- org + meeting',
+    '610, name/title',
+    '611, name (no title)',
+    '611, name (no title) -- multi-level meeting',
+    '611, name (no title) -- meeting + org',
+    '611, name/title',
+    '630, title',
+    '630, title plus expression info',
+    '647, event (local, non-LCSH, non-FAST)',
+    '648, chronological term (local, non-LCSH, non-FAST)',
+    '650, topical term (main term only)',
+    '651, geographic term (main term only)',
+    '653, uncontrolled keyword term',
+    '655, genre term (main term only), LCSH',
+    '655, genre term, AAT-style',
+    '656, occupation term, local',
+    '657, function term, local',
+    '690, local topical term',
+    '691, local geographic term',
+    '692, defunct heading or other term used for search only',
+
+    # Tests for handling subdivisions
+    '$v on a non-genre field => genre',
+    '$v on a 655 (genre) => genre',
+    '$x on non-genre field => topic',
+    '$x on a 655 (genre) immediately after $ab => compound term',
+    '$x on a 655 (genre) after $ab, with sf between => compound term',
+    '$y => era',
+    '$z => region',
+    'SD mapping (simple) -- search term deduplication',
+    'SD mapping (pattern)',
+    'SD mapping (simple/parents)',
+    'SD mapping ($v genres)',
+    'SD mapping ($y eras)',
+    '600 name-only plus SD',
+    '600 name/title plus SD',
+    '630 title plus SD',
+
+    # Relator tests
+    "Relators appear as json['r']",
+    'Multiple relators are deduplicated',
+    'URIs in $4 do not display',
+
+    # Multi-field tests
+    'Multiple 6XXs, genres, etc.',
+    'Duplicate headings are deduplicated',
 ])
-def test_blasmpipeline_getsubjectsinfo(marcfields, expected,
+def test_blasmpipeline_getsubjectsinfo(raw_marcfields, expected,
+                                       marcfield_strings_to_params,
                                        bl_sierra_test_record,
                                        blasm_pipeline_class,
                                        marcutils_for_subjects,
@@ -7113,7 +8937,9 @@ def test_blasmpipeline_getsubjectsinfo(marcfields, expected,
     bib = bl_sierra_test_record('bib_no_items')
     bibmarc = bibrecord_to_pymarc(bib)
     bibmarc.remove_fields('600', '610', '611', '630', '647', '648', '650',
-                          '651', '655', '656', '657')
+                          '651', '653', '655', '656', '657', '690', '691',
+                          '692')
+    marcfields = marcfield_strings_to_params(raw_marcfields)
     bibmarc = add_marc_fields(bibmarc, marcfields)
     val = pipeline.get_subjects_info(bib, bibmarc)
     for k, v in val.items():
@@ -7121,6 +8947,8 @@ def test_blasmpipeline_getsubjectsinfo(marcfields, expected,
         if k in expected:
             if k.endswith('_json'):
                 assert_json_matches_expected(v, expected[k], exact=True)
+            elif isinstance(v, list):
+                assert sorted(v) == sorted(expected[k])
             else:
                 assert v == expected[k]
         else:
