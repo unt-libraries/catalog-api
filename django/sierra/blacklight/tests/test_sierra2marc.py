@@ -8783,7 +8783,8 @@ def test_blasmpipeline_getgamesfacetsinfo(raw_marcfields, expected,
     # The latter currently is not considered a duplicate of the former,
     # even though it is redundant. (This behavior is subject to
     # change.)
-    (['610 17$aUnited States.$bArmy.$2fast',
+    (['610 10$aUnited States.$bArmy.',
+      '610 17$aUnited States.$bArmy.$2fast',
       '610 10$aUnited States.$bArmy.$xHistory.',
       '650 #0$aMilitary uniforms.',
       '650 #7$aMilitary uniforms.$2fast',
@@ -8792,6 +8793,10 @@ def test_blasmpipeline_getgamesfacetsinfo(raw_marcfields, expected,
       '655 07$aHistory.$2fast',
       ], {
         'subject_headings_json': [{
+            'p': [{'d': 'United States Army',
+                   'v': 'united-states-army!United States Army'},
+                 ]
+        }, {
             'p': [{'d': 'United States Army',
                    'v': 'united-states-army!United States Army',
                    's': ' > '},
@@ -8842,6 +8847,7 @@ def test_blasmpipeline_getgamesfacetsinfo(raw_marcfields, expected,
             'history!History'
         ],
         'subjects_search_exact_headings': [
+            'United States Army',
             'United States Army > History',
             'Military uniforms',
             'Military education > History',

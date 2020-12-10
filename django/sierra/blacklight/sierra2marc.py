@@ -3870,16 +3870,6 @@ class BlacklightASMPipeline(object):
 
         sep = self.hierarchical_subject_separator
 
-        # Skip this if it's a FAST heading in 600-630.
-        if is_nametitle and is_fast:
-            return {
-                'heading': None,
-                'json': None,
-                'facets': None,
-                'search': None,
-                'is_genre': is_genre,
-            }
-
         if is_nametitle:
             nt_entry = self.parse_nametitle_field(f)
             has_names = bool(nt_entry['names'])
