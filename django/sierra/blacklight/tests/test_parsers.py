@@ -62,6 +62,29 @@ def test_normalize_whitespace(data, expected):
     """
     assert parsers.normalize_whitespace(data) == expected
 
+@pytest.mark.parametrize('data, replace_with_space, norm_space, expected', [
+    ('test data', True, True, 'test data'),
+    ('Test Data', True, True, 'Test Data'),
+    ('test.data', True, True, 'test data'),
+    ('test.data', False, True, 'testdata'),
+    ('test.!#$*+data.', True, True, 'test data'),
+    ('test. data!!', True, True, 'test data'),
+    ('test. data!!', False, True, 'test data'),
+    ("test's data", False, True, 'tests data'),
+    ('*** test *** data ***', False, True, 'test data'),
+    ('*** test *** data ***', False, False, ' test  data '),
+    ('*** test *** data ***', True, True, 'test data'),
+    ('test (data)', True, True, 'test data'),
+    ('test (data)', False, True, 'test data'),
+    ('Test + Data', True, True, 'Test Data'),
+])
+def test_strip_all_punctuation(data, replace_with_space, norm_space, expected):
+    """
+    `strip_all_punctuation` should strip all punctuation from the input
+    data string, replacing with white space (or not) as directed.
+    """
+    result = parsers.strip_all_punctuation(data, replace_with_space, norm_space)
+    assert result == expected
 
 @pytest.mark.parametrize('data, expected', [
     ('test : data', 'test: data'),

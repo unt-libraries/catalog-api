@@ -872,6 +872,10 @@ def test_dissertationnotesfieldparser_parse(subfields, expected):
 
 
 @pytest.mark.parametrize('raw_marcfields, expected', [
+    (['700 0#$a***,$cMadame de'],
+     ['', 'Madame de', 'Madame de']),
+    (['700 1#$aPeng + Hu,$eeditor.'],
+     ['Peng Hu', 'Peng Hu', 'Peng Hu']),
     (['100 0#$aH. D.$q(Hilda Doolittle),$d1886-1961.'],
      ['H.D', 'Hilda Doolittle', 'Hilda Doolittle', 'H.D']),
     (['100 1#$aGresham, G. A.$q(Geoffrey Austin)'],
@@ -909,8 +913,8 @@ def test_dissertationnotesfieldparser_parse(subfields, expected):
       'prince André Masséna prince d Essling',
       'prince André Masséna, prince d Essling']),
     (['100 1#$aWalle-Lissnijder,$cvan de.'],
-     ['Walle-Lissnijder', 'van de Walle-Lissnijder',
-      'van de Walle-Lissnijder']),
+     ['Walle Lissnijder', 'van de Walle Lissnijder',
+      'van de Walle Lissnijder']),
     (['700 0#$aCharles Edward,$cPrince, grandson of James II, King of England,'
       '$d1720-1788.'],
      ['Charles Edward',
@@ -921,6 +925,15 @@ def test_dissertationnotesfieldparser_parse(subfields, expected):
     (['100 0#$aJohn$bII Comnenus,$cEmperor of the East,$d1088-1143.'],
      ['John', 'Emperor John II Comnenus Emperor of the East',
       'Emperor John II Comnenus, Emperor of the East']),
+    (['100 1#$aSaxon, Joseph$q(Irv).'],
+     ['Saxon, Joseph Saxon, J Saxon, Irv Saxon, I Saxon', 'Joseph Saxon',
+      'Joseph Irv Saxon']),
+    (['100 1#$aSaxon, Joseph (Irv).'],
+     ['Saxon, Joseph Saxon, J Saxon, Irv Saxon, I Saxon', 'Joseph Saxon',
+      'Joseph Irv Saxon']),
+    (['100 1#$aSaxon, J. (Irv)$q(Joseph).'],
+     ['Saxon, Joseph Saxon, J Saxon, Irv Saxon, I Saxon', 'Joseph Saxon',
+      'J Irv Saxon']),
 ])
 def test_personalnamepermutator_getsearchperms(raw_marcfields, expected,
                                                marcfield_strings_to_params):
@@ -933,7 +946,9 @@ def test_personalnamepermutator_getsearchperms(raw_marcfields, expected,
     field = s2m.make_mfield(tag, indicators=indicators, subfields=sf)
     parsed_name = s2m.PersonalNameParser(field).parse()
     permutator = s2m.PersonalNamePermutator(parsed_name)
-    assert permutator.get_search_permutations() == expected
+    result = permutator.get_search_permutations()
+    print result
+    assert result == expected
 
 
 def test_blasmpipeline_do_creates_compiled_dict(blasm_pipeline_class):

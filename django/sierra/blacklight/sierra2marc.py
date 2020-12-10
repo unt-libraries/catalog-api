@@ -1218,6 +1218,7 @@ class PersonalNamePermutator(object):
         self.original_name = name
         self._authorized_name = None
         self._fullest_name = None
+        self._nicknames = []
 
     def tokenize_name_part(self, np):
         """
@@ -1251,6 +1252,7 @@ class PersonalNamePermutator(object):
         cmp_tokens = ['Elizabeth']
         fuller_tokens = ['Ann', 'Elizabeth']
         """
+
         parts_pattern = r'\s'.join([r'({}\S*)'.format(t) for t in cmp_tokens])
         cmp_pattern = r'(?:^|(.+)\s){}(?:\s(.+)|$)'.format(parts_pattern)
         matches = re.match(cmp_pattern, ' '.join(fuller_tokens))
@@ -1260,6 +1262,7 @@ class PersonalNamePermutator(object):
     def _expand_name(self):
         expanded = {}
         name = self.original_name
+        nicknames = []
         ftokens = self.tokenize_name_part(name['fuller_form_of_name'])
         expansion_done = False
         for key in ('forename', 'surname'):
@@ -1270,37 +1273,57 @@ class PersonalNamePermutator(object):
                 expansion_done = True
             else:
                 expanded[key] = name_tokens
-        if not expanded.get('forename') and not expansion_done:
-            if self.authorized_name['surname']:
+        if ftokens and not expansion_done:
+            if expanded['forename']:
+                if expanded['forename'] == self.authorized_name['forename']:
+                    nicknames = ftokens
+            else:
                 expanded['forename'] = ftokens
-        return expanded['forename'], expanded['surname']
+        return nicknames, expanded['forename'], expanded['surname']
+
+    def split_nickname(self, forename):
+        match = re.search(r'^(.+?)\s+[\(\'"](\S+?)[\)\'"]$', forename)
+        if match:
+            return match.groups()
+        return forename, ''
 
     @property
     def authorized_name(self):
         if self._authorized_name is None:
-            name = self.original_name
-            forename_tokens = self.tokenize_name_part(name['forename'])
-            surname_tokens = self.tokenize_name_part(name['surname'])
-            auth_name = {
-                'forename': forename_tokens,
-                'forename_initials': [f[0] for f in forename_tokens],
-                'surname': surname_tokens
-            }
+            name, auth_name = self.original_name, {}
+            fn, nn = self.split_nickname(name['forename'] or '')
+            parts = {'forename': fn, 'surname': name['surname']}
+            for partkey, part in parts.items():
+                norm = p.strip_all_punctuation(part) if part else ''
+                tokens = self.tokenize_name_part(norm)
+                initials = [t[0] for t in tokens]
+                auth_name[partkey] = tokens
+                auth_name['_'.join((partkey, 'initials'))] = initials
             self._authorized_name = auth_name
+            if nn:
+                self._nicknames.extend(self.tokenize_name_part(nn))
         return self._authorized_name
 
     @property
     def fullest_name(self):
         if self._fullest_name is None:
             name = self.original_name
-            exp_forename_tokens, exp_surname_tokens = self._expand_name()
+            nn, exp_forename_tokens, exp_surname_tokens = self._expand_name()
             fullest_name = {
                 'forename': exp_forename_tokens,
                 'forename_initials': [f[0] for f in exp_forename_tokens],
                 'surname': exp_surname_tokens,
             }
             self._fullest_name = fullest_name
+            if nn:
+                self._nicknames.extend(nn)
         return self._fullest_name
+
+    @property
+    def nicknames(self):
+        self.authorized_name
+        self.fullest_name
+        return self._nicknames
 
     def split_n_prefix_titles(self, n):
         """
@@ -1317,18 +1340,30 @@ class PersonalNamePermutator(object):
         is added as a prefix and the full suffix "King of England" is
         added as a suffix. (Terms are deduplicated, as well.)
         """
+        def norm(string):
+            n = toascii.map_from_unicode(string).lower()
+            return re.sub(r'\W+', ' ', n).strip(' ')
+
         prefixes, suffixes = OrderedDict(), OrderedDict()
         pretitles = settings.MARCDATA.PERSON_PRETITLES
         nparticles = settings.MARCDATA.PERSON_NOBILIARY_PARTICLES
         for i, t in enumerate(self.original_name['person_titles'] or []):
-            t = toascii.map_from_unicode(t)
-            t = re.sub(r'\W+', ' ', t).strip(' ')
-            if t.lower() in pretitles | nparticles and len(prefixes) < n:
-                prefixes[t] = None
-            else:
-                if t.lower().split(' ')[0] in pretitles and len(prefixes) < n:
-                    prefixes[t.split(' ')[0]] = None
-                suffixes[t] = None
+            t = p.strip_all_punctuation(t)
+            if len(prefixes) < n:
+                if norm(t) in pretitles | nparticles:
+                    prefixes[t] = None
+                    continue
+
+                np_re = r'^(.+?) ({})( .+)?$'.format('|'.join(nparticles))
+                match = re.search(np_re, t, flags=re.IGNORECASE)
+                if match:
+                    prefix_only = match.group(3) is None
+                    if norm(match.group(1)) in pretitles:
+                        if prefix_only:
+                            prefixes[t] = None
+                            continue
+                        prefixes[match.group(1)] = None
+            suffixes[t] = None
         return prefixes.keys(), suffixes.keys()
 
     def is_initial(self, token):
@@ -1506,17 +1541,31 @@ class PersonalNamePermutator(object):
             ['Mrs Elizabeth Smith'] or
             ['Emperor John Comnenus II, Emperor of the East']
         """
+        fullest_fl, best_fwd, all_titles = '', '', ''
+        nicknames = self.nicknames
+        prefix_titles, suffix_titles = self.split_n_prefix_titles(1)
+        prefix_title = (prefix_titles or [None])[0]
+        if self.original_name['person_titles']:
+            all_titles = ', '.join(self.original_name['person_titles'])
+
         std_perm = self.get_standard_permutations(self.authorized_name)
+        if std_perm:
+            forename = (self.authorized_name['forename'] or []) + nicknames
+            auth_name = self.render_name(forename,
+                                         self.authorized_name['surname'])
+            best_fwd_parts  = [prefix_title, auth_name,
+                               self.original_name['numeration']]
+            best_fwd = ' '.join([p for p in best_fwd_parts if p])
+            best_fwd = ', '.join([best_fwd] + suffix_titles)
+        else:
+            best_fwd = all_titles
 
         if self.fullest_name != self.authorized_name:
             full_std_perm = self.get_standard_permutations(self.fullest_name)
             std_perm = self.dedupe_search_permutations(std_perm, full_std_perm)
             std_perm.extend(full_std_perm)
 
-        permutations = self.compress_search_permutations(std_perm)
-        prefix_titles, suffix_titles = self.split_n_prefix_titles(1)
-        prefix_title = (prefix_titles or [None])[0]
-
+        fullest_first, fullest_last = None, None
         if self.fullest_name['surname']:
             ffn = self.fullest_name['forename'] or [None]
             fullest_first = (ffn)[0]
@@ -1532,21 +1581,27 @@ class PersonalNamePermutator(object):
                 fullest_first = ' '.join([fullest_first] + prepositions)
 
             fullest_last = self.render_name_part(self.fullest_name['surname'])
-        else:
+        elif self.fullest_name['forename']:
             fullest_first = self.render_name_part(self.fullest_name['forename'])
-            fullest_last = None
+        else:
+            fullest_fl = all_titles
 
-        fullest_fl_parts = [prefix_title, fullest_first, fullest_last,
-                            self.original_name['numeration']] + suffix_titles
-        fullest_fl = ' '.join([p for p in fullest_fl_parts if p])
+        if not fullest_fl and (fullest_first or fullest_last):
+            parts = [prefix_title, fullest_first, fullest_last,
+                     self.original_name['numeration']] + suffix_titles
+            fullest_fl = ' '.join([p for p in parts if p])
 
-        best_fwd_parts  = [prefix_title,
-                           self.render_name(self.authorized_name['forename'],
-                                            self.authorized_name['surname']),
-                           self.original_name['numeration']]
-        best_fwd = ' '.join([p for p in best_fwd_parts if p])
-        best_fwd = ', '.join([best_fwd] + suffix_titles)
+        if nicknames and self.fullest_name['surname']:
+            temp_name = {
+                'forename': nicknames,
+                'forename_initials': [n[0] for n in nicknames],
+                'surname': self.fullest_name['surname']
+            }
+            nn_std_perm = self.get_standard_permutations(temp_name)
+            std_perm = self.dedupe_search_permutations(std_perm, nn_std_perm)
+            std_perm.extend(nn_std_perm)
 
+        permutations = self.compress_search_permutations(std_perm)
         permutations.extend([fullest_fl, best_fwd])
         return permutations
 

@@ -42,6 +42,21 @@ def normalize_whitespace(data):
     return re.sub(r'\s+', ' ', data)
 
 
+def strip_all_punctuation(data, replace_with_space=True, normalize_space=True):
+    """
+    Strip ALL punctuation from the given `data` string. Optionally
+    replace strings of punctuation with a space and normalize space
+    (via `normalize_whitespace` and `strip`). Recommended that you
+    always set normalize_space to True.
+    """
+    repl_char = ' ' if replace_with_space else ''
+    regex = r'{}+'.format(settings.MARCDATA.ALL_PUNCTUATION_REGEX)
+    replaced = re.sub(regex, repl_char, data)
+    if normalize_space:
+        replaced = normalize_whitespace(replaced).strip()
+    return replaced
+
+
 def compress_punctuation(data, left_space_re=settings.MARCDATA.NO_LEFT_WHITESPACE_PUNCTUATION_REGEX,
                          punctuation_re=settings.MARCDATA.ENDING_PUNCTUATION_REGEX):
     """

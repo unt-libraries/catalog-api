@@ -25,3 +25,6 @@ ENDING_PUNCTUATION_REGEX = r'[\.\/;:,]'
 # Regular Expression for matching punctuation that should not have
 # whitespace to its immediate left
 NO_LEFT_WHITESPACE_PUNCTUATION_REGEX = r'[\.;:,]'
+
+# Regular Expression for matching any punctuation marks
+ALL_PUNCTUATION_REGEX = r'[\[\]{}|\\\'":;<,>.?/~`!@#$%^&*()\-_+=]'
