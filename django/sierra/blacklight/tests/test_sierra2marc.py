@@ -7043,75 +7043,78 @@ def test_blasmpipeline_getcontrolnumberinfo(raw_marcfields, expected,
 
 @pytest.mark.parametrize('raw_marcfields, expected', [
     (['592 ## $aa1'], {
-        'games_ages_facet': ['1 year'],
+        'games_ages_facet': ['001-001!1 year'],
     }),
     (['592 ## $aa2'], {
-        'games_ages_facet': ['2 years'],
+        'games_ages_facet': ['002-002!2 years'],
     }),
     (['592 ## $aa1t4'], {
-        'games_ages_facet': ['1 to 4 years'],
+        'games_ages_facet': ['001-004!1 to 4 years'],
     }),
     (['592 ## $aa5t9'], {
-        'games_ages_facet': ['5 to 9 years'],
+        'games_ages_facet': ['005-009!5 to 9 years'],
     }),
     (['592 ## $aa14t16'], {
-        'games_ages_facet': ['14 to 16 years'],
+        'games_ages_facet': ['014-016!14 to 16 years'],
     }),
     (['592 ## $aa17t100'], {
-        'games_ages_facet': ['17 years and up'],
+        'games_ages_facet': ['017-100!17 years and up'],
     }),
     (['592 ## $aa1t100'], {
-        'games_ages_facet': ['1 year and up'],
+        'games_ages_facet': ['001-100!1 year and up'],
     }),
     (['592 ## $ap1'], {
-        'games_players_facet': ['1 player'],
+        'games_players_facet': ['01-01!1 player'],
     }),
     (['592 ## $ap2to4'], {
-        'games_players_facet': ['2 to 4 players'],
+        'games_players_facet': ['02-04!2 to 4 players'],
     }),
     (['592 ## $ap4to8'], {
-        'games_players_facet': ['4 to 8 players'],
+        'games_players_facet': ['04-08!4 to 8 players'],
     }),
     (['592 ## $ap9to99'], {
-        'games_players_facet': ['more than 8 players'],
+        'games_players_facet': ['09-99!more than 8 players'],
     }),
     (['592 ## $ap2to99'], {
-        'games_players_facet': ['more than 1 player'],
+        'games_players_facet': ['02-99!more than 1 player'],
     }),
     (['592 ## $ap1to99'], {
-        'games_players_facet': ['more than 0 players'],
+        'games_players_facet': ['01-99!more than 0 players'],
     }),
     (['592 ## $ad1to29'], {
-        'games_duration_facet': ['less than 30 minutes'],
+        'games_duration_facet': ['001-029!less than 30 minutes'],
     }),
     (['592 ## $ad30to59'], {
-        'games_duration_facet': ['30 minutes to 1 hour'],
+        'games_duration_facet': ['030-059!30 minutes to 1 hour'],
     }),
     (['592 ## $ad60to120'], {
-        'games_duration_facet': ['1 to 2 hours'],
+        'games_duration_facet': ['060-120!1 to 2 hours'],
     }),
     (['592 ## $ad120to500'], {
-        'games_duration_facet': ['more than 2 hours'],
+        'games_duration_facet': ['120-500!more than 2 hours'],
     }),
     (['592 ## $ad180to500'], {
-        'games_duration_facet': ['more than 3 hours'],
+        'games_duration_facet': ['180-500!more than 3 hours'],
     }),
     (['592 ## $aa1t4;a5t9;d120t500;p1'], {
-        'games_ages_facet': ['1 to 4 years', '5 to 9 years'],
-        'games_duration_facet': ['more than 2 hours'],
-        'games_players_facet': ['1 player'],
+        'games_ages_facet': ['001-004!1 to 4 years',
+                             '005-009!5 to 9 years'],
+        'games_duration_facet': ['120-500!more than 2 hours'],
+        'games_players_facet': ['01-01!1 player'],
     }),
     (['592 ## $aa1t4;a5t9;d120t500;p1;'], {
-        'games_ages_facet': ['1 to 4 years', '5 to 9 years'],
-        'games_duration_facet': ['more than 2 hours'],
-        'games_players_facet': ['1 player'],
+        'games_ages_facet': ['001-004!1 to 4 years',
+                             '005-009!5 to 9 years'],
+        'games_duration_facet': ['120-500!more than 2 hours'],
+        'games_players_facet': ['01-01!1 player'],
     }),
     (['592 ## $aa1t4;a5t9',
       '592 ## $ad120t500',
       '592 ## $ap1'], {
-        'games_ages_facet': ['1 to 4 years', '5 to 9 years'],
-        'games_duration_facet': ['more than 2 hours'],
-        'games_players_facet': ['1 player'],
+        'games_ages_facet': ['001-004!1 to 4 years',
+                             '005-009!5 to 9 years'],
+        'games_duration_facet': ['120-500!more than 2 hours'],
+        'games_players_facet': ['01-01!1 player'],
     })
 ])
 def test_blasmpipeline_getgamesfacetsinfo(raw_marcfields, expected,

@@ -28,6 +28,9 @@ IGNORED_MARC_FIELDS_BY_GROUP_TAG = {
 }
 
 
+FACET_KEY_SEPARATOR = '!'
+
+
 class SierraMarcField(pymarc.field.Field):
     """
     Subclass of pymarc field.Field; adds `group_tag` (III field group tag)
@@ -1655,7 +1658,7 @@ def generate_facet_key(value, nonfiling_chars=0, space_char=r'-'):
 
 def format_key_facet_value(heading, nonfiling_chars=0):
     key = generate_facet_key(heading, nonfiling_chars)
-    return '!'.join((key, heading))
+    return FACET_KEY_SEPARATOR.join((key, heading))
 
 
 def format_number_search_val(numtype, number):
@@ -3671,7 +3674,13 @@ class BlacklightASMPipeline(object):
                 self.lower = lower
                 self.upper = upper
 
-            def render(self, start, end=0):
+            def render_sort_key(self, start, end=0):
+                start = str(start)
+                end = str(end) if end else start
+                zp = len(str(self.upper.trigger_value)) if self.upper else 10
+                return '{}-{}'.format(start.zfill(zp), end.zfill(zp))
+
+            def render_display_value(self, start, end=0):
                 snum_to_render, slabel = self.labeler.label(start)
                 if not end:
                     return ' '.join((snum_to_render, slabel))
@@ -3688,6 +3697,11 @@ class BlacklightASMPipeline(object):
                     render_stack.append(slabel)
                 render_stack.extend(['to', enum_to_render, elabel])
                 return ' '.join(render_stack)
+
+            def render(self, start, end=0):
+                display_val = self.render_display_value(start, end)
+                sort_key = self.render_sort_key(start, end)
+                return FACET_KEY_SEPARATOR.join((sort_key, display_val))
 
         def parse_each_592_token(f592s):
             for f in f592s:
