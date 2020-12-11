@@ -4298,7 +4298,6 @@ class PipelineBundleConverter(object):
         ( '973', ('title_sort',) ),
         ( '974', ('subject_headings_json',) ),
         ( '974', ('genre_headings_json',) ),
-        ( '974', ('subject_region_facet',) ),
         ( '974', ('subject_heading_facet',) ),
         ( '974', ('genre_heading_facet',) ),
         ( '974', ('topic_facet',) ),
