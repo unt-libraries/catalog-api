@@ -2301,6 +2301,154 @@ def test_blasmpipeline_getresourcetypeinfo(bcode2,
     for k, v in expected.items():
         assert v == val[k]
 
+@pytest.mark.parametrize('f008_lang, raw_marcfields, expected', [
+    # Edge cases -- empty / missing fields, etc.
+    # No language info at all (no 008s, titles, or 041s)
+    ('', [], {}),
+
+    # 008 without valid cps 35-37
+    ('   ', [], {}),
+
+    # Main tests
+    # Language info just from 008
+    ('eng', [],
+     {'language_facet': ['English'],
+      'language_notes': [
+        'Item content: English'
+      ]}
+    ),
+
+    # Language info just from 041, example 1
+    ('', ['041 1#$aeng$hger$hswe'],
+     {'language_facet': ['English', 'German', 'Swedish'],
+      'language_notes': [
+        'Item content: English',
+        'Translated from (original): German, Swedish'
+      ]}
+    ),
+
+    # Language info just from 041, example 2
+    ('', ['041 0#$aeng$afre$ager'],
+     {'language_facet': ['English', 'French', 'German'],
+      'language_notes': [
+        'Item content: English, French, German',
+      ]}
+    ),
+
+    # Language info just from 041, example 3
+    ('', ['041 1#$ifre$jeng$jger'],
+     {'language_facet': ['English', 'French', 'German'],
+      'language_notes': [
+        'Intertitles: French',
+        'Subtitles: English, German'
+      ]}
+    ),
+
+    # Language info just from 041, example 4 -- multiple 041s
+    ('', ['041 0#$deng$eeng$efre$eger',
+          '041 0#$geng',
+          '041 1#$deng$hrus$eeng$nrus$geng$gfre$gger'],
+     {'language_facet': ['English', 'French', 'German', 'Russian'],
+      'language_notes': [
+        'Item content: English',
+        'Translated from (original): Russian',
+        'Librettos: English, French, German',
+        'Librettos translated from (original): Russian',
+        'Accompanying materials: English, French, German'
+      ]}
+    ),
+
+    # Ignore 041 if it uses something other than MARC relator codes
+    ('', ['041 07$aen$afr$ait$2iso639-1'], {}),
+
+    # Language info just from titles
+    ('', ['130 0#$aBible.$pN.T.$pRomans.$lEnglish.$sRevised standard.',
+          '730 02$aBible.$pO.T.$pJudges V.$lGerman$sGrether.'],
+     {'language_facet': ['English', 'German'],
+      'language_notes': [
+        'Item content: English, German',
+      ]}
+    ),
+
+    # Language info from related titles is not used
+    ('', ['730 0#$aBible.$pO.T.$pJudges V.$lGerman$sGrether.'], {}),
+
+    # If there are 546s, those lang notes override generated ones
+    ('hun', ['041 0#$ahun$bfre$bger$brus',
+             '546 ##$aIn Hungarian; summaries in French, German, or Russian.'],
+     {'language_facet': ['Hungarian', 'French', 'German', 'Russian']}
+    ),
+
+    # Language info from combined sources
+    ('eng', ['041 0#$deng$eeng$efre$eger',
+             '041 0#$geng',
+             '041 1#$deng$hrus$eeng$nrus$geng$gfre$gger',
+             '130 0#$aBible.$pN.T.$pRomans.$lEnglish.$sRevised standard.',
+             '730 02$aSome title.$lKlingon.'],
+     {'language_facet': ['English', 'French', 'German', 'Russian', 'Klingon'],
+      'language_notes': [
+        'Item content: English, Klingon',
+        'Translated from (original): Russian',
+        'Librettos: English, French, German',
+        'Librettos translated from (original): Russian',
+        'Accompanying materials: English, French, German'
+      ]}
+    ),
+], ids=[
+    # Edge cases
+    'No language info at all (no 008s, titles, or 041s)',
+    '008 without valid cps 35-37',
+
+    # Main tests
+    'Language info just from 008',
+    'Language info just from 041, example 1',
+    'Language info just from 041, example 2',
+    'Language info just from 041, example 3',
+    'Language info just from 041, example 4  -- multiple 041s',
+    'Ignore 041 if it uses something other than MARC relator codes',
+    'Language info just from titles',
+    'Language info from related titles is not used',
+    'If there are 546s, those lang notes override generated ones',
+    'Language info from combined sources',
+])
+def test_blasmpipeline_getlanguageinfo(f008_lang, raw_marcfields, expected,
+                                       marcfield_strings_to_params,
+                                       bl_sierra_test_record,
+                                       blasm_pipeline_class,
+                                       marcutils_for_subjects,
+                                       bibrecord_to_pymarc,
+                                       add_marc_fields,
+                                       assert_json_matches_expected):
+    """
+    BlacklightASMPipeline.get_language_info should return fields
+    matching the expected parameters.
+    """
+    pipeline = blasm_pipeline_class()
+    bib = bl_sierra_test_record('bib_no_items')
+    bibmarc = bibrecord_to_pymarc(bib)
+    marcfields = marcfield_strings_to_params(raw_marcfields)
+    if f008_lang:
+        data = bibmarc.get_fields('008')[0].data
+        data = '{}{}{}'.format(data[0:35], f008_lang, data[38:])
+        marcfields = [('008', data)] + marcfields
+    bibmarc.remove_fields('008', '041', '130', '240', '546', '700', '710',
+                          '711', '730', '740')
+    bibmarc = add_marc_fields(bibmarc, marcfields)
+    pipeline.get_title_info(bib, bibmarc)
+    info = pipeline.get_general_5xx_info(bib, bibmarc)
+    if info['language_notes']:
+        pipeline.bundle['language_notes'] = info['language_notes']
+    val = pipeline.get_language_info(bib, bibmarc)
+    for k, v in val.items():
+        print k, v
+        if k in expected:
+            if isinstance(v, list):
+                assert sorted(v) == sorted(expected[k])
+            else:
+                assert v == expected[k]
+        else:
+            assert v is None
+
 
 @pytest.mark.parametrize('marcfields, expected', [
     ([('600', ['a', 'Churchill, Winston,', 'c', 'Sir,', 'd', '1874-1965.'],

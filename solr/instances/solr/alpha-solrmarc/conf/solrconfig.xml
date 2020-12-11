@@ -1993,7 +1993,6 @@
          publishers_search^2500
          publication_places_search^2500
          toc_notes^1000
-         text^10
        </str>
        <str name="creator_qf">
          author_search^1000
@@ -2065,7 +2064,10 @@
        </str>
         
        <int name="ps">3</int>
+       <!--<int name="ps">10</int>-->
        <float name="tie">0.01</float>
+
+       <!--<str name="subject_bq">_query_:"{!dismax v=$user_query mm='100%' bq='' ps=0 qf=$subject_qf pf=$subject_pf}"^1000</str>-->
  
        <str name="fl">
          id, 
@@ -2078,7 +2080,6 @@
          call_numbers_display,
          all_standard_numbers,
          all_control_numbers,
-         languages,
          main_call_number,
          resource_type,
          publication_year_display,

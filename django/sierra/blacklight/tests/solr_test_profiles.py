@@ -54,9 +54,8 @@ ALPHASOLRMARC_FIELDS = (
     'topic_facet', 'era_facet', 'region_facet', 'genre_facet',
     'subjects_search_exact_headings', 'subjects_search_main_terms',
     'subjects_search_all_terms', 'genres_search_exact_headings',
-    'genres_search_main_terms', 'genres_search_all_terms',
+    'genres_search_main_terms', 'genres_search_all_terms', 'language_facet'
     # OLD FIELDS ARE BELOW
-    'languages', 'text'
 )
 
 # AlphaSolrmarc field specific gen functions
@@ -117,7 +116,7 @@ ALPHASOLRMARC_GENS = (
     ('games_ages_facet', 'auto'),
     ('games_duration_facet', 'auto'),
     ('games_players_facet', 'auto'),
-    ('languages', 'auto'),
+    ('language_facet', 'auto'),
     ('isbn_numbers', GENS(tp.chance(tp.multi(tp.isbn_number, 1, 5), 66))),
     ('issn_numbers', GENS(tp.chance(tp.multi(tp.issn_number, 1, 5), 33))),
     ('lccn_number', GENS(tp.chance(GENS.type('int', mn=10000, mx=99999), 80))),
@@ -191,9 +190,6 @@ ALPHASOLRMARC_GENS = (
     ('author_contributor_facet', GENS(author_contributor_facet)),
     ('meeting_facet', GENS(tp.copy_field('meetings_search'))),
     ('suppressed', GENS.static(False)),
-    ('text', GENS(tp.join_fields([
-        'id', 'languages', 'summary_notes', 'toc_notes', 'full_subjects'
-    ])))
 )
 
 

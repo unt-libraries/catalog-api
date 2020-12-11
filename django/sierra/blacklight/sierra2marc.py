@@ -1150,6 +1150,59 @@ class StandardControlNumberParser(SequentialMarcFieldParser):
         return self.numbers
 
 
+class LanguageParser(SequentialMarcFieldParser):
+    """
+    Parse 041 fields to extract detailed language information.
+    """
+    category_map = (
+        ('a', 'Item content'),
+        ('h', 'Translated from (original)'),
+        ('k', 'Intermediate translations'),
+        ('b', 'Summary or abstract'),
+        ('f', 'Table of contents'),
+        ('i', 'Intertitles'),
+        ('j', 'Subtitles'),
+        ('p', 'Captions'),
+        ('q', 'Accessible audio'),
+        ('r', 'Accessible visual language'),
+        ('t', 'Transcripts'),
+        ('e', 'Librettos'),
+        ('n', 'Librettos translated from (original)'),
+        ('g', 'Accompanying materials'),
+        ('m', 'Accompanying materials translated from (original)'),
+    )
+
+    def __init__(self, field, utils=None):
+        super(LanguageParser, self).__init__(field)
+        self.utils = utils or MarcUtils()
+        self.languages = OrderedDict()
+        self.categorized = OrderedDict()
+
+    @classmethod
+    def generate_language_notes_display(cls, cat):
+        vals = []
+        for key, label in cls.category_map:
+            if cat.get(key):
+                languages = ', '.join(cat[key])
+                vals.append(': '.join((label, languages)))
+        return vals
+
+    def parse_subfield(self, tag, val):
+        if tag not in self.utils.control_sftags:
+            tag = 'a' if tag == 'd' else tag
+            language = settings.MARCDATA.LANGUAGE_CODES.get(val)
+            if language:
+                self.languages[language] = None
+                self.categorized[tag] = self.categorized.get(tag, OrderedDict())
+                self.categorized[tag][language] = None
+
+    def compile_results(self):
+        return {
+            'languages': self.languages.keys(),
+            'categorized': {k: v.keys() for k, v in self.categorized.items()}
+        }
+
+
 def extract_name_structs_from_field(field):
     if field.tag.endswith('00'):
         return [PersonalNameParser(field).parse()]
@@ -1941,7 +1994,8 @@ class BlacklightASMPipeline(object):
         'thumbnail_url', 'pub_info', 'access_info', 'resource_type_info',
         'contributor_info', 'title_info', 'general_3xx_info',
         'general_5xx_info', 'call_number_info', 'standard_number_info',
-        'control_number_info', 'games_facets_info', 'subjects_info'
+        'control_number_info', 'games_facets_info', 'subjects_info',
+        'language_info',
     ]
     prefix = 'get_'
     access_online_label = 'Online'
@@ -1957,6 +2011,7 @@ class BlacklightASMPipeline(object):
         super(BlacklightASMPipeline, self).__init__()
         self.bundle = {}
         self.name_titles = []
+        self.title_languages = []
 
     @property
     def sierra_location_labels(self):
@@ -2809,6 +2864,8 @@ class BlacklightASMPipeline(object):
             title = extract_title_struct_from_field(f)
             if title:
                 entry['title'] = gather_title_info(f, title, entry['names'])
+                if title['type'] in ('main', 'analytic'):
+                    self.title_languages.extend(title.get('languages', []))
         return entry
 
     def parse_nonsubject_name_titles(self, marc_record):
@@ -4110,6 +4167,51 @@ class BlacklightASMPipeline(object):
             'genres_search_all_terms': g_search['all'] or None,
         }
 
+    def get_language_info(self, r, marc_record):
+        """
+        Collect all relevant language information from the record
+        (including the 008[35-37], the 041(s), and languages associated
+        with titles) and return labels for `language_facet`. In
+        addition, if `language_notes` is not already present (from
+        parsing one or more 546 fields), generate notes as needed.
+        """
+        facet, notes = [], []
+        needs_notes = not self.bundle.get('language_notes')
+        all_languages = OrderedDict()
+        categorized = {'a': OrderedDict()}
+        tlangs = self.title_languages
+
+        f008 = (marc_record.get_fields('008') or [None])[0]
+        if f008 is not None and len(f008.data) >= 38:
+            lang_code = f008.data[35:38]
+            main_lang = settings.MARCDATA.LANGUAGE_CODES.get(lang_code)
+            if main_lang:
+                all_languages[main_lang] = None
+                categorized['a'][main_lang] = None
+
+        for lang in self.title_languages:
+            all_languages[lang] = None
+            categorized['a'][lang] = None
+
+        for f in marc_record.get_fields('041'):
+            parsed = LanguageParser(f).parse()
+            for lang in parsed['languages']:
+                all_languages[lang] = None
+            for key, langs in parsed['categorized'].items():
+                categorized[key] = categorized.get(key, OrderedDict())
+                for lang in langs:
+                    categorized[key][lang] = None
+
+        facet = all_languages.keys()
+        if needs_notes:
+            categorized = {k: odict.keys() for k, odict in categorized.items()}
+            notes = LanguageParser.generate_language_notes_display(categorized)
+
+        return {
+            'language_facet': facet or None,
+            'language_notes': notes or None,
+        }
+
 
 class PipelineBundleConverter(object):
     """
@@ -4164,7 +4266,8 @@ class PipelineBundleConverter(object):
         ( '970', ('suppressed', 'date_added', 'access_facet', 'building_facet',
                   'shelf_facet', 'collection_facet', 'resource_type',
                   'resource_type_facet', 'media_type_facet', 'games_ages_facet',
-                  'games_duration_facet', 'games_players_facet') ),
+                  'games_duration_facet', 'games_players_facet',
+                  'language_facet') ),
         ( '971', ('items_json',) ),
         ( '971', ('has_more_items',) ),
         ( '971', ('more_items_json',) ),

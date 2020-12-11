@@ -272,6 +272,7 @@
     <field name="collection_facet" type="string" indexed="true" stored="false" multiValued="true"/>
     <field name="resource_type_facet" type="string" indexed="true" stored="false" multiValued="true"/>
     <field name="media_type_facet" type="string" indexed="true" stored="false" multiValued="true"/>
+    <field name="language_facet" type="string" indexed="true" stored="false" multiValued="true"/>
     <field name="author_contributor_facet" type="string" indexed="true" stored="false" multiValued="true"/>
     <field name="meeting_facet" type="string" indexed="true" stored="false" multiValued="true"/>
     <field name="title_series_facet" type="string" indexed="true" stored="false" multiValued="true"/>
@@ -298,6 +299,7 @@
     <copyField source="collection_facet" dest="metadata_facets_search"/>
     <copyField source="resource_type_facet" dest="metadata_facets_search"/>
     <copyField source="media_type_facet" dest="metadata_facets_search"/>
+    <copyField source="language_facet" dest="metadata_facets_search"/>
     <field name="building_locations" type="string" indexed="false" stored="true" multiValued="true"/>
     <copyField source="building_facet" dest="building_locations"/>
 
@@ -433,6 +435,8 @@
     <field name="geographic_terms_facet" type="string" indexed="true" stored="false" multiValued="true" />
     <field name="era_terms_facet" type="string" indexed="true" stored="false" multiValued="true" />
     <field name="public_genre_facet" type="string" indexed="true" stored="false" multiValued="true" />
+    <!-- Language Field -->
+    <field name="languages" type="string" indexed="true" stored="true" multiValued="true" />
 
 
     <!-- These fields aren't being used anyway so I am removing them. -->
@@ -447,9 +451,6 @@
     <!-- OLD FIELDS: TO-DO ################################################################################
          Everything below has yet to be looked at and added to the schema revisions.
     -->
-    
-    <!-- Language Field -->
-    <field name="languages" type="string" indexed="true" stored="true" multiValued="true" />
     
     <!-- Commenting out other/default dynamic fields, just to simplify things.
     <dynamicField name="*_i"  type="sint"    indexed="true"  stored="true"/>
