@@ -4172,9 +4172,9 @@ class BlacklightASMPipeline(object):
         """
         Collect all relevant language information from the record
         (including the 008[35-37], the 041(s), and languages associated
-        with titles) and return labels for `language_facet`. In
-        addition, if `language_notes` is not already present (from
-        parsing one or more 546 fields), generate notes as needed.
+        with titles) and return labels for `languages`. In addition, if
+        `language_notes` is not already present (from parsing one or
+        more 546 fields), generate notes as needed.
         """
         facet, notes = [], []
         needs_notes = not self.bundle.get('language_notes')
@@ -4209,7 +4209,7 @@ class BlacklightASMPipeline(object):
             notes = LanguageParser.generate_language_notes_display(categorized)
 
         return {
-            'language_facet': facet or None,
+            'languages': facet or None,
             'language_notes': notes or None,
         }
 
@@ -4268,7 +4268,7 @@ class PipelineBundleConverter(object):
                   'shelf_facet', 'collection_facet', 'resource_type',
                   'resource_type_facet', 'media_type_facet', 'games_ages_facet',
                   'games_duration_facet', 'games_players_facet',
-                  'language_facet') ),
+                  'languages') ),
         ( '971', ('items_json',) ),
         ( '971', ('has_more_items',) ),
         ( '971', ('more_items_json',) ),

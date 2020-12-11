@@ -54,7 +54,7 @@ ALPHASOLRMARC_FIELDS = (
     'topic_facet', 'era_facet', 'region_facet', 'genre_facet',
     'subjects_search_exact_headings', 'subjects_search_main_terms',
     'subjects_search_all_terms', 'genres_search_exact_headings',
-    'genres_search_main_terms', 'genres_search_all_terms', 'language_facet'
+    'genres_search_main_terms', 'genres_search_all_terms', 'languages'
     # OLD FIELDS ARE BELOW
 )
 
@@ -116,7 +116,7 @@ ALPHASOLRMARC_GENS = (
     ('games_ages_facet', 'auto'),
     ('games_duration_facet', 'auto'),
     ('games_players_facet', 'auto'),
-    ('language_facet', 'auto'),
+    ('languages', 'auto'),
     ('isbn_numbers', GENS(tp.chance(tp.multi(tp.isbn_number, 1, 5), 66))),
     ('issn_numbers', GENS(tp.chance(tp.multi(tp.issn_number, 1, 5), 33))),
     ('lccn_number', GENS(tp.chance(GENS.type('int', mn=10000, mx=99999), 80))),

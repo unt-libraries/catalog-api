@@ -2312,7 +2312,7 @@ def test_blasmpipeline_getresourcetypeinfo(bcode2,
     # Main tests
     # Language info just from 008
     ('eng', [],
-     {'language_facet': ['English'],
+     {'languages': ['English'],
       'language_notes': [
         'Item content: English'
       ]}
@@ -2320,7 +2320,7 @@ def test_blasmpipeline_getresourcetypeinfo(bcode2,
 
     # Language info just from 041, example 1
     ('', ['041 1#$aeng$hger$hswe'],
-     {'language_facet': ['English', 'German', 'Swedish'],
+     {'languages': ['English', 'German', 'Swedish'],
       'language_notes': [
         'Item content: English',
         'Translated from (original): German, Swedish'
@@ -2329,7 +2329,7 @@ def test_blasmpipeline_getresourcetypeinfo(bcode2,
 
     # Language info just from 041, example 2
     ('', ['041 0#$aeng$afre$ager'],
-     {'language_facet': ['English', 'French', 'German'],
+     {'languages': ['English', 'French', 'German'],
       'language_notes': [
         'Item content: English, French, German',
       ]}
@@ -2337,7 +2337,7 @@ def test_blasmpipeline_getresourcetypeinfo(bcode2,
 
     # Language info just from 041, example 3
     ('', ['041 1#$ifre$jeng$jger'],
-     {'language_facet': ['English', 'French', 'German'],
+     {'languages': ['English', 'French', 'German'],
       'language_notes': [
         'Intertitles: French',
         'Subtitles: English, German'
@@ -2348,7 +2348,7 @@ def test_blasmpipeline_getresourcetypeinfo(bcode2,
     ('', ['041 0#$deng$eeng$efre$eger',
           '041 0#$geng',
           '041 1#$deng$hrus$eeng$nrus$geng$gfre$gger'],
-     {'language_facet': ['English', 'French', 'German', 'Russian'],
+     {'languages': ['English', 'French', 'German', 'Russian'],
       'language_notes': [
         'Item content: English',
         'Translated from (original): Russian',
@@ -2364,7 +2364,7 @@ def test_blasmpipeline_getresourcetypeinfo(bcode2,
     # Language info just from titles
     ('', ['130 0#$aBible.$pN.T.$pRomans.$lEnglish.$sRevised standard.',
           '730 02$aBible.$pO.T.$pJudges V.$lGerman$sGrether.'],
-     {'language_facet': ['English', 'German'],
+     {'languages': ['English', 'German'],
       'language_notes': [
         'Item content: English, German',
       ]}
@@ -2376,7 +2376,7 @@ def test_blasmpipeline_getresourcetypeinfo(bcode2,
     # If there are 546s, those lang notes override generated ones
     ('hun', ['041 0#$ahun$bfre$bger$brus',
              '546 ##$aIn Hungarian; summaries in French, German, or Russian.'],
-     {'language_facet': ['Hungarian', 'French', 'German', 'Russian']}
+     {'languages': ['Hungarian', 'French', 'German', 'Russian']}
     ),
 
     # Language info from combined sources
@@ -2385,7 +2385,7 @@ def test_blasmpipeline_getresourcetypeinfo(bcode2,
              '041 1#$deng$hrus$eeng$nrus$geng$gfre$gger',
              '130 0#$aBible.$pN.T.$pRomans.$lEnglish.$sRevised standard.',
              '730 02$aSome title.$lKlingon.'],
-     {'language_facet': ['English', 'French', 'German', 'Russian', 'Klingon'],
+     {'languages': ['English', 'French', 'German', 'Russian', 'Klingon'],
       'language_notes': [
         'Item content: English, Klingon',
         'Translated from (original): Russian',
