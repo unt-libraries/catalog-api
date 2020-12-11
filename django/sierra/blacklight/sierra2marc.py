@@ -2037,10 +2037,11 @@ class BlacklightASMPipeline(object):
             method_name = '{}{}'.format(self.prefix, fname)
             result = getattr(self, method_name)(r, marc_record)
             for k, v in result.items():
-                if k in self.bundle and self.bundle[k] and v:
-                    self.bundle[k].extend(v)
-                else:
-                    self.bundle[k] = v
+                if v:
+                    if k in self.bundle and self.bundle[k]:
+                        self.bundle[k].extend(v)
+                    else:
+                        self.bundle[k] = v
         return self.bundle
 
     def fetch_varfields(self, record, vf_code, only_first=False):

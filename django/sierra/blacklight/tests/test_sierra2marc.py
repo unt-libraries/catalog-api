@@ -2448,6 +2448,10 @@ def test_blasmpipeline_getlanguageinfo(f008_lang, raw_marcfields, expected,
                 assert v == expected[k]
         else:
             assert v is None
+    if info['language_notes']:
+        pipeline = blasm_pipeline_class()
+        result = pipeline.do(bib, bibmarc)
+        assert result['language_notes']
 
 
 @pytest.mark.parametrize('marcfields, expected', [
