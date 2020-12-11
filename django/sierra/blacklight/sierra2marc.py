@@ -2008,7 +2008,7 @@ class BlacklightASMPipeline(object):
         """
         Return the III Record Number, minus the check digit.
         """
-        return { 'id': '.{}'.format(r.record_metadata.get_iii_recnum(False)) }
+        return { 'id': r.record_metadata.get_iii_recnum(False) }
 
     def get_suppressed(self, r, marc_record):
         """
@@ -3361,6 +3361,12 @@ class BlacklightASMPipeline(object):
             return self.compile_performance_medium(parsed)
 
         record_parser = MultiFieldMarcRecordParser(marc_record, (
+            ('current_publication_frequency', {
+                'fields': {'include': ('310',)}
+            }),
+            ('former_publication_frequency', {
+                'fields': {'include': ('321',)}
+            }),
             ('physical_medium', {
                 'fields': {'include': ('340',)},
                 'parse_func': join_subfields_with_semicolons
@@ -3430,6 +3436,30 @@ class BlacklightASMPipeline(object):
                 {'1': 'Cast'}
             )
 
+        def parse_520_summary_notes(field, sf_filter):
+            class SummaryParser(GenericDisplayFieldParser):
+                def parse_subfield(self, tag, val):
+                    if tag == 'c':
+                        val = p.strip_brackets(val, keep_inner=True,
+                                               to_remove_re=r'', protect_re=r'')
+                        val = p.strip_ends(val, end='right')
+                        val = '[{}]'.format(val)
+                    super(SummaryParser, self).parse_subfield(tag, val)
+
+            def parse_summary(field, sf_filter):
+                return SummaryParser(field, ' ', sf_filter).parse()
+
+            return _generate_display_constant(
+                lambda: parse_summary(field, sf_filter),
+                field.indicator1,
+                {'0': 'Subject',
+                 '1': 'Review',
+                 '2': 'Scope and content',
+                 '3': 'Abstract',
+                 '4': 'Content advice'
+                }
+            )
+
         def parse_all_other_notes(field, sf_filter):
             if field.tag == '521':
                 val = _generate_display_constant(
@@ -3463,9 +3493,19 @@ class BlacklightASMPipeline(object):
             return join_subfields_with_spaces(field, sf_filter)
 
         record_parser = MultiFieldMarcRecordParser(marc_record, (
+            ('toc_notes', {
+                'fields': {'include': ('505',)}
+            }),
+            ('production_credits', {
+                'fields': {'include': ('508',)}
+            }),
             ('performers', {
                 'fields': {'include': ('511',)},
                 'parse_func': parse_511_performers
+            }),
+            ('summary_notes', {
+                'fields': {'include': ('520',)},
+                'parse_func': parse_520_summary_notes
             }),
             ('language_notes', {
                 'fields': {'include': ('546',)},
@@ -4197,7 +4237,10 @@ class PipelineBundleConverter(object):
                   'audio_characteristics', 'projection_characteristics',
                   'video_characteristics', 'digital_file_characteristics',
                   'graphic_representation', 'performance_medium', 'performers',
-                  'language_notes', 'dissertation_notes', 'notes') ),
+                  'language_notes', 'dissertation_notes', 'notes', 'toc_notes',
+                  'summary_notes', 'production_credits',
+                  'current_publication_frequency',
+                  'former_publication_frequency') ),
     )
 
     def __init__(self, mapping=None):

@@ -989,7 +989,7 @@ def test_blasmpipeline_getid(bl_sierra_test_record, blasm_pipeline_class):
     pipeline = blasm_pipeline_class()
     bib = bl_sierra_test_record('b6029459')
     val = pipeline.get_id(bib, None)
-    assert val == {'id': '.b6029459'}
+    assert val == {'id': 'b6029459'}
 
 
 @pytest.mark.parametrize('in_val, expected', [
@@ -6343,11 +6343,12 @@ def test_blasmpipeline_getgeneral3xxinfo(add_marc_fields, blasm_pipeline_class):
     matching the expected parameters.
     """
     exclude = s2m.IGNORED_MARC_FIELDS_BY_GROUP_TAG['r']
-    handled = ('310', '321')
-    exc_fields = [(''.join(('r', t)), ['a', 'No']) for t in exclude + handled]
+    exc_fields = [(''.join(('r', t)), ['a', 'No']) for t in exclude]
     inc_fields = [
         ('r300', ['a', '300 desc 1', '0', 'exclude']),
         ('r300', ['a', '300 desc 2', '1', 'exclude']),
+        ('r310', ['a', 'Monthly,', 'b', '1958-']),
+        ('r321', ['a', 'Bimonthly,', 'b', '1954-1957']),
         ('r340', ['3', 'self-portrait', 'a', 'rice paper', 'b', '7" x 9"']),
         ('r342', ['a', 'Polyconic', 'g', '0.9996', 'h', '0', 'i', '500,000']),
         ('r343', ['a', 'Coordinate pair;', 'b', 'meters;', 'c', '22;',
@@ -6372,6 +6373,8 @@ def test_blasmpipeline_getgeneral3xxinfo(add_marc_fields, blasm_pipeline_class):
                   'n', '1', 's', '8', '2', 'lcmpt'])
     ]
     expected = {
+        'current_publication_frequency': ['Monthly, 1958-'],
+        'former_publication_frequency': ['Bimonthly, 1954-1957'],
         'physical_medium': ['(self-portrait) rice paper; 7" x 9"'],
         'geospatial_data': ['Polyconic; 0.9996; 0; 500,000',
                             'Coordinate pair; meters; 22; 22.'],
@@ -6400,7 +6403,7 @@ def test_blasmpipeline_getgeneral5xxinfo(add_marc_fields, blasm_pipeline_class):
     matching the expected parameters.
     """
     exclude = s2m.IGNORED_MARC_FIELDS_BY_GROUP_TAG['n']
-    handled = ('505', '508', '520', '592')
+    handled = ('592',)
     exc_fields = [(''.join(('r', t)), ['a', 'No']) for t in exclude + handled]
     inc_fields = [
         ('n500', ['a', 'General Note.', '0', 'exclude']),
@@ -6409,8 +6412,24 @@ def test_blasmpipeline_getgeneral5xxinfo(add_marc_fields, blasm_pipeline_class):
                   'd', 'August, 2012.']),
         ('n502', ['g', 'Some diss', 'b', 'Ph. D.',
                   'c', 'University of North Texas', 'd', 'August, 2012.']),
+        ('n505', ['a', 'Future land use plan -- Recommended capital '
+                       'improvements -- Existing land use -- Existing '
+                       'zoning.']),
+        ('n505', ['g', 'Nr. 1.', 't', 'Region Neusiedlersee --', 'g', 'Nr. 2.',
+                  't', 'Region Rosalia/Lithagebirge /',
+                  'r', 'by L. H. Fellows.']),
+        ('n508', ['a', 'Educational consultant, Roseanne Gillis.']),
         ('n511', ['a', 'Hosted by Hugh Downs.'], '0 '),
         ('n511', ['a', 'Colin Blakely, Jane Lapotaire.'], '1 '),
+        ('n520', ['a', 'Short summary.', 'b', 'Long summary.'], '  '),
+        ('n520', ['a', 'Short summary.', 'b', 'Long summary.'], '8 '),
+        ('n520', ['a', 'Two head-and-shoulder portraits ...'], '0 '),
+        ('n520', ['a', 'This book is great!'], '1 '),
+        ('n520', ['a', 'Item consists of XYZ.'], '2 '),
+        ('n520', ['a', 'The study examines ...'], '3 '),
+        ('n520', ['a', 'Contains violence',
+                  'c', '[Revealweb organization code]'], '4 '),
+        ('n520', ['a', '"Not safe for life."', 'c', 'Family Filmgoer.'], '4 '),
         ('n521', ['a', 'Clinical students, postgraduate house officers.'],
          '  '),
         ('n521', ['a', '3.1.'], '0 '),
@@ -6433,6 +6452,23 @@ def test_blasmpipeline_getgeneral5xxinfo(add_marc_fields, blasm_pipeline_class):
         ('n588', ['a', '2001.'], '1 '),
     ]
     expected = {
+        'toc_notes': [
+            'Future land use plan -- Recommended capital improvements -- '
+            'Existing land use -- Existing zoning.',
+            'Nr. 1. Region Neusiedlersee -- Nr. 2. Region Rosalia/Lithagebirge '
+            '/ by L. H. Fellows.'
+        ],
+        'summary_notes': [
+            'Short summary. Long summary.',
+            'Short summary. Long summary.',
+            'Subject: Two head-and-shoulder portraits ...',
+            'Review: This book is great!',
+            'Scope and content: Item consists of XYZ.',
+            'Abstract: The study examines ...',
+            'Content advice: Contains violence [Revealweb organization code]',
+            'Content advice: "Not safe for life." [Family Filmgoer]'
+        ],
+        'production_credits': ['Educational consultant, Roseanne Gillis.'],
         'performers': [
             'Hosted by Hugh Downs.',
             'Cast: Colin Blakely, Jane Lapotaire.'
