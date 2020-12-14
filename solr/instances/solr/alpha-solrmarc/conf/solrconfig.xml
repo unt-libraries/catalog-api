@@ -1942,132 +1942,140 @@
        <str name="mm">2&lt;-1 5&lt;-2 6&lt;90%</str>
  
        <str name="qf">
-         main_title_search^25000
-         publication_dates_search^5000
-         included_work_titles_search^5000
-         variant_titles_search^1500
-         related_series_title_search^1500
-         author_search^1000
-         responsibility_search^1000
-         contributors_search^500
-         related_work_titles_search^500
-         resource_type^500
-         metadata_facet_text^500
-         genres_search_main_terms^500
-         subjects_search_main_terms^450
-         genres_search_all_terms^300
-         subjects_search_all_terms^250
-         genres_search_exact_headings^225
-         subjects_search_exact_headings^200
-         sudocs_search^150
-         meetings_search^150
-         publishers_search^250
-         publication_places_search^100
-         toc_notes^100
-         call_numbers_search^100
-         sudocs_search^100
-         standard_numbers_search^100
-         control_numbers_search^100
+         resource_type^100
+         metadata_facet_text^100
+         main_title_search^75
+         publication_dates_search^75
+         included_work_titles_search^70
+         variant_titles_search^70
+         related_series_title_search^70
+         author_search^60
+         responsibility_search^50
+         contributors_search^55
+         related_work_titles_search^25
+         genres_search_main_terms^30
+         subjects_search_main_terms^25
+         genres_search_all_terms^15
+         subjects_search_all_terms^10
+         genres_search_exact_headings^10
+         subjects_search_exact_headings^5
+         sudocs_search^2
+         meetings_search^1
+         publishers_search^2
+         publication_places_search^1
+         toc_notes^1
+         call_numbers_search^1
+         sudocs_search^1
+         standard_numbers_search^1
+         control_numbers_search^1
          text
        </str>
        <str name="pf">
-         main_title_search^250000
-         included_work_titles_search^50000
-         author_search^50000
-         standard_numbers_search^40000
-         control_numbers_search^40000
-         responsibility_search^30000
-         contributors_search^30000
-         variant_titles_search^15000
-         related_series_title_search^15000
-         related_work_titles_search^5000
-         resource_type^5000
-         metadata_facet_text^5000
-         genres_search_exact_headings^5000
-         genres_search_main_terms^5000
-         subjects_search_exact_headings^4500
-         subjects_search_main_terms^4500
-         genres_search_all_terms^3000
-         subjects_search_all_terms^2500
-         meetings_search^1500
-         publishers_search^2500
-         publication_places_search^2500
-         toc_notes^1000
+         main_title_search^200
+         included_work_titles_search^190
+         author_search^180
+         standard_numbers_search^175
+         control_numbers_search^175
+         responsibility_search^175
+         contributors_search^175
+         variant_titles_search^170
+         related_series_title_search^170
+         related_work_titles_search^125
+         resource_type^130
+         metadata_facet_text^125
+         genres_search_main_terms^130
+         subjects_search_main_terms^125
+         genres_search_all_terms^115
+         subjects_search_all_terms^110
+         genres_search_exact_headings^110
+         subjects_search_exact_headings^105
+         meetings_search^101
+         publishers_search^102
+         publication_places_search^101
+         toc_notes^101
        </str>
+       <str name="bq">_query_:"{!dismax v=$user_query mm='100%' bq='' ps=0}"^1000</str>
+
        <str name="creator_qf">
-         author_search^1000
-         responsibility_search^750
-         contributors_search^500
+         author_search^100
+         contributors_search^75
+         responsibility_search^70
        </str>
        <str name="creator_pf">
-         author_search^10000
-         responsibility_search^7500
-         contributors_search^5000
+         author_search^200
+         contributors_search^175
+         responsibility_search^170
        </str>
+       <str name="creator_bq">_query_:"{!dismax v=$user_query mm='100%' bq='' ps=0 qf=$creator_qf pf=$creator_pf}"^1000</str>
+       
        <str name="title_qf">
-         main_title_search^25000
-         included_work_titles_search^5000
-         variant_titles_search^1500
-         related_series_title_search^1500
-         related_work_titles_search^500
+         main_title_search^100
+         included_work_titles_search^70
+         variant_titles_search^70
+         related_series_title_search^70
+         related_work_titles_search^50
        </str>
        <str name="title_pf">
-         main_title_search^250000
-         included_work_titles_search^50000
-         variant_titles_search^15000
-         related_series_title_search^15000
-         related_work_titles_search^5000
+         main_title_search^200
+         included_work_titles_search^170
+         variant_titles_search^170
+         related_series_title_search^170
+         related_work_titles_search^150
        </str>
+       <str name="title_bq">_query_:"{!dismax v=$user_query mm='100%' bq='' ps=0 qf=$title_qf pf=$title_pf}"^1000</str>
+       
        <str name="subject_qf">
-         subjects_search_main_terms^450
-         subjects_search_all_terms^250
-         subjects_search_exact_headings^200
+         subjects_search_main_terms^100
+         subjects_search_all_terms^70
+         subjects_search_exact_headings^65
        </str>
        <str name="subject_pf">
-         subjects_search_exact_headings^4500
-         subjects_search_main_terms^4500
-         subjects_search_all_terms^2500
+         subjects_search_exact_headings^200
+         subjects_search_main_terms^170
+         subjects_search_all_terms^165
        </str>
+       <str name="subject_bq">_query_:"{!dismax v=$user_query mm='100%' bq='' ps=0 qf=$subject_qf pf=$subject_pf}"^1000</str>
+       
        <str name="genre_qf">
-         genres_search_main_terms^500
-         genres_search_all_terms^300
-         genres_search_exact_headings^225
+         genres_search_main_terms^100
+         genres_search_all_terms^70
+         genres_search_exact_headings^65
        </str>
        <str name="genre_pf">
-         genres_search_exact_headings^5000
-         genres_search_main_terms^5000
-         genres_search_all_terms^3000
+         genres_search_exact_headings^200
+         genres_search_main_terms^170
+         genres_search_all_terms^165
        </str>
+       <str name="genre_bq">_query_:"{!dismax v=$user_query mm='100%' bq='' ps=0 qf=$genre_qf pf=$genre_pf}"^1000</str>
+       
        <str name="cn_qf">
          call_numbers_search^100
        </str>
        <str name="cn_pf">
-         call_numbers_search^40000
+         call_numbers_search^200
        </str>
        <str name="sudoc_qf">
          sudocs_search^100
        </str>
        <str name="sudoc_pf">
-         sudocs_search^40000
+         sudocs_search^200
        </str>
        <str name="snum_qf">
          standard_numbers_search^100
        </str>
        <str name="snum_pf">
-         standard_numbers_search^40000
+         standard_numbers_search^200
        </str>
        <str name="cnum_qf">
          control_numbers_search^100
        </str>
        <str name="cnum_pf">
-         control_numbers_search^40000
+         control_numbers_search^200
        </str>
         
-       <int name="ps">3</int>
+       <int name="ps">10</int>
        <!--<int name="ps">10</int>-->
        <float name="tie">0.01</float>
-
-       <!--<str name="subject_bq">_query_:"{!dismax v=$user_query mm='100%' bq='' ps=0 qf=$subject_qf pf=$subject_pf}"^1000</str>-->
  
        <str name="fl">
          id, 
