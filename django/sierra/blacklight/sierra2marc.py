@@ -2012,6 +2012,7 @@ class BlacklightASMPipeline(object):
         self.bundle = {}
         self.name_titles = []
         self.title_languages = []
+        self.this_year = datetime.now().year
 
     @property
     def sierra_location_labels(self):
@@ -2437,7 +2438,7 @@ class BlacklightASMPipeline(object):
 
         facet_years, facet_decades = set(), set()
         search_pdates = set()
-        this_year = datetime.now().year
+        this_year = self.this_year
         for year in list(described_years):
             if 'u' not in year:
                 facet_years.add(year)
@@ -4225,6 +4226,40 @@ class BlacklightASMPipeline(object):
             'language_notes': notes or None,
         }
 
+    def get_record_boost(self, r, marc_record):
+        """
+        Generate the value for a numeric field (`record_boost`) based
+        on, presently, two factors. One, publication year, as a measure
+        of recency. Two, `bcode1` (bib type or bib level), as a measure
+        of record quality. The idea is that we want to boost more
+        recent records and we want to deprioritize minimal records.
+
+        Maximum boost value for pub year is 505; 500 is for things
+        published this year, with leeway for things published up to 5
+        years in the future. >500 years ago is 1. Invalid or
+        non-existent pub dates default to 460, or ~40 years ago, just
+        to make sure they don't get buried.
+
+        For record quality, if bcode1 is `-` or `d` (full record or
+        Discovery record), then it gets an extra +500 boost, otherwise
+        +0.
+        """
+        boost = 460
+        pub_year = self.bundle.get('publication_year_facet', [None])[0]
+        this_year = self.this_year
+        try:
+            pub_year = int(pub_year)
+        except (ValueError, TypeError):
+            pass
+        else:
+            if pub_year <= 5 + this_year:
+                boost = 500 - (this_year - int(pub_year))
+            if boost < 1:
+                boost = 1
+        if r.bcode1 in ('-', 'd'):
+            boost += 500
+        return {'record_boost': boost}
+
 
 class PipelineBundleConverter(object):
     """
@@ -4280,7 +4315,7 @@ class PipelineBundleConverter(object):
                   'shelf_facet', 'collection_facet', 'resource_type',
                   'resource_type_facet', 'media_type_facet', 'games_ages_facet',
                   'games_duration_facet', 'games_players_facet',
-                  'languages') ),
+                  'languages', 'record_boost') ),
         ( '971', ('items_json',) ),
         ( '971', ('has_more_items',) ),
         ( '971', ('more_items_json',) ),

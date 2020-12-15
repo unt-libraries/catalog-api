@@ -9179,6 +9179,56 @@ def test_blasmpipeline_getsubjectsinfo(raw_marcfields, expected,
             assert v is None
 
 
+@pytest.mark.parametrize('this_year, pub_year, bib_type, expected', [
+    (2020, '2020', '-', 1000),
+    (2020, '2020', 'd', 1000),
+    (2020, '2019', '-', 999),
+    (2020, '1920', '-', 900),
+    (2020, '1820', '-', 800),
+    (2020, '1520', '-', 501),
+    (2020, '1420', '-', 501),
+    (2020, '2020', 'a', 500),
+    (2020, '2020', 'b', 500),
+    (2020, '2020', 'r', 500),
+    (2020, '2020', 'p', 500),
+    (2020, '2020', 'i', 500),
+    (2020, '2020', 's', 500),
+    (2020, '2020', 't', 500),
+    (2020, '2020', 'z', 500),
+    (2020, '2020', '0', 500),
+    (2020, '2020', '2', 500),
+    (2020, '2020', '4', 500),
+    (2020, '2019', 'a', 499),
+    (2020, '1920', 'a', 400),
+    (2020, '1820', 'a', 300),
+    (2020, '1520', 'a', 1),
+    (2020, '1420', 'a', 1),
+    (2020, '', 'a', 460),
+    (2020, None, 'a', 460),
+    (2020, None, '-', 960),
+    (2020, '9999', '-', 960),
+    (2020, '9999', '-', 960),
+    (2020, '2021', '-', 1001),
+    (2020, '2022', '-', 1002),
+    (2020, '2023', '-', 1003),
+    (2020, '2024', '-', 1004),
+    (2020, '2025', '-', 1005),
+    (2020, '2026', '-', 960),
+])
+def test_blasmpipeline_getrecordboost(this_year, pub_year, bib_type, expected,
+                                      bl_sierra_test_record,
+                                      bibrecord_to_pymarc, blasm_pipeline_class,
+                                      setattr_model_instance):
+    pipeline = blasm_pipeline_class()
+    bib = bl_sierra_test_record('bib_no_items')
+    bibmarc = bibrecord_to_pymarc(bib)
+    pipeline.bundle['publication_year_facet'] = [pub_year]
+    pipeline.this_year = this_year
+    setattr_model_instance(bib, 'bcode1', bib_type)
+    val = pipeline.get_record_boost(bib, bibmarc)
+    assert val['record_boost'] == expected
+
+
 @pytest.mark.parametrize('mapping, bundle, expected', [
     ( (('900', ('name', 'title')),),
       {'name': 'N1', 'title': 'T1'},

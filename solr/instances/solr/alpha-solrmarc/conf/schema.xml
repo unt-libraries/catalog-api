@@ -358,7 +358,6 @@
     <copyField source="current_publication_frequency" dest="publication_dates_search"/>
     <copyField source="former_publication_frequency" dest="publication_dates_search"/>
 
-
     <field name="type_format_search" type="stem_text" indexed="true" stored="false" multiValued="true"/>
     <copyField source="resource_type_facet" dest="type_format_search"/>
     <copyField source="media_type_facet" dest="type_format_search"/>
@@ -384,7 +383,8 @@
     <copyField source="publication_date_notes" dest="notes_search"/>
     <copyField source="variant_titles_notes" dest="notes_search"/>
 
-
+    <!-- "Boost" field(s) -->
+    <field name="record_boost" type="integer" indexed="true" stored="false" multiValued="false" />
 
 
     <!-- OLD FIELDS: DONE #################################################################################

@@ -54,7 +54,8 @@ ALPHASOLRMARC_FIELDS = (
     'topic_facet', 'era_facet', 'region_facet', 'genre_facet',
     'subjects_search_exact_headings', 'subjects_search_main_terms',
     'subjects_search_all_terms', 'genres_search_exact_headings',
-    'genres_search_main_terms', 'genres_search_all_terms', 'languages'
+    'genres_search_main_terms', 'genres_search_all_terms', 'languages',
+    'record_boost'
 )
 
 # AlphaSolrmarc field specific gen functions
