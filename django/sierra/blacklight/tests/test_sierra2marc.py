@@ -4539,7 +4539,7 @@ def test_generatefacetkey(fval, nf_chars, expected):
       'responsibility_display': 'Joe Smith; edited by Edward Copeland',
       'responsibility_search': ['Joe Smith; edited by Edward Copeland'],
       'main_work_title_json': {
-        'a': 'Smith, Joe',
+        'a': 'smith-joe!Smith, Joe',
         'p': [{'d': 'Specific Preferred Title [by Smith, J.]',
                'v': 'specific-preferred-title!Specific Preferred Title'}]
       },
@@ -4559,7 +4559,7 @@ def test_generatefacetkey(fval, nf_chars, expected):
       'responsibility_display': 'Joe Smith; edited by Edward Copeland',
       'responsibility_search': ['Joe Smith; edited by Edward Copeland'],
       'main_work_title_json': {
-        'a': 'Smith, Joe',
+        'a': 'smith-joe!Smith, Joe',
         'p': [{'d': 'Transcribed title [by Smith, J.]',
                'v': 'transcribed-title!Transcribed title'}]
       },
@@ -4589,10 +4589,12 @@ def test_generatefacetkey(fval, nf_chars, expected):
                     'Specific Preferred Title (1933)'}]
       },
       'included_work_titles_json': [
-        {'a': 'Jung, C. G. (Carl Gustav), 1875-1961',
+        {'a': 'jung-c-g-carl-gustav-1875-1961!'
+              'Jung, C. G. (Carl Gustav), 1875-1961',
          'p': [{'d': 'First work [by Jung, C.G.]',
                 'v': 'first-work!First work'}]},
-        {'a': 'Jung, C. G. (Carl Gustav), 1875-1961',
+        {'a': 'jung-c-g-carl-gustav-1875-1961!'
+              'Jung, C. G. (Carl Gustav), 1875-1961',
          'p': [{'d': 'Second work [by Jung, C.G.]',
                 'v': 'second-work!Second work'}]},
       ],
@@ -4628,10 +4630,11 @@ def test_generatefacetkey(fval, nf_chars, expected):
                     'Specific Preferred Title (1933)'}],
       },
       'included_work_titles_json': [
-        {'a': 'Jung, C. G. (Carl Gustav), 1875-1961',
+        {'a': 'jung-c-g-carl-gustav-1875-1961!'
+              'Jung, C. G. (Carl Gustav), 1875-1961',
          'p': [{'d': 'First work [by Jung, C.G.]',
                 'v': 'first-work!First work'}]},
-        {'a': 'Walter, Johannes',
+        {'a': 'walter-johannes!Walter, Johannes',
          'p': [{'d': 'Second work [by Walter, J.]',
                 'v': 'second-work!Second work'}]},
       ],
@@ -4668,10 +4671,12 @@ def test_generatefacetkey(fval, nf_chars, expected):
                     'Specific Preferred Title (1933)'}]
       },
       'included_work_titles_json': [
-        {'a': 'Jung, C. G. (Carl Gustav), 1875-1961',
+        {'a': 'jung-c-g-carl-gustav-1875-1961!'
+              'Jung, C. G. (Carl Gustav), 1875-1961',
          'p': [{'d': 'First work [by Jung, C.G.]',
                 'v': 'first-work!First work'}]},
-        {'a': 'Jung, C. G. (Carl Gustav), 1875-1961',
+        {'a': 'jung-c-g-carl-gustav-1875-1961!'
+              'Jung, C. G. (Carl Gustav), 1875-1961',
          'p': [{'d': 'Second work [by Jung, C.G.]',
                 'v': 'second-work!Second work'}]},
         {'p': [{'d': 'Three little pigs',
@@ -4712,10 +4717,12 @@ def test_generatefacetkey(fval, nf_chars, expected):
       },
       'included_work_titles_search': ['Specific Preferred Title (1933)'],
       'related_work_titles_json': [
-        {'a': 'Jung, C. G. (Carl Gustav), 1875-1961',
+        {'a': 'jung-c-g-carl-gustav-1875-1961!'
+              'Jung, C. G. (Carl Gustav), 1875-1961',
          'p': [{'d': 'First work [by Jung, C.G.]',
                 'v': 'first-work!First work'}]},
-        {'a': 'Jung, C. G. (Carl Gustav), 1875-1961',
+        {'a': 'jung-c-g-carl-gustav-1875-1961!'
+              'Jung, C. G. (Carl Gustav), 1875-1961',
          'p': [{'d': 'Second work [by Jung, C.G.]',
                 'v': 'second-work!Second work'}]},
       ],
@@ -4752,7 +4759,7 @@ def test_generatefacetkey(fval, nf_chars, expected):
                     'Specific Preferred Title (1933)'}]
       },
       'included_work_titles_json': [
-        {'a': 'Smith, Joe',
+        {'a': 'smith-joe!Smith, Joe',
          'p': [{'d': 'Second work [by Smith, J.]',
                 'v': 'second-work!Second work'}]},
         {'p': [{'d': 'Three little pigs',
@@ -4764,7 +4771,8 @@ def test_generatefacetkey(fval, nf_chars, expected):
         'Three little pigs'
       ],
       'related_work_titles_json': [
-        {'a': 'Jung, C. G. (Carl Gustav), 1875-1961',
+        {'a': 'jung-c-g-carl-gustav-1875-1961!'
+              'Jung, C. G. (Carl Gustav), 1875-1961',
          'p': [{'d': 'First work [by Jung, C.G.]',
                 'v': 'first-work!First work'}]},
         {'p': [{'d': 'Fourth work',
@@ -4797,15 +4805,16 @@ def test_generatefacetkey(fval, nf_chars, expected):
       'responsibility_display': 'Joe Smith; edited by Edward Copeland',
       'responsibility_search': ['Joe Smith; edited by Edward Copeland'],
       'main_work_title_json': {
-        'a': 'Smith, Joe',
+        'a': 'smith-joe!Smith, Joe',
         'p': [{'d': 'Transcribed title [by Smith, J.]',
                'v': 'transcribed-title!Transcribed title'}]
       },
       'included_work_titles_json': [
-        {'a': 'Jung, C. G. (Carl Gustav), 1875-1961',
+        {'a': 'jung-c-g-carl-gustav-1875-1961!'
+              'Jung, C. G. (Carl Gustav), 1875-1961',
          'p': [{'d': 'First work [by Jung, C.G.]',
                 'v': 'first-work!First work'}]},
-        {'a': 'Smith, Joe',
+        {'a': 'smith-joe!Smith, Joe',
          'p': [{'d': 'Second work [by Smith, J.]',
                 'v': 'second-work!Second work'}]},
       ],
@@ -4827,7 +4836,7 @@ def test_generatefacetkey(fval, nf_chars, expected):
     ([('700', ['a', 'Smith, Joe.', 't', 'First work.', 'n', 'Part One.',
                'n', 'Part Two.'], '12')],
      {'included_work_titles_json': [
-        {'a': 'Smith, Joe',
+        {'a': 'smith-joe!Smith, Joe',
          'p': [{'d': 'First work [by Smith, J.]',
                 's': ' > ',
                 'v': 'first-work!First work'},
@@ -4852,7 +4861,7 @@ def test_generatefacetkey(fval, nf_chars, expected):
     # facet. Short author conj is "of".
     ([('700', ['a', 'Smith, Joe.', 't', 'Works.'], '12')],
      {'included_work_titles_json': [
-        {'a': 'Smith, Joe',
+        {'a': 'smith-joe!Smith, Joe',
          'p': [{'d': 'Works [of Smith, J.] (Complete)',
                 'v': 'works-of-smith-j-complete!'
                      'Works [of Smith, J.] (Complete)'}]},
@@ -4869,7 +4878,7 @@ def test_generatefacetkey(fval, nf_chars, expected):
     # facet. Short author conj is "of".
     ([('700', ['a', 'Smith, Joe.', 't', 'Works.', 'k', 'Selections.'], '12')],
      {'included_work_titles_json': [
-        {'a': 'Smith, Joe',
+        {'a': 'smith-joe!Smith, Joe',
          'p': [{'d': 'Works [of Smith, J.] (Selections)',
                 'v': 'works-of-smith-j-selections!'
                      'Works [of Smith, J.] (Selections)'}]},
@@ -4887,7 +4896,7 @@ def test_generatefacetkey(fval, nf_chars, expected):
     # "Complete" facet. Short auth conj is "by".
     ([('700', ['a', 'Smith, Joe.', 't', 'Sonatas,', 'm', 'piano.'], '12')],
      {'included_work_titles_json': [
-        {'a': 'Smith, Joe',
+        {'a': 'smith-joe!Smith, Joe',
          'p': [{'d': 'Sonatas, piano [by Smith, J.] (Complete)',
                 'v': 'sonatas-piano-by-smith-j-complete!'
                      'Sonatas, piano [by Smith, J.] (Complete)'}]},
@@ -4907,7 +4916,7 @@ def test_generatefacetkey(fval, nf_chars, expected):
     ([('700', ['a', 'Smith, Joe.', 't', 'Sonatas,', 'm', 'piano.',
         'k', 'Selections.'], '12')],
      {'included_work_titles_json': [
-        {'a': 'Smith, Joe',
+        {'a': 'smith-joe!Smith, Joe',
          'p': [{'d': 'Sonatas, piano [by Smith, J.] (Selections)',
                 'v': 'sonatas-piano-by-smith-j-selections!'
                      'Sonatas, piano [by Smith, J.] (Selections)'}]},
@@ -4927,7 +4936,7 @@ def test_generatefacetkey(fval, nf_chars, expected):
     ([('700', ['a', 'Smith, Joe.', 't', 'Sonatas,', 'm', 'piano,',
                'n', 'op. 31.', 'n', 'No. 2.'], '12')],
      {'included_work_titles_json': [
-        {'a': 'Smith, Joe',
+        {'a': 'smith-joe!Smith, Joe',
          'p': [{'d': 'Sonatas, piano [by Smith, J.]',
                 's': ' > ',
                 'v': 'sonatas-piano-by-smith-j!Sonatas, piano [by Smith, J.]'},
@@ -4958,7 +4967,7 @@ def test_generatefacetkey(fval, nf_chars, expected):
     ([('700', ['a', 'Smith, Joe.', 't', 'Sonatas,', 'm', 'piano.',
                'k', 'Selections,', 'n', 'op. 31.'], '12')],
      {'included_work_titles_json': [
-        {'a': 'Smith, Joe',
+        {'a': 'smith-joe!Smith, Joe',
          'p': [{'d': 'Sonatas, piano [by Smith, J.] (Selections)',
                 's': ' > ',
                 'v': 'sonatas-piano-by-smith-j-selections!'
@@ -4986,7 +4995,7 @@ def test_generatefacetkey(fval, nf_chars, expected):
     ([('700', ['a', 'Smith, Joe.', 't', 'Sonatas,', 'm', 'piano,',
                'n', 'op. 31.', 'k', 'Selections,'], '12')],
      {'included_work_titles_json': [
-        {'a': 'Smith, Joe',
+        {'a': 'smith-joe!Smith, Joe',
          'p': [{'d': 'Sonatas, piano [by Smith, J.]',
                 's': ' > ',
                 'v': 'sonatas-piano-by-smith-j!'
@@ -5015,7 +5024,7 @@ def test_generatefacetkey(fval, nf_chars, expected):
     ([('700', ['a', 'Ravel, Maurice,', 'd', '1875-1937.', 't', 'Bolero,',
                'm', 'orchestra.'], '12')],
      {'included_work_titles_json': [
-        {'a': 'Ravel, Maurice, 1875-1937',
+        {'a': 'ravel-maurice-1875-1937!Ravel, Maurice, 1875-1937',
          'p': [{'d': 'Bolero, orchestra [by Ravel, M.]',
                 'v': 'bolero-orchestra!Bolero, orchestra'}]},
       ],
@@ -5032,7 +5041,7 @@ def test_generatefacetkey(fval, nf_chars, expected):
     ([('700', ['a', 'Strauss, Richard,', 'd', '1864-1949.',
                't', 'Also sprach Zarathustra.', 'k', 'Selections.'], '12')],
      {'included_work_titles_json': [
-        {'a': 'Strauss, Richard, 1864-1949',
+        {'a': 'strauss-richard-1864-1949!Strauss, Richard, 1864-1949',
          'p': [{'d': 'Also sprach Zarathustra [by Strauss, R.] (Selections)',
                 'v': 'also-sprach-zarathustra-selections!'
                      'Also sprach Zarathustra (Selections)'}]},
@@ -5052,7 +5061,7 @@ def test_generatefacetkey(fval, nf_chars, expected):
     ([('710', ['a', 'United States.', 'b', 'Congress.',
                't', 'Laws, etc.'], '12')],
      {'included_work_titles_json': [
-        {'a': 'United States Congress',
+        {'a': 'united-states-congress!United States Congress',
          'p': [{'d': 'Laws, etc. [United States Congress]',
                 'v': 'laws-etc-united-states-congress!'
                      'Laws, etc. [United States Congress]'}]},
@@ -5071,7 +5080,7 @@ def test_generatefacetkey(fval, nf_chars, expected):
                'd', '1948 Mar. 2.', 'k', 'Protocols, etc.,',
                'd', '1951 Mar. 6.'], '12')],
      {'included_work_titles_json': [
-        {'a': 'France',
+        {'a': 'france!France',
          'p': [{'d': 'Treaties, etc. [France]',
                 's': ' > ',
                 'v': 'treaties-etc-france!Treaties, etc. [France]'},
@@ -5128,7 +5137,7 @@ def test_generatefacetkey(fval, nf_chars, expected):
       'responsibility_display': 'by Joe Smith; edited by Edward Copeland',
       'responsibility_search': ['by Joe Smith; edited by Edward Copeland'],
       'main_work_title_json': {
-        'a': 'Smith, Joe',
+        'a': 'smith-joe!Smith, Joe',
         'p': [{'d': 'Poems [of Smith, J.] (Complete)',
                'v': 'poems-of-smith-j-complete!'
                     'Poems [of Smith, J.] (Complete)'}]
@@ -5152,7 +5161,7 @@ def test_generatefacetkey(fval, nf_chars, expected):
       'responsibility_display': 'by Joe Smith; edited by Edward Copeland',
       'responsibility_search': ['by Joe Smith; edited by Edward Copeland'],
       'main_work_title_json': {
-        'a': 'Smith, Joe',
+        'a': 'smith-joe!Smith, Joe',
         'p': [{'d': 'Poems [of Smith, J.] (Selections)',
                'v': 'poems-of-smith-j-selections!'
                     'Poems [of Smith, J.] (Selections)'}]
@@ -5177,7 +5186,7 @@ def test_generatefacetkey(fval, nf_chars, expected):
       'responsibility_display': 'by Joe Smith',
       'responsibility_search': ['by Joe Smith'],
       'main_work_title_json': {
-        'a': 'Smith, Joe',
+        'a': 'smith-joe!Smith, Joe',
         'p': [{'d': 'Sonatas, piano [by Smith, J.]',
                's': ' > ',
                'v': 'sonatas-piano-by-smith-j!Sonatas, piano [by Smith, J.]'},
@@ -5208,15 +5217,15 @@ def test_generatefacetkey(fval, nf_chars, expected):
       'responsibility_display': 'Joe Smith; edited by Edward Copeland',
       'responsibility_search': ['Joe Smith; edited by Edward Copeland'],
       'main_work_title_json': {
-        'a': 'Smith, Joe',
+        'a': 'smith-joe!Smith, Joe',
         'p': [{'d': 'Specific Preferred Title [by Smith, J.]',
                'v': 'specific-preferred-title!Specific Preferred Title'}]
       },
       'included_work_titles_json': [
-        {'a': 'Smith, Joe',
+        {'a': 'smith-joe!Smith, Joe',
          'p': [{'d': 'First work [by Smith, J.]',
                 'v': 'first-work!First work'}]},
-        {'a': 'Smith, Joe',
+        {'a': 'smith-joe!Smith, Joe',
          'p': [{'d': 'Second work [by Smith, J.]',
                 'v': 'second-work!Second work'}]}
       ],
@@ -5243,16 +5252,16 @@ def test_generatefacetkey(fval, nf_chars, expected):
       'responsibility_display': 'by Joe Smith; edited by Edward Copeland',
       'responsibility_search': ['by Joe Smith; edited by Edward Copeland'],
       'main_work_title_json': {
-        'a': 'Smith, Joe',
+        'a': 'smith-joe!Smith, Joe',
         'p': [{'d': 'Poems [of Smith, J.] (Selections)',
                'v': 'poems-of-smith-j-selections!'
                     'Poems [of Smith, J.] (Selections)'}]
       },
       'included_work_titles_json': [
-        {'a': 'Smith, Joe',
+        {'a': 'smith-joe!Smith, Joe',
          'p': [{'d': 'First poem [by Smith, J.]',
                 'v': 'first-poem!First poem'}]},
-        {'a': 'Smith, Joe',
+        {'a': 'smith-joe!Smith, Joe',
          'p': [{'d': 'Second poem [by Smith, J.]',
                 'v': 'second-poem!Second poem'}]},
       ],
@@ -5281,10 +5290,10 @@ def test_generatefacetkey(fval, nf_chars, expected):
       'responsibility_display': 'by Joe Smith; by Edward Copeland',
       'responsibility_search': ['by Joe Smith', 'by Edward Copeland'],
       'included_work_titles_json': [
-        {'a': 'Smith, Joe',
+        {'a': 'smith-joe!Smith, Joe',
          'p': [{'d': 'First work tt [by Smith, J.]',
                 'v': 'first-work-tt!First work tt'}]},
-        {'a': 'Copeland, Edward',
+        {'a': 'copeland-edward!Copeland, Edward',
          'p': [{'d': 'Second work [by Copeland, E.]',
                 'v': 'second-work!Second work'}]}
       ],
@@ -5314,10 +5323,10 @@ def test_generatefacetkey(fval, nf_chars, expected):
       'responsibility_display': 'by Joe Smith; by Edward Copeland',
       'responsibility_search': ['by Joe Smith', 'by Edward Copeland'],
       'included_work_titles_json': [
-        {'a': 'Smith, Joe',
+        {'a': 'smith-joe!Smith, Joe',
          'p': [{'d': 'First work [by Smith, J.]',
                 'v': 'first-work!First work'}]},
-        {'a': 'Copeland, Edward',
+        {'a': 'copeland-edward!Copeland, Edward',
          'p': [{'d': 'Second work [by Copeland, E.]',
                 'v': 'second-work!Second work'}]}
       ],
@@ -5346,10 +5355,10 @@ def test_generatefacetkey(fval, nf_chars, expected):
       'responsibility_display': 'by Joe Smith; by Edward Copeland',
       'responsibility_search': ['by Joe Smith', 'by Edward Copeland'],
       'included_work_titles_json': [
-        {'a': 'Smith, Joe',
+        {'a': 'smith-joe!Smith, Joe',
          'p': [{'d': 'First work [by Smith, J.]',
                 'v': 'first-work!First work'}]},
-        {'a': 'Copeland, Edward',
+        {'a': 'copeland-edward!Copeland, Edward',
          'p': [{'d': 'Second work [by Copeland, E.]',
                 'v': 'second-work!Second work'}]}
       ],
@@ -5376,10 +5385,10 @@ def test_generatefacetkey(fval, nf_chars, expected):
       'responsibility_display': 'by Joe Smith; by Edward Copeland',
       'responsibility_search': ['by Joe Smith', 'by Edward Copeland'],
       'included_work_titles_json': [
-        {'a': 'Smith, Joe',
+        {'a': 'smith-joe!Smith, Joe',
          'p': [{'d': 'First work [by Smith, J.]',
                 'v': 'first-work!First work'}]},
-        {'a': 'Copeland, Edward',
+        {'a': 'copeland-edward!Copeland, Edward',
          'p': [{'d': 'Second work [by Copeland, E.]',
                 'v': 'second-work!Second work'}]}
       ],
@@ -5388,7 +5397,7 @@ def test_generatefacetkey(fval, nf_chars, expected):
         'Second work'
       ],
       'related_work_titles_json': [
-        {'a': 'Copeland, Edward',
+        {'a': 'copeland-edward!Copeland, Edward',
          'p': [{'d': 'Related work [by Copeland, E.]',
                 'v': 'related-work!Related work'}]},
       ],
@@ -5419,10 +5428,10 @@ def test_generatefacetkey(fval, nf_chars, expected):
       'responsibility_display': 'by Joe Smith',
       'responsibility_search': ['by Joe Smith'],
       'included_work_titles_json': [
-        {'a': 'Smith, Joe',
+        {'a': 'smith-joe!Smith, Joe',
          'p': [{'d': 'First work [by Smith, J.]',
                 'v': 'first-work!First work'}]},
-        {'a': 'Smith, Joe',
+        {'a': 'smith-joe!Smith, Joe',
          'p': [{'d': 'Second work [by Smith, J.]',
                 'v': 'second-work!Second work'}]}
       ],
@@ -5461,10 +5470,10 @@ def test_generatefacetkey(fval, nf_chars, expected):
       'responsibility_display': 'by Joe Smith',
       'responsibility_search': ['by Joe Smith'],
       'included_work_titles_json': [
-        {'a': 'Smith, Joe',
+        {'a': 'smith-joe!Smith, Joe',
          'p': [{'d': 'First work [by Smith, J.]',
                 'v': 'first-work!First work'}]},
-        {'a': 'Smith, Joe',
+        {'a': 'smith-joe!Smith, Joe',
          'p': [{'d': 'Second work [by Smith, J.]',
                 'v': 'second-work!Second work'}]}
       ],
@@ -5482,7 +5491,7 @@ def test_generatefacetkey(fval, nf_chars, expected):
     ([('700', ['a', 'Smith, Joe.', 't', 'First work.'], '12'),
       ('740', ['a', 'First work.'], '02')],
      {'included_work_titles_json': [
-        {'a': 'Smith, Joe',
+        {'a': 'smith-joe!Smith, Joe',
          'p': [{'d': 'First work [by Smith, J.]',
                 'v': 'first-work!First work'}]},
       ],
@@ -5498,7 +5507,7 @@ def test_generatefacetkey(fval, nf_chars, expected):
     ([('700', ['a', 'Smith, Joe.', 't', 'First work.'], '12'),
       ('740', ['a', 'Second work.'], '02')],
      {'included_work_titles_json': [
-        {'a': 'Smith, Joe',
+        {'a': 'smith-joe!Smith, Joe',
          'p': [{'d': 'First work [by Smith, J.]',
                 'v': 'first-work!First work'}]},
         {'p': [{'d': 'Second work',
@@ -5521,10 +5530,10 @@ def test_generatefacetkey(fval, nf_chars, expected):
     ([('800', ['a', 'Smith, Joe.', 't', 'Some series.'], '1 '),
       ('800', ['a', 'Copeland, Edward.', 't', 'Piano music.'], '1 ') ],
      {'related_series_titles_json': [
-        {'a': 'Smith, Joe',
+        {'a': 'smith-joe!Smith, Joe',
          'p': [{'d': 'Some series [by Smith, J.]',
                 'v': 'some-series!Some series'}]},
-        {'a': 'Copeland, Edward',
+        {'a': 'copeland-edward!Copeland, Edward',
          'p': [{'d': 'Piano music [of Copeland, E.] (Complete)',
                 'v': 'piano-music-of-copeland-e-complete!'
                      'Piano music [of Copeland, E.] (Complete)'}]},
@@ -5546,10 +5555,10 @@ def test_generatefacetkey(fval, nf_chars, expected):
                't', 'Some series.'], '1 '),
       ('810', ['a', 'Led Zeppelin', 't', 'Piano music.'], '2 ') ],
      {'related_series_titles_json': [
-        {'a': 'United States Congress > House',
+        {'a': 'united-states-congress-house!United States Congress > House',
          'p': [{'d': 'Some series [United States Congress, House]',
                 'v': 'some-series!Some series'}]},
-        {'a': 'Led Zeppelin',
+        {'a': 'led-zeppelin!Led Zeppelin',
          'p': [{'d': 'Piano music [Led Zeppelin] (Complete)',
                 'v': 'piano-music-led-zeppelin-complete!'
                      'Piano music [Led Zeppelin] (Complete)'}]},
@@ -5572,10 +5581,10 @@ def test_generatefacetkey(fval, nf_chars, expected):
       ('811', ['a', 'Some event.', 'n', '(3rd :', 'd', '1983).',
                'e', 'Orchestra.', 't', 'Incidental music.'], '2 ') ],
      {'related_series_titles_json': [
-        {'a': 'Some conference (3rd : 1983)',
+        {'a': 'some-conference-3rd-1983!Some conference (3rd : 1983)',
          'p': [{'d': 'Some series [Some conference]',
                 'v': 'some-series!Some series'}]},
-        {'a': 'Some event, Orchestra',
+        {'a': 'some-event-orchestra!Some event, Orchestra',
          'p': [{'d': 'Incidental music [Some event, Orchestra] (Complete)',
                 'v': 'incidental-music-some-event-orchestra-complete!'
                      'Incidental music [Some event, Orchestra] (Complete)'}]},
@@ -5636,10 +5645,10 @@ def test_generatefacetkey(fval, nf_chars, expected):
       ('800', ['a', 'Smith, Joe.', 't', 'Some series.'], '1 '),
       ('800', ['a', 'Copeland, Edward.', 't', 'Piano music.'], '1 ') ],
      {'related_series_titles_json': [
-        {'a': 'Smith, Joe',
+        {'a': 'smith-joe!Smith, Joe',
          'p': [{'d': 'Some series [by Smith, J.]',
                 'v': 'some-series!Some series'}]},
-        {'a': 'Copeland, Edward',
+        {'a': 'copeland-edward!Copeland, Edward',
          'p': [{'d': 'Piano music [of Copeland, E.] (Complete)',
                 'v': 'piano-music-of-copeland-e-complete!'
                      'Piano music [of Copeland, E.] (Complete)'}]},
@@ -5662,7 +5671,7 @@ def test_generatefacetkey(fval, nf_chars, expected):
     ([('700', ['i', 'Container of (work):', 'a', 'Smith, Joe.',
                't', 'First work.'], '12')],
      {'included_work_titles_json': [
-        {'a': 'Smith, Joe',
+        {'a': 'smith-joe!Smith, Joe',
          'p': [{'d': 'First work [by Smith, J.]',
                 'v': 'first-work!First work'}]},
       ],
@@ -5678,7 +5687,7 @@ def test_generatefacetkey(fval, nf_chars, expected):
     ([('700', ['i', 'Based on (work):', 'a', 'Smith, Joe.',
                't', 'First work.'], '12')],
      {'included_work_titles_json': [
-        {'a': 'Smith, Joe',
+        {'a': 'smith-joe!Smith, Joe',
          'b': 'Based on:',
          'p': [{'d': 'First work [by Smith, J.]',
                 'v': 'first-work!First work'}]},
@@ -6030,10 +6039,10 @@ def test_generatefacetkey(fval, nf_chars, expected):
       'responsibility_display': 'by Joe Smith',
       'responsibility_search': ['by Joe Smith'],
       'included_work_titles_json': [
-        {'a': 'Smith, Joe',
+        {'a': 'smith-joe!Smith, Joe',
          'p': [{'d': 'The first work [by Smith, J.]',
                 'v': 'first-work!The first work'}]},
-        {'a': 'Smith, Joe',
+        {'a': 'smith-joe!Smith, Joe',
          'p': [{'d': 'Second work [by Smith, J.]',
                 'v': 'second-work!Second work'}]}
       ],
@@ -6107,7 +6116,7 @@ def test_generatefacetkey(fval, nf_chars, expected):
       'variant_titles_search': [
         'Title in English'],
       'main_work_title_json': {
-        'a': 'Smith, Joe',
+        'a': 'smith-joe!Smith, Joe',
         'p': [{'d': 'Title [by Smith, J.]',
                'v': 'title!Title'},
                {'s': ' ',
@@ -6133,7 +6142,7 @@ def test_generatefacetkey(fval, nf_chars, expected):
       'variant_titles_search': [
         'Title in English'],
       'main_work_title_json': {
-        'a': 'Author, German',
+        'a': 'author-german!Author, German',
         'p': [{'d': 'Title in German [by Author, G.]',
                'v': 'title-in-german!Title in German'},
               {'s': ' ',
@@ -6159,7 +6168,7 @@ def test_generatefacetkey(fval, nf_chars, expected):
       'variant_titles_search': [
         'Title in English', 'Title in Spanish'],
       'main_work_title_json': {
-        'a': 'Smith, Joe',
+        'a': 'smith-joe!Smith, Joe',
         'p': [{'d': 'Title [by Smith, J.]',
                'v': 'title!Title'},
               {'s': ' ',

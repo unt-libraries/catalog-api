@@ -2785,7 +2785,7 @@ class BlacklightASMPipeline(object):
         author_info = pre_info['author_info']
 
         if not for_subject and author_info['full_name']:
-            json['a'] = author_info['full_name']
+            json['a'] = format_key_facet_value(author_info['full_name'])
 
         if pre_info['before_string']:
             json['b'] = pre_info['before_string']
@@ -3110,9 +3110,10 @@ class BlacklightASMPipeline(object):
 
         auth_info = self._prep_author_summary_info([author])
         sep = self.hierarchical_name_separator
-        search, heading = [], ''
-        json = {'a': auth_info['full_name']} if auth_info['full_name'] else {}
-        json['p'], facet_vals = [], []
+        search, heading, json = [], '', {'p': []}
+        if auth_info['full_name']:
+            json['a'] = format_key_facet_value(auth_info['full_name'])
+        facet_vals = []
 
         for i, res in enumerate(self.truncate_each_ttitle_part(ttitle)):
             part = res[0]
