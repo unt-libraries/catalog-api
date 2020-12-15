@@ -291,15 +291,6 @@
 
     <!-- GENERAL SEARCH OR SEARCH/DISPLAY FIELDS ========================================================== -->
     <field name="text" type="text" indexed="true" stored="false" multiValued="true"/>
-    <field name="metadata_facets_search" type="text" indexed="true" stored="false" multiValued="true"/>
-    <copyField source="publication_decade_facet" dest="metadata_facets_search"/>
-    <copyField source="publication_year_facet" dest="metadata_facets_search"/>
-    <copyField source="building_facet" dest="metadata_facets_search"/>
-    <copyField source="shelf_facet" dest="metadata_facets_search"/>
-    <copyField source="collection_facet" dest="metadata_facets_search"/>
-    <copyField source="resource_type_facet" dest="metadata_facets_search"/>
-    <copyField source="media_type_facet" dest="metadata_facets_search"/>
-    <copyField source="languages" dest="metadata_facets_search"/>
     <field name="building_locations" type="string" indexed="false" stored="true" multiValued="true"/>
     <copyField source="building_facet" dest="building_locations"/>
 
@@ -330,7 +321,7 @@
 
     <!-- Description and Notes -->
     <field name="toc_notes" type="stem_text" indexed="true" stored="true" multiValued="true"/>
-    <field name="summary_notes" type="stem_text" indexed="true" stored="true" multiValued="true"/>
+    <field name="summary_notes" type="string" indexed="false" stored="true" multiValued="true"/>
 
     <field name="current_publication_frequency" type="string" indexed="false" stored="true" multiValued="true"/>
     <field name="former_publication_frequency" type="string" indexed="false" stored="true" multiValued="true"/>
@@ -356,6 +347,42 @@
     <field name="genres_search_exact_headings" type="full_heading_text" indexed="true" stored="false" multiValued="true"/>
     <field name="genres_search_all_terms" type="heading_term_text_stem" indexed="true" stored="false" multiValued="true"/>
     <field name="genres_search_main_terms" type="heading_term_text_stem" indexed="true" stored="false" multiValued="true"/>
+
+    <!-- Copyfield Search Fields -->
+    <field name="building_collection_search" type="text" indexed="true" stored="false" multiValued="true"/>
+    <copyField source="building_facet" dest="building_collection_search"/>
+    <copyField source="shelf_facet" dest="building_collection_search"/>
+    <copyField source="collection_facet" dest="building_collection_search"/>
+
+    <copyField source="current_publication_frequency" dest="publication_dates_search"/>
+    <copyField source="former_publication_frequency" dest="publication_dates_search"/>
+
+
+    <field name="type_format_search" type="stem_text" indexed="true" stored="false" multiValued="true"/>
+    <copyField source="resource_type_facet" dest="type_format_search"/>
+    <copyField source="media_type_facet" dest="type_format_search"/>
+    <copyField source="languages" dest="type_format_search"/>
+    <copyField source="physical_description" dest="type_format_search"/>
+    <copyField source="physical_medium" dest="type_format_search"/>
+    <copyField source="geospatial_data" dest="type_format_search"/>
+    <copyField source="audio_characteristics" dest="type_format_search"/>
+    <copyField source="projection_characteristics" dest="type_format_search"/>
+    <copyField source="video_characteristics" dest="type_format_search"/>
+    <copyField source="digital_file_characteristics" dest="type_format_search"/>
+    <copyField source="graphic_representation" dest="type_format_search"/>
+    <copyField source="performance_medium" dest="type_format_search"/>
+
+    <copyField source="production_credits" dest="responsibility_search"/>
+    <copyField source="performers" dest="responsibility_search"/>
+
+    <field name="notes_search" type="stem_text" indexed="true" stored="false" multiValued="true"/>
+    <copyField source="summary_notes" dest="notes_search"/>
+    <copyField source="language_notes" dest="notes_search"/>
+    <copyField source="dissertation_notes" dest="notes_search"/>
+    <copyField source="notes" dest="notes_search"/>
+    <copyField source="publication_date_notes" dest="notes_search"/>
+    <copyField source="variant_titles_notes" dest="notes_search"/>
+
 
 
 
