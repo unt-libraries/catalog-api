@@ -42,11 +42,11 @@ ALPHASOLRMARC_FIELDS = (
     'responsibility_display', 'title_display', 'non_truncated_title_display',
     'included_work_titles_json', 'related_work_titles_json',
     'related_series_titles_json', 'variant_titles_notes', 'main_title_search',
-    'included_work_titles_search', 'related_work_titles_search',
-    'related_series_titles_search', 'variant_titles_search',
-    'title_series_facet', 'title_sort', 'summary_notes', 'toc_notes',
-    'physical_description', 'physical_medium', 'geospatial_data',
-    'audio_characteristics', 'projection_characteristics',
+    'main_work_title_json', 'included_work_titles_search',
+    'related_work_titles_search', 'related_series_titles_search',
+    'variant_titles_search', 'title_series_facet', 'title_sort',
+    'summary_notes', 'toc_notes', 'physical_description', 'physical_medium',
+    'geospatial_data', 'audio_characteristics', 'projection_characteristics',
     'video_characteristics', 'digital_file_characteristics',
     'graphic_representation', 'performance_medium', 'performers',
     'language_notes', 'dissertation_notes', 'notes', 'subject_headings_json',
@@ -55,7 +55,6 @@ ALPHASOLRMARC_FIELDS = (
     'subjects_search_exact_headings', 'subjects_search_main_terms',
     'subjects_search_all_terms', 'genres_search_exact_headings',
     'genres_search_main_terms', 'genres_search_all_terms', 'languages'
-    # OLD FIELDS ARE BELOW
 )
 
 # AlphaSolrmarc field specific gen functions

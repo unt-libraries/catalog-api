@@ -2984,7 +2984,10 @@ class BlacklightASMPipeline(object):
 
                 analyzed_entry['is_740'] = title['field'].tag == '740'
                 if title['parsed']['type'] in ('analytic', 'main'):
-                    analyzed_entry['title_type'] = 'included'
+                    if title['parsed']['type'] == 'analytic':
+                        analyzed_entry['title_type'] = 'included'
+                    else:
+                        analyzed_entry['title_type'] = 'main'
                     author_info = title['compiled']['author_info']
                     if author_info['full_name']:
                         incl_authors.add(author_info['full_name'])
@@ -3073,39 +3076,31 @@ class BlacklightASMPipeline(object):
             return False
 
         if nth_ttitle == 0:
-            # If this is the first (or only) title from 245 and there
-            # is a 130/240 that is NOT a collective title (i.e. it DOES
-            # represent a specific work), then we assume the first
-            # title from 245 should not create an added facet because
-            # it's likely to duplicate that 130/240.
+            # If this is the first/only title from 245 and there
+            # is a 130/240, then we assume the first title from 245
+            # should not create an added facet because it's likely to 
+            # duplicate that 130/240.
             if f130_240:
-                if not f130_240['title']['parsed']['is_collective']:
+                if total_ttitles == 1:
                     return False
 
-                # Similarly, if this is the first/only title from 245
-                # and there's a 130/240 that is a collective title that
-                # is more than just, e.g., "Works > Selections", then
-                # we assume it's specific enough that the first 245
-                # should not create an added facet.
-                tp = f130_240['title']['parsed']['title_parts']
-                general_forms = ('Complete', 'Selections')
-                if len(tp) > 2 or len(tp) == 2 and tp[1] not in general_forms:
-                    return False
-
-            # If we're here it means there's either no 130/240 or it's
-            # a useless generic collective title. At this point we add
-            # the first/only title from the 245 if it's probably not
-            # duplicated in a 700-730. I.e., if it's the only title in
-            # the 245, then it's probably the title for the whole
+            # If we're here it means there's no 130/240. At this point 
+            # we add the first/only title from the 245 if it's probably
+            # not duplicated in a 700-730. I.e., if it's the only title
+            # in the 245, then it's probably the title for the whole
             # resource and there won't be an added analytical title for
             # it. (If there were, it would probably be the 130/240.)
-            # Or, if there multiple titles in the 245 but there are not
+            # Or, if there are multiple titles in the 245 but there are not
             # enough added analytical titles on the record to cover all
             # the individual titles in the 245, then the later titles
             # are more likely than the first to be covered, so we
             # should go ahead and add the first.
-            return total_ttitles == 1 or total_ttitles > total_analytic_titles
-        return total_analytic_titles == 0
+            if total_ttitles == 1:
+                return 'main'
+
+            if total_ttitles > total_analytic_titles:
+                return 'included'
+        return 'included' if total_analytic_titles == 0 else False
 
     def compile_added_ttitle(self, ttitle, nf_chars, author,
                              needs_author_in_title):
@@ -3174,7 +3169,7 @@ class BlacklightASMPipeline(object):
         determine the entirety of title and series fields.
         """
         main_title_info = {}
-        json_fields = {'included': [], 'related': [], 'series': []}
+        json_fields = {'main': '', 'included': [], 'related': [], 'series': []}
         search_fields = {'included': [], 'related': [], 'series': []}
         title_keys = {'included': set(), 'related': set(), 'series': set()}
         variant_titles_notes, variant_titles_search = [], []
@@ -3210,10 +3205,15 @@ class BlacklightASMPipeline(object):
                         'title_key': title_key
                     })
                 else:
-                    json_fields[entry['title_type']].append(json)
-                    search_fields[entry['title_type']].extend(search_vals)
+                    if entry['title_type'] == 'main':
+                        json_fields['main'] = json
+                        search_fields['included'].extend(search_vals)
+                        title_keys['included'].add(title_key)
+                    else:
+                        json_fields[entry['title_type']].append(json)
+                        search_fields[entry['title_type']].extend(search_vals)
+                        title_keys[entry['title_type']].add(title_key)
                     title_series_facet.extend(facet_vals)
-                    title_keys[entry['title_type']].add(title_key)
 
         f245, parsed_245 = None, {}
         for f in marc_record.get_fields('245'):
@@ -3258,8 +3258,10 @@ class BlacklightASMPipeline(object):
 
             # `if needs_added_ttitle()` means, "If an added entry needs
             # to be created for this transcribed title" ...
-            if self.needs_added_ttitle(f245.indicator1, i, len(transcribed),
-                                       parsed_130_240, num_cont_at):
+            added_tt = self.needs_added_ttitle(f245.indicator1, i,
+                                               len(transcribed), parsed_130_240,
+                                               num_cont_at)
+            if added_tt:
                 if not author and sor:
                     author = self._match_name_from_sor(analyzed_entries, sor)
 
@@ -3271,7 +3273,11 @@ class BlacklightASMPipeline(object):
                     sv, psv = compiled['search_vals'], search_fields['included']
                     fv, pfv = compiled['facet_vals'], title_series_facet
 
-                    json_fields['included'] = pjson[:i] + [json] + pjson[i:]
+                    if added_tt == 'main':
+                        json_fields['main'] = json
+                    else:
+                        json_fields['included'] = pjson[:i] + [json] + pjson[i:]
+
                     search_fields['included'] = psv[:i] + sv + psv[i:]
                     title_series_facet = pfv[:i] + fv + pfv[i:]
                     title_keys['included'].add(compiled['title_key'])
@@ -3330,12 +3336,16 @@ class BlacklightASMPipeline(object):
                     json_fields['series'].append({'p': [{'d': rendered}]})
                     search_fields['series'].append(rendered)
 
-        iworks_json = [ujson.dumps(v) for v in json_fields['included']]
-        rworks_json = [ujson.dumps(v) for v in json_fields['related']]
-        series_json = [ujson.dumps(v) for v in json_fields['series']]
+        mwork_json = None
+        if json_fields['main']:
+            mwork_json = ujson.dumps(json_fields['main'])
+        iworks_json = [ujson.dumps(v) for v in json_fields['included'] if v]
+        rworks_json = [ujson.dumps(v) for v in json_fields['related'] if v]
+        series_json = [ujson.dumps(v) for v in json_fields['series'] if v]
         return {
             'title_display': main_title_info['display'] or None,
             'non_truncated_title_display': main_title_info['non_truncated'],
+            'main_work_title_json': mwork_json or None,
             'included_work_titles_json': iworks_json or None,
             'related_work_titles_json': rworks_json or None,
             'related_series_titles_json': series_json or None,
@@ -4297,6 +4307,7 @@ class PipelineBundleConverter(object):
         ( '973', ('variant_titles_search',) ),
         ( '973', ('title_series_facet',) ),
         ( '973', ('title_sort',) ),
+        ( '973', ('main_work_title_json',) ),
         ( '974', ('subject_headings_json',) ),
         ( '974', ('genre_headings_json',) ),
         ( '974', ('subject_heading_facet',) ),

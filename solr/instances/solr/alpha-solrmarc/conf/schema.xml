@@ -248,6 +248,7 @@
     <!-- Titles / Series -->
     <field name="title_display" type="string" indexed="false" stored="true" multiValued="false"/>
     <field name="non_truncated_title_display" type="string" indexed="false" stored="true" multiValued="false"/>
+    <field name="main_work_title_json" type="string" indexed="false" stored="true" multiValued="false"/>
     <field name="included_work_titles_json" type="string" indexed="false" stored="true" multiValued="true"/>
     <field name="related_work_titles_json" type="string" indexed="false" stored="true" multiValued="true"/>
     <field name="related_series_titles_json" type="string" indexed="false" stored="true" multiValued="true"/>

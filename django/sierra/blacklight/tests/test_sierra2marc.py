@@ -4413,7 +4413,7 @@ def test_generatefacetkey(fval, nf_chars, expected):
      {'title_display': 'Duets, violin, viola > Op. 10 > No. 3',
       'main_title_search': ['Duets, violin, viola > Op. 10 > No. 3'],
       'title_sort': 'duets-violin-viola-op-10-no-3',
-      'included_work_titles_json': [{
+      'main_work_title_json': {
         'p': [{'d': 'Duets, violin, viola',
                's': ' > ',
                'v': 'duets-violin-viola!Duets, violin, viola'},
@@ -4423,7 +4423,7 @@ def test_generatefacetkey(fval, nf_chars, expected):
               {'d': 'No. 3',
                'v': 'duets-violin-viola-op-10-no-3!'
                     'Duets, violin, viola > Op. 10 > No. 3'}]
-      }],
+      },
       'included_work_titles_search': ['Duets, violin, viola > Op. 10 > No. 3'],
       'title_series_facet': [
         'duets-violin-viola!Duets, violin, viola',
@@ -4452,10 +4452,10 @@ def test_generatefacetkey(fval, nf_chars, expected):
       'title_sort': 'las-cantigas-de-santa-maria',
       'responsibility_display': 'Alfonso X, "el Sabio"',
       'responsibility_search': ['Alfonso X, "el Sabio"'],
-      'included_work_titles_json': [{
+      'main_work_title_json': {
         'p': [{'d': 'Las Cantigas de Santa Maria',
                'v': 'las-cantigas-de-santa-maria!Las Cantigas de Santa Maria'}]
-      }],
+      },
       'included_work_titles_search': ['Las Cantigas de Santa Maria'],
       'title_series_facet': [
         'las-cantigas-de-santa-maria!Las Cantigas de Santa Maria'
@@ -4469,10 +4469,10 @@ def test_generatefacetkey(fval, nf_chars, expected):
       'title_sort': 'las-cantigas-de-santa-maria',
       'responsibility_display': 'Alfonso X, el Sabio,...',
       'responsibility_search': ['Alfonso X, el Sabio,...'],
-      'included_work_titles_json': [{
+      'main_work_title_json': {
         'p': [{'d': 'Las Cantigas de Santa Maria',
                'v': 'las-cantigas-de-santa-maria!Las Cantigas de Santa Maria'}]
-      }],
+      },
       'included_work_titles_search': ['Las Cantigas de Santa Maria'],
       'title_series_facet': [
         'las-cantigas-de-santa-maria!Las Cantigas de Santa Maria'
@@ -4483,10 +4483,10 @@ def test_generatefacetkey(fval, nf_chars, expected):
      {'title_display': '日本食品化学学会誌',
       'main_title_search': ['日本食品化学学会誌'],
       'title_sort': '~',
-      'included_work_titles_json': [{
+      'main_work_title_json': {
         'p': [{'d': '日本食品化学学会誌',
                'v': '~!日本食品化学学会誌'}]
-      }],
+      },
       'included_work_titles_search': ['日本食品化学学会誌'],
       'title_series_facet': [
         '~!日本食品化学学会誌'
@@ -4497,8 +4497,8 @@ def test_generatefacetkey(fval, nf_chars, expected):
     # authors/contributors affects display of short authors.
 
     # 130/245: No author.
-    # 245 is the main title and 130 is in IW. No author info is added to
-    # any titles because there is no author info to add.
+    # 245 is the main title and 130 is the main work. No author info is
+    # added to any titles because there is no author info to add.
     ([('130', ['a', 'Duets,', 'm', 'violin, viola,', 'n', 'op. 10.',
                'n', 'No. 3.'], '0 '),
       ('245', ['a', 'Duets for violin and viola,', 'n', 'opus 10.',
@@ -4508,7 +4508,7 @@ def test_generatefacetkey(fval, nf_chars, expected):
       'title_sort': 'duets-for-violin-and-viola-opus-10-number-3',
       'responsibility_display': '[various authors]',
       'responsibility_search': ['[various authors]'],
-      'included_work_titles_json': [{
+      'main_work_title_json': {
         'p': [{'d': 'Duets, violin, viola',
                's': ' > ',
                'v': 'duets-violin-viola!Duets, violin, viola'},
@@ -4518,7 +4518,7 @@ def test_generatefacetkey(fval, nf_chars, expected):
               {'d': 'No. 3',
                'v': 'duets-violin-viola-op-10-no-3!'
                     'Duets, violin, viola > Op. 10 > No. 3'}]
-      }],
+      },
       'included_work_titles_search': ['Duets, violin, viola > Op. 10 > No. 3'],
       'title_series_facet': [
         'duets-violin-viola!Duets, violin, viola',
@@ -4527,8 +4527,8 @@ def test_generatefacetkey(fval, nf_chars, expected):
       ]}),
 
     # 100/240/245: Single author (title in included works).
-    # 240 is in IW and 245 is main title. Short author info is added
-    # to titles.
+    # 240 is the main work and 245 is main title. Short author info is
+    # added to titles.
     ([('100', ['a', 'Smith, Joe'], '1 '),
       ('240', ['a', 'Specific Preferred Title.'], '10'),
       ('245', ['a', 'Transcribed title /',
@@ -4538,18 +4538,18 @@ def test_generatefacetkey(fval, nf_chars, expected):
       'title_sort': 'transcribed-title',
       'responsibility_display': 'Joe Smith; edited by Edward Copeland',
       'responsibility_search': ['Joe Smith; edited by Edward Copeland'],
-      'included_work_titles_json': [{
+      'main_work_title_json': {
         'a': 'Smith, Joe',
         'p': [{'d': 'Specific Preferred Title [by Smith, J.]',
                'v': 'specific-preferred-title!Specific Preferred Title'}]
-      }],
+      },
       'included_work_titles_search': ['Specific Preferred Title'],
       'title_series_facet': [
         'specific-preferred-title!Specific Preferred Title'
       ]}),
 
     # 100/245: No preferred title.
-    # 245 is main title AND added to IW. Short author info is added.
+    # 245 is main title AND main work. Short author info is added.
     ([('100', ['a', 'Smith, Joe'], '1 '),
       ('245', ['a', 'Transcribed title /',
                'c', 'Joe Smith ; edited by Edward Copeland.'], '1 ')],
@@ -4558,19 +4558,19 @@ def test_generatefacetkey(fval, nf_chars, expected):
       'title_sort': 'transcribed-title',
       'responsibility_display': 'Joe Smith; edited by Edward Copeland',
       'responsibility_search': ['Joe Smith; edited by Edward Copeland'],
-      'included_work_titles_json': [{
+      'main_work_title_json': {
         'a': 'Smith, Joe',
         'p': [{'d': 'Transcribed title [by Smith, J.]',
                'v': 'transcribed-title!Transcribed title'}]
-      }],
+      },
       'included_work_titles_search': ['Transcribed title'],
       'title_series_facet': [
         'transcribed-title!Transcribed title'
       ]}),
 
     # 130/245/700s (IW): Contribs are in 700s; same person.
-    # 245 is main title. 130 and 700s are incl. works. Short author
-    # info is added.
+    # 245 is main title. 130 is main work, and 700s are incl. works.
+    # Short author info is added.
     ([('130', ['a', 'Specific Preferred Title (1933)'], '0 '),
       ('245', ['a', 'Transcribed title /',
                'c', 'Joe Smith ; edited by Edward Copeland.'], '1 '),
@@ -4583,10 +4583,12 @@ def test_generatefacetkey(fval, nf_chars, expected):
       'title_sort': 'transcribed-title',
       'responsibility_display': 'Joe Smith; edited by Edward Copeland',
       'responsibility_search': ['Joe Smith; edited by Edward Copeland'],
+      'main_work_title_json': {
+        'p': [{'d': 'Specific Preferred Title (1933)',
+               'v': 'specific-preferred-title-1933!'
+                    'Specific Preferred Title (1933)'}]
+      },
       'included_work_titles_json': [
-        {'p': [{'d': 'Specific Preferred Title (1933)',
-                'v': 'specific-preferred-title-1933!'
-                     'Specific Preferred Title (1933)'}]},
         {'a': 'Jung, C. G. (Carl Gustav), 1875-1961',
          'p': [{'d': 'First work [by Jung, C.G.]',
                 'v': 'first-work!First work'}]},
@@ -4606,8 +4608,9 @@ def test_generatefacetkey(fval, nf_chars, expected):
       ]}),
 
     # 130/245/700s (IW): Contribs are in 700s; different people.
-    # 245 is main title. 130 and 700s are incl. works. Short author
-    # info is added because there are multiple different people.
+    # 245 is main title. 130 is main work and 700s are incl. works.
+    # Short author info is added because there are multiple different
+    # people.
     ([('130', ['a', 'Specific Preferred Title (1933)'], '0 '),
       ('245', ['a', 'Transcribed title /',
                'c', 'Joe Smith ; edited by Edward Copeland.'], '1 '),
@@ -4619,10 +4622,12 @@ def test_generatefacetkey(fval, nf_chars, expected):
       'title_sort': 'transcribed-title',
       'responsibility_display': 'Joe Smith; edited by Edward Copeland',
       'responsibility_search': ['Joe Smith; edited by Edward Copeland'],
+      'main_work_title_json': {
+        'p': [{'d': 'Specific Preferred Title (1933)',
+               'v': 'specific-preferred-title-1933!'
+                    'Specific Preferred Title (1933)'}],
+      },
       'included_work_titles_json': [
-        {'p': [{'d': 'Specific Preferred Title (1933)',
-                'v': 'specific-preferred-title-1933!'
-                     'Specific Preferred Title (1933)'}]},
         {'a': 'Jung, C. G. (Carl Gustav), 1875-1961',
          'p': [{'d': 'First work [by Jung, C.G.]',
                 'v': 'first-work!First work'}]},
@@ -4642,8 +4647,8 @@ def test_generatefacetkey(fval, nf_chars, expected):
       ]}),
 
     # 130/245/700s/730s (IW): Contribs are in 700s; same person.
-    # 245 is main title. 130 and 700s are incl. works. Short author
-    # info is added, where possible.
+    # 245 is main title. 130 is main work and 700s are incl. works.
+    # Short author info is added, where possible.
     ([('130', ['a', 'Specific Preferred Title (1933)'], '0 '),
       ('245', ['a', 'Transcribed title /',
                'c', 'Joe Smith ; edited by Edward Copeland.'], '1 '),
@@ -4657,10 +4662,12 @@ def test_generatefacetkey(fval, nf_chars, expected):
       'title_sort': 'transcribed-title',
       'responsibility_display': 'Joe Smith; edited by Edward Copeland',
       'responsibility_search': ['Joe Smith; edited by Edward Copeland'],
+      'main_work_title_json': {
+        'p': [{'d': 'Specific Preferred Title (1933)',
+               'v': 'specific-preferred-title-1933!'
+                    'Specific Preferred Title (1933)'}]
+      },
       'included_work_titles_json': [
-        {'p': [{'d': 'Specific Preferred Title (1933)',
-                'v': 'specific-preferred-title-1933!'
-                     'Specific Preferred Title (1933)'}]},
         {'a': 'Jung, C. G. (Carl Gustav), 1875-1961',
          'p': [{'d': 'First work [by Jung, C.G.]',
                 'v': 'first-work!First work'}]},
@@ -4684,8 +4691,8 @@ def test_generatefacetkey(fval, nf_chars, expected):
       ]}),
 
     # 130/245/700s (RW): Contribs are in 700s; same person.
-    # 245 is main title. 130 is IW, but 700s are RWs. Short author
-    # info is added.
+    # 245 is main title. 130 is main work, but 700s are RWs.
+    # Short author info is added.
     ([('130', ['a', 'Specific Preferred Title (1933)'], '0 '),
       ('245', ['a', 'Transcribed title /',
                'c', 'Joe Smith ; edited by Edward Copeland.'], '1 '),
@@ -4698,11 +4705,11 @@ def test_generatefacetkey(fval, nf_chars, expected):
       'title_sort': 'transcribed-title',
       'responsibility_display': 'Joe Smith; edited by Edward Copeland',
       'responsibility_search': ['Joe Smith; edited by Edward Copeland'],
-      'included_work_titles_json': [
-        {'p': [{'d': 'Specific Preferred Title (1933)',
-                'v': 'specific-preferred-title-1933!'
-                     'Specific Preferred Title (1933)'}]},
-      ],
+      'main_work_title_json': {
+        'p': [{'d': 'Specific Preferred Title (1933)',
+               'v': 'specific-preferred-title-1933!'
+                    'Specific Preferred Title (1933)'}]
+      },
       'included_work_titles_search': ['Specific Preferred Title (1933)'],
       'related_work_titles_json': [
         {'a': 'Jung, C. G. (Carl Gustav), 1875-1961',
@@ -4723,8 +4730,9 @@ def test_generatefacetkey(fval, nf_chars, expected):
       ]}),
 
     # 130/245/700s/730s (both): Contribs are in 700s; mix of people.
-    # 245 is main title. 130 and some 700s/730s are incl. works; some
-    # 700s/730s are rel. works. Short authors are added where needed.
+    # 245 is main title. 130 is main work; some 700s/730s are incl.
+    # works; some 700s/730s are rel. works. Short authors are added
+    # where needed.
     ([('130', ['a', 'Specific Preferred Title (1933)'], '0 '),
       ('245', ['a', 'Transcribed title /',
                'c', 'Joe Smith ; edited by Edward Copeland.'], '1 '),
@@ -4738,10 +4746,12 @@ def test_generatefacetkey(fval, nf_chars, expected):
       'title_sort': 'transcribed-title',
       'responsibility_display': 'Joe Smith; edited by Edward Copeland',
       'responsibility_search': ['Joe Smith; edited by Edward Copeland'],
+      'main_work_title_json': {
+        'p': [{'d': 'Specific Preferred Title (1933)',
+               'v': 'specific-preferred-title-1933!'
+                    'Specific Preferred Title (1933)'}]
+      },
       'included_work_titles_json': [
-        {'p': [{'d': 'Specific Preferred Title (1933)',
-                'v': 'specific-preferred-title-1933!'
-                     'Specific Preferred Title (1933)'}]},
         {'a': 'Smith, Joe',
          'p': [{'d': 'Second work [by Smith, J.]',
                 'v': 'second-work!Second work'}]},
@@ -4773,7 +4783,7 @@ def test_generatefacetkey(fval, nf_chars, expected):
       ]}),
 
     # 100/245/700s (IW): Same author in 700s, no (main) pref title
-    # 245 is main title AND is added to IW. Titles in 700s are IWs.
+    # 245 is main title AND main work. Titles in 700s are IWs.
     # Short author info is added.
     ([('100', ['a', 'Smith, Joe.'], '10'),
       ('245', ['a', 'Transcribed title /',
@@ -4786,10 +4796,12 @@ def test_generatefacetkey(fval, nf_chars, expected):
       'title_sort': 'transcribed-title',
       'responsibility_display': 'Joe Smith; edited by Edward Copeland',
       'responsibility_search': ['Joe Smith; edited by Edward Copeland'],
+      'main_work_title_json': {
+        'a': 'Smith, Joe',
+        'p': [{'d': 'Transcribed title [by Smith, J.]',
+               'v': 'transcribed-title!Transcribed title'}]
+      },
       'included_work_titles_json': [
-        {'a': 'Smith, Joe',
-         'p': [{'d': 'Transcribed title [by Smith, J.]',
-                'v': 'transcribed-title!Transcribed title'}]},
         {'a': 'Jung, C. G. (Carl Gustav), 1875-1961',
          'p': [{'d': 'First work [by Jung, C.G.]',
                 'v': 'first-work!First work'}]},
@@ -5105,9 +5117,7 @@ def test_generatefacetkey(fval, nf_chars, expected):
     # Deep dive into titles from 245 => included works entries
 
     # 100/240/245: 240 is basic Coll Title.
-    # 245 is added to IW. (Basic collective titles are not very
-    # informative or necessarily representative of the work, so the
-    # 245 is added in addition.)
+    # The 240 is the main work.
     ([('100', ['a', 'Smith, Joe'], '1 '),
       ('240', ['a', 'Poems.'], '10'),
       ('245', ['a', 'Poetry! :', 'b', 'an anthology of collected poems /',
@@ -5117,28 +5127,21 @@ def test_generatefacetkey(fval, nf_chars, expected):
       'title_sort': 'poetry-an-anthology-of-collected-poems',
       'responsibility_display': 'by Joe Smith; edited by Edward Copeland',
       'responsibility_search': ['by Joe Smith; edited by Edward Copeland'],
-      'included_work_titles_json': [
-        {'a': 'Smith, Joe',
-         'p': [{'d': 'Poetry!: an anthology of collected poems [by Smith, J.]',
-                'v': 'poetry-an-anthology-of-collected-poems!'
-                     'Poetry!: an anthology of collected poems'}]},
-        {'a': 'Smith, Joe',
-         'p': [{'d': 'Poems [of Smith, J.] (Complete)',
-                'v': 'poems-of-smith-j-complete!'
-                     'Poems [of Smith, J.] (Complete)'}]},
-      ],
+      'main_work_title_json': {
+        'a': 'Smith, Joe',
+        'p': [{'d': 'Poems [of Smith, J.] (Complete)',
+               'v': 'poems-of-smith-j-complete!'
+                    'Poems [of Smith, J.] (Complete)'}]
+      },
       'included_work_titles_search': [
-        'Poetry!: an anthology of collected poems',
         'Poems [of Smith, J.] (Complete)'
       ],
       'title_series_facet': [
-        'poetry-an-anthology-of-collected-poems!'
-        'Poetry!: an anthology of collected poems',
         'poems-of-smith-j-complete!Poems [of Smith, J.] (Complete)',
       ]}),
 
     # 100/240/245: 240 is Coll Title/Selections.
-    # 245 is added to IW.
+    # 240 is the main work.
     ([('100', ['a', 'Smith, Joe'], '1 '),
       ('240', ['a', 'Poems.', 'k', 'Selections.'], '10'),
       ('245', ['a', 'Poetry! :', 'b', 'an anthology of selected poems /',
@@ -5148,29 +5151,21 @@ def test_generatefacetkey(fval, nf_chars, expected):
       'title_sort': 'poetry-an-anthology-of-selected-poems',
       'responsibility_display': 'by Joe Smith; edited by Edward Copeland',
       'responsibility_search': ['by Joe Smith; edited by Edward Copeland'],
-      'included_work_titles_json': [
-        {'a': 'Smith, Joe',
-         'p': [{'d': 'Poetry!: an anthology of selected poems [by Smith, J.]',
-                'v': 'poetry-an-anthology-of-selected-poems!'
-                     'Poetry!: an anthology of selected poems'}]},
-        {'a': 'Smith, Joe',
-         'p': [{'d': 'Poems [of Smith, J.] (Selections)',
-                'v': 'poems-of-smith-j-selections!'
-                     'Poems [of Smith, J.] (Selections)'}]},
-      ],
+      'main_work_title_json': {
+        'a': 'Smith, Joe',
+        'p': [{'d': 'Poems [of Smith, J.] (Selections)',
+               'v': 'poems-of-smith-j-selections!'
+                    'Poems [of Smith, J.] (Selections)'}]
+      },
       'included_work_titles_search': [
-        'Poetry!: an anthology of selected poems',
         'Poems [of Smith, J.] (Selections)'
       ],
       'title_series_facet': [
-        'poetry-an-anthology-of-selected-poems!'
-        'Poetry!: an anthology of selected poems',
         'poems-of-smith-j-selections!Poems [of Smith, J.] (Selections)',
       ]}),
 
     # 100/240/245: 240 is Music Form w/parts.
-    # 245 is not added to IW, because the 240 is specific enough that
-    # it probably isn't needed.
+    # 240 is main work.
     ([('100', ['a', 'Smith, Joe'], '1 '),
       ('240', ['a', 'Sonatas,', 'm', 'piano,', 'n', 'op. 32,',
                'r', 'C major.'], '10'),
@@ -5181,15 +5176,15 @@ def test_generatefacetkey(fval, nf_chars, expected):
       'title_sort': 'smith-s-piano-sonata-in-c-major-opus-32',
       'responsibility_display': 'by Joe Smith',
       'responsibility_search': ['by Joe Smith'],
-      'included_work_titles_json': [
-        {'a': 'Smith, Joe',
-         'p': [{'d': 'Sonatas, piano [by Smith, J.]',
-                's': ' > ',
-                'v': 'sonatas-piano-by-smith-j!Sonatas, piano [by Smith, J.]'},
-               {'d': 'Op. 32, C major',
-                'v': 'sonatas-piano-by-smith-j-op-32-c-major!'
-                     'Sonatas, piano [by Smith, J.] > Op. 32, C major'},]},
-      ],
+      'main_work_title_json': {
+        'a': 'Smith, Joe',
+        'p': [{'d': 'Sonatas, piano [by Smith, J.]',
+               's': ' > ',
+               'v': 'sonatas-piano-by-smith-j!Sonatas, piano [by Smith, J.]'},
+              {'d': 'Op. 32, C major',
+               'v': 'sonatas-piano-by-smith-j-op-32-c-major!'
+                    'Sonatas, piano [by Smith, J.] > Op. 32, C major'},]
+      },
       'included_work_titles_search': [
         'Sonatas, piano [by Smith, J.] > Op. 32, C major',
       ],
@@ -5200,9 +5195,9 @@ def test_generatefacetkey(fval, nf_chars, expected):
       ]}),
 
     # 100/240/245: 245 has multiple titles, 240 is not Coll Title.
-    # The first title from the 245 is not added if the 240 is not a
-    # collective title, but subsequent titles from the 245 are if there
-    # are no title added entries (7XXs) that cover them.
+    # The first title from the 245 is not the main work if the 240 is
+    # not a collective title, but titles from the 245 are added to IW
+    # if there are no title added entries (7XXs) that cover them.
     ([('100', ['a', 'Smith, Joe'], '1 '),
       ('240', ['a', 'Specific Preferred Title.'], '10'),
       ('245', ['a', 'First work ;', 'b', 'Second work /',
@@ -5212,26 +5207,32 @@ def test_generatefacetkey(fval, nf_chars, expected):
       'title_sort': 'first-work-second-work',
       'responsibility_display': 'Joe Smith; edited by Edward Copeland',
       'responsibility_search': ['Joe Smith; edited by Edward Copeland'],
+      'main_work_title_json': {
+        'a': 'Smith, Joe',
+        'p': [{'d': 'Specific Preferred Title [by Smith, J.]',
+               'v': 'specific-preferred-title!Specific Preferred Title'}]
+      },
       'included_work_titles_json': [
         {'a': 'Smith, Joe',
-         'p': [{'d': 'Specific Preferred Title [by Smith, J.]',
-                'v': 'specific-preferred-title!Specific Preferred Title'}]},
+         'p': [{'d': 'First work [by Smith, J.]',
+                'v': 'first-work!First work'}]},
         {'a': 'Smith, Joe',
          'p': [{'d': 'Second work [by Smith, J.]',
                 'v': 'second-work!Second work'}]}
       ],
       'included_work_titles_search': [
-        'Specific Preferred Title',
+        'First work',
         'Second work',
+        'Specific Preferred Title',
       ],
       'title_series_facet': [
+        'first-work!First work',
+        'second-work!Second work',
         'specific-preferred-title!Specific Preferred Title',
-        'second-work!Second work'
       ]}),
 
     # 100/240/245: 245 has multiple titles, 240 is basic Coll Title.
-    # All titles from the 245 are added to IW if the 240 is a basic
-    # collective title.
+    # 240 is main work. All titles from the 245 are added to IW.
     ([('100', ['a', 'Smith, Joe'], '1 '),
       ('240', ['a', 'Poems.', 'k', 'Selections.'], '10'),
       ('245', ['a', 'First poem ;', 'b', 'Second poem /',
@@ -5241,6 +5242,12 @@ def test_generatefacetkey(fval, nf_chars, expected):
       'title_sort': 'first-poem-second-poem',
       'responsibility_display': 'by Joe Smith; edited by Edward Copeland',
       'responsibility_search': ['by Joe Smith; edited by Edward Copeland'],
+      'main_work_title_json': {
+        'a': 'Smith, Joe',
+        'p': [{'d': 'Poems [of Smith, J.] (Selections)',
+               'v': 'poems-of-smith-j-selections!'
+                    'Poems [of Smith, J.] (Selections)'}]
+      },
       'included_work_titles_json': [
         {'a': 'Smith, Joe',
          'p': [{'d': 'First poem [by Smith, J.]',
@@ -5248,15 +5255,11 @@ def test_generatefacetkey(fval, nf_chars, expected):
         {'a': 'Smith, Joe',
          'p': [{'d': 'Second poem [by Smith, J.]',
                 'v': 'second-poem!Second poem'}]},
-        {'a': 'Smith, Joe',
-         'p': [{'d': 'Poems [of Smith, J.] (Selections)',
-                'v': 'poems-of-smith-j-selections!'
-                     'Poems [of Smith, J.] (Selections)'}]},
       ],
       'included_work_titles_search': [
         'First poem',
         'Second poem',
-        'Poems [of Smith, J.] (Selections)'
+        'Poems [of Smith, J.] (Selections)',
       ],
       'title_series_facet': [
         'first-poem!First poem',
@@ -5265,9 +5268,8 @@ def test_generatefacetkey(fval, nf_chars, expected):
       ]}),
 
     # 100/245/700 (IW): 2-title 245 w/700 covering 2nd.
-    # With a multi-titled 245 where ind1 is 1, we assume that the first
-    # title should be added if there is no 130/240 and there are not
-    # enough 7XXs to cover all of the titles in the 245.
+    # With a multi-titled 245 where ind1 is 1, there is no main work.
+    # Titles from 245 / 7XXs are added to IW.
     ([('100', ['a', 'Smith, Joe'], '1 '),
       ('245', ['a', 'First work tt /',
                'c', 'by Joe Smith. Second work tt / by Edward Copeland.'],
@@ -5299,6 +5301,7 @@ def test_generatefacetkey(fval, nf_chars, expected):
     # With a multi-titled 245 where ind1 is 1 and no 130/240, we assume
     # that none of the 245 titles should generate IW entries if there
     # are enough 7XXs to cover all of the titles in the 245.
+    # There is no main work.
     ([('100', ['a', 'Smith, Joe'], '1 '),
       ('245', ['a', 'First work tt /',
                'c', 'by Joe Smith. Second work tt / by Edward Copeland.'],
@@ -5990,17 +5993,17 @@ def test_generatefacetkey(fval, nf_chars, expected):
         'title-title-title-title-title-title-title-title-title-title-title-'
         'title-title-title-title-title-title-title-title-title-title-title-'
         'title-title-title-title-title-title-title-title',
-      'included_work_titles_json': [
-        {'p': [{'d': 'Title title title title title title title title title '
-                     'title title title title title title title title title '
-                     'title title title title title title title ...',
-                'v': 'title-title-title-title-title-title-title-title-title-'
-                     'title-title-title-title-title-title-title-title-title-'
-                     'title-title-title-title-title-title-title!Title title '
-                     'title title title title title title title title title '
-                     'title title title title title title title title title '
-                     'title title title title title ...'}]}
-      ],
+      'main_work_title_json':{
+        'p': [{'d': 'Title title title title title title title title title '
+                    'title title title title title title title title title '
+                    'title title title title title title title ...',
+               'v': 'title-title-title-title-title-title-title-title-title-'
+                    'title-title-title-title-title-title-title-title-title-'
+                    'title-title-title-title-title-title-title!Title title '
+                    'title title title title title title title title title '
+                    'title title title title title title title title title '
+                    'title title title title title ...'}]
+      },
       'included_work_titles_search': [
         'Title title title title title title title title title title title '
         'title title title title title title title title title title title '
@@ -6103,13 +6106,13 @@ def test_generatefacetkey(fval, nf_chars, expected):
         'Title translation: Title in English'],
       'variant_titles_search': [
         'Title in English'],
-      'included_work_titles_json': [
-        {'a': 'Smith, Joe',
-         'p': [{'d': 'Title [by Smith, J.]',
-                'v': 'title!Title'},
-                {'s': ' ',
-                 'd': '[translated: Title in English]'}]},
-      ],
+      'main_work_title_json': {
+        'a': 'Smith, Joe',
+        'p': [{'d': 'Title [by Smith, J.]',
+               'v': 'title!Title'},
+               {'s': ' ',
+                'd': '[translated: Title in English]'}]
+      },
       'included_work_titles_search': ['Title', 'Title in English'],
       'title_series_facet': ['title!Title',
                              'title-in-english!Title in English'],
@@ -6129,13 +6132,13 @@ def test_generatefacetkey(fval, nf_chars, expected):
         'Title translation: Title in English'],
       'variant_titles_search': [
         'Title in English'],
-      'included_work_titles_json': [
-        {'a': 'Author, German',
-         'p': [{'d': 'Title in German [by Author, G.]',
-                'v': 'title-in-german!Title in German'},
-               {'s': ' ',
-                'd': '[translated: Title in English]'}]},
-      ],
+      'main_work_title_json': {
+        'a': 'Author, German',
+        'p': [{'d': 'Title in German [by Author, G.]',
+               'v': 'title-in-german!Title in German'},
+              {'s': ' ',
+               'd': '[translated: Title in English]'}]
+      },
       'included_work_titles_search': ['Title in German', 'Title in English'],
       'title_series_facet': ['title-in-german!Title in German',
                              'title-in-english!Title in English']
@@ -6155,13 +6158,13 @@ def test_generatefacetkey(fval, nf_chars, expected):
         'Title translation: Title in Spanish'],
       'variant_titles_search': [
         'Title in English', 'Title in Spanish'],
-      'included_work_titles_json': [
-        {'a': 'Smith, Joe',
-         'p': [{'d': 'Title [by Smith, J.]',
-                'v': 'title!Title'},
-               {'s': ' ',
-                'd': '[translated: Title in English; Title in Spanish]'}]},
-      ],
+      'main_work_title_json': {
+        'a': 'Smith, Joe',
+        'p': [{'d': 'Title [by Smith, J.]',
+               'v': 'title!Title'},
+              {'s': ' ',
+               'd': '[translated: Title in English; Title in Spanish]'}]
+      },
       'included_work_titles_search': [
         'Title', 'Title in English', 'Title in Spanish'],
       'title_series_facet': ['title!Title',
