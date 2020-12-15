@@ -2033,6 +2033,7 @@ class BlacklightASMPipeline(object):
         """
         self.bundle = {}
         self.name_titles = []
+        self.title_languages = []
         for fname in self.fields:
             method_name = '{}{}'.format(self.prefix, fname)
             result = getattr(self, method_name)(r, marc_record)
