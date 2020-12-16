@@ -390,7 +390,7 @@
     <copyField source="variant_titles_notes" dest="notes_search"/>
 
     <!-- "Boost" field(s) -->
-    <field name="record_boost" type="integer" indexed="true" stored="false" multiValued="false" />
+    <field name="record_boost" type="integer" indexed="true" stored="true" multiValued="false" />
 
 
     <!-- OLD FIELDS: DONE #################################################################################

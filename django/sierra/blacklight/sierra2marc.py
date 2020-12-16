@@ -1995,7 +1995,7 @@ class BlacklightASMPipeline(object):
         'contributor_info', 'title_info', 'general_3xx_info',
         'general_5xx_info', 'call_number_info', 'standard_number_info',
         'control_number_info', 'games_facets_info', 'subjects_info',
-        'language_info',
+        'language_info', 'record_boost'
     ]
     prefix = 'get_'
     access_online_label = 'Online'
@@ -4258,7 +4258,7 @@ class BlacklightASMPipeline(object):
                 boost = 1
         if r.bcode1 in ('-', 'd'):
             boost += 500
-        return {'record_boost': boost}
+        return {'record_boost': str(boost)}
 
 
 class PipelineBundleConverter(object):
