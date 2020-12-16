@@ -350,6 +350,12 @@
     <field name="genres_search_main_terms" type="heading_term_text_stem" indexed="true" stored="false" multiValued="true"/>
 
     <!-- Copyfield Search Fields -->
+    <field name="all_title_variants_search" type="text" indexed="true" stored="false" multiValued="true"/>
+    <copyField source="main_title_search" dest="all_title_variants_search"/>
+    <copyField source="included_work_titles_search" dest="all_title_variants_search"/>
+    <copyField source="related_series_titles_search" dest="all_title_variants_search"/>
+    <copyField source="variant_titles_search" dest="all_title_variants_search"/>
+
     <field name="building_collection_search" type="text" indexed="true" stored="false" multiValued="true"/>
     <copyField source="building_facet" dest="building_collection_search"/>
     <copyField source="shelf_facet" dest="building_collection_search"/>

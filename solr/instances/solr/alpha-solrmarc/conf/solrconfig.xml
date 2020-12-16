@@ -1948,9 +1948,7 @@
          genres_search_all_terms^500
          main_title_search^600
          publication_dates_search^600
-         included_work_titles_search^550
-         related_series_titles_search^550
-         variant_titles_search^500
+         all_title_variants_search^550
          author_search^500
          contributors_search^475
          responsibility_search^450
@@ -1978,14 +1976,12 @@
          control_numbers_search^1750
          responsibility_search^1750
          contributors_search^1750
-         related_series_titles_search^1600
+         all_title_variants_search^1600
          genres_search_main_terms^1300
          subjects_search_main_terms^1250
          genres_search_all_terms^1150
          subjects_search_all_terms^1100
          genres_search_exact_headings^1100
-         related_work_titles_search^1100
-         variant_titles_search^1100
          subjects_search_exact_headings^1050
          meetings_search^1099
          publishers_search^1001
@@ -2009,18 +2005,14 @@
        
        <str name="title_qf">
          main_title_search^1000
-         included_work_titles_search^700
-         variant_titles_search^700
-         related_series_title_search^700
-         related_work_titles_search^500
+         all_title_variants_search^700
+         related_work_titles_search^200
          toc_notes^10
        </str>
        <str name="title_pf">
          main_title_search^2000
-         included_work_titles_search^1700
-         variant_titles_search^1700
-         related_series_title_search^1700
-         related_work_titles_search^1500
+         all_title_variants_search^1700
+         related_work_titles_search^1001
          toc_notes^1001
        </str>
        <str name="title_bq">_query_:"{!dismax v=$user_query mm='100%' bq='' ps=0 qf=$title_qf pf=$title_pf}"^1000</str>
