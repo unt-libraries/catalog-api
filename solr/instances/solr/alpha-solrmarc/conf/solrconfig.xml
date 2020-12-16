@@ -1986,6 +1986,7 @@
          toc_notes^1001
        </str>
        <str name="bq">_query_:"{!dismax v=$user_query mm='100%' bq='' ps=0}"^1000</str>
+       <str name="bf">record_boost^500</str>
 
        <str name="creator_qf">
          author_search^1000
