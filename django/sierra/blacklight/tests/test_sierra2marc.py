@@ -4411,7 +4411,8 @@ def test_generatefacetkey(fval, nf_chars, expected):
     ([('130', ['a', 'Duets,', 'm', 'violin, viola,', 'n', 'op. 10.',
                'n', 'No. 3.'], '0 '),],
      {'title_display': 'Duets, violin, viola > Op. 10 > No. 3',
-      'main_title_search': ['Duets, violin, viola > Op. 10 > No. 3'],
+      'main_title_search': ['Duets, violin, viola'],
+      'variant_titles_search': ['Duets, violin, viola > Op. 10 > No. 3'],
       'title_sort': 'duets-violin-viola-op-10-no-3',
       'main_work_title_json': {
         'p': [{'d': 'Duets, violin, viola',
@@ -4449,6 +4450,7 @@ def test_generatefacetkey(fval, nf_chars, expected):
                'c', 'Alfonso X, "el Sabio."'], '1 ')],
      {'title_display': 'Las Cantigas de Santa Maria',
       'main_title_search': ['Las Cantigas de Santa Maria'],
+      'variant_titles_search': ['Las Cantigas de Santa Maria'],
       'title_sort': 'las-cantigas-de-santa-maria',
       'responsibility_display': 'Alfonso X, "el Sabio"',
       'responsibility_search': ['Alfonso X, "el Sabio"'],
@@ -4466,6 +4468,7 @@ def test_generatefacetkey(fval, nf_chars, expected):
                'c', 'Alfonso X, el Sabio. ,...'], '1 ')],
      {'title_display': 'Las Cantigas de Santa Maria',
       'main_title_search': ['Las Cantigas de Santa Maria'],
+      'variant_titles_search': ['Las Cantigas de Santa Maria'],
       'title_sort': 'las-cantigas-de-santa-maria',
       'responsibility_display': 'Alfonso X, el Sabio,...',
       'responsibility_search': ['Alfonso X, el Sabio,...'],
@@ -4482,6 +4485,7 @@ def test_generatefacetkey(fval, nf_chars, expected):
     ([('245', ['a', '日本食品化学学会誌'], '1 ')],
      {'title_display': '日本食品化学学会誌',
       'main_title_search': ['日本食品化学学会誌'],
+      'variant_titles_search': ['日本食品化学学会誌'],
       'title_sort': '~',
       'main_work_title_json': {
         'p': [{'d': '日本食品化学学会誌',
@@ -4504,7 +4508,9 @@ def test_generatefacetkey(fval, nf_chars, expected):
       ('245', ['a', 'Duets for violin and viola,', 'n', 'opus 10.',
                'n', 'Number 3 /', 'c', '[various authors]'], '1 ')],
      {'title_display': 'Duets for violin and viola, opus 10 > Number 3',
-      'main_title_search': ['Duets for violin and viola, opus 10 > Number 3'],
+      'main_title_search': ['Duets for violin and viola, opus 10'],
+      'variant_titles_search': ['Duets for violin and viola, opus 10 > '
+                                'Number 3'],
       'title_sort': 'duets-for-violin-and-viola-opus-10-number-3',
       'responsibility_display': '[various authors]',
       'responsibility_search': ['[various authors]'],
@@ -4535,6 +4541,7 @@ def test_generatefacetkey(fval, nf_chars, expected):
                'c', 'Joe Smith ; edited by Edward Copeland.'], '1 ')],
      {'title_display': 'Transcribed title',
       'main_title_search': ['Transcribed title'],
+      'variant_titles_search': ['Transcribed title'],
       'title_sort': 'transcribed-title',
       'responsibility_display': 'Joe Smith; edited by Edward Copeland',
       'responsibility_search': ['Joe Smith; edited by Edward Copeland'],
@@ -4555,6 +4562,7 @@ def test_generatefacetkey(fval, nf_chars, expected):
                'c', 'Joe Smith ; edited by Edward Copeland.'], '1 ')],
      {'title_display': 'Transcribed title',
       'main_title_search': ['Transcribed title'],
+      'variant_titles_search': ['Transcribed title'],
       'title_sort': 'transcribed-title',
       'responsibility_display': 'Joe Smith; edited by Edward Copeland',
       'responsibility_search': ['Joe Smith; edited by Edward Copeland'],
@@ -4580,6 +4588,7 @@ def test_generatefacetkey(fval, nf_chars, expected):
                't', 'Second work.'], '12')],
      {'title_display': 'Transcribed title',
       'main_title_search': ['Transcribed title'],
+      'variant_titles_search': ['Transcribed title'],
       'title_sort': 'transcribed-title',
       'responsibility_display': 'Joe Smith; edited by Edward Copeland',
       'responsibility_search': ['Joe Smith; edited by Edward Copeland'],
@@ -4621,6 +4630,7 @@ def test_generatefacetkey(fval, nf_chars, expected):
       ('700', ['a', 'Walter, Johannes.', 't', 'Second work.'], '12')],
      {'title_display': 'Transcribed title',
       'main_title_search': ['Transcribed title'],
+      'variant_titles_search': ['Transcribed title'],
       'title_sort': 'transcribed-title',
       'responsibility_display': 'Joe Smith; edited by Edward Copeland',
       'responsibility_search': ['Joe Smith; edited by Edward Copeland'],
@@ -4662,6 +4672,7 @@ def test_generatefacetkey(fval, nf_chars, expected):
       ('730', ['a', 'Three little pigs.'], '02')],
      {'title_display': 'Transcribed title',
       'main_title_search': ['Transcribed title'],
+      'variant_titles_search': ['Transcribed title'],
       'title_sort': 'transcribed-title',
       'responsibility_display': 'Joe Smith; edited by Edward Copeland',
       'responsibility_search': ['Joe Smith; edited by Edward Copeland'],
@@ -4707,6 +4718,7 @@ def test_generatefacetkey(fval, nf_chars, expected):
                't', 'Second work.'], '1 ')],
      {'title_display': 'Transcribed title',
       'main_title_search': ['Transcribed title'],
+      'variant_titles_search': ['Transcribed title'],
       'title_sort': 'transcribed-title',
       'responsibility_display': 'Joe Smith; edited by Edward Copeland',
       'responsibility_search': ['Joe Smith; edited by Edward Copeland'],
@@ -4750,6 +4762,7 @@ def test_generatefacetkey(fval, nf_chars, expected):
       ('730', ['a', 'Fourth work.'], '0 ')],
      {'title_display': 'Transcribed title',
       'main_title_search': ['Transcribed title'],
+      'variant_titles_search': ['Transcribed title'],
       'title_sort': 'transcribed-title',
       'responsibility_display': 'Joe Smith; edited by Edward Copeland',
       'responsibility_search': ['Joe Smith; edited by Edward Copeland'],
@@ -4801,6 +4814,7 @@ def test_generatefacetkey(fval, nf_chars, expected):
       ('700', ['a', 'Smith, Joe.', 't', 'Second work.'], '12')],
      {'title_display': 'Transcribed title',
       'main_title_search': ['Transcribed title'],
+      'variant_titles_search': ['Transcribed title'],
       'title_sort': 'transcribed-title',
       'responsibility_display': 'Joe Smith; edited by Edward Copeland',
       'responsibility_search': ['Joe Smith; edited by Edward Copeland'],
@@ -5132,7 +5146,8 @@ def test_generatefacetkey(fval, nf_chars, expected):
       ('245', ['a', 'Poetry! :', 'b', 'an anthology of collected poems /',
                'c', 'by Joe Smith ; edited by Edward Copeland.'], '1 ')],
      {'title_display': 'Poetry!: an anthology of collected poems',
-      'main_title_search': ['Poetry!: an anthology of collected poems'],
+      'main_title_search': ['Poetry!'],
+      'variant_titles_search': ['Poetry!: an anthology of collected poems'],
       'title_sort': 'poetry-an-anthology-of-collected-poems',
       'responsibility_display': 'by Joe Smith; edited by Edward Copeland',
       'responsibility_search': ['by Joe Smith; edited by Edward Copeland'],
@@ -5156,7 +5171,8 @@ def test_generatefacetkey(fval, nf_chars, expected):
       ('245', ['a', 'Poetry! :', 'b', 'an anthology of selected poems /',
                'c', 'by Joe Smith ; edited by Edward Copeland.'], '1 ')],
      {'title_display': 'Poetry!: an anthology of selected poems',
-      'main_title_search': ['Poetry!: an anthology of selected poems'],
+      'main_title_search': ['Poetry!'],
+      'variant_titles_search': ['Poetry!: an anthology of selected poems'],
       'title_sort': 'poetry-an-anthology-of-selected-poems',
       'responsibility_display': 'by Joe Smith; edited by Edward Copeland',
       'responsibility_search': ['by Joe Smith; edited by Edward Copeland'],
@@ -5182,6 +5198,7 @@ def test_generatefacetkey(fval, nf_chars, expected):
                'c', 'by Joe Smith.'], '1 ')],
      {'title_display': 'Smith\'s piano sonata in C major, opus 32',
       'main_title_search': ['Smith\'s piano sonata in C major, opus 32'],
+      'variant_titles_search': ['Smith\'s piano sonata in C major, opus 32'],
       'title_sort': 'smith-s-piano-sonata-in-c-major-opus-32',
       'responsibility_display': 'by Joe Smith',
       'responsibility_search': ['by Joe Smith'],
@@ -5212,7 +5229,8 @@ def test_generatefacetkey(fval, nf_chars, expected):
       ('245', ['a', 'First work ;', 'b', 'Second work /',
                'c', 'Joe Smith ; edited by Edward Copeland.'], '1 ')],
      {'title_display': 'First work; Second work',
-      'main_title_search': ['First work; Second work'],
+      'main_title_search': ['First work'],
+      'variant_titles_search': ['First work; Second work'],
       'title_sort': 'first-work-second-work',
       'responsibility_display': 'Joe Smith; edited by Edward Copeland',
       'responsibility_search': ['Joe Smith; edited by Edward Copeland'],
@@ -5247,7 +5265,8 @@ def test_generatefacetkey(fval, nf_chars, expected):
       ('245', ['a', 'First poem ;', 'b', 'Second poem /',
                'c', 'by Joe Smith ; edited by Edward Copeland.'], '1 ')],
      {'title_display': 'First poem; Second poem',
-      'main_title_search': ['First poem; Second poem'],
+      'main_title_search': ['First poem'],
+      'variant_titles_search': ['First poem; Second poem'],
       'title_sort': 'first-poem-second-poem',
       'responsibility_display': 'by Joe Smith; edited by Edward Copeland',
       'responsibility_search': ['by Joe Smith; edited by Edward Copeland'],
@@ -5285,7 +5304,8 @@ def test_generatefacetkey(fval, nf_chars, expected):
        '1 '),
       ('700', ['a', 'Copeland, Edward.', 't', 'Second work.'], '12')],
      {'title_display': 'First work tt; Second work tt',
-      'main_title_search': ['First work tt; Second work tt'],
+      'main_title_search': ['First work tt'],
+      'variant_titles_search': ['First work tt; Second work tt'],
       'title_sort': 'first-work-tt-second-work-tt',
       'responsibility_display': 'by Joe Smith; by Edward Copeland',
       'responsibility_search': ['by Joe Smith', 'by Edward Copeland'],
@@ -5318,7 +5338,8 @@ def test_generatefacetkey(fval, nf_chars, expected):
       ('700', ['a', 'Smith, Joe.', 't', 'First work.'], '12'),
       ('700', ['a', 'Copeland, Edward.', 't', 'Second work.'], '12')],
      {'title_display': 'First work tt; Second work tt',
-      'main_title_search': ['First work tt; Second work tt'],
+      'main_title_search': ['First work tt'],
+      'variant_titles_search': ['First work tt; Second work tt'],
       'title_sort': 'first-work-tt-second-work-tt',
       'responsibility_display': 'by Joe Smith; by Edward Copeland',
       'responsibility_search': ['by Joe Smith', 'by Edward Copeland'],
@@ -5350,7 +5371,8 @@ def test_generatefacetkey(fval, nf_chars, expected):
        '1 '),
       ('700', ['a', 'Copeland, Edward.'], '1 ')],
      {'title_display': 'First work; Second work',
-      'main_title_search': ['First work; Second work'],
+      'main_title_search': ['First work'],
+      'variant_titles_search': ['First work; Second work'],
       'title_sort': 'first-work-second-work',
       'responsibility_display': 'by Joe Smith; by Edward Copeland',
       'responsibility_search': ['by Joe Smith', 'by Edward Copeland'],
@@ -5380,7 +5402,8 @@ def test_generatefacetkey(fval, nf_chars, expected):
        '1 '),
       ('700', ['a', 'Copeland, Edward.', 't', 'Related work.'], '1 ')],
      {'title_display': 'First work; Second work',
-      'main_title_search': ['First work; Second work'],
+      'main_title_search': ['First work'],
+      'variant_titles_search': ['First work; Second work'],
       'title_sort': 'first-work-second-work',
       'responsibility_display': 'by Joe Smith; by Edward Copeland',
       'responsibility_search': ['by Joe Smith', 'by Edward Copeland'],
@@ -5423,7 +5446,8 @@ def test_generatefacetkey(fval, nf_chars, expected):
       ('245', ['a', 'First work ;', 'b', 'Second work /',
                'c', 'by Joe Smith.'], '1 ')],
      {'title_display': 'First work; Second work',
-      'main_title_search': ['First work; Second work'],
+      'main_title_search': ['First work'],
+      'variant_titles_search': ['First work; Second work'],
       'title_sort': 'first-work-second-work',
       'responsibility_display': 'by Joe Smith',
       'responsibility_search': ['by Joe Smith'],
@@ -5451,7 +5475,8 @@ def test_generatefacetkey(fval, nf_chars, expected):
       ('245', ['a', 'First work ;', 'b', 'Second work /',
                'c', 'by Joe Smith.'], '0 ')],
      {'title_display': 'First work; Second work',
-      'main_title_search': ['First work; Second work'],
+      'main_title_search': ['First work'],
+      'variant_titles_search': ['First work; Second work'],
       'title_sort': 'first-work-second-work',
       'responsibility_display': 'by Joe Smith',
       'responsibility_search': ['by Joe Smith']
@@ -5465,7 +5490,8 @@ def test_generatefacetkey(fval, nf_chars, expected):
                'c', 'by Joe Smith.'], '1 '),
       ('740', ['a', 'Second work.'], '02')],
      {'title_display': 'First work; Second work',
-      'main_title_search': ['First work; Second work'],
+      'main_title_search': ['First work'],
+      'variant_titles_search': ['First work; Second work'],
       'title_sort': 'first-work-second-work',
       'responsibility_display': 'by Joe Smith',
       'responsibility_search': ['by Joe Smith'],
@@ -5882,6 +5908,12 @@ def test_generatefacetkey(fval, nf_chars, expected):
         'title title title title title title title title title title title '
         'title title title title title title title title'
       ],
+      'variant_titles_search': [
+        'Title title title title title title title title title title title '
+        'title title title title title title title title title title title '
+        'title title title title title title title title title title title '
+        'title title title title title title title title'
+      ],
       'title_sort':
         'title-title-title-title-title-title-title-title-title-title-title-'
         'title-title-title-title-title-title-title-title-title-title-title-'
@@ -5906,6 +5938,12 @@ def test_generatefacetkey(fval, nf_chars, expected):
         'title title title title title title title title title title title '
         'title title title title title title title title; Second title',
       'main_title_search': [
+        'Title title title title title title title title title title title '
+        'title title title title title title title title title title title '
+        'title title title title title title title title title title title '
+        'title title title title title title title title'
+      ],
+      'variant_titles_search': [
         'Title title title title title title title title title title title '
         'title title title title title title title title title title title '
         'title title title title title title title title title title title '
@@ -5935,6 +5973,10 @@ def test_generatefacetkey(fval, nf_chars, expected):
         'title title title title title title title title',
       'main_title_search': [
         'Title title title title title title title title title title title '
+        'title title title title title title title title title title title'
+      ],
+      'variant_titles_search': [
+        'Title title title title title title title title title title title '
         'title title title title title title title title title title title: '
         'title title title title title title title title title title title '
         'title title title title title title title title'
@@ -5962,6 +6004,9 @@ def test_generatefacetkey(fval, nf_chars, expected):
         'title title title title title title title title title title title '
         'title title title title title title title title',
       'main_title_search': [
+        'Title title title title'
+      ],
+      'variant_titles_search': [
         'Title title title title: title title title title title title title '
         'title title title title title title title title title title, title '
         'title title title title title title title title title title title '
@@ -5992,6 +6037,12 @@ def test_generatefacetkey(fval, nf_chars, expected):
         'title title title title title title title title title title title '
         'title title title title title title title title',
       'main_title_search': [
+        'Title title title title title title title title title title title '
+        'title title title title title title title title title title title '
+        'title title title title title title title title title title title '
+        'title title title title title title title title'
+      ],
+      'variant_titles_search': [
         'Title title title title title title title title title title title '
         'title title title title title title title title title title title '
         'title title title title title title title title title title title '
@@ -6034,7 +6085,8 @@ def test_generatefacetkey(fval, nf_chars, expected):
       ('245', ['a', 'The first work ;', 'b', 'Second work /',
                'c', 'by Joe Smith.'], '14')],
      {'title_display': 'The first work; Second work',
-      'main_title_search': ['The first work; Second work'],
+      'main_title_search': ['The first work'],
+      'variant_titles_search': ['The first work; Second work'],
       'title_sort': 'first-work-second-work',
       'responsibility_display': 'by Joe Smith',
       'responsibility_search': ['by Joe Smith'],
@@ -6107,14 +6159,14 @@ def test_generatefacetkey(fval, nf_chars, expected):
       ('245', ['a', 'Title =', 'b', 'Title in English /',
                'c', 'by Joe Smith.'], '10')],
      {'title_display': 'Title [translated: Title in English]',
-      'main_title_search': ['Title', 'Title in English'],
+      'main_title_search': ['Title'],
       'title_sort': 'title',
       'responsibility_display': 'by Joe Smith',
       'responsibility_search': ['by Joe Smith'],
       'variant_titles_notes': [
         'Title translation: Title in English'],
       'variant_titles_search': [
-        'Title in English'],
+        'Title in English', 'Title'],
       'main_work_title_json': {
         'a': 'smith-joe!Smith, Joe',
         'p': [{'d': 'Title [by Smith, J.]',
@@ -6133,14 +6185,14 @@ def test_generatefacetkey(fval, nf_chars, expected):
                'c', 'by German Author = Title in English / by Joe Smith.'],
        '10')],
      {'title_display': 'Title in German [translated: Title in English]',
-      'main_title_search': ['Title in German', 'Title in English'],
+      'main_title_search': ['Title in German'],
       'title_sort': 'title-in-german',
       'responsibility_display': 'by German Author [translated: by Joe Smith]',
       'responsibility_search': ['by German Author', 'by Joe Smith'],
       'variant_titles_notes': [
         'Title translation: Title in English'],
       'variant_titles_search': [
-        'Title in English'],
+        'Title in English', 'Title in German'],
       'main_work_title_json': {
         'a': 'author-german!Author, German',
         'p': [{'d': 'Title in German [by Author, G.]',
@@ -6158,7 +6210,7 @@ def test_generatefacetkey(fval, nf_chars, expected):
       ('245', ['a', 'Title =', 'b', 'Title in English = Title in Spanish /',
                'c', 'by Joe Smith.'], '10')],
      {'title_display': 'Title [translated: Title in English; Title in Spanish]',
-      'main_title_search': ['Title', 'Title in English', 'Title in Spanish'],
+      'main_title_search': ['Title'],
       'title_sort': 'title',
       'responsibility_display': 'by Joe Smith',
       'responsibility_search': ['by Joe Smith'],
@@ -6166,7 +6218,7 @@ def test_generatefacetkey(fval, nf_chars, expected):
         'Title translation: Title in English',
         'Title translation: Title in Spanish'],
       'variant_titles_search': [
-        'Title in English', 'Title in Spanish'],
+        'Title in English', 'Title in Spanish', 'Title'],
       'main_work_title_json': {
         'a': 'smith-joe!Smith, Joe',
         'p': [{'d': 'Title [by Smith, J.]',
@@ -6187,7 +6239,7 @@ def test_generatefacetkey(fval, nf_chars, expected):
                'c', 'by German Author = Title in English / by Joe Smith.'],
        '00')],
      {'title_display': 'Title in German [translated: Title in English]',
-      'main_title_search': ['Title in German', 'Title in English'],
+      'main_title_search': ['Title in German'],
       'title_sort': 'title-in-german',
       'responsibility_display': 'by German Author [translated: by Joe Smith]',
       'responsibility_search': [
@@ -6197,7 +6249,7 @@ def test_generatefacetkey(fval, nf_chars, expected):
       'variant_titles_notes': [
         'Title translation: Title in English'],
       'variant_titles_search': [
-        'Title in English'],
+        'Title in English', 'Title in German'],
       }),
 
     # 245/246: Parallel title in 246 (duplicates)
@@ -6206,7 +6258,7 @@ def test_generatefacetkey(fval, nf_chars, expected):
        '00'),
       ('246', ['a', 'Title in English'], '01'),],
      {'title_display': 'Title in German [translated: Title in English]',
-      'main_title_search': ['Title in German', 'Title in English'],
+      'main_title_search': ['Title in German'],
       'title_sort': 'title-in-german',
       'responsibility_display': 'by German Author [translated: by Joe Smith]',
       'responsibility_search': [
@@ -6216,7 +6268,7 @@ def test_generatefacetkey(fval, nf_chars, expected):
       'variant_titles_notes': [
         'Title translation: Title in English'],
       'variant_titles_search': [
-        'Title in English'],
+        'Title in English', 'Title in German'],
       }),
 
     # 246: Variant title in 246 w/$i

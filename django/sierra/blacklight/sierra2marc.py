@@ -3022,12 +3022,16 @@ class BlacklightASMPipeline(object):
 
     def compile_main_title(self, transcribed, nf_chars, parsed_130_240):
         display, non_trunc, search, sortable = '', '', [], ''
+        primary_main_title = ''
         sep = self.hierarchical_name_separator
         has_truncation = False
         if transcribed:
             disp_titles, raw_disp_titles, full_titles = [], [], []
-            for title in transcribed:
+            for i, title in enumerate(transcribed):
                 disp_parts, full_parts = [], []
+                if i == 0 and title:
+                    first_part = (title.get('parts') or [''])[0]
+                    primary_main_title = first_part.split(':')[0]
                 for disp, full in self.truncate_each_ttitle_part(title):
                     disp_parts.append(disp)
                     full_parts.append(full)
@@ -3060,6 +3064,10 @@ class BlacklightASMPipeline(object):
         elif parsed_130_240:
             title = parsed_130_240['title']
             display = title['compiled']['heading']
+            if display:
+                primary_main_title = display.split(' > ')[0].split(':')[0]
+            else:
+                primary_main_title = ''
             nf_chars = title['parsed']['nonfiling_chars']
             search, sortable = [display], display
 
@@ -3067,6 +3075,7 @@ class BlacklightASMPipeline(object):
             'display': display,
             'non_truncated': non_trunc or None,
             'search': search,
+            'primary_main_title': primary_main_title,
             'sort': generate_facet_key(sortable, nf_chars) if sortable else None
         }
 
@@ -3172,6 +3181,7 @@ class BlacklightASMPipeline(object):
         determine the entirety of title and series fields.
         """
         main_title_info = {}
+        main_search = []
         json_fields = {'main': '', 'included': [], 'related': [], 'series': []}
         search_fields = {'included': [], 'related': [], 'series': []}
         title_keys = {'included': set(), 'related': set(), 'series': set()}
@@ -3345,6 +3355,12 @@ class BlacklightASMPipeline(object):
         iworks_json = [ujson.dumps(v) for v in json_fields['included'] if v]
         rworks_json = [ujson.dumps(v) for v in json_fields['related'] if v]
         series_json = [ujson.dumps(v) for v in json_fields['series'] if v]
+        if main_title_info['primary_main_title']:
+            main_search.append(main_title_info['primary_main_title'])
+        for title in main_title_info['search']:
+            if title not in variant_titles_search:
+                variant_titles_search.append(title)
+
         return {
             'title_display': main_title_info['display'] or None,
             'non_truncated_title_display': main_title_info['non_truncated'],
@@ -3353,7 +3369,7 @@ class BlacklightASMPipeline(object):
             'related_work_titles_json': rworks_json or None,
             'related_series_titles_json': series_json or None,
             'variant_titles_notes': variant_titles_notes or None,
-            'main_title_search': main_title_info['search'] or None,
+            'main_title_search': main_search or None,
             'included_work_titles_search': search_fields['included'] or None,
             'related_work_titles_search': search_fields['related'] or None,
             'related_series_titles_search': search_fields['series'] or None,
