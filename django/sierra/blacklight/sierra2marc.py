@@ -579,6 +579,7 @@ class TranscribedTitleParser(SequentialMarcFieldParser):
         self.part_type = ''
         self.flags = {}
         self.lock_parallel = False
+        self.lock_subfield_c = False
         self.title_parts = []
         self.responsibility = ''
         self.display_text = ''
@@ -601,7 +602,7 @@ class TranscribedTitleParser(SequentialMarcFieldParser):
             if field.indicator2 in [str(i) for i in range(0, 10)]:
                 self.nonfiling_chars = int(field.indicator2)
 
-    def start_next_title(self):
+    def start_next_title(self, is_last=False):
         title, is_parallel = {}, self.lock_parallel
         if self.title_parts:
             parts = [p.compress_punctuation(tp) for tp in self.title_parts]
@@ -616,6 +617,10 @@ class TranscribedTitleParser(SequentialMarcFieldParser):
                 title['responsibility'] = responsibility
             self.responsibility = ''
         if title:
+            if is_last and is_parallel and self.lock_subfield_c:
+                if title.get('parts') and not title.get('responsibility'):
+                    title['responsibility'] = '; '.join(title['parts'])
+                    del(title['parts'])
             if is_parallel and self.titles:
                 last_title = self.titles[-1]
                 last_title['parallel'] = last_title.get('parallel', [])
@@ -764,6 +769,7 @@ class TranscribedTitleParser(SequentialMarcFieldParser):
                     else:
                         self.push_title_part(part, self.prev_punct)
                 elif self.flags['is_subfield_c']:
+                    self.lock_subfield_c = True
                     self.do_titles_and_sors(part, True)
                     return True
                 elif self.flags['is_subpart'] and part:
@@ -782,7 +788,7 @@ class TranscribedTitleParser(SequentialMarcFieldParser):
             self.prev_tag = tag
 
     def do_post_parse(self):
-        self.start_next_title()
+        self.start_next_title(is_last=True)
 
     def compile_results(self):
         display_text = ''
@@ -3044,8 +3050,9 @@ class BlacklightASMPipeline(object):
                 ptitles = []
                 for ptitle in title.get('parallel', []):
                     rendered = sep.join(ptitle.get('parts', []))
-                    search.append(rendered)
-                    ptitles.append(rendered)
+                    if rendered:
+                        search.append(rendered)
+                        ptitles.append(rendered)
                 if ptitles:
                     translation = format_translation('; '.join(ptitles))
                     disp_title = ' '.join([raw_disp_title, translation])
@@ -3157,7 +3164,9 @@ class BlacklightASMPipeline(object):
 
         if ptitles:
             translation = format_translation('; '.join(ptitles))
-            json['p'].append({'s': ' ', 'd': translation})
+            if json['p']:
+                json['p'][-1]['s'] = ' '
+            json['p'].append({'d': translation})
 
         return {
             'heading': heading,

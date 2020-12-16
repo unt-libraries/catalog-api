@@ -3499,6 +3499,30 @@ def test_blasmpipeline_getcontributorinfo(marcfields, expected,
         }],
      }),
 
+    ('245', ['a', 'Title in French /',
+             'c', 'by Author in French = by Author in English'],
+     {'nonfiling_chars': 0,
+      'transcribed': [
+        {'parts': ['Title in French'],
+         'responsibility': 'by Author in French',
+         'parallel': [
+            {'responsibility': 'by Author in English'}]
+        }],
+     }),
+
+    ('245', ['a', 'Title in French.', 'p',  'Part One :',
+             'b', 'subtitle = Title in English.', 'p', 'Part One : subtitle.',
+             'c', 'by Author in French = by Author in English'],
+     {'nonfiling_chars': 0,
+      'transcribed': [
+        {'parts': ['Title in French', 'Part One: subtitle'],
+         'responsibility': 'by Author in French',
+         'parallel': [
+            {'parts': ['Title in English', 'Part One: subtitle']},
+            {'responsibility': 'by Author in English'}],
+        }],
+     }),
+
     # $h (medium) is ignored, except for ISBD punctuation
 
     ('245', ['a', 'First title', 'h', '[sound recording] ;',
@@ -3707,7 +3731,9 @@ def test_transcribedtitleparser_parse(tag, subfields, expected):
     else:
         indicators = '  '
     field = s2m.make_mfield(tag, subfields=subfields, indicators=indicators)
-    assert s2m.TranscribedTitleParser(field).parse() == expected
+    parsed = s2m.TranscribedTitleParser(field).parse()
+    print parsed
+    assert parsed == expected
 
 
 @pytest.mark.parametrize('tag, subfields, expected', [
@@ -6170,9 +6196,9 @@ def test_generatefacetkey(fval, nf_chars, expected):
       'main_work_title_json': {
         'a': 'smith-joe!Smith, Joe',
         'p': [{'d': 'Title [by Smith, J.]',
-               'v': 'title!Title'},
-               {'s': ' ',
-                'd': '[translated: Title in English]'}]
+               'v': 'title!Title',
+               's': ' '},
+               {'d': '[translated: Title in English]'}]
       },
       'included_work_titles_search': ['Title', 'Title in English'],
       'title_series_facet': ['title!Title',
@@ -6196,9 +6222,9 @@ def test_generatefacetkey(fval, nf_chars, expected):
       'main_work_title_json': {
         'a': 'author-german!Author, German',
         'p': [{'d': 'Title in German [by Author, G.]',
-               'v': 'title-in-german!Title in German'},
-              {'s': ' ',
-               'd': '[translated: Title in English]'}]
+               'v': 'title-in-german!Title in German',
+               's': ' '},
+              {'d': '[translated: Title in English]'}]
       },
       'included_work_titles_search': ['Title in German', 'Title in English'],
       'title_series_facet': ['title-in-german!Title in German',
@@ -6222,15 +6248,70 @@ def test_generatefacetkey(fval, nf_chars, expected):
       'main_work_title_json': {
         'a': 'smith-joe!Smith, Joe',
         'p': [{'d': 'Title [by Smith, J.]',
-               'v': 'title!Title'},
-              {'s': ' ',
-               'd': '[translated: Title in English; Title in Spanish]'}]
+               'v': 'title!Title',
+               's': ' '},
+              {'d': '[translated: Title in English; Title in Spanish]'}]
       },
       'included_work_titles_search': [
         'Title', 'Title in English', 'Title in Spanish'],
       'title_series_facet': ['title!Title',
                              'title-in-english!Title in English',
                              'title-in-spanish!Title in Spanish'],
+      }),
+
+    # 245: No parallel title, but parallel SOR
+    ([('100', ['a', 'Smith, Joe'], '1 '),
+      ('245', ['a', 'Title /', 'c', 'por Joe Smith = by Joe Smith.'], '10')],
+     {'title_display': 'Title',
+      'main_title_search': ['Title'],
+      'title_sort': 'title',
+      'responsibility_display': 'por Joe Smith [translated: by Joe Smith]',
+      'responsibility_search': ['por Joe Smith', 'by Joe Smith'],
+      'variant_titles_search': ['Title'],
+      'main_work_title_json': {
+        'a': 'smith-joe!Smith, Joe',
+        'p': [{'d': 'Title [by Smith, J.]',
+               'v': 'title!Title'}]
+      },
+      'included_work_titles_search': ['Title'],
+      'title_series_facet': ['title!Title'],
+      }),
+
+    # 245: Parallel title and separate parallel SOR
+    ([('100', ['a', 'Smith, Joe'], '1 '),
+      ('245', ['a', 'Title in Spanish.', 'p',  'Part One :',
+               'b', 'subtitle = Title in English.', 'p', 'Part One : subtitle.',
+               'c', 'por Joe Smith = by Joe Smith.'], '10')],
+     {'title_display': 'Title in Spanish > Part One: subtitle '
+                       '[translated: Title in English > Part One: subtitle]',
+      'main_title_search': ['Title in Spanish'],
+      'title_sort': 'title-in-spanish-part-one-subtitle',
+      'responsibility_display': 'por Joe Smith [translated: by Joe Smith]',
+      'responsibility_search': ['por Joe Smith', 'by Joe Smith'],
+      'variant_titles_search': [
+        'Title in English > Part One: subtitle',
+        'Title in Spanish > Part One: subtitle'],
+      'variant_titles_notes': [
+        'Title translation: Title in English > Part One: subtitle'],
+      'main_work_title_json': {
+        'a': 'smith-joe!Smith, Joe',
+        'p': [{'d': 'Title in Spanish [by Smith, J.]',
+               'v': 'title-in-spanish!Title in Spanish',
+               's': ' > '},
+              {'d': 'Part One: subtitle',
+               'v': 'title-in-spanish-part-one-subtitle!'
+                    'Title in Spanish > Part One: subtitle',
+               's': ' '},
+              {'d':'[translated: Title in English > Part One: subtitle]'}]
+      },
+      'included_work_titles_search': [
+        'Title in Spanish > Part One: subtitle',
+        'Title in English > Part One: subtitle'],
+      'title_series_facet': ['title-in-spanish!Title in Spanish',
+                             'title-in-spanish-part-one-subtitle!'
+                             'Title in Spanish > Part One: subtitle',
+                             'title-in-english-part-one-subtitle!'
+                             'Title in English > Part One: subtitle'],
       }),
 
     # 242/245: Parallel title in 242 and 245 (duplicates)
@@ -6393,6 +6474,8 @@ def test_generatefacetkey(fval, nf_chars, expected):
     '245: Parallel title in 245, no separate responsibilty',
     '245: Parallel title in 245 with its own SOR',
     '245: Multiple parallel titles in 245',
+    '245: No parallel title, but parallel SOR',
+    '245: Parallel title and separate parallel SOR',
     '242/245: Parallel title in 242 and 245 (duplicates)',
     '245/246: Parallel title in 246 (duplicates)',
     '246: Variant title in 246 w/$i',
