@@ -4244,21 +4244,36 @@ class BlacklightASMPipeline(object):
         Discovery record), then it gets an extra +500 boost, otherwise
         +0.
         """
-        boost = 460
-        pub_year = self.bundle.get('publication_year_facet', [None])[0]
-        this_year = self.this_year
-        try:
-            pub_year = int(pub_year)
-        except (ValueError, TypeError):
-            pass
-        else:
+        def make_pubyear_boost(this_year, year_string):
+            try:
+                pub_year = int(year_string)
+            except (ValueError, TypeError):
+                return None
             if pub_year <= 5 + this_year:
-                boost = 500 - (this_year - int(pub_year))
-            if boost < 1:
-                boost = 1
-        if r.bcode1 in ('-', 'd'):
-            boost += 500
-        return {'record_boost': str(boost)}
+                boost = 500 - (this_year - pub_year)
+                if boost < 1:
+                    boost = 1
+                return boost
+
+        def find_good_boost(this_year, pub_years, are_decades):
+            for pub_year in sorted(pub_years, reverse=True):
+                if pub_year and are_decades:
+                    pub_year = '{}5'.format(pub_year[:3])
+                boost = make_pubyear_boost(this_year, pub_year)
+                if boost is not None:
+                    return boost
+            return None
+
+        pub_years = self.bundle.get('publication_year_facet') or []
+        are_decades = False
+        if not pub_years:
+            pub_years = self.bundle.get('publication_decade_facet') or []
+            are_decades = True
+
+        boost = find_good_boost(self.this_year, pub_years, are_decades)
+        pub_boost = 460 if boost is None else boost
+        q_boost = 500 if r.bcode1 in ('-', 'd') else 0
+        return {'record_boost': str(pub_boost + q_boost)}
 
 
 class PipelineBundleConverter(object):
