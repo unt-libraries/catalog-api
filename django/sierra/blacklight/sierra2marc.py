@@ -3374,7 +3374,7 @@ class BlacklightASMPipeline(object):
         if main_title_info['primary_main_title']:
             main_search.append(main_title_info['primary_main_title'])
         for title in main_title_info['search']:
-            if title not in variant_titles_search:
+            if title and title not in variant_titles_search:
                 variant_titles_search.append(title)
 
         return {
@@ -4553,6 +4553,8 @@ class S2MarcBatchBlacklightSolrMarc(S2MarcBatch):
                 elif tag[0] != '9' or tag in ('962',):
                     # Ignore most existing 9XX fields from Sierra.
                     ind = [ind1, ind2]
+                    if not content.startswith('|'):
+                        content = ''.join(('|a', content))
                     sf = re.split(r'\|([a-z0-9])', content)[1:]
                     field = make_mfield(tag, indicators=ind, subfields=sf,
                                               group_tag=vf.varfield_type_code)
