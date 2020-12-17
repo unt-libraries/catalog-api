@@ -623,73 +623,11 @@
       -->
     <listener event="newSearcher" class="solr.QuerySenderListener">
       <arr name="queries">
-        <str name="q">*</str>
-        <str name="f.access_facet.facet.sort">index</str>
-        <str name="f.publication_year_facet.facet.limit">11</str>
-        <str name="fq">suppressed:false</str>
-        <str name="f.publication_year_facet.facet.sort">index</str>
-        <str name="f.languages.facet.limit">11</str>
-        <str name="facet.query">date_added:[NOW-7DAYS/DAY TO NOW/DAY]</str>
-        <str name="facet.query">date_added:[NOW-14DAYS/DAY TO NOW/DAY]</str>
-        <str name="facet.query">date_added:[NOW-21DAYS/DAY TO NOW/DAY]</str>
-        <str name="facet.query">date_added:[NOW-1MONTH/DAY TO NOW/DAY]</str>
-        <str name="facet.query">date_added:[NOW-2MONTHS/DAY TO NOW/DAY]</str>
-        <str name="facet.query">date_added:[NOW-3MONTHS/DAY TO NOW/DAY]</str>
-        <str name="facet.query">date_added:[NOW-6MONTHS/DAY TO NOW/DAY]</str>
-        <str name="facet.query">game_facet:d1t29</str>
-        <str name="facet.query">game_facet:d30t59</str>
-        <str name="facet.query">game_facet:d60t120</str>
-        <str name="facet.query">game_facet:d120t500</str>
-        <str name="facet.query">game_facet:p1</str>
-        <str name="facet.query">game_facet:p2t4</str>
-        <str name="facet.query">game_facet:p4t8</str>
-        <str name="facet.query">game_facet:p9t99</str>
-        <str name="facet.query">game_facet:a1t4</str>
-        <str name="facet.query">game_facet:a5t9</str>
-        <str name="facet.query">game_facet:a10t13</str>
-        <str name="facet.query">game_facet:a14t16</str>
-        <str name="facet.query">game_facet:a17t100</str>
-        <str name="f.public_series_facet.facet.limit">11</str>
-        <str name="f.building_facet.facet.sort">index</str>
-        <str name="f.public_title_facet.facet.limit">11</str>
-        <str name="f.author_contributor_facet.facet.limit">11</str>
-        <str name="f.publication_decade_facet.facet.sort">index</str>
-        <str name="f.geographic_terms_facet.facet.limit">11</str>
-        <str name="f.public_subject_facet.facet.limit">11</str>
-        <str name="facet.field">access_facet</str>
-        <str name="facet.field">media_type_facet</str>
-        <str name="facet.field">collection_facet</str>
-        <str name="facet.field">building_facet</str>
-        <str name="facet.field">shelf_facet</str>
-        <str name="facet.field">publication_year_facet</str>
-        <str name="facet.field">publication_decade_facet</str>
-        <str name="facet.field">languages</str>
-        <str name="facet.field">author_contributor_facet</str>
-        <str name="facet.field">meeting_facet</str>
-        <str name="facet.field">public_title_facet</str>
-        <str name="facet.field">public_series_facet</str>
-        <str name="facet.field">public_genre_facet</str>
-        <str name="facet.field">public_subject_facet</str>
-        <str name="facet.field">geographic_terms_facet</str>
-        <str name="facet.field">era_terms_facet</str>
-        <str name="f.shelf_facet.facet.limit">11</str>
-        <str name="f.public_genre_facet.facet.limit">11</str>
-        <str name="f.era_terms_facet.facet.limit">11</str>
-        <str name="f.collection_facet.facet.sort">index</str>
-        <str name="f.shelf_facet.facet.sort">index</str>
-        <str name="f.meeting_facet.facet.limit">11</str>
-        <str name="f.media_type_facet.facet.limit">11</str>
-        <str name="f.publication_decade_facet.facet.limit">11</str>
-        <str name="facet">true</str>
-      </arr>
-    </listener>
-    <listener event="firstSearcher" class="solr.QuerySenderListener">
-      <arr name="queries">
         <lst>
-          <str name="q">*</str>
+          <str name="qt">catalog-search</str>
+          <str name="fq">suppressed:false</str>
           <str name="f.access_facet.facet.sort">index</str>
           <str name="f.publication_year_facet.facet.limit">11</str>
-          <str name="fq">suppressed:false</str>
           <str name="f.publication_year_facet.facet.sort">index</str>
           <str name="f.languages.facet.limit">11</str>
           <str name="facet.query">date_added:[NOW-7DAYS/DAY TO NOW/DAY]</str>
@@ -699,27 +637,13 @@
           <str name="facet.query">date_added:[NOW-2MONTHS/DAY TO NOW/DAY]</str>
           <str name="facet.query">date_added:[NOW-3MONTHS/DAY TO NOW/DAY]</str>
           <str name="facet.query">date_added:[NOW-6MONTHS/DAY TO NOW/DAY]</str>
-          <str name="facet.query">game_facet:d1t29</str>
-          <str name="facet.query">game_facet:d30t59</str>
-          <str name="facet.query">game_facet:d60t120</str>
-          <str name="facet.query">game_facet:d120t500</str>
-          <str name="facet.query">game_facet:p1</str>
-          <str name="facet.query">game_facet:p2t4</str>
-          <str name="facet.query">game_facet:p4t8</str>
-          <str name="facet.query">game_facet:p9t99</str>
-          <str name="facet.query">game_facet:a1t4</str>
-          <str name="facet.query">game_facet:a5t9</str>
-          <str name="facet.query">game_facet:a10t13</str>
-          <str name="facet.query">game_facet:a14t16</str>
-          <str name="facet.query">game_facet:a17t100</str>
-          <str name="f.public_series_facet.facet.limit">11</str>
           <str name="f.building_facet.facet.sort">index</str>
-          <str name="f.public_title_facet.facet.limit">11</str>
           <str name="f.author_contributor_facet.facet.limit">11</str>
+          <str name="f.title_series_facet.facet.limit">11</str>
           <str name="f.publication_decade_facet.facet.sort">index</str>
-          <str name="f.geographic_terms_facet.facet.limit">11</str>
-          <str name="f.public_subject_facet.facet.limit">11</str>
+          <str name="wt">json</str>
           <str name="facet.field">access_facet</str>
+          <str name="facet.field">resource_type_facet</str>
           <str name="facet.field">media_type_facet</str>
           <str name="facet.field">collection_facet</str>
           <str name="facet.field">building_facet</str>
@@ -729,21 +653,97 @@
           <str name="facet.field">languages</str>
           <str name="facet.field">author_contributor_facet</str>
           <str name="facet.field">meeting_facet</str>
-          <str name="facet.field">public_title_facet</str>
-          <str name="facet.field">public_series_facet</str>
-          <str name="facet.field">public_genre_facet</str>
-          <str name="facet.field">public_subject_facet</str>
-          <str name="facet.field">geographic_terms_facet</str>
-          <str name="facet.field">era_terms_facet</str>
+          <str name="facet.field">title_series_facet</str>
+          <str name="facet.field">genre_facet</str>
+          <str name="facet.field">topic_facet</str>
+          <str name="facet.field">region_facet</str>
+          <str name="facet.field">era_facet</str>
+          <str name="facet.field">games_duration_facet</str>
+          <str name="facet.field">games_players_facet</str>
+          <str name="facet.field">games_ages_facet</str>
+          <str name="facet.field">subject_heading_facet</str>
+          <str name="facet.field">genre_heading_facet</str>
           <str name="f.shelf_facet.facet.limit">11</str>
-          <str name="f.public_genre_facet.facet.limit">11</str>
-          <str name="f.era_terms_facet.facet.limit">11</str>
+          <str name="f.resource_type_facet.facet.sort">index</str>
           <str name="f.collection_facet.facet.sort">index</str>
+          <str name="f.topic_facet.facet.limit">11</str>
+          <str name="sort">score desc, title_sort asc</str>
+          <str name="f.region_facet.facet.limit">11</str>
+          <str name="rows">50</str>
+          <str name="f.games_duration_facet.facet.sort">index</str>
+          <str name="f.era_facet.facet.limit">11</str>
+          <str name="f.games_players_facet.facet.sort">index</str>
           <str name="f.shelf_facet.facet.sort">index</str>
           <str name="f.meeting_facet.facet.limit">11</str>
+          <str name="f.games_ages_facet.facet.sort">index</str>
           <str name="f.media_type_facet.facet.limit">11</str>
           <str name="f.publication_decade_facet.facet.limit">11</str>
+          <str name="f.genre_facet.facet.limit">11</str>
           <str name="facet">true</str>
+          <str name="q"></str>
+        </lst>
+      </arr>
+    </listener>
+    <listener event="firstSearcher" class="solr.QuerySenderListener">
+      <arr name="queries">
+        <lst>
+          <str name="qt">catalog-search</str>
+          <str name="fq">suppressed:false</str>
+          <str name="f.access_facet.facet.sort">index</str>
+          <str name="f.publication_year_facet.facet.limit">11</str>
+          <str name="f.publication_year_facet.facet.sort">index</str>
+          <str name="f.languages.facet.limit">11</str>
+          <str name="facet.query">date_added:[NOW-7DAYS/DAY TO NOW/DAY]</str>
+          <str name="facet.query">date_added:[NOW-14DAYS/DAY TO NOW/DAY]</str>
+          <str name="facet.query">date_added:[NOW-21DAYS/DAY TO NOW/DAY]</str>
+          <str name="facet.query">date_added:[NOW-1MONTH/DAY TO NOW/DAY]</str>
+          <str name="facet.query">date_added:[NOW-2MONTHS/DAY TO NOW/DAY]</str>
+          <str name="facet.query">date_added:[NOW-3MONTHS/DAY TO NOW/DAY]</str>
+          <str name="facet.query">date_added:[NOW-6MONTHS/DAY TO NOW/DAY]</str>
+          <str name="f.building_facet.facet.sort">index</str>
+          <str name="f.author_contributor_facet.facet.limit">11</str>
+          <str name="f.title_series_facet.facet.limit">11</str>
+          <str name="f.publication_decade_facet.facet.sort">index</str>
+          <str name="wt">json</str>
+          <str name="facet.field">access_facet</str>
+          <str name="facet.field">resource_type_facet</str>
+          <str name="facet.field">media_type_facet</str>
+          <str name="facet.field">collection_facet</str>
+          <str name="facet.field">building_facet</str>
+          <str name="facet.field">shelf_facet</str>
+          <str name="facet.field">publication_year_facet</str>
+          <str name="facet.field">publication_decade_facet</str>
+          <str name="facet.field">languages</str>
+          <str name="facet.field">author_contributor_facet</str>
+          <str name="facet.field">meeting_facet</str>
+          <str name="facet.field">title_series_facet</str>
+          <str name="facet.field">genre_facet</str>
+          <str name="facet.field">topic_facet</str>
+          <str name="facet.field">region_facet</str>
+          <str name="facet.field">era_facet</str>
+          <str name="facet.field">games_duration_facet</str>
+          <str name="facet.field">games_players_facet</str>
+          <str name="facet.field">games_ages_facet</str>
+          <str name="facet.field">subject_heading_facet</str>
+          <str name="facet.field">genre_heading_facet</str>
+          <str name="f.shelf_facet.facet.limit">11</str>
+          <str name="f.resource_type_facet.facet.sort">index</str>
+          <str name="f.collection_facet.facet.sort">index</str>
+          <str name="f.topic_facet.facet.limit">11</str>
+          <str name="sort">score desc, title_sort asc</str>
+          <str name="f.region_facet.facet.limit">11</str>
+          <str name="rows">50</str>
+          <str name="f.games_duration_facet.facet.sort">index</str>
+          <str name="f.era_facet.facet.limit">11</str>
+          <str name="f.games_players_facet.facet.sort">index</str>
+          <str name="f.shelf_facet.facet.sort">index</str>
+          <str name="f.meeting_facet.facet.limit">11</str>
+          <str name="f.games_ages_facet.facet.sort">index</str>
+          <str name="f.media_type_facet.facet.limit">11</str>
+          <str name="f.publication_decade_facet.facet.limit">11</str>
+          <str name="f.genre_facet.facet.limit">11</str>
+          <str name="facet">true</str>
+          <str name="q"></str>
         </lst>
       </arr>
     </listener>
@@ -1985,7 +1985,7 @@
          building_collection_search^1001
          toc_notes^1001
        </str>
-       <str name="bq">_query_:"{!dismax v=$user_query mm='100%' bq='' ps=0}"^1000</str>
+       <!--<str name="bq">_query_:"{!dismax v=$user_query mm='100%' bq='' ps=0}"^1000</str>-->
        <str name="bf">record_boost^500</str>
 
        <str name="creator_qf">
@@ -1998,7 +1998,7 @@
          contributors_search^8000
          responsibility_search^1099
        </str>
-       <str name="creator_bq">_query_:"{!dismax v=$user_query mm='100%' bq='' ps=0 qf=$creator_qf pf=$creator_pf}"^1000</str>
+       <!--<str name="creator_bq">_query_:"{!dismax v=$user_query mm='100%' bq='' ps=0 qf=$creator_qf pf=$creator_pf}"^1000</str>-->
        
        <str name="title_qf">
          publication_dates_search^1000
@@ -2013,7 +2013,7 @@
          related_work_titles_search^1001
          toc_notes^1001
        </str>
-       <str name="title_bq">_query_:"{!dismax v=$user_query mm='100%' bq='' ps=0 qf=$title_qf pf=$title_pf}"^1000</str>
+       <!--<str name="title_bq">_query_:"{!dismax v=$user_query mm='100%' bq='' ps=0 qf=$title_qf pf=$title_pf}"^1000</str>-->
        
        <str name="subject_qf">
          subjects_search_main_terms^1000
@@ -2025,7 +2025,7 @@
          subjects_search_main_terms^7000
          subjects_search_all_terms^6000
        </str>
-       <str name="subject_bq">_query_:"{!dismax v=$user_query mm='100%' bq='' ps=0 qf=$subject_qf pf=$subject_pf}"^1000</str>
+       <!--<str name="subject_bq">_query_:"{!dismax v=$user_query mm='100%' bq='' ps=0 qf=$subject_qf pf=$subject_pf}"^1000</str>-->
        
        <str name="genre_qf">
          genres_search_main_terms^1000
@@ -2037,7 +2037,7 @@
          genres_search_main_terms^7000
          genres_search_all_terms^6000
        </str>
-       <str name="genre_bq">_query_:"{!dismax v=$user_query mm='100%' bq='' ps=0 qf=$genre_qf pf=$genre_pf}"^1000</str>
+       <!--<str name="genre_bq">_query_:"{!dismax v=$user_query mm='100%' bq='' ps=0 qf=$genre_qf pf=$genre_pf}"^1000</str>-->
        
        <str name="cn_qf">
          call_numbers_search^1000
