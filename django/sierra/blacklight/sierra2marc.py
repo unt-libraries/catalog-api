@@ -388,7 +388,7 @@ class PersonalNameParser(SequentialMarcFieldParser):
         self.numeration = p.strip_ends(val)
 
     def do_fuller_form_of_name(self, tag, val):
-        ffn = p.strip_outer_parentheses(p.strip_ends(val))
+        ffn = re.sub(r'^(?:.*\()?([^\(\)]+)(?:\).*)?$', r'\1', val)
         self.fuller_form_of_name = p.strip_ends(ffn)
 
     def parse_subfield(self, tag, val):
@@ -1314,7 +1314,6 @@ class PersonalNamePermutator(object):
         cmp_tokens = ['Elizabeth']
         fuller_tokens = ['Ann', 'Elizabeth']
         """
-
         parts_pattern = r'\s'.join([r'({}\S*)'.format(t) for t in cmp_tokens])
         cmp_pattern = r'(?:^|(.+)\s){}(?:\s(.+)|$)'.format(parts_pattern)
         matches = re.match(cmp_pattern, ' '.join(fuller_tokens))
@@ -2043,6 +2042,14 @@ class BlacklightASMPipeline(object):
         self.title_languages = []
         for fname in self.fields:
             method_name = '{}{}'.format(self.prefix, fname)
+            # Uncomment this block and comment out the following line
+            # to force the record ID for records that are causing
+            # errors to be output, at the expense of the traceback.
+            # try:
+            #     result = getattr(self, method_name)(r, marc_record)
+            # except Exception as e:
+            #     msg = '{}: {}'.format(self.bundle['id'], e)
+            #     raise Exception(msg)
             result = getattr(self, method_name)(r, marc_record)
             for k, v in result.items():
                 if v:

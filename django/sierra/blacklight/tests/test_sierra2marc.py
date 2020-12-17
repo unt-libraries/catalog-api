@@ -934,6 +934,18 @@ def test_dissertationnotesfieldparser_parse(subfields, expected):
     (['100 1#$aSaxon, J. (Irv)$q(Joseph).'],
      ['Saxon, Joseph Saxon, J Saxon, Irv Saxon, I Saxon', 'Joseph Saxon',
       'J Irv Saxon']),
+    (['100 1#$aBannister, D.$q{17} (Donald)'],
+     ['Bannister, Donald Bannister, D Bannister', 'Donald Bannister',
+      'D Bannister']),
+    (['100 1#$aBannister,$qD. (Donald)'],
+     ['Bannister, Donald Bannister, D Bannister', 'Donald Bannister',
+      'Bannister']),
+    (['100 1#$aBannister, D.$q(Donald) 1908-'],
+     ['Bannister, Donald Bannister, D Bannister', 'Donald Bannister',
+      'D Bannister']),
+    (['100 1#$aBannister, D.$qDonald'],
+     ['Bannister, Donald Bannister, D Bannister', 'Donald Bannister',
+      'D Bannister']),
 ])
 def test_personalnamepermutator_getsearchperms(raw_marcfields, expected,
                                                marcfield_strings_to_params):
