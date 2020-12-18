@@ -1969,9 +1969,9 @@
        </str>
        <str name="pf">
          main_title_search^10000
-         author_search^8000
-         contributors_search^7000
-         all_title_variants_search^5500
+         all_title_variants_search^6000
+         author_search^5500
+         contributors_search^4500
          genres_search_main_terms^4000
          subjects_search_main_terms^3000
          genres_search_all_terms^2500
