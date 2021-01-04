@@ -4266,23 +4266,25 @@ class BlacklightASMPipeline(object):
         of record quality. The idea is that we want to boost more
         recent records and we want to deprioritize minimal records.
 
-        Maximum boost value for pub year is 505; 500 is for things
-        published this year, with leeway for things published up to 5
-        years in the future. >500 years ago is 1. Invalid or
-        non-existent pub dates default to 460, or ~40 years ago, just
-        to make sure they don't get buried.
+        Maximum boost value for pub year is:
+        500 + (5 + this_year - 2020); 500 is for things
+        published in 2020, with leeway for things published up to 5
+        years in the future. >500 years before 2020 is 1. Invalid or
+        non-existent pub dates default to 460, or 1980, just to make
+        sure they don't get buried.
 
         For record quality, if bcode1 is `-` or `d` (full record or
         Discovery record), then it gets an extra +500 boost, otherwise
         +0.
         """
         def make_pubyear_boost(this_year, year_string):
+            anchor_boost, anchor_year = 500, 2020
             try:
                 pub_year = int(year_string)
             except (ValueError, TypeError):
                 return None
             if pub_year <= 5 + this_year:
-                boost = 500 - (this_year - pub_year)
+                boost = anchor_boost - (anchor_year - pub_year)
                 if boost < 1:
                     boost = 1
                 return boost

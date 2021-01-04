@@ -9328,6 +9328,7 @@ def test_blasmpipeline_getsubjectsinfo(raw_marcfields, expected,
 
 @pytest.mark.parametrize('this_year, pyears, pdecades, bib_type, expected', [
     (2020, ['2020'], ['2011-2020'], '-', '1000'),
+    (2021, ['2020'], ['2011-2020'], '-', '1000'),
     (2020, ['2020'], ['2011-2020'], 'd', '1000'),
     (2020, ['2019'], ['2011-2020'], '-', '999'),
     (2020, ['1920'], ['1911-1920'], '-', '900'),
