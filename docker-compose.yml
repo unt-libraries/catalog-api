@@ -57,6 +57,8 @@ services:
       - ./docker_data/solr_dev/marc_data:/project/solr/instances/solr/marc/data
       - ./docker_data/solr_dev/alpha-solrmarc_data:/project/solr/instances/solr/alpha-solrmarc/data
       - ./docker_data/solr_dev/alpha-solrmarc-02_data:/project/solr/instances/solr/alpha-solrmarc-02/data
+      - ./docker_data/solr_dev/discover-01_data:/project/solr/instances/solr/discover-01/data
+      - ./docker_data/solr_dev/discover-02_data:/project/solr/instances/solr/discover-02/data
       - ./docker_data/solr_dev/bl-suggest_data:/project/solr/instances/solr/bl-suggest/data
     working_dir: /project/solr/instances
     ports:
@@ -76,6 +78,8 @@ services:
       - ./docker_data/solr_test/marc_data:/project/solr/instances/solr/marc/data
       - ./docker_data/solr_test/alpha-solrmarc_data:/project/solr/instances/solr/alpha-solrmarc/data
       - ./docker_data/solr_test/alpha-solrmarc-02_data:/project/solr/instances/solr/alpha-solrmarc-02/data
+      - ./docker_data/solr_test/discover-01_data:/project/solr/instances/solr/discover-01/data
+      - ./docker_data/solr_test/discover-02_data:/project/solr/instances/solr/discover-02/data
       - ./docker_data/solr_test/bl-suggest_data:/project/solr/instances/solr/bl-suggest/data
     working_dir: /project/solr/instances
     ports:

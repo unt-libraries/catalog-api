@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 """
-Tests the blacklight.parsers functions.
+Tests the blacklight.sierra2marc functions.
 """
 
 from __future__ import unicode_literals
@@ -20,10 +20,10 @@ pytestmark = pytest.mark.django_db
 @pytest.fixture
 def s2mbatch_class():
     """
-    Pytest fixture; returns the s2m.S2MarcBatchBlacklightSolrMarc
+    Pytest fixture; returns the s2m.DiscoverS2MarcBatch
     class.
     """
-    return s2m.S2MarcBatchBlacklightSolrMarc
+    return s2m.DiscoverS2MarcBatch
 
 
 @pytest.fixture
@@ -79,11 +79,11 @@ def add_marc_fields():
 
 
 @pytest.fixture
-def blasm_pipeline_class():
+def todsc_pipeline_class():
     """
-    Pytest fixture; returns the BlacklightASMPipeline class.
+    Pytest fixture; returns the ToDiscoverPipeline class.
     """
-    return s2m.BlacklightASMPipeline
+    return s2m.ToDiscoverPipeline
 
 
 @pytest.fixture
@@ -963,15 +963,15 @@ def test_personalnamepermutator_getsearchperms(raw_marcfields, expected,
     assert result == expected
 
 
-def test_blasmpipeline_do_creates_compiled_dict(blasm_pipeline_class):
+def test_todscpipeline_do_creates_compiled_dict(todsc_pipeline_class):
     """
-    The `do` method of BlacklightASMPipeline should return a dict
+    The `do` method of ToDiscoverPipeline should return a dict
     compiled from the return value of each of the `get` methods--each
     key/value pair from each return value added to the finished value.
     If the same dict key is returned by multiple methods and the vals
     are lists, the lists are concatenated.
     """
-    class DummyPipeline(blasm_pipeline_class):
+    class DummyPipeline(todsc_pipeline_class):
         fields = ['dummy1', 'dummy2', 'dummy3', 'dummy4']
         prefix = 'get_'
 
@@ -993,12 +993,12 @@ def test_blasmpipeline_do_creates_compiled_dict(blasm_pipeline_class):
                        'stuff': ['thing', 'other thing'] }
 
 
-def test_blasmpipeline_getid(bl_sierra_test_record, blasm_pipeline_class):
+def test_todscpipeline_getid(bl_sierra_test_record, todsc_pipeline_class):
     """
-    BlacklightASMPipeline.get_id should return the bib Record ID
+    ToDiscoverPipeline.get_id should return the bib Record ID
     formatted according to III's specs.
     """
-    pipeline = blasm_pipeline_class()
+    pipeline = todsc_pipeline_class()
     bib = bl_sierra_test_record('b6029459')
     val = pipeline.get_id(bib, None)
     assert val == {'id': 'b6029459'}
@@ -1008,14 +1008,14 @@ def test_blasmpipeline_getid(bl_sierra_test_record, blasm_pipeline_class):
     (True, 'true'),
     (False, 'false')
 ])
-def test_blasmpipeline_getsuppressed(in_val, expected, bl_sierra_test_record,
-                                     blasm_pipeline_class,
+def test_todscpipeline_getsuppressed(in_val, expected, bl_sierra_test_record,
+                                     todsc_pipeline_class,
                                      setattr_model_instance):
     """
-    BlacklightASMPipeline.get_suppressed should return 'false' if the
+    ToDiscoverPipeline.get_suppressed should return 'false' if the
     record is not suppressed.
     """
-    pipeline = blasm_pipeline_class()
+    pipeline = todsc_pipeline_class()
     bib = bl_sierra_test_record('b6029459')
     setattr_model_instance(bib, 'is_suppressed', in_val)
     val = pipeline.get_suppressed(bib, None)
@@ -1037,16 +1037,16 @@ def test_blasmpipeline_getsuppressed(in_val, expected, bl_sierra_test_record,
      datetime.datetime(2019, 12, 31, tzinfo=pytz.utc),
      '2019-12-31T00:00:00Z'),
 ])
-def test_blasmpipeline_getdateadded(bib_locs, created_date, cat_date, expected,
-                                    bl_sierra_test_record, blasm_pipeline_class,
+def test_todscpipeline_getdateadded(bib_locs, created_date, cat_date, expected,
+                                    bl_sierra_test_record, todsc_pipeline_class,
                                     get_or_make_location_instances,
                                     update_test_bib_inst,
                                     setattr_model_instance):
     """
-    BlacklightASMPipeline.get_date_added should return the correct date
+    ToDiscoverPipeline.get_date_added should return the correct date
     in the datetime format Solr requires.
     """
-    pipeline = blasm_pipeline_class()
+    pipeline = todsc_pipeline_class()
     bib = bl_sierra_test_record('bib_no_items')
     loc_info = [{'code': code} for code in bib_locs]
     locations = get_or_make_location_instances(loc_info)
@@ -1059,18 +1059,18 @@ def test_blasmpipeline_getdateadded(bib_locs, created_date, cat_date, expected,
     assert val == {'date_added': expected}
 
 
-def test_blasmpipeline_getiteminfo_ids(bl_sierra_test_record,
-                                       blasm_pipeline_class,
+def test_todscpipeline_getiteminfo_ids(bl_sierra_test_record,
+                                       todsc_pipeline_class,
                                        update_test_bib_inst,
                                        assert_json_matches_expected):
     """
     The `items_json` key of the value returned by
-    BlacklightASMPipeline.get_item_info should be a list of JSON
+    ToDiscoverPipeline.get_item_info should be a list of JSON
     objects, each one corresponding to an item. The 'i' key for each
     JSON object should match the numeric portion of the III rec num for
     that item.
     """
-    pipeline = blasm_pipeline_class()
+    pipeline = todsc_pipeline_class()
     bib = bl_sierra_test_record('bib_no_items')
     bib = update_test_bib_inst(bib, items=[{}, {'is_suppressed': True}, {}])
     val = pipeline.get_item_info(bib, None)
@@ -1154,20 +1154,20 @@ def test_blasmpipeline_getiteminfo_ids(bl_sierra_test_record,
     'both copy_num AND volume may appear (volume first, then copy)',
     'if NO cn, copy, or volume, cn defaults to None/null'
 ])
-def test_blasmpipeline_getiteminfo_callnum_vol(bib_cn_info, items_info,
+def test_todscpipeline_getiteminfo_callnum_vol(bib_cn_info, items_info,
                                                expected, bl_sierra_test_record,
-                                               blasm_pipeline_class,
+                                               todsc_pipeline_class,
                                                update_test_bib_inst,
                                                assert_json_matches_expected):
     """
     The `items_json` key of the value returned by
-    BlacklightASMPipeline.get_item_info should be a list of JSON
+    ToDiscoverPipeline.get_item_info should be a list of JSON
     objects, each one corresponding to an item. The 'c' key for each
     JSON object contains the call number, and the 'v' key contains the
     volume. Various parameters test how the item call numbers and
     volumes are generated.
     """
-    pipeline = blasm_pipeline_class()
+    pipeline = todsc_pipeline_class()
     bib = bl_sierra_test_record('bib_no_items')
     bib = update_test_bib_inst(bib, varfields=bib_cn_info, items=items_info)
     val = pipeline.get_item_info(bib, None)
@@ -1190,19 +1190,19 @@ def test_blasmpipeline_getiteminfo_callnum_vol(bib_cn_info, items_info,
     'if the item has >1 note, then all are included',
     'if no barcodes/notes, barcode/notes is None/null',
 ])
-def test_blasmpipeline_getiteminfo_bcodes_notes(items_info, expected,
+def test_todscpipeline_getiteminfo_bcodes_notes(items_info, expected,
                                                 bl_sierra_test_record,
-                                                blasm_pipeline_class,
+                                                todsc_pipeline_class,
                                                 update_test_bib_inst,
                                                 assert_json_matches_expected):
     """
     The `items_json` key of the value returned by
-    BlacklightASMPipeline.get_item_info should be a list of JSON
+    ToDiscoverPipeline.get_item_info should be a list of JSON
     objects, each one corresponding to an item. The 'b' and 'n' keys
     for each JSON object contain the barcode and public notes,
     respectively. Various parameters test how those are generated.
     """
-    pipeline = blasm_pipeline_class()
+    pipeline = todsc_pipeline_class()
     bib = bl_sierra_test_record('bib_no_items')
     bib = update_test_bib_inst(bib, items=items_info)
     val = pipeline.get_item_info(bib, None)
@@ -1252,14 +1252,14 @@ def test_blasmpipeline_getiteminfo_bcodes_notes(items_info, expected,
     'more than three items => expect >3 items, plus more_items',
     'multiple items in bizarre order stay in order'
 ])
-def test_blasmpipeline_getiteminfo_num_items(items_info, exp_items,
+def test_todscpipeline_getiteminfo_num_items(items_info, exp_items,
                                              exp_more_items,
                                              bl_sierra_test_record,
-                                             blasm_pipeline_class,
+                                             todsc_pipeline_class,
                                              update_test_bib_inst,
                                              assert_json_matches_expected):
     """
-    BlacklightASMPipeline.get_item_info return value should be a dict
+    ToDiscoverPipeline.get_item_info return value should be a dict
     with keys `items_json`, `more_items_json`, and `has_more_items`
     that are based on the total number of items on the record. The
     first three attached items are in items_json; others are in
@@ -1267,7 +1267,7 @@ def test_blasmpipeline_getiteminfo_num_items(items_info, exp_items,
     not empty. Additionally, items should remain in the order they
     appear on the record.
     """
-    pipeline = blasm_pipeline_class()
+    pipeline = todsc_pipeline_class()
     bib = bl_sierra_test_record('bib_no_items')
     bib = update_test_bib_inst(bib, items=items_info)
     val = pipeline.get_item_info(bib, None)
@@ -1314,20 +1314,20 @@ def test_blasmpipeline_getiteminfo_num_items(items_info, exp_items,
     'items that are requestable through Aeon',
     'items that are at JLF'
 ])
-def test_blasmpipeline_getiteminfo_requesting(items_info, expected_r,
+def test_todscpipeline_getiteminfo_requesting(items_info, expected_r,
                                               bl_sierra_test_record,
-                                              blasm_pipeline_class,
+                                              todsc_pipeline_class,
                                               update_test_bib_inst,
                                               assert_json_matches_expected):
     """
     The `items_json` key of the value returned by
-    BlacklightASMPipeline.get_item_info should be a list of JSON
+    ToDiscoverPipeline.get_item_info should be a list of JSON
     objects, each one corresponding to an item. The 'r' key for each
     JSON object contains a string describing how end users request the
     item. (See parameters for details.) Note that this hits the
     highlights but isn't exhaustive.
     """
-    pipeline = blasm_pipeline_class()
+    pipeline = todsc_pipeline_class()
     bib = bl_sierra_test_record('bib_no_items')
     bib = update_test_bib_inst(bib, items=items_info)
     val = pipeline.get_item_info(bib, None)
@@ -1346,20 +1346,20 @@ def test_blasmpipeline_getiteminfo_requesting(items_info, expected_r,
      [('c', '090', ['|aTEST BIB CN'])],
      [{'i': None, 'c': 'TEST BIB CN', 'l': 'none'}]),
 ])
-def test_blasmpipeline_getiteminfo_pseudo_items(bib_locations, bib_cn_info,
+def test_todscpipeline_getiteminfo_pseudo_items(bib_locations, bib_cn_info,
                                                 expected,
                                                 bl_sierra_test_record,
-                                                blasm_pipeline_class,
+                                                todsc_pipeline_class,
                                                 get_or_make_location_instances,
                                                 update_test_bib_inst,
                                                 assert_json_matches_expected):
     """
     When a bib record has no attached items, the `items_json` key of
-    the value returned by BlacklightASMPipeline.get_item_info should
+    the value returned by ToDiscoverPipeline.get_item_info should
     contain "pseudo-item" entries generated based off the bib locations
     and bib call numbers.
     """
-    pipeline = blasm_pipeline_class()
+    pipeline = todsc_pipeline_class()
     bib = bl_sierra_test_record('bib_no_items')
     loc_info = [{'code': code, 'name': name} for code, name in bib_locations]
     locations = get_or_make_location_instances(loc_info)
@@ -1476,17 +1476,17 @@ def test_blasmpipeline_getiteminfo_pseudo_items(bib_locations, bib_cn_info,
     '962 (media manager) fields, no URLs => generate e-reserve URLs',
     '962 (media manager) field, type fulltext based on title',
 ])
-def test_blasmpipeline_geturlsjson(marcfields, items_info, expected,
-                                   bl_sierra_test_record, blasm_pipeline_class,
+def test_todscpipeline_geturlsjson(marcfields, items_info, expected,
+                                   bl_sierra_test_record, todsc_pipeline_class,
                                    bibrecord_to_pymarc, update_test_bib_inst,
                                    add_marc_fields,
                                    assert_json_matches_expected):
     """
     The `urls_json` key of the value returned by
-    BlacklightASMPipeline.get_urls_json should be a list of JSON
+    ToDiscoverPipeline.get_urls_json should be a list of JSON
     objects, each one corresponding to a URL.
     """
-    pipeline = blasm_pipeline_class()
+    pipeline = todsc_pipeline_class()
     bib = bl_sierra_test_record('bib_no_items')
     bib = update_test_bib_inst(bib, items=items_info)
     bibmarc = bibrecord_to_pymarc(bib)
@@ -1549,16 +1549,16 @@ def test_blasmpipeline_geturlsjson(marcfields, items_info, expected,
     'DL/Portal cover with hacked attribute additions on URLs AND querystring',
     'other 856 link(s): ignore non-DL/Portal URLs'
 ])
-def test_blasmpipeline_getthumbnailurl(marcfields, expected_url,
+def test_todscpipeline_getthumbnailurl(marcfields, expected_url,
                                        bl_sierra_test_record,
-                                       blasm_pipeline_class,
+                                       todsc_pipeline_class,
                                        bibrecord_to_pymarc, add_marc_fields):
     """
-    BlacklightASMPipeline.get_thumbnail_url should return a URL for
+    ToDiscoverPipeline.get_thumbnail_url should return a URL for
     a local thumbnail image, if one exists. (Either Digital Library or
     a Media Library thumbnail.)
     """
-    pipeline = blasm_pipeline_class()
+    pipeline = todsc_pipeline_class()
     bib = bl_sierra_test_record('bib_no_items')
     bibmarc = bibrecord_to_pymarc(bib)
     bibmarc.remove_fields('856', '962')
@@ -1791,19 +1791,19 @@ def test_blasmpipeline_getthumbnailurl(marcfields, expected_url,
     'non-formatted date in 362 works',
     'century (1st) in 362 works'
 ])
-def test_blasmpipeline_getpubinfo_dates(marcfields, exp_pub_sort,
+def test_todscpipeline_getpubinfo_dates(marcfields, exp_pub_sort,
                                         exp_pub_year_display,
                                         exp_pub_year_facet,
                                         exp_pub_decade_facet,
                                         exp_pub_dates_search,
                                         bl_sierra_test_record,
-                                        blasm_pipeline_class,
+                                        todsc_pipeline_class,
                                         bibrecord_to_pymarc, add_marc_fields):
     """
-    BlacklightASMPipeline.get_pub_info should return date-string fields
+    ToDiscoverPipeline.get_pub_info should return date-string fields
     matching the expected parameters.
     """
-    pipeline = blasm_pipeline_class()
+    pipeline = todsc_pipeline_class()
     bib = bl_sierra_test_record('bib_no_items')
     bibmarc = bibrecord_to_pymarc(bib)
     bibmarc.remove_fields('260', '264', '362')
@@ -1993,16 +1993,16 @@ def test_blasmpipeline_getpubinfo_dates(marcfields, exp_pub_sort,
     '362 with formatted date',
     '362 with non-formatted date'
 ])
-def test_blasmpipeline_getpubinfo_statements(marcfields, expected,
+def test_todscpipeline_getpubinfo_statements(marcfields, expected,
                                              bl_sierra_test_record,
-                                             blasm_pipeline_class,
+                                             todsc_pipeline_class,
                                              bibrecord_to_pymarc,
                                              add_marc_fields):
     """
-    BlacklightASMPipeline.get_pub_info should return display statement
+    ToDiscoverPipeline.get_pub_info should return display statement
     fields matching the expected parameters.
     """
-    pipeline = blasm_pipeline_class()
+    pipeline = todsc_pipeline_class()
     bib = bl_sierra_test_record('bib_no_items')
     bibmarc = bibrecord_to_pymarc(bib)
     bibmarc.remove_fields('260', '264', '362')
@@ -2087,17 +2087,17 @@ def test_blasmpipeline_getpubinfo_statements(marcfields, expected,
     '260/264: missing pub info okay',
     'no 260/264 okay'
 ])
-def test_blasmpipeline_getpubinfo_pub_and_place_search(marcfields, expected,
+def test_todscpipeline_getpubinfo_pub_and_place_search(marcfields, expected,
                                                        bl_sierra_test_record,
-                                                       blasm_pipeline_class,
+                                                       todsc_pipeline_class,
                                                        bibrecord_to_pymarc,
                                                        add_marc_fields):
     """
-    BlacklightASMPipeline.get_pub_info should return publishers_search
+    ToDiscoverPipeline.get_pub_info should return publishers_search
     and publication_places_search fields matching the expected
     parameters.
     """
-    pipeline = blasm_pipeline_class()
+    pipeline = todsc_pipeline_class()
     bib = bl_sierra_test_record('bib_no_items')
     bibmarc = bibrecord_to_pymarc(bib)
     bibmarc.remove_fields('260', '264')
@@ -2250,18 +2250,18 @@ def test_blasmpipeline_getpubinfo_pub_and_place_search(marcfields, expected,
     'w, lwww, w3 / bib with online and physical locations',
     'sd, gwww, sdus, rst, xdoc / multiple items at multiple locations',
 ])
-def test_blasmpipeline_getaccessinfo(bib_locations, item_locations,
+def test_todscpipeline_getaccessinfo(bib_locations, item_locations,
                                      sup_item_locations, expected,
                                      bl_sierra_test_record,
-                                     blasm_pipeline_class,
+                                     todsc_pipeline_class,
                                      update_test_bib_inst,
                                      get_or_make_location_instances):
     """
-    BlacklightASMPipeline.get_access_info should return the expected
+    ToDiscoverPipeline.get_access_info should return the expected
     access, collection, building, and shelf facet values based on the
     configured bib_ and item_locations.
     """
-    pipeline = blasm_pipeline_class()
+    pipeline = todsc_pipeline_class()
     bib = bl_sierra_test_record('bib_no_items')
 
     all_ilocs = list(set(item_locations) | set(sup_item_locations))
@@ -2295,18 +2295,18 @@ def test_blasmpipeline_getaccessinfo(bib_locations, item_locations,
            'resource_type_facet': ['music_scores'],
            'media_type_facet': ['Digital Files']}),
 ])
-def test_blasmpipeline_getresourcetypeinfo(bcode2,
+def test_todscpipeline_getresourcetypeinfo(bcode2,
                                            expected, bl_sierra_test_record,
-                                           blasm_pipeline_class,
+                                           todsc_pipeline_class,
                                            setattr_model_instance):
     """
-    BlacklightASMPipeline.get_resource_type_info should return the
+    ToDiscoverPipeline.get_resource_type_info should return the
     expected resource_type and resource_type_facet values based on the
     given bcode2. Note that this doesn't test resource type nor
     category (facet) determination. For that, see base.local_rulesets
     (and associated tests).
     """
-    pipeline = blasm_pipeline_class()
+    pipeline = todsc_pipeline_class()
     bib = bl_sierra_test_record('bib_no_items')
     setattr_model_instance(bib, 'bcode2', bcode2)
     val = pipeline.get_resource_type_info(bib, None)
@@ -2423,19 +2423,19 @@ def test_blasmpipeline_getresourcetypeinfo(bcode2,
     'If there are 546s, those lang notes override generated ones',
     'Language info from combined sources',
 ])
-def test_blasmpipeline_getlanguageinfo(f008_lang, raw_marcfields, expected,
+def test_todscpipeline_getlanguageinfo(f008_lang, raw_marcfields, expected,
                                        marcfield_strings_to_params,
                                        bl_sierra_test_record,
-                                       blasm_pipeline_class,
+                                       todsc_pipeline_class,
                                        marcutils_for_subjects,
                                        bibrecord_to_pymarc,
                                        add_marc_fields,
                                        assert_json_matches_expected):
     """
-    BlacklightASMPipeline.get_language_info should return fields
+    ToDiscoverPipeline.get_language_info should return fields
     matching the expected parameters.
     """
-    pipeline = blasm_pipeline_class()
+    pipeline = todsc_pipeline_class()
     bib = bl_sierra_test_record('bib_no_items')
     bibmarc = bibrecord_to_pymarc(bib)
     marcfields = marcfield_strings_to_params(raw_marcfields)
@@ -2461,7 +2461,7 @@ def test_blasmpipeline_getlanguageinfo(f008_lang, raw_marcfields, expected,
         else:
             assert v is None
     if info['language_notes']:
-        pipeline = blasm_pipeline_class()
+        pipeline = todsc_pipeline_class()
         result = pipeline.do(bib, bibmarc)
         assert result['language_notes']
 
@@ -3206,17 +3206,17 @@ def test_blasmpipeline_getlanguageinfo(f008_lang, raw_marcfields, expected,
     '111 meeting, w/no org component, 7XX contributors',
     '111 meeting, w/org component, 7XX contributors',
 ])
-def test_blasmpipeline_getcontributorinfo(marcfields, expected,
+def test_todscpipeline_getcontributorinfo(marcfields, expected,
                                           bl_sierra_test_record,
-                                          blasm_pipeline_class,
+                                          todsc_pipeline_class,
                                           bibrecord_to_pymarc,
                                           add_marc_fields,
                                           assert_json_matches_expected):
     """
-    BlacklightASMPipeline.get_contributor_info should return fields
+    ToDiscoverPipeline.get_contributor_info should return fields
     matching the expected parameters.
     """
-    pipeline = blasm_pipeline_class()
+    pipeline = todsc_pipeline_class()
     bib = bl_sierra_test_record('bib_no_items')
     bibmarc = bibrecord_to_pymarc(bib)
     bibmarc.remove_fields('100', '110', '111', '700', '710', '711', '800',
@@ -6496,15 +6496,15 @@ def test_generatefacetkey(fval, nf_chars, expected):
     '246: No note if ind1 is NOT 0 or 1',
     '247: No note if ind2 is 1',
 ])
-def test_blasmpipeline_gettitleinfo(marcfields, expected, bl_sierra_test_record,
-                                    blasm_pipeline_class, bibrecord_to_pymarc,
+def test_todscpipeline_gettitleinfo(marcfields, expected, bl_sierra_test_record,
+                                    todsc_pipeline_class, bibrecord_to_pymarc,
                                     add_marc_fields,
                                     assert_json_matches_expected):
     """
-    BlacklightASMPipeline.get_title_info should return fields matching
+    ToDiscoverPipeline.get_title_info should return fields matching
     the expected parameters.
     """
-    pipeline = blasm_pipeline_class()
+    pipeline = todsc_pipeline_class()
     bib = bl_sierra_test_record('bib_no_items')
     bibmarc = bibrecord_to_pymarc(bib)
     bibmarc.remove_fields('100', '110', '111', '130', '240', '242', '243',
@@ -6637,20 +6637,20 @@ def test_blasmpipeline_gettitleinfo(marcfields, expected, bl_sierra_test_record,
         [{'primary': [('orchestra', '1')]}],
      ]}, '(Piece One) 1 performer and 1 ensemble: solo flute; orchestra')
 ])
-def test_blasmpipeline_compileperformancemedium(parsed_pm, expected,
-                                                blasm_pipeline_class):
+def test_todscpipeline_compileperformancemedium(parsed_pm, expected,
+                                                todsc_pipeline_class):
     """
-    BlacklightASMPipeline.compile_performance_medium should return
+    ToDiscoverPipeline.compile_performance_medium should return
     a value matching `expected`, given the sample `parsed_pm` output
     from parsing a 382 field.
     """
-    pipeline = blasm_pipeline_class()
+    pipeline = todsc_pipeline_class()
     assert pipeline.compile_performance_medium(parsed_pm) == expected
 
 
-def test_blasmpipeline_getgeneral3xxinfo(add_marc_fields, blasm_pipeline_class):
+def test_todscpipeline_getgeneral3xxinfo(add_marc_fields, todsc_pipeline_class):
     """
-    BlacklightASMPipeline.get_general_3xx_info should return fields
+    ToDiscoverPipeline.get_general_3xx_info should return fields
     matching the expected parameters.
     """
     exclude = s2m.IGNORED_MARC_FIELDS_BY_GROUP_TAG['r']
@@ -6701,16 +6701,16 @@ def test_blasmpipeline_getgeneral3xxinfo(add_marc_fields, blasm_pipeline_class):
         'physical_description': ['300 desc 1', '300 desc 2', '370 desc 1']
     }
     marc = add_marc_fields(s2m.SierraMarcRecord(), (exc_fields + inc_fields))
-    pipeline = blasm_pipeline_class()
+    pipeline = todsc_pipeline_class()
     results = pipeline.get_general_3xx_info(None, marc)
     assert set(results.keys()) == set(expected.keys())
     for k, v in results.items():
         assert v == expected[k]
 
 
-def test_blasmpipeline_getgeneral5xxinfo(add_marc_fields, blasm_pipeline_class):
+def test_todscpipeline_getgeneral5xxinfo(add_marc_fields, todsc_pipeline_class):
     """
-    BlacklightASMPipeline.get_general_5xx_info should return fields
+    ToDiscoverPipeline.get_general_5xx_info should return fields
     matching the expected parameters.
     """
     exclude = s2m.IGNORED_MARC_FIELDS_BY_GROUP_TAG['n']
@@ -6809,7 +6809,7 @@ def test_blasmpipeline_getgeneral5xxinfo(add_marc_fields, blasm_pipeline_class):
         ],
     }
     marc = add_marc_fields(s2m.SierraMarcRecord(), (exc_fields + inc_fields))
-    pipeline = blasm_pipeline_class()
+    pipeline = todsc_pipeline_class()
     results = pipeline.get_general_5xx_info(None, marc)
     assert set(results.keys()) == set(expected.keys())
     for k, v in results.items():
@@ -6895,16 +6895,16 @@ def test_blasmpipeline_getgeneral5xxinfo(add_marc_fields, blasm_pipeline_class):
     'G-tagged sudocs in 086 are indexed (in sudocs fields)',
     'Sudoc in 086 and local CN on item is fine--both are indexed'
 ])
-def test_blasmpipeline_getcallnumberinfo(bib_cn_info, items_info, expected,
+def test_todscpipeline_getcallnumberinfo(bib_cn_info, items_info, expected,
                                          bl_sierra_test_record,
-                                         blasm_pipeline_class,
+                                         todsc_pipeline_class,
                                          update_test_bib_inst):
     """
-    The `BlacklightASMPipeline.get_call_number_info` method should
+    The `ToDiscoverPipeline.get_call_number_info` method should
     return the expected values given the provided `bib_cn_info` fields
     and `items_info` parameters.
     """
-    pipeline = blasm_pipeline_class()
+    pipeline = todsc_pipeline_class()
     bib = bl_sierra_test_record('bib_no_items')
     bib = update_test_bib_inst(bib, varfields=bib_cn_info, items=items_info)
     val = pipeline.get_call_number_info(bib, None)
@@ -7202,17 +7202,17 @@ def test_blasmpipeline_getcallnumberinfo(bib_cn_info, items_info, expected,
     '074: 074 ==> type gpo',
     '088: 088 ==> type report',
 ])
-def test_blasmpipeline_getstandardnumberinfo(raw_marcfields, expected,
+def test_todscpipeline_getstandardnumberinfo(raw_marcfields, expected,
                                              bl_sierra_test_record,
-                                             blasm_pipeline_class,
+                                             todsc_pipeline_class,
                                              bibrecord_to_pymarc,
                                              add_marc_fields,
                                              marcfield_strings_to_params):
     """
-    The `BlacklightASMPipeline.get_standard_number_info` method should
+    The `ToDiscoverPipeline.get_standard_number_info` method should
     return the expected values given the provided `marcfields`.
     """
-    pipeline = blasm_pipeline_class()
+    pipeline = todsc_pipeline_class()
     bib = bl_sierra_test_record('bib_no_items')
     bibmarc = bibrecord_to_pymarc(bib)
     bibmarc.remove_fields('020', '022', '024', '025', '026', '027', '028',
@@ -7363,17 +7363,17 @@ def test_blasmpipeline_getstandardnumberinfo(raw_marcfields, expected,
     '035: OCLC number normalization (ocn)',
     '035: OCLC number normalization (on)',
 ])
-def test_blasmpipeline_getcontrolnumberinfo(raw_marcfields, expected,
+def test_todscpipeline_getcontrolnumberinfo(raw_marcfields, expected,
                                             bl_sierra_test_record,
-                                            blasm_pipeline_class,
+                                            todsc_pipeline_class,
                                             bibrecord_to_pymarc,
                                             add_marc_fields,
                                             marcfield_strings_to_params):
     """
-    The `BlacklightASMPipeline.get_control_number_info` method should
+    The `ToDiscoverPipeline.get_control_number_info` method should
     return the expected values given the provided `marcfields`.
     """
-    pipeline = blasm_pipeline_class()
+    pipeline = todsc_pipeline_class()
     bib = bl_sierra_test_record('bib_no_items')
     bibmarc = bibrecord_to_pymarc(bib)
     bibmarc.remove_fields('010', '016', '035')
@@ -7464,16 +7464,16 @@ def test_blasmpipeline_getcontrolnumberinfo(raw_marcfields, expected,
         'games_players_facet': ['01-01!1 player'],
     })
 ])
-def test_blasmpipeline_getgamesfacetsinfo(raw_marcfields, expected,
+def test_todscpipeline_getgamesfacetsinfo(raw_marcfields, expected,
                                           bl_sierra_test_record,
                                           get_or_make_location_instances,
                                           update_test_bib_inst,
-                                          blasm_pipeline_class,
+                                          todsc_pipeline_class,
                                           bibrecord_to_pymarc,
                                           add_marc_fields,
                                           marcfield_strings_to_params):
     """
-    The `BlacklightASMPipeline.get_games_facets_info` method should
+    The `ToDiscoverPipeline.get_games_facets_info` method should
     return the expected values given the provided `raw_marcfields`.
     """
     bib = bl_sierra_test_record('bib_no_items')
@@ -7484,7 +7484,7 @@ def test_blasmpipeline_getgamesfacetsinfo(raw_marcfields, expected,
     bibmarc.remove_fields('592')
     marcfields = marcfield_strings_to_params(raw_marcfields)
     bibmarc = add_marc_fields(bibmarc, marcfields)
-    pipeline = blasm_pipeline_class()
+    pipeline = todsc_pipeline_class()
     val = pipeline.get_games_facets_info(bib, bibmarc)
     for k, v in val.items():
         print k, v
@@ -9289,19 +9289,19 @@ def test_blasmpipeline_getgamesfacetsinfo(raw_marcfields, expected,
     'Multiple 6XXs, genres, etc.',
     'Duplicate headings are deduplicated',
 ])
-def test_blasmpipeline_getsubjectsinfo(raw_marcfields, expected,
+def test_todscpipeline_getsubjectsinfo(raw_marcfields, expected,
                                        marcfield_strings_to_params,
                                        bl_sierra_test_record,
-                                       blasm_pipeline_class,
+                                       todsc_pipeline_class,
                                        marcutils_for_subjects,
                                        bibrecord_to_pymarc,
                                        add_marc_fields,
                                        assert_json_matches_expected):
     """
-    BlacklightASMPipeline.get_subjects_info should return fields
+    ToDiscoverPipeline.get_subjects_info should return fields
     matching the expected parameters.
     """
-    class SubjectTestBLASMPL(blasm_pipeline_class):
+    class SubjectTestBLASMPL(todsc_pipeline_class):
         utils = marcutils_for_subjects
 
     pipeline = SubjectTestBLASMPL()
@@ -9367,11 +9367,11 @@ def test_blasmpipeline_getsubjectsinfo(raw_marcfields, expected,
     (2020, None, ['1981-1990', '1991-2000'], '-', '975'),
     (2020, ['9999', '2020'], ['9991-9999', '2011-2020'], '-', '1000'),
 ])
-def test_blasmpipeline_getrecordboost(this_year, pyears, pdecades, bib_type,
+def test_todscpipeline_getrecordboost(this_year, pyears, pdecades, bib_type,
                                       expected, bl_sierra_test_record,
-                                      bibrecord_to_pymarc, blasm_pipeline_class,
+                                      bibrecord_to_pymarc, todsc_pipeline_class,
                                       setattr_model_instance):
-    pipeline = blasm_pipeline_class()
+    pipeline = todsc_pipeline_class()
     bib = bl_sierra_test_record('bib_no_items')
     bibmarc = bibrecord_to_pymarc(bib)
     pipeline.bundle['publication_year_facet'] = pyears
@@ -9382,156 +9382,11 @@ def test_blasmpipeline_getrecordboost(this_year, pyears, pdecades, bib_type,
     assert val['record_boost'] == expected
 
 
-@pytest.mark.parametrize('mapping, bundle, expected', [
-    ( (('900', ('name', 'title')),),
-      {'name': 'N1', 'title': 'T1'},
-      [{'tag': '900', 'data': [('a', 'N1'), ('b', 'T1')]}] ),
-    ( (('900', ('names', 'titles')),),
-      {'names': ['N1', 'N2'], 'titles': ['T1', 'T2', 'T3']},
-      [{'tag': '900', 'data': [('a', 'N1'), ('a', 'N2'),
-                               ('b', 'T1'), ('b', 'T2'), ('b', 'T3')]}] ),
-    ( (('900', ('names', 'titles')),
-       ('900', ('subjects', 'eras')),),
-      {'names': ['N1', 'N2'], 'titles': ['T1', 'T2'], 'subjects': ['S1'],
-       'eras': ['E1', 'E2']},
-      [{'tag': '900', 'data': [('a', 'N1'), ('a', 'N2'),
-                               ('b', 'T1'), ('b', 'T2')]},
-       {'tag': '900', 'data': [('c', 'S1'), ('d', 'E1'), ('d', 'E2')]}] ),
-    ( (('900', ('names', 'titles')),
-       ('950', ('subjects', 'eras')),),
-      {'names': ['N1', 'N2'], 'titles': ['T1', 'T2'], 'subjects': ['S1'],
-       'eras': ['E1', 'E2']},
-      [{'tag': '900', 'data': [('a', 'N1'), ('a', 'N2'),
-                               ('b', 'T1'), ('b', 'T2')]},
-       {'tag': '950', 'data': [('a', 'S1'), ('b', 'E1'), ('b', 'E2')]}] ),
-    ( (('900', ('names',)),),
-      {'names': ['N1', 'N2']},
-      [{'tag': '900', 'data': [('a', 'N1'),]},
-       {'tag': '900', 'data': [('a', 'N2'),]}] ),
-    ( (('900', ('names',)),
-       ('900', ('titles',))),
-      {'names': ['N1', 'N2'], 'titles': ['T1', 'T2', 'T3']},
-      [{'tag': '900', 'data': [('a', 'N1'),]},
-       {'tag': '900', 'data': [('a', 'N2'),]},
-       {'tag': '900', 'data': [('b', 'T1'),]},
-       {'tag': '900', 'data': [('b', 'T2'),]}] ),
-    ( (('900', ('names',)),
-       ('900', ('titles',)),
-       ('900', ('subjects', 'eras')),),
-      {'names': ['N1', 'N2'], 'titles': ['T1', 'T2'], 'subjects': ['S1'],
-       'eras': ['E1', 'E2']},
-      [{'tag': '900', 'data': [('a', 'N1'),]},
-       {'tag': '900', 'data': [('a', 'N2'),]},
-       {'tag': '900', 'data': [('b', 'T1'),]},
-       {'tag': '900', 'data': [('b', 'T2'),]},
-       {'tag': '900', 'data': [('c', 'S1'), ('d', 'E1'), ('d', 'E2')]}] ),
-    ( (('900', ('names',)),
-       ('900', ('titles',)),
-       ('950', ('subjects',)),
-       ('950', ('eras',)),),
-      {'names': ['N1', 'N2'], 'titles': ['T1', 'T2'], 'subjects': ['S1'],
-       'eras': ['E1', 'E2']},
-      [{'tag': '900', 'data': [('a', 'N1'),]},
-       {'tag': '900', 'data': [('a', 'N2'),]},
-       {'tag': '900', 'data': [('b', 'T1'),]},
-       {'tag': '900', 'data': [('b', 'T2'),]},
-       {'tag': '950', 'data': [('a', 'S1'),]},
-       {'tag': '950', 'data': [('b', 'E1'),]},
-       {'tag': '950', 'data': [('b', 'E2'),]}] ),
-    ( (('900', ('auth', 'contrib')),
-       ('900', ('auth_display',)),
-       ('950', ('subjects',)),
-       ('950', ('eras', 'regions')),
-       ('950', ('topics', 'genres')),),
-      {'auth': ['A1'], 'contrib': ['C1', 'C2'],
-       'auth_display': ['A1', 'C1', 'C2'], 'subjects': ['S1', 'S2', 'S3'],
-       'eras': ['E1'], 'regions': ['R1', 'R2'], 'topics': ['T1'],
-       'genres': ['G1']},
-      [{'tag': '900', 'data': [('a', 'A1'), ('b', 'C1'), ('b', 'C2')]},
-       {'tag': '900', 'data': [('c', 'A1')]},
-       {'tag': '900', 'data': [('c', 'C1')]},
-       {'tag': '900', 'data': [('c', 'C2')]},
-       {'tag': '950', 'data': [('a', 'S1')]},
-       {'tag': '950', 'data': [('a', 'S2')]},
-       {'tag': '950', 'data': [('a', 'S3')]},
-       {'tag': '950', 'data': [('b', 'E1'), ('c', 'R1'), ('c', 'R2')]},
-       {'tag': '950', 'data': [('d', 'T1'), ('e', 'G1')]}] ),
-    ( (('900', ('auth', 'contrib')),
-       ('900', ('auth_display',)),
-       ('950', ('subjects',)),
-       ('950', ('eras', 'regions')),
-       ('950', ('topics', 'genres')),),
-      {'auth': ['A1'], 'contrib': ['C1', 'C2'],
-       'auth_display': ['A1', 'C1', 'C2'], 'subjects': ['S1', 'S2', 'S3'],
-       'regions': ['R1', 'R2'], 'topics': ['T1'], 'genres': ['G1']},
-      [{'tag': '900', 'data': [('a', 'A1'), ('b', 'C1'), ('b', 'C2')]},
-       {'tag': '900', 'data': [('c', 'A1')]},
-       {'tag': '900', 'data': [('c', 'C1')]},
-       {'tag': '900', 'data': [('c', 'C2')]},
-       {'tag': '950', 'data': [('a', 'S1')]},
-       {'tag': '950', 'data': [('a', 'S2')]},
-       {'tag': '950', 'data': [('a', 'S3')]},
-       {'tag': '950', 'data': [('c', 'R1'), ('c', 'R2')]},
-       {'tag': '950', 'data': [('d', 'T1'), ('e', 'G1')]}] ),
-    ( (('900', ('auth', 'contrib')),
-       ('900', ('auth_display',)),
-       ('950', ('subjects',)),
-       ('950', ('eras', 'regions')),
-       ('950', ('topics', 'genres')),),
-      {'auth': ['A1'], 'contrib': ['C1', 'C2'],
-       'auth_display': ['A1', 'C1', 'C2'], 'subjects': ['S1', 'S2', 'S3'],
-       'topics': ['T1'], 'genres': ['G1']},
-      [{'tag': '900', 'data': [('a', 'A1'), ('b', 'C1'), ('b', 'C2')]},
-       {'tag': '900', 'data': [('c', 'A1')]},
-       {'tag': '900', 'data': [('c', 'C1')]},
-       {'tag': '900', 'data': [('c', 'C2')]},
-       {'tag': '950', 'data': [('a', 'S1')]},
-       {'tag': '950', 'data': [('a', 'S2')]},
-       {'tag': '950', 'data': [('a', 'S3')]},
-       {'tag': '950', 'data': [('d', 'T1'), ('e', 'G1')]}] ),
-    ( (('900', ('auth', 'contrib')),
-       ('900', ('auth_display',)),
-       ('950', ('subjects',)),
-       ('950', ('eras', 'regions')),
-       ('950', ('topics', 'genres')),),
-      {'subjects': ['S1', 'S2', 'S3'], 'topics': ['T1'], 'genres': ['G1']},
-      [{'tag': '950', 'data': [('a', 'S1')]},
-       {'tag': '950', 'data': [('a', 'S2')]},
-       {'tag': '950', 'data': [('a', 'S3')]},
-       {'tag': '950', 'data': [('d', 'T1'), ('e', 'G1')]}] ),
-], ids=[
-    '1 field with >1 subfields (single vals)',
-    '1 field with >1 subfields (multiple vals => repeated subfields)',
-    '>1 of same field with >1 subfields (single vals and multiple vals)',
-    '>1 of diff fields with >1 subfields (single vals and multiple vals)',
-    '1 field with 1 subfield (multiple vals => repeated field)',
-    '>1 of same field with 1 subfield (multiple vals => repeated fields)',
-    '>1 of same field with mixed subfields',
-    '>1 of diff fields with 1 subfield (multiple vals => repeated field)',
-    'mixed fields and subfields',
-    'missing subfield is skipped',
-    'missing row is skipped',
-    'entire missing field is skipped'
-])
-def test_plbundleconverter_do_maps_correctly(mapping, bundle, expected,
-                                             plbundleconverter_class):
-    """
-    PipelineBundleConverter.do should convert the given data dict to
-    a list of pymarc Field objects correctly based on the provided
-    mapping.
-    """
-    converter = plbundleconverter_class(mapping=mapping)
-    fields = converter.do(bundle)
-    for field, exp in zip(fields, expected):
-        assert field.tag == exp['tag']
-        assert list(field) == exp['data']
-
-
 def test_s2mmarcbatch_compileoriginalmarc_vf_order(s2mbatch_class,
                                                    bl_sierra_test_record,
                                                    add_varfields_to_record):
     """
-    S2MarcBatchBlacklightSolrMarc `compile_original_marc` method should
+    DiscoverS2MarcBatch `compile_original_marc` method should
     put variable-length field into the correct order, based on field
     tag groupings and the vf.occ_num values. This should mirror the
     order catalogers put record fields into in Sierra.

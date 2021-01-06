@@ -11,8 +11,4 @@ class Migration(migrations.Migration):
         ('export', '0002_auto_20170620_1001'),
     ]
 
-    operations = [
-        migrations.RunPython(
-            load_data('export/migrations/data/bl_alpha_solrmarc.json',
-                      'default')),
-    ]
+    operations = []

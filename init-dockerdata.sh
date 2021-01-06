@@ -316,6 +316,8 @@ for service in ${user_services[@]}; do
              "$DDPATH/solr_dev/marc_data"
              "$DDPATH/solr_dev/alpha-solrmarc_data"
              "$DDPATH/solr_dev/alpha-solrmarc-02_data"
+             "$DDPATH/solr_dev/discover-01_data"
+             "$DDPATH/solr_dev/discover-02_data"
              "$DDPATH/solr_dev/bl-suggest_data")
       ;;
     solr-test)
@@ -325,6 +327,8 @@ for service in ${user_services[@]}; do
              "$DDPATH/solr_test/marc_data"
              "$DDPATH/solr_test/alpha-solrmarc_data"
              "$DDPATH/solr_test/alpha-solrmarc-02_data"
+             "$DDPATH/solr_test/discover-01_data"
+             "$DDPATH/solr_test/discover-02_data"
              "$DDPATH/solr_test/bl-suggest_data")
       ;;
     redis-celery)

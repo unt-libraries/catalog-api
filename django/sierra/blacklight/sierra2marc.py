@@ -1972,7 +1972,7 @@ class MultiFieldMarcRecordParser(object):
         return ret_val
 
 
-class BlacklightASMPipeline(object):
+class ToDiscoverPipeline(object):
     """
     This is a one-off class to hold functions/methods for creating the
     processed/custom fields that we're injecting into MARC records
@@ -2013,7 +2013,7 @@ class BlacklightASMPipeline(object):
     utils = MarcUtils()
 
     def __init__(self):
-        super(BlacklightASMPipeline, self).__init__()
+        super(ToDiscoverPipeline, self).__init__()
         self.bundle = {}
         self.name_titles = []
         self.title_languages = []
@@ -4310,205 +4310,13 @@ class BlacklightASMPipeline(object):
         return {'record_boost': str(pub_boost + q_boost)}
 
 
-class PipelineBundleConverter(object):
+class DiscoverS2MarcBatch(S2MarcBatch):
     """
-    Use this to map a dict to a series of MARC fields/subfields.
+    Sierra to MARC converter for Discover.
 
-    Provide a `mapping` parameter to __init__, or subclass this and
-    populate the `mapping` class attribute.
-
-    The mapping should be a tuple, or list, like the one provided.
-    Each row models a MARC field instance. The first tuple element is
-    the MARC tag. The second is a tuple or list that details what keys
-    from the data dict then become subfields. Subfields are assigned
-    automatically, starting with 'a'.
-
-    An individual dict key may contain multiple values, which can be
-    represented either as repeated instances of the same subfield or
-    repeated instances of the field:
-
-        914 $aSubject 1$aSubject 2$aSubject 3
-        vs
-        914 $aSubject 1
-        914 $aSubject 2
-        914 $aSubject 3
-
-    Since we're using subfields as granular, fully-independent storage
-    slots (not dependent on other subfields), the difference I think is
-    cosmetic.
-
-    If a row in the mapping contains one and only one key, then the
-    entire field gets repeated for each value. If a row contains
-    multiple keys, then they all appear in the same instance of that
-    field and repeated values become repeated subfields.
-
-    Whether a field tag is repeated or not, the subfield lettering will
-    be sequential:
-
-        ( '909', ('items_json',) ),
-        ( '909', ('has_more_items',) ),
-        vs
-        ( '909', ('items_json', 'has_more_items') ),
-
-    In both cases, 'items_json' is $a and 'has_more_items' is $b. And,
-    it's up to you to ensure you don't have more than 26 subfields per
-    field.
-
-    Once your mapping is set up, you can use the `do` method (passing
-    in a dict with the appropriate keys) to generate a list of pymarc
-    Field objects.
+    This straight up converts the Sierra DB BibRecord record (and
+    associated data) to a SierraMarcRecord object.
     """
-    mapping = (
-        ( '907', ('id',) ),
-        ( '970', ('suppressed', 'date_added', 'access_facet', 'building_facet',
-                  'shelf_facet', 'collection_facet', 'resource_type',
-                  'resource_type_facet', 'media_type_facet', 'games_ages_facet',
-                  'games_duration_facet', 'games_players_facet',
-                  'languages', 'record_boost') ),
-        ( '971', ('items_json',) ),
-        ( '971', ('has_more_items',) ),
-        ( '971', ('more_items_json',) ),
-        ( '971', ('thumbnail_url', 'urls_json') ),
-        ( '971', ('serial_holdings',) ),
-        ( '972', ('author_json',) ),
-        ( '972', ('contributors_json',) ),
-        ( '972', ('meetings_json',) ),
-        ( '972', ('author_search',) ),
-        ( '972', ('contributors_search',) ),
-        ( '972', ('meetings_search',) ),
-        ( '972', ('author_contributor_facet',) ),
-        ( '972', ('meeting_facet',) ),
-        ( '972', ('author_sort',) ),
-        ( '972', ('responsibility_search',) ),
-        ( '972', ('responsibility_display',) ),
-        ( '973', ('title_display', 'non_truncated_title_display') ),
-        ( '973', ('included_work_titles_json',) ),
-        ( '973', ('related_work_titles_json',) ),
-        ( '973', ('related_series_titles_json',) ),
-        ( '973', ('variant_titles_notes',) ),
-        ( '973', ('main_title_search',) ),
-        ( '973', ('included_work_titles_search',) ),
-        ( '973', ('related_work_titles_search',) ),
-        ( '973', ('related_series_titles_search',) ),
-        ( '973', ('variant_titles_search',) ),
-        ( '973', ('title_series_facet',) ),
-        ( '973', ('title_sort',) ),
-        ( '973', ('main_work_title_json',) ),
-        ( '974', ('subject_headings_json',) ),
-        ( '974', ('genre_headings_json',) ),
-        ( '974', ('subject_heading_facet',) ),
-        ( '974', ('genre_heading_facet',) ),
-        ( '974', ('topic_facet',) ),
-        ( '974', ('era_facet',) ),
-        ( '974', ('region_facet',) ),
-        ( '974', ('genre_facet',) ),
-        ( '974', ('subjects_search_exact_headings',) ),
-        ( '974', ('subjects_search_main_terms',) ),
-        ( '974', ('subjects_search_all_terms',) ),
-        ( '974', ('genres_search_exact_headings',) ),
-        ( '974', ('genres_search_main_terms',) ),
-        ( '974', ('genres_search_all_terms',) ),
-        ( '975', ('call_numbers_display',) ),
-        ( '975', ('call_numbers_search',) ),
-        ( '975', ('sudocs_display',) ),
-        ( '975', ('sudocs_search',) ),
-        ( '975', ('isbns_display',) ),
-        ( '975', ('issns_display',) ),
-        ( '975', ('lccns_display',) ),
-        ( '975', ('oclc_numbers_display',) ),
-        ( '975', ('isbn_numbers',) ),
-        ( '975', ('issn_numbers',) ),
-        ( '975', ('lccn_number',) ),
-        ( '975', ('oclc_numbers',) ),
-        ( '975', ('all_standard_numbers',) ),
-        ( '975', ('all_control_numbers',) ),
-        ( '975', ('other_standard_numbers_display',) ),
-        ( '975', ('other_control_numbers_display',) ),
-        ( '975', ('standard_numbers_search',) ),
-        ( '975', ('control_numbers_search',) ),
-        ( '976', ('publication_sort', 'publication_year_facet',
-                  'publication_decade_facet', 'publication_year_display') ),
-        ( '976', ('creation_display', 'publication_display',
-                  'distribution_display', 'manufacture_display',
-                  'copyright_display') ),
-        ( '976', ('publication_places_search', 'publishers_search',
-                  'publication_dates_search', 'publication_date_notes') ),
-        ( '977', ('physical_description', 'physical_medium', 'geospatial_data',
-                  'audio_characteristics', 'projection_characteristics',
-                  'video_characteristics', 'digital_file_characteristics',
-                  'graphic_representation', 'performance_medium', 'performers',
-                  'language_notes', 'dissertation_notes', 'notes', 'toc_notes',
-                  'summary_notes', 'production_credits',
-                  'current_publication_frequency',
-                  'former_publication_frequency') ),
-    )
-
-    def __init__(self, mapping=None):
-        """
-        Optionally, pass in a custom `mapping` structure. Default is
-        the class attribute `mapping`.
-        """
-        self.mapping = mapping or self.mapping
-
-    def _increment_sftag(self, sftag):
-        return chr(ord(sftag) + 1)
-
-    def _map_row(self, tag, sftag, fnames, bundle):
-        repeat_field = True if len(fnames) == 1 else False
-        fields, subfields = [], []
-        for fname in fnames:
-            vals = bundle.get(fname, None)
-            vals = vals if isinstance(vals, (list, tuple)) else [vals]
-            for v in vals:
-                if v is not None:
-                    if repeat_field:
-                        field = make_mfield(tag, subfields=[sftag, v])
-                        fields.append(field)
-                    else:
-                        subfields.extend([sftag, v])
-            sftag = self._increment_sftag(sftag)
-        if len(subfields):
-            fields.append(make_mfield(tag, subfields=subfields))
-        return sftag, fields
-
-    def do(self, bundle):
-        """
-        Provide `bundle`, a dict of values, where keys match the ones
-        given in the mapping. Returns a list of pymarc Field objects.
-
-        If the provided dict does not have a key that appears in the
-        mapping, it's fine--that field/subfield is simply skipped.
-        """
-        fields, tag_tracker = [], {}
-        for tag, fnames in self.mapping:
-            sftag = tag_tracker.get(tag, 'a')
-            sftag, new_fields = self._map_row(tag, sftag, fnames, bundle)
-            fields.extend(new_fields)
-            tag_tracker[tag] = sftag
-        return fields
-
-    def reverse_mapping(self):
-        """
-        Reverse this object's mapping: get a list of tuples, where each
-        tuple is (key, marc_tag, subfield_tag). The list is in order
-        based on the mapping.
-        """
-        reverse, tag_tracker = [], {}
-        for tag, fnames in self.mapping:
-            sftag = tag_tracker.get(tag, 'a')
-            for fname in fnames:
-                reverse.append((fname, tag, sftag))
-                sftag = self._increment_sftag(sftag)
-            tag_tracker[tag] = sftag
-        return reverse
-
-
-class S2MarcBatchBlacklightSolrMarc(S2MarcBatch):
-    """
-    Sierra to MARC converter for the Blacklight, using SolrMarc.
-    """
-    custom_data_pipeline = BlacklightASMPipeline()
-    to_9xx_converter = PipelineBundleConverter()
 
     def compile_control_fields(self, r):
         mfields = []
@@ -4552,8 +4360,7 @@ class S2MarcBatchBlacklightSolrMarc(S2MarcBatch):
             try:
                 if tag in ['{:03}'.format(num) for num in range(1,10)]:
                     field = make_mfield(tag, data=content)
-                elif tag[0] != '9' or tag in ('962',):
-                    # Ignore most existing 9XX fields from Sierra.
+                else:
                     ind = [ind1, ind2]
                     if not content.startswith('|'):
                         content = ''.join(('|a', content))
@@ -4577,16 +4384,4 @@ class S2MarcBatchBlacklightSolrMarc(S2MarcBatch):
         marc_record = self.compile_original_marc(r)
         if not marc_record.fields:
             raise S2MarcError('Skipped. No MARC fields on Bib record.', str(r))
-
-        bundle = self.custom_data_pipeline.do(r, marc_record)
-        marc_record.add_field(*self.to_9xx_converter.do(bundle))
-
-        marc_record.remove_fields('001')
-        hacked_id = 'a{}'.format(bundle['id'])
-        marc_record.add_grouped_field(make_mfield('001', data=hacked_id))
-
-        if re.match(r'[0-9]', marc_record.as_marc()[5]):
-            raise S2MarcError('Skipped. MARC record exceeds 99,999 bytes.',
-                              str(r))
-
         return marc_record

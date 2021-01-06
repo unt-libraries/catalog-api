@@ -20,16 +20,11 @@ def bl_solr_profile_definitions(global_solr_conn, solr_profile_definitions):
     generating `blacklight` app Solr test data.
     """
     pdefs = solr_profile_definitions.copy()
-    pdefs['alphasolrmarc'] = {
+    pdefs['discover'] = {
         'conn': global_solr_conn(settings.BL_CONN_NAME),
-        'user_fields': tp.ALPHASOLRMARC_FIELDS,
-        'field_gens': tp.ALPHASOLRMARC_GENS
+        'user_fields': tp.DISCOVER_FIELDS,
+        'field_gens': tp.DISCOVER_GENS
     }
-    # pdefs['blsuggest'] = {
-    #     'conn': global_solr_conn('bl-suggest'),
-    #     'user_fields': tp.BLSUGGEST_FIELDS,
-    #     'field_gens': tp.BLSUGGEST_GENS
-    # }
     return pdefs
 
 
@@ -64,8 +59,7 @@ def bl_solr_env(global_bl_solr_assembler):
     NOT between tests.
     """
     assembler = global_bl_solr_assembler
-    alphasolrmarc_recs = assembler.make('alphasolrmarc', 200)
-    # blsuggest_recs = assembler.make('blsuggest', 200)
+    discover_recs = assembler.make('discover', 200)
     assembler.save_all()
     return assembler
 

@@ -1,0 +1,392 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!--  
+    For information on how to customize this file, please see
+    http://wiki.apache.org/solr/SchemaXml.  The page also has a link to an 
+    extensively commented version of this file.
+-->
+<schema name="Blacklight-Alpha-Solrmarc" version="2.4">
+  <types>
+    <fieldType name="string" class="solr.StrField" sortMissingLast="true" omitNorms="true"/>
+    <fieldType name="boolean" class="solr.BoolField" sortMissingLast="true" omitNorms="true"/>
+    <fieldType name="integer" class="solr.IntField" omitNorms="true"/>
+    <fieldType name="long" class="solr.LongField" omitNorms="true"/>
+    <fieldType name="float" class="solr.FloatField" omitNorms="true"/>
+    <fieldType name="double" class="solr.DoubleField" omitNorms="true"/>
+    <fieldType name="sint" class="solr.SortableIntField" sortMissingLast="true" omitNorms="true"/>
+    <fieldType name="slong" class="solr.SortableLongField" sortMissingLast="true" omitNorms="true"/>
+    <fieldType name="sfloat" class="solr.SortableFloatField" sortMissingLast="true" omitNorms="true"/>
+    <fieldType name="sdouble" class="solr.SortableDoubleField" sortMissingLast="true" omitNorms="true"/>
+    <fieldType name="date" class="solr.TrieDateField" sortMissingLast="true" omitNorms="true"/>
+    <fieldType name="random" class="solr.RandomSortField" indexed="true" />
+
+    <fieldType name="text" class="solr.TextField" positionIncrementGap="100">
+      <analyzer type="index">
+        <tokenizer class="solr.WhitespaceTokenizerFactory"/>
+        <filter class="solr.ICUNormalizer2FilterFactory" name="nfkc" mode="compose" />
+        <filter class="solr.ASCIIFoldingFilterFactory" />
+        <filter class="solr.WordDelimiterFilterFactory" generateWordParts="1" generateNumberParts="1" catenateWords="1" catenateNumbers="0" catenateAll="1" splitOnCaseChange="1" preserveOriginal="1"/>
+        <filter class="solr.LowerCaseFilterFactory"/>
+        <filter class="solr.RemoveDuplicatesTokenFilterFactory"/>
+      </analyzer>
+      <analyzer type="query">
+        <tokenizer class="solr.WhitespaceTokenizerFactory"/>
+        <filter class="solr.ICUNormalizer2FilterFactory" name="nfkc" mode="compose" />
+        <filter class="solr.ASCIIFoldingFilterFactory" />
+        <filter class="solr.SynonymFilterFactory" synonyms="synonyms.txt" ignoreCase="true" expand="true"/>
+        <filter class="solr.WordDelimiterFilterFactory" generateWordParts="1" generateNumberParts="1" catenateWords="1" catenateNumbers="0" catenateAll="1" splitOnCaseChange="1" preserveOriginal="1"/>
+        <filter class="solr.LowerCaseFilterFactory"/>
+        <filter class="solr.RemoveDuplicatesTokenFilterFactory"/>
+      </analyzer>
+    </fieldType>
+
+    <!-- `cn_norm` type used for normalizing call numbers or call-number type strings for
+         left-anchored searching. During indexing you'd want to do manual shingling on call
+         numbers and pass the results to this field. I recommend shingling at transitions
+         between alpha, numeric, and non-alphanumeric characters.
+
+         E.g.: for call number "LB2328.15.U6 O32 2019", you'd index:
+         ["LB", "LB2328", "LB2328.15", "LB2328.15.U", "LB2328.15.U6", "LB2328.15.U6 O",
+          "LB2328.15.U6 O32", "LB2328.15.U6 O32 2019"]
+
+         The PatternReplaceFilterFactory steps will convert each value to a normalized
+         version. At query time, the same steps will be applied to the query value.
+    -->
+    <fieldType name="cn_norm" class="solr.TextField" positionIncrementGap="100">
+      <analyzer>
+        <tokenizer class="solr.KeywordTokenizerFactory"/>
+        <filter class="solr.ICUNormalizer2FilterFactory" name="nfkc" mode="compose" />
+        <filter class="solr.ASCIIFoldingFilterFactory" />
+        <filter class="solr.LowerCaseFilterFactory"/>
+        <filter class="solr.PatternReplaceFilterFactory" pattern="(\d)[^a-z0-9]+(?=\d)" replacement="$1-"/>
+        <filter class="solr.PatternReplaceFilterFactory" pattern="([a-z])[^a-z0-9]+(?=[a-z])" replacement="$1-"/>
+        <filter class="solr.PatternReplaceFilterFactory" pattern="[^a-z0-9\-]+" replacement=""/>
+        <filter class="solr.RemoveDuplicatesTokenFilterFactory"/>
+      </analyzer>
+    </fieldType>
+
+    <fieldType name="stem_text" class="solr.TextField" positionIncrementGap="100">
+      <analyzer type="index">
+        <tokenizer class="solr.WhitespaceTokenizerFactory"/>
+        <filter class="solr.ICUNormalizer2FilterFactory" name="nfkc" mode="compose" />
+        <filter class="solr.ASCIIFoldingFilterFactory" />
+        <filter class="solr.WordDelimiterFilterFactory" generateWordParts="1" generateNumberParts="1" catenateWords="1" catenateNumbers="1" catenateAll="0" splitOnCaseChange="1"/>
+        <filter class="solr.LowerCaseFilterFactory"/>
+        <filter class="solr.PorterStemFilterFactory"/>
+        <filter class="solr.RemoveDuplicatesTokenFilterFactory"/>
+      </analyzer>
+      <analyzer type="query">
+        <tokenizer class="solr.WhitespaceTokenizerFactory"/>
+        <filter class="solr.ICUNormalizer2FilterFactory" name="nfkc" mode="compose" />
+        <filter class="solr.ASCIIFoldingFilterFactory" />
+        <filter class="solr.SynonymFilterFactory" synonyms="synonyms.txt" ignoreCase="true" expand="true"/>
+        <filter class="solr.WordDelimiterFilterFactory" generateWordParts="1" generateNumberParts="1" catenateWords="0" catenateNumbers="0" catenateAll="0" splitOnCaseChange="1"/>
+        <filter class="solr.LowerCaseFilterFactory"/>
+        <filter class="solr.PorterStemFilterFactory"/>
+        <filter class="solr.RemoveDuplicatesTokenFilterFactory"/>
+      </analyzer>
+    </fieldType>
+
+    <fieldType name="full_heading_text" class="solr.TextField" positionIncrementGap="100">
+      <analyzer>
+        <tokenizer class="solr.PatternTokenizerFactory" pattern="(,|[^\p{Punct}\s]+)" group="0" />
+        <filter class="solr.ICUNormalizer2FilterFactory" name="nfkc" mode="compose" />
+        <filter class="solr.ASCIIFoldingFilterFactory" />
+        <filter class="solr.LowerCaseFilterFactory"/>
+        <filter class="solr.RemoveDuplicatesTokenFilterFactory"/>
+      </analyzer>
+    </fieldType>
+
+    <fieldType name="heading_term_text" class="solr.TextField" positionIncrementGap="100">
+      <analyzer>
+        <!--
+          This pattern tokenizer is designed to break the following into separate tokens:
+            - Words (consecutive strings of not-space, not-punctuation)
+            - Commas: `Henry, John` ==> `henry` `,` `john`
+            - Words (not-space, not-punctuation) with internal periods: `1.01` `J.S` `john.smith`, etc.
+          Commas are kept to facilitate searching inverted forms of names. They become their own tokens
+          so that they don't prevent matching on the word before them. `John, Henry` should still match
+          the word `john` on its own, but can provide a good phrase-boost for the query `john, henry`.
+         -->
+        <tokenizer class="solr.PatternTokenizerFactory" pattern="(,|([^\p{Punct}\s]*\.[^\p{Punct}\s]+)+|[^\p{Punct}\s]+)" group="0" />
+        <filter class="solr.ICUNormalizer2FilterFactory" name="nfkc" mode="compose" />
+        <filter class="solr.ASCIIFoldingFilterFactory" />
+        <filter class="solr.WordDelimiterFilterFactory" generateWordParts="1" generateNumberParts="1" catenateWords="1" catenateNumbers="0" catenateAll="1" splitOnCaseChange="1" preserveOriginal="1"/>
+        <filter class="solr.LowerCaseFilterFactory"/>
+        <filter class="solr.RemoveDuplicatesTokenFilterFactory"/>
+      </analyzer>
+    </fieldType>
+
+    <fieldType name="heading_term_text_stem" class="solr.TextField" positionIncrementGap="100">
+      <analyzer>
+        <!--
+          This pattern tokenizer is designed to break the following into separate tokens:
+            - Words (consecutive strings of not-space, not-punctuation)
+            - Commas: `Henry, John` ==> `henry` `,` `john`
+            - Words (not-space, not-punctuation) with internal periods: `1.01` `J.S` `john.smith`, etc.
+          Commas are kept to facilitate searching inverted forms of names. They become their own tokens
+          so that they don't prevent matching on the word before them. `John, Henry` should still match
+          the word `john` on its own, but can provide a good phrase-boost for the query `john, henry`.
+         -->
+        <tokenizer class="solr.PatternTokenizerFactory" pattern="(,|([^\p{Punct}\s]*\.[^\p{Punct}\s]+)+|[^\p{Punct}\s]+)" group="0" />
+        <filter class="solr.ICUNormalizer2FilterFactory" name="nfkc" mode="compose" />
+        <filter class="solr.ASCIIFoldingFilterFactory" />
+        <filter class="solr.WordDelimiterFilterFactory" generateWordParts="1" generateNumberParts="1" catenateWords="1" catenateNumbers="0" catenateAll="1" splitOnCaseChange="1" preserveOriginal="1"/>
+        <filter class="solr.LowerCaseFilterFactory"/>
+        <filter class="solr.PorterStemFilterFactory"/>
+        <filter class="solr.RemoveDuplicatesTokenFilterFactory"/>
+      </analyzer>
+    </fieldType>
+    
+    <fieldType name="spell_text" class="solr.TextField" positionIncrementGap="100" >
+      <analyzer>
+        <tokenizer class="solr.StandardTokenizerFactory"/>
+        <filter class="solr.StopFilterFactory" ignoreCase="true" words="stopwords.txt"/>
+        <filter class="solr.StandardFilterFactory"/>
+        <filter class="solr.LowerCaseFilterFactory"/>
+        <filter class="solr.RemoveDuplicatesTokenFilterFactory"/>
+      </analyzer>
+    </fieldType>
+
+    <fieldType name="norm_string" class="solr.TextField" sortMissingLast="true" omitNorms="true">
+      <analyzer>
+        <tokenizer class="solr.KeywordTokenizerFactory"/>
+        <filter class="solr.ICUNormalizer2FilterFactory" name="nfkc" mode="compose" />
+        <filter class="solr.ASCIIFoldingFilterFactory" />
+        <filter class="solr.LowerCaseFilterFactory" />
+      </analyzer>
+    </fieldType>
+
+    <fieldType name="reverse_number" class="solr.TextField" sortMissingLast="true" omitNorms="true">
+      <analyzer type="index">
+        <tokenizer class="solr.KeywordTokenizerFactory"/>
+        <filter class="solr.PatternReplaceFilterFactory" pattern="^(\d+\-?\d*)$" replacement="$1!$1"/>
+        <filter class="solr.PatternReplaceFilterFactory" pattern="9(?=.*!)" replacement="a"/>
+        <filter class="solr.PatternReplaceFilterFactory" pattern="8(?=.*!)" replacement="b"/>
+        <filter class="solr.PatternReplaceFilterFactory" pattern="7(?=.*!)" replacement="c"/>
+        <filter class="solr.PatternReplaceFilterFactory" pattern="6(?=.*!)" replacement="d"/>
+        <filter class="solr.PatternReplaceFilterFactory" pattern="5(?=.*!)" replacement="e"/>
+        <filter class="solr.PatternReplaceFilterFactory" pattern="4(?=.*!)" replacement="f"/>
+        <filter class="solr.PatternReplaceFilterFactory" pattern="3(?=.*!)" replacement="g"/>
+        <filter class="solr.PatternReplaceFilterFactory" pattern="2(?=.*!)" replacement="h"/>
+        <filter class="solr.PatternReplaceFilterFactory" pattern="1(?=.*!)" replacement="i"/>
+        <filter class="solr.PatternReplaceFilterFactory" pattern="0(?=.*!)" replacement="j"/>
+      </analyzer>
+    <analyzer type="query">
+        <tokenizer class="solr.KeywordTokenizerFactory"/>
+    </analyzer>
+    </fieldType>
+  </types>
+
+  <fields>
+    <!-- REVISED SCHEMA ###################################################################################
+         Fields in this section have been fully implemented.
+
+         To implement a field:
+            - Add it below.
+            - Add it to sierra2marc.py.
+            - Add relevant tests for it.
+            - Make sure it's represented in solr_test_profiles.py.
+            - If needed, update the solrconfig.xml file so that it uses the new field:
+                - For fields that display in search results, add to "catalog-search" request
+                  handler, `fl` parameter.
+
+         After implementing a field, run tests.
+    -->
+    
+    <!-- META-INFORMATION ================================================================================= -->
+    <field name="id" type="string" indexed="true" stored="true" required="true" multiValued="false"/>
+    <field name="timestamp_of_last_solr_update" type="date" indexed="true" stored="true" default="NOW" multiValued="false"/>
+    <field name="suppressed" type="boolean" indexed="true" stored="true" multiValued="false"/>
+    <field name="date_added" type="date" indexed="true" stored="true" multiValued="false"/>
+    <field name="_version_" type="long" indexed="true" stored="true"/>
+    <field name="resource_type" type="string" indexed="true" stored="true" required="true" multiValued="false"/>
+
+    <!-- DISPLAY-ONLY FIELDS ============================================================================== -->
+    <!-- Attached Items -->
+    <field name="items_json" type="string" indexed="false" stored="true" multiValued="true"/>
+    <field name="has_more_items" type="boolean" indexed="true" stored="true" multiValued="false"/>
+    <field name="more_items_json" type="string" indexed="false" stored="true" multiValued="true"/>
+    <!-- Thumbnails -->
+    <field name="thumbnail_url" type="string" indexed="false" stored="true" multiValued="false"/>
+    <!-- URLs -->
+    <field name="urls_json" type="string" indexed="false" stored="true" multiValued="true"/>
+    <!-- Call Numbers / Other Standard Numbers -->
+    <field name="call_numbers_display" type="string" indexed="false" stored="true" multiValued="true"/>
+    <field name="sudocs_display" type="string" indexed="false" stored="true" multiValued="true"/>
+    <field name="isbns_display" type="string" indexed="false" stored="true" multiValued="true"/>
+    <field name="issns_display" type="string" indexed="false" stored="true" multiValued="true"/>
+    <field name="lccns_display" type="string" indexed="false" stored="true" multiValued="true"/>
+    <field name="oclc_numbers_display" type="string" indexed="false" stored="true" multiValued="true"/>
+    <field name="other_standard_numbers_display" type="string" indexed="false" stored="true" multiValued="true"/>
+    <field name="other_control_numbers_display" type="string" indexed="false" stored="true" multiValued="true"/>
+    <field name="isbn_numbers" type="string" indexed="false" stored="true" multiValued="true"/>
+    <field name="issn_numbers" type="string" indexed="false" stored="true" multiValued="true"/>
+    <field name="lccn_number" type="string" indexed="false" stored="true"/>
+    <field name="oclc_numbers" type="string" indexed="false" stored="true" multiValued="true"/>
+    <field name="all_standard_numbers" type="string" indexed="false" stored="true" multiValued="true"/>
+    <field name="all_control_numbers" type="string" indexed="false" stored="true" multiValued="true"/>
+    <!-- Publication -->
+    <field name="publication_year_display" type="string" indexed="false" stored="true" multiValued="false"/>
+    <field name="creation_display" type="string" indexed="false" stored="true" multiValued="true"/>
+    <field name="publication_display" type="string" indexed="false" stored="true" multiValued="true"/>
+    <field name="distribution_display" type="string" indexed="false" stored="true" multiValued="true"/>
+    <field name="manufacture_display" type="string" indexed="false" stored="true" multiValued="true"/>
+    <field name="copyright_display" type="string" indexed="false" stored="true" multiValued="true"/>
+    <!-- Authors / Contributors -->
+    <field name="author_json" type="string" indexed="false" stored="true" multiValued="false"/>
+    <field name="contributors_json" type="string" indexed="false" stored="true" multiValued="true"/>
+    <field name="meetings_json" type="string" indexed="false" stored="true" multiValued="true"/>
+    <field name="responsibility_display" type="string" indexed="false" stored="true" multiValued="false"/>
+    <!-- Titles / Series -->
+    <field name="title_display" type="string" indexed="false" stored="true" multiValued="false"/>
+    <field name="non_truncated_title_display" type="string" indexed="false" stored="true" multiValued="false"/>
+    <field name="main_work_title_json" type="string" indexed="false" stored="true" multiValued="false"/>
+    <field name="included_work_titles_json" type="string" indexed="false" stored="true" multiValued="true"/>
+    <field name="related_work_titles_json" type="string" indexed="false" stored="true" multiValued="true"/>
+    <field name="related_series_titles_json" type="string" indexed="false" stored="true" multiValued="true"/>
+    <field name="variant_titles_notes" type="string" indexed="false" stored="true" multiValued="true"/>
+    <!-- Subjects / Genres -->
+    <field name="subject_headings_json" type="string" indexed="false" stored="true" multiValued="true"/>
+    <field name="genre_headings_json" type="string" indexed="false" stored="true" multiValued="true"/>
+
+    <!-- SORT FIELDS ====================================================================================== -->
+    <field name="publication_sort" type="string" indexed="true" stored="false" multiValued="false"/>
+    <field name="author_sort" type="norm_string" indexed="true" stored="false" multiValued="false"/>
+    <field name="title_sort" type="string" indexed="true" stored="false" multiValued="false"/>
+
+    <!-- FACET FIELDS ===================================================================================== -->
+    <field name="publication_decade_facet" type="reverse_number" indexed="true" stored="false" multiValued="true"/>
+    <field name="publication_year_facet" type="reverse_number" indexed="true" stored="false" multiValued="true"/>
+    <field name="publication_year_range_facet" type="string" indexed="true" stored="true" multiValued="true"/>
+    <copyField source="publication_year_facet" dest="publication_year_range_facet"/>
+    <field name="access_facet" type="string" indexed="true" stored="false" multiValued="true"/>
+    <field name="building_facet" type="string" indexed="true" stored="false" multiValued="true"/>
+    <field name="shelf_facet" type="string" indexed="true" stored="false" multiValued="true"/>
+    <field name="collection_facet" type="string" indexed="true" stored="false" multiValued="true"/>
+    <field name="resource_type_facet" type="string" indexed="true" stored="false" multiValued="true"/>
+    <field name="media_type_facet" type="string" indexed="true" stored="false" multiValued="true"/>
+    <field name="languages" type="string" indexed="true" stored="true" multiValued="true"/>
+    <field name="author_contributor_facet" type="string" indexed="true" stored="false" multiValued="true"/>
+    <field name="meeting_facet" type="string" indexed="true" stored="false" multiValued="true"/>
+    <field name="title_series_facet" type="string" indexed="true" stored="false" multiValued="true"/>
+    <field name="games_ages_facet" type="string" indexed="true" stored="false" multiValued="true" />
+    <field name="games_duration_facet" type="string" indexed="true" stored="false" multiValued="true" />
+    <field name="games_players_facet" type="string" indexed="true" stored="false" multiValued="true" />
+    <field name="subject_heading_facet" type="string" indexed="true" stored="false" multiValued="true" />
+    <field name="genre_heading_facet" type="string" indexed="true" stored="false" multiValued="true" />
+    <field name="topic_facet" type="string" indexed="true" stored="false" multiValued="true" />
+    <field name="era_facet" type="string" indexed="true" stored="false" multiValued="true" />
+    <field name="region_facet" type="string" indexed="true" stored="false" multiValued="true" />
+    <field name="genre_facet" type="string" indexed="true" stored="false" multiValued="true" />
+
+    <!-- For future use, for CN / browse-the-shelf type features -->
+    <!-- <field name="call_numbers_facet" type="string" indexed="true" stored="false" multiValued="true"/> -->
+
+    <!-- GENERAL SEARCH OR SEARCH/DISPLAY FIELDS ========================================================== -->
+    <field name="text" type="text" indexed="true" stored="false" multiValued="true"/>
+    <field name="building_locations" type="string" indexed="false" stored="true" multiValued="true"/>
+    <copyField source="building_facet" dest="building_locations"/>
+
+    <!-- Call Numbers and Other Standard Numbers -->
+    <field name="call_numbers_search" type="cn_norm" indexed="true" stored="false" multiValued="true"/>
+    <field name="sudocs_search" type="cn_norm" indexed="true" stored="false" multiValued="true"/>
+    <field name="standard_numbers_search" type="cn_norm" indexed="true" stored="false" multiValued="true"/>
+    <field name="control_numbers_search" type="cn_norm" indexed="true" stored="false" multiValued="true"/>
+
+    <!-- Publication -->
+    <field name="publication_places_search" type="text" indexed="true" stored="false" multiValued="true"/>
+    <field name="publishers_search" type="text" indexed="true" stored="false" multiValued="true"/>
+    <field name="publication_dates_search" type="text" indexed="true" stored="false" multiValued="true"/>
+    <field name="publication_date_notes" type="string" indexed="false" stored="true" multiValued="true"/>
+
+    <!-- Authors / Contributors -->
+    <field name="author_search" type="heading_term_text" indexed="true" stored="false" multiValued="true"/>
+    <field name="contributors_search" type="heading_term_text" indexed="true" stored="false" multiValued="true"/>
+    <field name="meetings_search" type="text" indexed="true" stored="false" multiValued="true"/>
+    <field name="responsibility_search" type="stem_text" indexed="true" stored="false" multiValued="true"/>
+
+    <!-- Titles / Series -->
+    <field name="main_title_search" type="text" indexed="true" stored="false" multiValued="true"/>
+    <field name="included_work_titles_search" type="text" indexed="true" stored="false" multiValued="true"/>
+    <field name="related_work_titles_search" type="text" indexed="true" stored="false" multiValued="true"/>
+    <field name="related_series_titles_search" type="text" indexed="true" stored="false" multiValued="true"/>
+    <field name="variant_titles_search" type="text" indexed="true" stored="false" multiValued="true"/>
+
+    <!-- Description and Notes -->
+    <field name="toc_notes" type="stem_text" indexed="true" stored="true" multiValued="true"/>
+    <field name="summary_notes" type="string" indexed="false" stored="true" multiValued="true"/>
+
+    <field name="current_publication_frequency" type="string" indexed="false" stored="true" multiValued="true"/>
+    <field name="former_publication_frequency" type="string" indexed="false" stored="true" multiValued="true"/>
+    <field name="physical_description" type="string" indexed="false" stored="true" multiValued="true"/>
+    <field name="physical_medium" type="string" indexed="false" stored="true" multiValued="true"/>
+    <field name="geospatial_data" type="string" indexed="false" stored="true" multiValued="true"/>
+    <field name="audio_characteristics" type="string" indexed="false" stored="true" multiValued="true"/>
+    <field name="projection_characteristics" type="string" indexed="false" stored="true" multiValued="true"/>
+    <field name="video_characteristics" type="string" indexed="false" stored="true" multiValued="true"/>
+    <field name="digital_file_characteristics" type="string" indexed="false" stored="true" multiValued="true"/>
+    <field name="graphic_representation" type="string" indexed="false" stored="true" multiValued="true"/>
+    <field name="performance_medium" type="string" indexed="false" stored="true" multiValued="true"/>
+    <field name="production_credits" type="string" indexed="false" stored="true" multiValued="true"/>
+    <field name="performers" type="string" indexed="false" stored="true" multiValued="true"/>
+    <field name="language_notes" type="string" indexed="false" stored="true" multiValued="true"/>
+    <field name="dissertation_notes" type="string" indexed="false" stored="true" multiValued="true"/>
+    <field name="notes" type="string" indexed="false" stored="true" multiValued="true"/>
+
+    <!-- Subjects / Genres -->
+    <field name="subjects_search_exact_headings" type="full_heading_text" indexed="true" stored="false" multiValued="true"/>
+    <field name="subjects_search_all_terms" type="heading_term_text_stem" indexed="true" stored="false" multiValued="true"/>
+    <field name="subjects_search_main_terms" type="heading_term_text_stem" indexed="true" stored="false" multiValued="true"/>
+    <field name="genres_search_exact_headings" type="full_heading_text" indexed="true" stored="false" multiValued="true"/>
+    <field name="genres_search_all_terms" type="heading_term_text_stem" indexed="true" stored="false" multiValued="true"/>
+    <field name="genres_search_main_terms" type="heading_term_text_stem" indexed="true" stored="false" multiValued="true"/>
+
+    <!-- Copyfield Search Fields -->
+    <field name="all_title_variants_search" type="text" indexed="true" stored="false" multiValued="true"/>
+    <copyField source="included_work_titles_search" dest="all_title_variants_search"/>
+    <copyField source="related_series_titles_search" dest="all_title_variants_search"/>
+    <copyField source="variant_titles_search" dest="all_title_variants_search"/>
+
+    <field name="building_collection_search" type="text" indexed="true" stored="false" multiValued="true"/>
+    <copyField source="building_facet" dest="building_collection_search"/>
+    <copyField source="shelf_facet" dest="building_collection_search"/>
+    <copyField source="collection_facet" dest="building_collection_search"/>
+
+    <copyField source="current_publication_frequency" dest="publication_dates_search"/>
+    <copyField source="former_publication_frequency" dest="publication_dates_search"/>
+
+    <field name="type_format_search" type="stem_text" indexed="true" stored="false" multiValued="true"/>
+    <copyField source="resource_type_facet" dest="type_format_search"/>
+    <copyField source="media_type_facet" dest="type_format_search"/>
+    <copyField source="languages" dest="type_format_search"/>
+    <copyField source="physical_description" dest="type_format_search"/>
+    <copyField source="physical_medium" dest="type_format_search"/>
+    <copyField source="geospatial_data" dest="type_format_search"/>
+    <copyField source="audio_characteristics" dest="type_format_search"/>
+    <copyField source="projection_characteristics" dest="type_format_search"/>
+    <copyField source="video_characteristics" dest="type_format_search"/>
+    <copyField source="digital_file_characteristics" dest="type_format_search"/>
+    <copyField source="graphic_representation" dest="type_format_search"/>
+    <copyField source="performance_medium" dest="type_format_search"/>
+
+    <copyField source="production_credits" dest="responsibility_search"/>
+    <copyField source="performers" dest="responsibility_search"/>
+
+    <field name="notes_search" type="stem_text" indexed="true" stored="false" multiValued="true"/>
+    <copyField source="summary_notes" dest="notes_search"/>
+    <copyField source="language_notes" dest="notes_search"/>
+    <copyField source="dissertation_notes" dest="notes_search"/>
+    <copyField source="notes" dest="notes_search"/>
+    <copyField source="publication_date_notes" dest="notes_search"/>
+    <copyField source="variant_titles_notes" dest="notes_search"/>
+
+    <!-- "Boost" field(s) -->
+    <field name="record_boost" type="integer" indexed="true" stored="true" multiValued="false" />
+
+  </fields>
+
+  <uniqueKey>id</uniqueKey>
+  <defaultSearchField>text</defaultSearchField>
+  <solrQueryParser defaultOperator="OR"/>
+
+</schema>
