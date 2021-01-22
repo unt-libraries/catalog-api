@@ -38,6 +38,7 @@ def resource_type_determiner():
     ('w4m', False),
     ('czm', False),
     ('law', False),
+    ('kmats', False),
 ])
 def test_itemrules_isonline(loc_code, expected, item_rules, mocker):
     """
@@ -55,6 +56,7 @@ def test_itemrules_isonline(loc_code, expected, item_rules, mocker):
     ('frsco', True),
     ('jlf', True),
     ('kmatt', True),
+    ('kmats', True),
     ('r', True),
     ('rzzrs', True),
     ('rmak', True),
@@ -114,6 +116,7 @@ def test_itemrules_isatpubliclocation(loc_code, expected, item_rules, mocker):
     ('lawww', None),
     ('lwww', None),
     ('mwww', None),
+    ('kmats', None),
 ])
 def test_itemrules_buildinglocation(loc_code, expected, item_rules, mocker):
     """
@@ -150,6 +153,7 @@ def test_itemrules_buildinglocation(loc_code, expected, item_rules, mocker):
     ('r', ['Discovery Park Library']),
     ('rfbks', ['Discovery Park Library']),
     ('rst', ['Discovery Park Library']),
+    ('kmats', None),
 ])
 def test_itemrules_incollections(loc_code, expected, item_rules, mocker):
     """
@@ -157,7 +161,8 @@ def test_itemrules_incollections(loc_code, expected, item_rules, mocker):
     names/labels of the collections an item belongs to.
     """
     item = mocker.Mock(location_id=loc_code)
-    assert item_rules['in_collections'].evaluate(item) == set(expected)
+    result = item_rules['in_collections'].evaluate(item)
+    assert result == (set(expected) if expected else expected)
 
 
 @pytest.mark.parametrize('loc_code, itype_id, item_status_id, expected', [
@@ -189,6 +194,7 @@ def test_itemrules_incollections(loc_code, expected, item_rules, mocker):
     ('w4mrb', 1, '-', False),
     ('w4mrx', 1, '-', False),
     ('w4spe', 1, '-', False),
+    ('kmats', 1, '-', False),
     # Temporary for COVID-19
     ('w4m', 1, '-', False),
     ('w4mau', 1, '-', False),
