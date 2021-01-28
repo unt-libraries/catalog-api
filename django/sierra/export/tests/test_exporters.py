@@ -224,7 +224,7 @@ def test_basic_tosolr_export_records(et_code, rset_code, rectypes, do_reindex,
     # and some that don't.
     num_existing = records.count() / 2
     overlap_recs = records[0:num_existing]
-    only_new_recs = records[num_existing:]
+    only_new = records[num_existing:]
     old_rec_pks = [unicode(pk) for pk in range(99991,99995)]
     only_old_rec_data = [(pk, {}) for pk in old_rec_pks]
     data = only_old_rec_data + [(r.pk, {}) for r in overlap_recs]
@@ -237,10 +237,10 @@ def test_basic_tosolr_export_records(et_code, rset_code, rectypes, do_reindex,
     for index in exporter.indexes.values():
         conn = solr_conns[getattr(index, 'using', 'default')]
         results = solr_search(conn, '*')
-        only_old_recs = [r for r in results if r['django_id'] in old_rec_pks]
-        assert len(only_old_recs) == len(old_rec_pks)
+        only_old = [r for r in results if r['django_id'] in old_rec_pks]
+        assert len(only_old) == len(old_rec_pks)
         assert_records_are_indexed(index, overlap_recs, results=results)
-        assert_records_are_not_indexed(index, only_new_recs, results=results)
+        assert_records_are_not_indexed(index, only_new, results=results)
 
     exporter.export_records(records)
     exporter.commit_indexes()
@@ -248,10 +248,13 @@ def test_basic_tosolr_export_records(et_code, rset_code, rectypes, do_reindex,
     for i, index in enumerate(exporter.indexes.values()):
         conn = solr_conns[getattr(index, 'using', 'default')]
         results = solr_search(conn, '*')
-        only_old_recs = [r for r in results if r['django_id'] in old_rec_pks]
-        assert len(only_old_recs) == 0 if do_reindex else len(old_rec_pks)
+        only_old = [r for r in results if r['django_id'] in old_rec_pks]
+        assert len(only_old) == 0 if do_reindex else len(old_rec_pks)
         assert_records_are_indexed(index, overlap_recs, results=results)
-        assert_records_are_indexed(index, only_new_recs, results=results)
+        if exporter.is_active:
+            assert_records_are_indexed(index, only_new, results=results)
+        else:
+            assert_records_are_not_indexed(index, only_new, results=results)
 
 
 @pytest.mark.exports
@@ -345,6 +348,7 @@ def test_tosolr_index_update_errors(basic_exporter_class, record_sets,
 
     assert_records_are_not_indexed(exporter.indexes['Items'], [records[0]])
     assert_records_are_indexed(exporter.indexes['Items'], records[1:])
+    assert exporter.is_active
     assert len(exporter.indexes['Items'].last_batch_errors) == 1
 
 

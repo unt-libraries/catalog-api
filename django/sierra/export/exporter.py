@@ -106,6 +106,7 @@ class Exporter(object):
     max_del_chunk = 1000
     model = None
     app_name = 'export'
+    is_active = True
 
     def __init__(self, instance_pk, export_filter, export_type, options=None,
                  log_label=''):

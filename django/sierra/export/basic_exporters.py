@@ -421,6 +421,13 @@ class BibsToSolr(ToSolrExporter):
             '__iii_language',
     ]
     select_related = ['record_metadata', 'record_metadata__record_type']
+    is_active = False
+
+    def export_records(self, records):
+        pass
+
+    def delete_records(self, records):
+        pass
 
 
 class ItemsBibsToSolr(AttachedRecordExporter):

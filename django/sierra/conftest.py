@@ -612,7 +612,8 @@ def assert_records_are_not_indexed(get_records_from_index):
 
 
 @pytest.fixture
-def assert_all_exported_records_are_indexed(assert_records_are_indexed):
+def assert_all_exported_records_are_indexed(assert_records_are_indexed,
+                                            assert_records_are_not_indexed):
     """
     Pytest fixture that returns a test helper function for checking
     that the provided `record_set` has been indexed correctly as a
@@ -623,19 +624,26 @@ def assert_all_exported_records_are_indexed(assert_records_are_indexed):
         # Check results in all indexes for the parent test_exporter.
         test_indexes = getattr(exporter, 'indexes', {}).values()
         for index in test_indexes:
-            assert_records_are_indexed(index, record_set)
+            if exporter.is_active:
+                assert_records_are_indexed(index, record_set)
+            else:
+                assert_records_are_not_indexed(index, record_set)
         # Check results in all child indexes (if any).
         if hasattr(exporter, 'main_child'):
-            child_rsets = exporter.derive_recordsets_from_parent(record_set)
-            for child_name, child in exporter.children.items():
+            ch_rsets = exporter.derive_recordsets_from_parent(record_set)
+            for ch_name, child in exporter.children.items():
                 child_indexes = getattr(child, 'indexes', {}).values()
                 for index in child_indexes:
-                    assert_records_are_indexed(index, child_rsets[child_name])
+                    if child.is_active:
+                        assert_records_are_indexed(index, ch_rsets[ch_name])
+                    else:
+                        assert_records_are_not_indexed(index, ch_rsets[ch_name])
     return _assert_all_exported_records_are_indexed
 
 
 @pytest.fixture
-def assert_deleted_records_are_not_indexed(assert_records_are_not_indexed):
+def assert_deleted_records_are_not_indexed(assert_records_are_indexed,
+                                           assert_records_are_not_indexed):
     """
     Pytest fixture that returns a test helper function for checking
     that records in the provided `record_set` have been removed from
@@ -645,13 +653,18 @@ def assert_deleted_records_are_not_indexed(assert_records_are_not_indexed):
     def _assert_deleted_records_are_not_indexed(exporter, record_set):
         # If the parent exporter has indexes, check them.
         indexes = getattr(exporter, 'indexes', {}).values()
+        ref_exporter = exporter
         # Otherwise, if the parent has a `main_child` that has indexes,
         # then those are the ones to check.
         if not indexes and hasattr(exporter, 'main_child'):
             indexes = getattr(exporter.main_child, 'indexes', {}).values()
+            ref_exporter = exporter.main_child
 
         for index in indexes:
-            assert_records_are_not_indexed(index, record_set)
+            if ref_exporter.is_active:
+                assert_records_are_not_indexed(index, record_set)
+            else:
+                assert_records_are_indexed(index, record_set)
     return _assert_deleted_records_are_not_indexed
 
 
