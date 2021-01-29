@@ -39,6 +39,37 @@ def bibrecord_to_pymarc(s2mbatch_class):
 
 
 @pytest.fixture
+def params_to_fields():
+    """
+    Pytest fixture for creating a list of s2m.SierraMarcField objects
+    given a list of tuple-fied parameters: (tag, contents, indicators).
+
+    `tag` can be a 3-digit numeric MARC tag ('245') or a 4-digit tag,
+    where the III field group tag is prepended ('t245' is a t-tagged
+    245 field).
+
+    `indicators` is optional. If the MARC tag is 001 to 009, then a
+    data field is created from `contents`. Otherwise `contents` is used
+    as a list of subfields, and `indicators` defaults to blank, blank.
+    """
+    def _make_smarc_field(tag, contents, indicators='  '):
+        group_tag = ''
+        if len(tag) == 4:
+            group_tag, tag = tag[0], tag[1:]
+        if int(tag) < 10:
+            return s2m.make_mfield(tag, data=contents)
+        return s2m.make_mfield(tag, subfields=contents, indicators=indicators,
+                               group_tag=group_tag)
+
+    def _make_smarc_fields(fparams):
+        fields = []
+        for fp in fparams:
+            fields.append(_make_smarc_field(*fp))
+        return fields
+    return _make_smarc_fields
+
+
+@pytest.fixture
 def add_marc_fields():
     """
     Pytest fixture for adding fields to the given `bib` (pymarc Record
@@ -46,34 +77,14 @@ def add_marc_fields():
     then all new MARC fields will overwrite existing fields with the
     same tag.
 
-    One or more `fields` may be passed. Each field is a tuple of:
-        (tag, contents, indicators)
-
-    `tag` can be a 3-digit numeric MARC tag ('245') or a 4-digit tag,
-    where the III field group tag is prepended ('t245' is a t-tagged
-    245 field).
-
-    Indicators is optional. If the MARC tag is 001 to 009, then a data
-    field is created from `contents`. Otherwise `contents` is treated
-    as a list of subfields, and `indicators` defaults to blank, blank.
+    `fields` must be a list of pymarc.Field or s2m.SierraMarcField
+    objects.
     """
     def _add_marc_fields(bib, fields, overwrite_existing=True):
-        fieldobjs = []
-        for f in fields:
-            tag, contents = f[0:2]
-            group_tag = ''
-            if len(tag) == 4:
-                group_tag, tag = tag[0], tag[1:]
-            if overwrite_existing:
-                bib.remove_fields(tag)
-            if int(tag) < 10:
-                fieldobjs.append(s2m.make_mfield(tag, data=contents))
-            else:
-                ind = tuple(f[2]) if len(f) > 2 else tuple('  ')
-                fieldobjs.append(s2m.make_mfield(tag, subfields=contents,
-                                                 indicators=ind,
-                                                 group_tag=group_tag))
-        bib.add_field(*fieldobjs)
+        if overwrite_existing:
+            for f in fields:
+                bib.remove_fields(f.tag)
+        bib.add_field(*fields)
         return bib
     return _add_marc_fields
 
@@ -145,31 +156,16 @@ def update_test_bib_inst(add_varfields_to_record, add_items_to_bib,
 
 
 @pytest.fixture
-def make_name_structs():
+def fieldstrings_to_fields():
     """
-    Pytest fixture. Returns a function to use for generating
-    name_structs (dictionary structures) from the given X00, X10, or
-    X11 field. Data should be passed as a `tag`, `subfields`,
-    `indicators` tuple (used in many of the test parameters).
+    Pytest fixture. Given a list of MARC field strings copied/pasted
+    from the LC or OCLC website, returns a list of s2m.SierraMarcField
+    objects.
     """
-    def _make_name_structs(marcfield):
-        tag, subfields, indicators = marcfield
-        f = s2m.make_mfield(tag, subfields=subfields, indicators=indicators)
-        return s2m.extract_name_structs_from_field(f)
-    return _make_name_structs
-
-
-@pytest.fixture
-def marcfield_strings_to_params():
-    """
-    Pytest fixture. Returns a list you can pass directly to the
-    `add_marc_fields` fixture for the `fields` parameter, given a list
-    of MARC field strings copied/pasted from the LOC or OCLC website.
-    """
-    def _marcfield_strings_to_params(field_strings):
+    def _fieldstrings_to_fields(field_strings):
         utils = s2m.MarcUtils()
-        return [utils.parse_marc_display_field(s)[0:3] for s in field_strings]
-    return _marcfield_strings_to_params
+        return [utils.fieldstring_to_field(s) for s in field_strings]
+    return _fieldstrings_to_fields
 
 
 @pytest.fixture
@@ -379,7 +375,7 @@ def test_sierramarcfield_filtersubfields(subfields, incl, excl, expected):
         assert tup == expected[i]
 
 
-@pytest.mark.parametrize('fields, args, expected', [
+@pytest.mark.parametrize('fparams, args, expected', [
     ([('a100', ['a', 'a100_1']),
       ('a100', ['a', 'a100_2']),
       ('b100', ['a', 'b100_1']),
@@ -414,12 +410,14 @@ def test_sierramarcfield_filtersubfields(subfields, incl, excl, expected):
       ('a245', ['a', 'a245_1'])], ('100', 'a', '245'), ['a100_1', 'a100_2',
                                                         'b100_1', 'a245_1']),
 ])
-def test_sierramarcrecord_getfields(fields, args, expected, add_marc_fields):
+def test_sierramarcrecord_getfields(fparams, args, expected, params_to_fields,
+                                    add_marc_fields):
     """
     SierraMarcRecord `get_fields` method should return the expected
     fields, given the provided `fields` definitions, when passed the
     given `args`.
     """
+    fields = params_to_fields(fparams)
     r = add_marc_fields(s2m.SierraMarcRecord(), fields)
     filtered = r.get_fields(*args)
     assert len(filtered) == len(expected)
@@ -427,7 +425,7 @@ def test_sierramarcrecord_getfields(fields, args, expected, add_marc_fields):
         assert f.format_field() in expected
 
 
-@pytest.mark.parametrize('fields, include, exclude, expected', [
+@pytest.mark.parametrize('fparams, include, exclude, expected', [
     ([('a100', ['a', 'a100_1']),
       ('a100', ['a', 'a100_2']),
       ('b100', ['a', 'b100_1']),
@@ -462,13 +460,14 @@ def test_sierramarcrecord_getfields(fields, args, expected, add_marc_fields):
       ('b100', ['a', 'b100_1']),
       ('a245', ['a', 'a245_1'])], ('a',), ('100', '300'), ['a245_1']),
 ])
-def test_sierramarcrecord_filterfields(fields, include, exclude, expected,
-                                       add_marc_fields):
+def test_sierramarcrecord_filterfields(fparams, include, exclude, expected,
+                                       params_to_fields, add_marc_fields):
     """
     SierraMarcRecord `filter_fields` method should return the expected
     fields, given the provided `fields` definitions, when passed the
     given `include` and `exclude` args.
     """
+    fields = params_to_fields(fparams)
     r = add_marc_fields(s2m.SierraMarcRecord(), fields)
     filtered = list(r.filter_fields(include, exclude))
     assert len(filtered) == len(expected)
@@ -493,7 +492,8 @@ def test_explodesubfields_returns_expected_results():
     assert dates == ['1960;', '1992.']
 
 
-@pytest.mark.parametrize('field, inc, exc, unq, start, end, limit, expected', [
+@pytest.mark.parametrize('fparams, inc, exc, unq, start, end, limit, expected',
+                         [
     (('260', ['a', 'a1', 'b', 'b1', 'c', 'c1',
               'a', 'a2', 'b', 'b2', 'c', 'c2']),
      'abc', '', 'abc', '', '', None,
@@ -586,20 +586,20 @@ def test_explodesubfields_returns_expected_results():
      '', '', '', 'tp', '', 2,
      ('Name Dates', 'Title Part')),
 ])
-def test_groupsubfields_groups_correctly(field, inc, exc, unq, start, end,
-                                         limit, expected):
+def test_groupsubfields_groups_correctly(fparams, inc, exc, unq, start, end,
+                                         limit, expected, params_to_fields):
     """
     `group_subfields` should put subfields from a pymarc Field object
     into groupings based on the provided parameters.
     """
-    mfield = s2m.make_mfield(field[0], subfields=field[1])
-    result = s2m.group_subfields(mfield, inc, exc, unq, start, end, limit)
+    field = params_to_fields([fparams])[0]
+    result = s2m.group_subfields(field, inc, exc, unq, start, end, limit)
     assert len(result) == len(expected)
     for group, exp in zip(result, expected):
         assert group.value() == exp
 
 
-@pytest.mark.parametrize('field_info, sftags, expected', [
+@pytest.mark.parametrize('fparams, sftags, expected', [
     (('260', ['a', 'a1', 'b', 'b1', 'c', 'c1',
               'a', 'a2', 'b', 'b2', 'c', 'c2']),
      'a',
@@ -613,18 +613,19 @@ def test_groupsubfields_groups_correctly(field, inc, exc, unq, start, end,
      None,
      (['a1', 'b1', 'c1', 'a2', 'b2', 'c2'])),
 ])
-def test_pullfromsubfields_and_no_pullfunc(field_info, sftags, expected):
+def test_pullfromsubfields_and_no_pullfunc(fparams, sftags, expected,
+                                           params_to_fields):
     """
     Calling `pull_from_subfields` with no `pull_func` specified should
     return values from the given pymarc Field object and the specified
     sftags, as a list.
     """
-    field = s2m.make_mfield(field_info[0], subfields=field_info[1])
+    field = params_to_fields([fparams])[0]
     for val, exp in zip(s2m.pull_from_subfields(field, sftags), expected):
         assert  val == exp
 
 
-def test_pullfromsubfields_with_pullfunc():
+def test_pullfromsubfields_with_pullfunc(params_to_fields):
     """
     Calling `pull_from_subfields` with a custom `pull_func` specified
     should return values from the given pymarc Field object and the
@@ -632,7 +633,7 @@ def test_pullfromsubfields_with_pullfunc():
     """
     subfields = ['a', 'a1.1 a1.2', 'b', 'b1.1 b1.2', 'c', 'c1',
                  'a', 'a2', 'b', 'b2', 'c', 'c2.1 c2.2']
-    field = s2m.make_mfield('260', subfields=subfields)
+    field = params_to_fields([('260', subfields)])[0]
 
     def pf(val):
         return val.split(' ')
@@ -668,14 +669,15 @@ def test_pullfromsubfields_with_pullfunc():
       'Register at https://libproxy.library.unt.edu/login?url=https://whatever.'
       'com'),
 ])
-def test_genericdisplayfieldparser_parse(subfields, sep, sff, expected):
+def test_genericdisplayfieldparser_parse(subfields, sep, sff, expected,
+                                         params_to_fields):
     """
     The GenericDisplayFieldParser `parse` method should return the
     expected result when parsing a MARC field with the given
     `subfields`, given the provided `sep` (separator) and `sff`
     (subfield filter).
     """
-    field = s2m.make_mfield('300', subfields=subfields)
+    field = params_to_fields([('300', subfields)])[0]
     assert s2m.GenericDisplayFieldParser(field, sep, sff).parse() == expected
 
 
@@ -812,12 +814,12 @@ def test_genericdisplayfieldparser_parse(subfields, sep, sff, expected):
         [{'primary': [('orchestra', '1')]}],
      ]}),
 ])
-def test_performancemedparser_parse(subfields, expected):
+def test_performancemedparser_parse(subfields, expected, params_to_fields):
     """
     PerformanceMedParser `parse` method should return a dict with the
     expected structure, given the provided MARC 382 field.
     """
-    field = s2m.make_mfield('382', subfields=subfields)
+    field = params_to_fields([('382', subfields)])[0]
     assert s2m.PerformanceMedParser(field).parse() == expected
 
 
@@ -862,12 +864,13 @@ def test_performancemedparser_parse(subfields, expected):
                      'Other info', 'identifier']
      }),
 ])
-def test_dissertationnotesfieldparser_parse(subfields, expected):
+def test_dissertationnotesfieldparser_parse(subfields, expected,
+                                            params_to_fields):
     """
     DissertationNotesFieldParser `parse` method should return a dict
     with the expected structure, given the provided MARC 502 subfields.
     """
-    field = s2m.make_mfield('502', subfields=subfields)
+    field = params_to_fields([('502', subfields)])[0]
     assert s2m.DissertationNotesFieldParser(field).parse() == expected
 
 
@@ -948,14 +951,13 @@ def test_dissertationnotesfieldparser_parse(subfields, expected):
       'D Bannister']),
 ])
 def test_personalnamepermutator_getsearchperms(raw_marcfields, expected,
-                                               marcfield_strings_to_params):
+                                               fieldstrings_to_fields):
     """
     The `get_search_permutations` method of the PersonalNamePermutator
     class should return the expected list of search permutations for
     the name in the give MARC field input.
     """
-    tag, sf, indicators = marcfield_strings_to_params(raw_marcfields)[0]
-    field = s2m.make_mfield(tag, indicators=indicators, subfields=sf)
+    field = fieldstrings_to_fields(raw_marcfields)[0]
     parsed_name = s2m.PersonalNameParser(field).parse()
     permutator = s2m.PersonalNamePermutator(parsed_name)
     result = permutator.get_search_permutations()
@@ -1368,7 +1370,7 @@ def test_todscpipeline_getiteminfo_pseudo_items(bib_locations, bib_cn_info,
     assert_json_matches_expected(val['items_json'], expected)
 
 
-@pytest.mark.parametrize('marcfields, items_info, expected', [
+@pytest.mark.parametrize('fparams, items_info, expected', [
     ([('856', ['u', 'http://example.com', 'y', 'The Resource',
                'z', 'connect to electronic resource'])],
      [],
@@ -1476,10 +1478,10 @@ def test_todscpipeline_getiteminfo_pseudo_items(bib_locations, bib_cn_info,
     '962 (media manager) fields, no URLs => generate e-reserve URLs',
     '962 (media manager) field, type fulltext based on title',
 ])
-def test_todscpipeline_geturlsjson(marcfields, items_info, expected,
+def test_todscpipeline_geturlsjson(fparams, items_info, expected,
                                    bl_sierra_test_record, todsc_pipeline_class,
                                    bibrecord_to_pymarc, update_test_bib_inst,
-                                   add_marc_fields,
+                                   params_to_fields, add_marc_fields,
                                    assert_json_matches_expected):
     """
     The `urls_json` key of the value returned by
@@ -1491,13 +1493,13 @@ def test_todscpipeline_geturlsjson(marcfields, items_info, expected,
     bib = update_test_bib_inst(bib, items=items_info)
     bibmarc = bibrecord_to_pymarc(bib)
     bibmarc.remove_fields('856', '962')
-    bibmarc = add_marc_fields(bibmarc, marcfields)
+    bibmarc = add_marc_fields(bibmarc, params_to_fields(fparams))
     pipeline.bundle['id'] = '.b1'
     val = pipeline.get_urls_json(bib, bibmarc)
     assert_json_matches_expected(val['urls_json'], expected)
 
 
-@pytest.mark.parametrize('marcfields, expected_url', [
+@pytest.mark.parametrize('fparams, expected_url', [
     ([('962', ['t', 'Cover Image',
                'u', 'http://www.library.unt.edu/media/covers/cover.jpg',
                'e', 'http://www.library.unt.edu/media/covers/thumb.jpg'])],
@@ -1549,10 +1551,11 @@ def test_todscpipeline_geturlsjson(marcfields, items_info, expected,
     'DL/Portal cover with hacked attribute additions on URLs AND querystring',
     'other 856 link(s): ignore non-DL/Portal URLs'
 ])
-def test_todscpipeline_getthumbnailurl(marcfields, expected_url,
+def test_todscpipeline_getthumbnailurl(fparams, expected_url,
                                        bl_sierra_test_record,
                                        todsc_pipeline_class,
-                                       bibrecord_to_pymarc, add_marc_fields):
+                                       bibrecord_to_pymarc, params_to_fields,
+                                       add_marc_fields):
     """
     ToDiscoverPipeline.get_thumbnail_url should return a URL for
     a local thumbnail image, if one exists. (Either Digital Library or
@@ -1562,12 +1565,12 @@ def test_todscpipeline_getthumbnailurl(marcfields, expected_url,
     bib = bl_sierra_test_record('bib_no_items')
     bibmarc = bibrecord_to_pymarc(bib)
     bibmarc.remove_fields('856', '962')
-    bibmarc = add_marc_fields(bibmarc, marcfields)
+    bibmarc = add_marc_fields(bibmarc, params_to_fields(fparams))
     val = pipeline.get_thumbnail_url(bib, bibmarc)
     assert val['thumbnail_url'] == expected_url
 
 
-@pytest.mark.parametrize('marcfields, exp_pub_sort, exp_pub_year_display, '
+@pytest.mark.parametrize('fparams, exp_pub_sort, exp_pub_year_display, '
                          'exp_pub_year_facet, exp_pub_decade_facet, '
                          'exp_pub_dates_search', [
     ([('008', 's2004    '),
@@ -1791,14 +1794,15 @@ def test_todscpipeline_getthumbnailurl(marcfields, expected_url,
     'non-formatted date in 362 works',
     'century (1st) in 362 works'
 ])
-def test_todscpipeline_getpubinfo_dates(marcfields, exp_pub_sort,
+def test_todscpipeline_getpubinfo_dates(fparams, exp_pub_sort,
                                         exp_pub_year_display,
                                         exp_pub_year_facet,
                                         exp_pub_decade_facet,
                                         exp_pub_dates_search,
                                         bl_sierra_test_record,
                                         todsc_pipeline_class,
-                                        bibrecord_to_pymarc, add_marc_fields):
+                                        bibrecord_to_pymarc, params_to_fields,
+                                        add_marc_fields):
     """
     ToDiscoverPipeline.get_pub_info should return date-string fields
     matching the expected parameters.
@@ -1807,12 +1811,12 @@ def test_todscpipeline_getpubinfo_dates(marcfields, exp_pub_sort,
     bib = bl_sierra_test_record('bib_no_items')
     bibmarc = bibrecord_to_pymarc(bib)
     bibmarc.remove_fields('260', '264', '362')
-    if len(marcfields) and marcfields[0][0] == '008':
+    if len(fparams) and fparams[0][0] == '008':
         data = bibmarc.get_fields('008')[0].data
-        data = '{}{}{}'.format(data[0:6], marcfields[0][1], data[15:])
-        marcfields[0] = ('008', data)
+        data = '{}{}{}'.format(data[0:6], fparams[0][1], data[15:])
+        fparams[0] = ('008', data)
         bibmarc.remove_fields('008')
-    bibmarc = add_marc_fields(bibmarc, marcfields)
+    bibmarc = add_marc_fields(bibmarc, params_to_fields(fparams))
     val = pipeline.get_pub_info(bib, bibmarc)
     assert val['publication_sort'] == exp_pub_sort
     assert val['publication_year_display'] == exp_pub_year_display
@@ -1827,7 +1831,7 @@ def test_todscpipeline_getpubinfo_dates(marcfields, exp_pub_sort,
         assert v in exp_pub_dates_search
 
 
-@pytest.mark.parametrize('marcfields, expected', [
+@pytest.mark.parametrize('fparams, expected', [
     ([('008', 's2004    '),
       ('260', ['a', 'Place :', 'b', 'Publisher,', 'c', '2004.'])],
      {'publication_display': ['Place : Publisher, 2004']}),
@@ -1993,11 +1997,11 @@ def test_todscpipeline_getpubinfo_dates(marcfields, exp_pub_sort,
     '362 with formatted date',
     '362 with non-formatted date'
 ])
-def test_todscpipeline_getpubinfo_statements(marcfields, expected,
+def test_todscpipeline_getpubinfo_statements(fparams, expected,
                                              bl_sierra_test_record,
                                              todsc_pipeline_class,
                                              bibrecord_to_pymarc,
-                                             add_marc_fields):
+                                             params_to_fields, add_marc_fields):
     """
     ToDiscoverPipeline.get_pub_info should return display statement
     fields matching the expected parameters.
@@ -2006,12 +2010,12 @@ def test_todscpipeline_getpubinfo_statements(marcfields, expected,
     bib = bl_sierra_test_record('bib_no_items')
     bibmarc = bibrecord_to_pymarc(bib)
     bibmarc.remove_fields('260', '264', '362')
-    if len(marcfields) and marcfields[0][0] == '008':
+    if len(fparams) and fparams[0][0] == '008':
         data = bibmarc.get_fields('008')[0].data
-        data = '{}{}{}'.format(data[0:6], marcfields[0][1], data[15:])
-        marcfields[0] = ('008', data)
+        data = '{}{}{}'.format(data[0:6], fparams[0][1], data[15:])
+        fparams[0] = ('008', data)
         bibmarc.remove_fields('008')
-    bibmarc = add_marc_fields(bibmarc, marcfields)
+    bibmarc = add_marc_fields(bibmarc, params_to_fields(fparams))
     val = pipeline.get_pub_info(bib, bibmarc)
     if len(expected.keys()) == 0:
         assert 'created_display' not in val.keys()
@@ -2023,7 +2027,7 @@ def test_todscpipeline_getpubinfo_statements(marcfields, expected,
         assert v == val[k]
 
 
-@pytest.mark.parametrize('marcfields, expected', [
+@pytest.mark.parametrize('fparams, expected', [
     ([('008', 's2004    '),
       ('260', ['a', 'Place :', 'b', 'Publisher,', 'c', '2004.'])],
      {'publication_places_search': ['Place'],
@@ -2087,10 +2091,11 @@ def test_todscpipeline_getpubinfo_statements(marcfields, expected,
     '260/264: missing pub info okay',
     'no 260/264 okay'
 ])
-def test_todscpipeline_getpubinfo_pub_and_place_search(marcfields, expected,
+def test_todscpipeline_getpubinfo_pub_and_place_search(fparams, expected,
                                                        bl_sierra_test_record,
                                                        todsc_pipeline_class,
                                                        bibrecord_to_pymarc,
+                                                       params_to_fields,
                                                        add_marc_fields):
     """
     ToDiscoverPipeline.get_pub_info should return publishers_search
@@ -2101,12 +2106,12 @@ def test_todscpipeline_getpubinfo_pub_and_place_search(marcfields, expected,
     bib = bl_sierra_test_record('bib_no_items')
     bibmarc = bibrecord_to_pymarc(bib)
     bibmarc.remove_fields('260', '264')
-    if len(marcfields) and marcfields[0][0] == '008':
+    if len(fparams) and fparams[0][0] == '008':
         data = bibmarc.get_fields('008')[0].data
-        data = '{}{}{}'.format(data[0:6], marcfields[0][1], data[15:])
-        marcfields[0] = ('008', data)
+        data = '{}{}{}'.format(data[0:6], fparams[0][1], data[15:])
+        fparams[0] = ('008', data)
         bibmarc.remove_fields('008')
-    bibmarc = add_marc_fields(bibmarc, marcfields)
+    bibmarc = add_marc_fields(bibmarc, params_to_fields(fparams))
     val = pipeline.get_pub_info(bib, bibmarc)
     if len(expected.keys()) == 0:
         assert 'publication_places_search' not in val.keys()
@@ -2313,6 +2318,7 @@ def test_todscpipeline_getresourcetypeinfo(bcode2,
     for k, v in expected.items():
         assert v == val[k]
 
+
 @pytest.mark.parametrize('f008_lang, raw_marcfields, expected', [
     # Edge cases -- empty / missing fields, etc.
     # No language info at all (no 008s, titles, or 041s)
@@ -2424,7 +2430,7 @@ def test_todscpipeline_getresourcetypeinfo(bcode2,
     'Language info from combined sources',
 ])
 def test_todscpipeline_getlanguageinfo(f008_lang, raw_marcfields, expected,
-                                       marcfield_strings_to_params,
+                                       fieldstrings_to_fields,
                                        bl_sierra_test_record,
                                        todsc_pipeline_class,
                                        marcutils_for_subjects,
@@ -2438,11 +2444,11 @@ def test_todscpipeline_getlanguageinfo(f008_lang, raw_marcfields, expected,
     pipeline = todsc_pipeline_class()
     bib = bl_sierra_test_record('bib_no_items')
     bibmarc = bibrecord_to_pymarc(bib)
-    marcfields = marcfield_strings_to_params(raw_marcfields)
     if f008_lang:
         data = bibmarc.get_fields('008')[0].data
         data = '{}{}{}'.format(data[0:35], f008_lang, data[38:])
-        marcfields = [('008', data)] + marcfields
+        raw_marcfields = [('008 {}'.format(data))] + raw_marcfields
+    marcfields = fieldstrings_to_fields(raw_marcfields)
     bibmarc.remove_fields('008', '041', '130', '240', '546', '700', '710',
                           '711', '730', '740')
     bibmarc = add_marc_fields(bibmarc, marcfields)
@@ -2466,7 +2472,7 @@ def test_todscpipeline_getlanguageinfo(f008_lang, raw_marcfields, expected,
         assert result['language_notes']
 
 
-@pytest.mark.parametrize('marcfields, expected', [
+@pytest.mark.parametrize('fparams, expected', [
     ([('600', ['a', 'Churchill, Winston,', 'c', 'Sir,', 'd', '1874-1965.'],
        '1 ')], {}),
     ([('100', [], '1 ')], {}),
@@ -3206,10 +3212,11 @@ def test_todscpipeline_getlanguageinfo(f008_lang, raw_marcfields, expected,
     '111 meeting, w/no org component, 7XX contributors',
     '111 meeting, w/org component, 7XX contributors',
 ])
-def test_todscpipeline_getcontributorinfo(marcfields, expected,
+def test_todscpipeline_getcontributorinfo(fparams, expected,
                                           bl_sierra_test_record,
                                           todsc_pipeline_class,
                                           bibrecord_to_pymarc,
+                                          params_to_fields,
                                           add_marc_fields,
                                           assert_json_matches_expected):
     """
@@ -3221,7 +3228,7 @@ def test_todscpipeline_getcontributorinfo(marcfields, expected,
     bibmarc = bibrecord_to_pymarc(bib)
     bibmarc.remove_fields('100', '110', '111', '700', '710', '711', '800',
                           '810', '811')
-    bibmarc = add_marc_fields(bibmarc, marcfields)
+    bibmarc = add_marc_fields(bibmarc, params_to_fields(fparams))
     val = pipeline.get_contributor_info(bib, bibmarc)
     for k, v in val.items():
         print k, v
@@ -3721,17 +3728,9 @@ def test_todscpipeline_getcontributorinfo(marcfields, expected,
       'transcribed': [
         {'parts': ['Series statement; v. 1']}]}),
 
-    # ('', [],
-    #  {'nonfiling_chars': 0,
-    #   'transcribed': [
-    #     {'parts': [],
-    #      'responsibility': ''}],
-    #   'parallel': [
-    #     {'parts': [],
-    #      'responsibility': ''}
-    # ]}),
 ])
-def test_transcribedtitleparser_parse(tag, subfields, expected):
+def test_transcribedtitleparser_parse(tag, subfields, expected,
+                                      params_to_fields):
     """
     TranscribedTitleParser `parse` method should return a dict with the
     expected structure, given the provided MARC field. Can handle 242s,
@@ -3742,7 +3741,7 @@ def test_transcribedtitleparser_parse(tag, subfields, expected):
         tag, indicators = tag.split(' ', 1)
     else:
         indicators = '  '
-    field = s2m.make_mfield(tag, subfields=subfields, indicators=indicators)
+    field = params_to_fields([(tag, subfields, indicators)])[0]
     parsed = s2m.TranscribedTitleParser(field).parse()
     print parsed
     assert parsed == expected
@@ -4322,18 +4321,8 @@ def test_transcribedtitleparser_parse(tag, subfields, expected):
       'type': 'series',
       'relations': None,
      }),
-
-    # ('', [],
-    #  {'materials_specified': [],
-    #   'display_constants': [],
-    #   'title_parts': [],
-    #   'expression_parts': [],
-    #   'languages': [],
-    #   'is_collective': False,
-    #   'is_music_form': False,
-    #  }),
 ])
-def test_preferredtitleparser_parse(tag, subfields, expected):
+def test_preferredtitleparser_parse(tag, subfields, expected, params_to_fields):
     """
     PreferredTitleParser `parse` method should return a dict with the
     expected structure, given the provided MARC field.
@@ -4342,11 +4331,11 @@ def test_preferredtitleparser_parse(tag, subfields, expected):
         tag, indicators = tag.split(' ', 1)
     else:
         indicators = '  '
-    field = s2m.make_mfield(tag, subfields=subfields, indicators=indicators)
-    assert s2m.PreferredTitleParser(field).parse() == expected
+    fields = params_to_fields([(tag, subfields, indicators)])[0]
+    assert s2m.PreferredTitleParser(fields).parse() == expected
 
 
-@pytest.mark.parametrize('marcfield, expected', [
+@pytest.mark.parametrize('fparams, expected', [
     (('100', ['a', 'Adams, Henry,', 'd', '1838-1918.'], '1 '), ['Adams, H.']),
     (('100', ['a', 'Chopin, Frédéric', 'd', '1810-1849.'], '1 '),
      ['Chopin, F.']),
@@ -4394,13 +4383,15 @@ def test_preferredtitleparser_parse(tag, subfields, expected):
               'e', 'Raamatunaituse Komitee.'], '2 '),
      ['Esto \'84', 'Esto \'84, Raamatunaituse Komitee'])
 ])
-def test_shortenname(marcfield, expected, make_name_structs):
+def test_shortenname(fparams, expected, params_to_fields):
     """
     The `shorten_name` function should return the expected shortened
     version of a name when passed a structure from a NameParser
-    resulting from the given `marcfield` data.
+    resulting from the given `fparams` data.
     """
-    result = [s2m.shorten_name(n) for n in make_name_structs(marcfield)]
+    field = params_to_fields([fparams])[0]
+    name_structs = s2m.extract_name_structs_from_field(field)
+    result = [s2m.shorten_name(n) for n in name_structs]
     assert set(result) == set(expected)
 
 
@@ -4426,7 +4417,7 @@ def test_generatefacetkey(fval, nf_chars, expected):
     assert s2m.generate_facet_key(fval, nf_chars) == expected
 
 
-@pytest.mark.parametrize('marcfields, expected', [
+@pytest.mark.parametrize('fparams, expected', [
     # Edge cases -- empty / missing fields, etc.
 
     # 1XX field but no titles => empty title-info
@@ -6496,9 +6487,9 @@ def test_generatefacetkey(fval, nf_chars, expected):
     '246: No note if ind1 is NOT 0 or 1',
     '247: No note if ind2 is 1',
 ])
-def test_todscpipeline_gettitleinfo(marcfields, expected, bl_sierra_test_record,
+def test_todscpipeline_gettitleinfo(fparams, expected, bl_sierra_test_record,
                                     todsc_pipeline_class, bibrecord_to_pymarc,
-                                    add_marc_fields,
+                                    params_to_fields, add_marc_fields,
                                     assert_json_matches_expected):
     """
     ToDiscoverPipeline.get_title_info should return fields matching
@@ -6510,7 +6501,7 @@ def test_todscpipeline_gettitleinfo(marcfields, expected, bl_sierra_test_record,
     bibmarc.remove_fields('100', '110', '111', '130', '240', '242', '243',
                           '245', '246', '247', '490', '700', '710', '711',
                           '730', '740', '800', '810', '811', '830')
-    bibmarc = add_marc_fields(bibmarc, marcfields)
+    bibmarc = add_marc_fields(bibmarc, params_to_fields(fparams))
     val = pipeline.get_title_info(bib, bibmarc)
     for k, v in val.items():
         print k, v
@@ -6648,7 +6639,8 @@ def test_todscpipeline_compileperformancemedium(parsed_pm, expected,
     assert pipeline.compile_performance_medium(parsed_pm) == expected
 
 
-def test_todscpipeline_getgeneral3xxinfo(add_marc_fields, todsc_pipeline_class):
+def test_todscpipeline_getgeneral3xxinfo(params_to_fields, add_marc_fields,
+                                         todsc_pipeline_class):
     """
     ToDiscoverPipeline.get_general_3xx_info should return fields
     matching the expected parameters.
@@ -6700,7 +6692,8 @@ def test_todscpipeline_getgeneral3xxinfo(add_marc_fields, todsc_pipeline_class):
                                'bass'],
         'physical_description': ['300 desc 1', '300 desc 2', '370 desc 1']
     }
-    marc = add_marc_fields(s2m.SierraMarcRecord(), (exc_fields + inc_fields))
+    fields = params_to_fields(exc_fields + inc_fields)
+    marc = add_marc_fields(s2m.SierraMarcRecord(), fields)
     pipeline = todsc_pipeline_class()
     results = pipeline.get_general_3xx_info(None, marc)
     assert set(results.keys()) == set(expected.keys())
@@ -6708,7 +6701,8 @@ def test_todscpipeline_getgeneral3xxinfo(add_marc_fields, todsc_pipeline_class):
         assert v == expected[k]
 
 
-def test_todscpipeline_getgeneral5xxinfo(add_marc_fields, todsc_pipeline_class):
+def test_todscpipeline_getgeneral5xxinfo(params_to_fields, add_marc_fields,
+                                         todsc_pipeline_class):
     """
     ToDiscoverPipeline.get_general_5xx_info should return fields
     matching the expected parameters.
@@ -6808,7 +6802,8 @@ def test_todscpipeline_getgeneral5xxinfo(add_marc_fields, todsc_pipeline_class):
             'Latest issue consulted: 2001.'
         ],
     }
-    marc = add_marc_fields(s2m.SierraMarcRecord(), (exc_fields + inc_fields))
+    fields = params_to_fields(exc_fields + inc_fields)
+    marc = add_marc_fields(s2m.SierraMarcRecord(), fields)
     pipeline = todsc_pipeline_class()
     results = pipeline.get_general_5xx_info(None, marc)
     assert set(results.keys()) == set(expected.keys())
@@ -7207,7 +7202,7 @@ def test_todscpipeline_getstandardnumberinfo(raw_marcfields, expected,
                                              todsc_pipeline_class,
                                              bibrecord_to_pymarc,
                                              add_marc_fields,
-                                             marcfield_strings_to_params):
+                                             fieldstrings_to_fields):
     """
     The `ToDiscoverPipeline.get_standard_number_info` method should
     return the expected values given the provided `marcfields`.
@@ -7217,7 +7212,7 @@ def test_todscpipeline_getstandardnumberinfo(raw_marcfields, expected,
     bibmarc = bibrecord_to_pymarc(bib)
     bibmarc.remove_fields('020', '022', '024', '025', '026', '027', '028',
                           '030', '074', '088')
-    marcfields = marcfield_strings_to_params(raw_marcfields)
+    marcfields = fieldstrings_to_fields(raw_marcfields)
     bibmarc = add_marc_fields(bibmarc, marcfields)
     val = pipeline.get_standard_number_info(bib, bibmarc)
     for k, v in val.items():
@@ -7368,7 +7363,7 @@ def test_todscpipeline_getcontrolnumberinfo(raw_marcfields, expected,
                                             todsc_pipeline_class,
                                             bibrecord_to_pymarc,
                                             add_marc_fields,
-                                            marcfield_strings_to_params):
+                                            fieldstrings_to_fields):
     """
     The `ToDiscoverPipeline.get_control_number_info` method should
     return the expected values given the provided `marcfields`.
@@ -7376,8 +7371,8 @@ def test_todscpipeline_getcontrolnumberinfo(raw_marcfields, expected,
     pipeline = todsc_pipeline_class()
     bib = bl_sierra_test_record('bib_no_items')
     bibmarc = bibrecord_to_pymarc(bib)
-    bibmarc.remove_fields('010', '016', '035')
-    marcfields = marcfield_strings_to_params(raw_marcfields)
+    bibmarc.remove_fields('001', '010', '016', '035')
+    marcfields = fieldstrings_to_fields(raw_marcfields)
     bibmarc = add_marc_fields(bibmarc, marcfields)
     val = pipeline.get_control_number_info(bib, bibmarc)
     for k, v in val.items():
@@ -7471,7 +7466,7 @@ def test_todscpipeline_getgamesfacetsinfo(raw_marcfields, expected,
                                           todsc_pipeline_class,
                                           bibrecord_to_pymarc,
                                           add_marc_fields,
-                                          marcfield_strings_to_params):
+                                          fieldstrings_to_fields):
     """
     The `ToDiscoverPipeline.get_games_facets_info` method should
     return the expected values given the provided `raw_marcfields`.
@@ -7482,7 +7477,7 @@ def test_todscpipeline_getgamesfacetsinfo(raw_marcfields, expected,
     bib = update_test_bib_inst(bib, locations=czm_instance)
     bibmarc = bibrecord_to_pymarc(bib)
     bibmarc.remove_fields('592')
-    marcfields = marcfield_strings_to_params(raw_marcfields)
+    marcfields = fieldstrings_to_fields(raw_marcfields)
     bibmarc = add_marc_fields(bibmarc, marcfields)
     pipeline = todsc_pipeline_class()
     val = pipeline.get_games_facets_info(bib, bibmarc)
@@ -9290,7 +9285,7 @@ def test_todscpipeline_getgamesfacetsinfo(raw_marcfields, expected,
     'Duplicate headings are deduplicated',
 ])
 def test_todscpipeline_getsubjectsinfo(raw_marcfields, expected,
-                                       marcfield_strings_to_params,
+                                       fieldstrings_to_fields,
                                        bl_sierra_test_record,
                                        todsc_pipeline_class,
                                        marcutils_for_subjects,
@@ -9310,7 +9305,7 @@ def test_todscpipeline_getsubjectsinfo(raw_marcfields, expected,
     bibmarc.remove_fields('600', '610', '611', '630', '647', '648', '650',
                           '651', '653', '655', '656', '657', '690', '691',
                           '692')
-    marcfields = marcfield_strings_to_params(raw_marcfields)
+    marcfields = fieldstrings_to_fields(raw_marcfields)
     bibmarc = add_marc_fields(bibmarc, marcfields)
     val = pipeline.get_subjects_info(bib, bibmarc)
     for k, v in val.items():

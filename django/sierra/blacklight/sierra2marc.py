@@ -240,35 +240,64 @@ class MarcUtils(object):
             return [term] if term else []
         return [p.strip_wemi(v) for v in p.strip_ends(val).split(', ')]
 
-    def parse_marc_display_field(self, f):
+    def fieldstring_to_field(self, fstring):
         """
-        Parse `f`, a display field copied/pasted from the MARC
-        documentation on either the LC or OCLC website, into the MARC
-        field tag, subfield list, and indicator values needed to
-        generate a pymarc MARC field object.
-        """
-        f = re.sub(r'\n\s*', ' ', f)
-        pre = re.match(r'(\d{3})\s?([\d\s#][\d\s#])\s?(?=\S)(.*)$', f)
-        tag = pre.group(1)
-        ind = pre.group(2).replace('#', ' ')
+        Parse `fstring`, a formatted MARC field string, and generate a
+        SierraMarcField object.
 
-        sf_str = re.sub(r'\s?ǂ(.)\s', r'$\1', pre.group(3))
-        if sf_str[0] != '$':
-            sf_str = '$a{}'.format(sf_str)
-        sfs = re.split(r'[\$\|](.)', sf_str)[1:]
-        pr_sfs = ', '.join(["'{}'".format(s.replace("'", r'\'')) for s in sfs])
-        printable = "('{}', [{}], '{}')".format(tag, pr_sfs, ind)
-        return (tag, sfs, ind, printable)
+        `fstring` may follow several patterns.
+            - An LC-docs style string.
+                  100   1#$aBullett, Gerald William,$d1894-1958.
+            - An OCLC-docs style string.
+                  100  1  Bullett ǂd 1894-1958.
+            - A MarcEdit-style string.
+                  =100  1\$aBullett, Gerald William,$d1894-1958.
+            - A III Sierra-style string (field group tag is optional).
+                  a100 1  Bullett, Gerald William,|d1894-1958.
+            - A combination of the above.
+                  a100 1# $aBullett, Gerald William,$d1894-1958.
+            - A control field.
+                  001 ocn012345678
+            - A control field that specifies a char-position range.
+                  008/18-21 b###
 
-    def compile_marc_display_field(self, tag, subfields, ind):
+        Take care with spacing following the field tag.
+            - If this is a control field, then any spaces between the
+              field tag and first non-space character are removed; the
+              first legitimate data value should not be space; use '#'
+              or '\' for blank. Spaces may be used throughout the rest
+              of the field data.
+            - Otherwise, it attempts to determine two indicator values
+              which each may be 0-9, space, #, or \. If spaces are used
+              for indicator values in combination with spaces used for
+              separation, then every attempt is made to interpret them
+              correctly but it may be ambiguous. The first non-space
+              character will be considered the first indicator value
+              unless positioned against the subfield data.
+                  `100  1 $a` -- Indicators are 1 and blank.
+                  `100  1$a` -- Indicators are blank and 1.
         """
-        Take the given MARC `tag`, list of `subfields`, and `ind`
-        indicator values. Generate a string version of the field for
-        display. (Format is the same as what's on the LC website.)
-        """
-        sf_tuples = zip(subfields[0::2], subfields[1::2])
-        sf_str = ''.join([''.join(['$', sft[0], sft[1]]) for sft in sf_tuples])
-        return '{} {}{}'.format(tag, ind, sf_str)
+        fstring = re.sub(r'\n\s*', ' ', fstring)
+        tag_match = re.match(r'[\s=]*([a-z])?(\d{3})(\/[\d\-]+)?(.*)$', fstring)
+        group_tag, tag, cps, remainder = tag_match.groups()
+        data, ind, sfs = None, None, None
+
+        if int(tag) < 10:
+            data = remainder.lstrip().replace('#', ' ').replace('\\', ' ')
+            if cps:
+                start = int(cps[1:].split('-')[0])
+                data = ''.join([' ' * start, data])
+        else:
+            rem_match = re.match(r'\s*([\s\d#\\])\s*([\s\d#\\])\s*(?=\S)(.*)$',
+                                 remainder)
+            ind = ''.join(rem_match.groups()[0:2])
+            ind = ind.replace('#', ' ').replace('\\', ' ')
+            sf_str = re.sub(r'\s?ǂ(.)\s', r'$\1', rem_match.group(3))
+            if sf_str[0] != '$':
+                sf_str = '$a{}'.format(sf_str)
+            sfs = re.split(r'[\$\|](.)', sf_str)[1:]
+        return make_mfield(tag, data=data, subfields=sfs, indicators=ind,
+                           group_tag=group_tag)
 
     def map_subject_subdivision(self, subdivision, sd_parents=[],
                                 default_type='topic'):
