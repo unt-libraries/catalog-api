@@ -7224,6 +7224,98 @@ def test_todscpipeline_getstandardnumberinfo(raw_marcfields, expected,
 
 
 @pytest.mark.parametrize('raw_marcfields, expected', [
+    # Edge cases
+    
+    # No data ==> no control numbers
+    ([], {}),
+
+    # ONLY an 003 ==> no control numbers
+    # I.e., an 003 with no 001 should be ignored.
+    (['003 OCoLC'], {}),
+
+    # 001 (Control number -- may or may not be OCLC)
+
+    # 001: Plain number is OCLC number
+    (['001 194068'], {
+        'oclc_numbers_display': ['194068'],
+        'oclc_numbers': ['194068'],
+        'all_control_numbers': ['194068'],
+        'control_numbers_search': ['194068'],
+    }),
+
+    # 001: OCLC number w/prefix (ocm)
+    (['001 ocm194068'], {
+        'oclc_numbers_display': ['194068'],
+        'oclc_numbers': ['194068'],
+        'all_control_numbers': ['194068'],
+        'control_numbers_search': ['194068'],
+    }),
+
+    # 001: OCLC number w/prefix (ocn)
+    (['001 ocn194068'], {
+        'oclc_numbers_display': ['194068'],
+        'oclc_numbers': ['194068'],
+        'all_control_numbers': ['194068'],
+        'control_numbers_search': ['194068'],
+    }),
+
+    # 001: OCLC number w/prefix (on)
+    (['001 on194068'], {
+        'oclc_numbers_display': ['194068'],
+        'oclc_numbers': ['194068'],
+        'all_control_numbers': ['194068'],
+        'control_numbers_search': ['194068'],
+    }),
+
+    # 001: OCLC number w/prefix and leading zeros
+    (['001 on0194068'], {
+        'oclc_numbers_display': ['194068'],
+        'oclc_numbers': ['194068'],
+        'all_control_numbers': ['194068'],
+        'control_numbers_search': ['194068'],
+    }),
+
+    # 001: OCLC number w/leading zeros
+    (['001 0194068'], {
+        'oclc_numbers_display': ['194068'],
+        'oclc_numbers': ['194068'],
+        'all_control_numbers': ['194068'],
+        'control_numbers_search': ['194068'],
+    }),
+
+    # 001: OCLC number w/provider suffix
+    (['001 on0194068/springer',
+      '003 OCoLC'], {
+        'oclc_numbers_display': ['194068'],
+        'oclc_numbers': ['194068'],
+        'all_control_numbers': ['194068'],
+        'control_numbers_search': ['194068', '194068/springer'],
+    }),
+
+    # 001: Non-OCLC vendor number
+    (['001 ybp0194068',
+      '003 YBP'], {
+        'other_control_numbers_display': ['ybp0194068 (source: YBP)'],
+        'all_control_numbers': ['ybp0194068'],
+        'control_numbers_search': ['ybp0194068'],
+    }),
+
+    # 001: Non-OCLC vendor number with no 003
+    (['001 ybp0194068'], {
+        'other_control_numbers_display': ['[Unknown Type]: ybp0194068'],
+        'all_control_numbers': ['ybp0194068'],
+        'control_numbers_search': ['ybp0194068'],
+    }),
+
+    # 001: OCLC number w/incorrect 003
+    (['001 194068',
+      '003 YBP'], {
+        'oclc_numbers_display': ['194068'],
+        'oclc_numbers': ['194068'],
+        'all_control_numbers': ['194068'],
+        'control_numbers_search': ['194068'],
+    }),
+
     # 010 (LCCN)
 
     # 010: $a is an LCCN, $b is a National Union Catalog number
@@ -7337,7 +7429,105 @@ def test_todscpipeline_getstandardnumberinfo(raw_marcfields, expected,
         'control_numbers_search': ['194068'],
     }),
 
+    # 001 and 035 interaction
+
+    # 001 and 035: Duplicate OCLC numbers
+    (['001 194068',
+      '003 OCoLC',
+      '035 ## $a(OCoLC)on0194068'], {
+        'oclc_numbers_display': ['194068'],
+        'oclc_numbers': ['194068'],
+        'all_control_numbers': ['194068'],
+        'control_numbers_search': ['194068'],
+    }),
+
+    # 001 and 035: Not-duplicate OCLC numbers
+    (['001 123456',
+      '003 OCoLC',
+      '035 ## $a(OCoLC)on0194068'], {
+        'oclc_numbers_display': ['194068', '123456 [Invalid]'],
+        'oclc_numbers': ['194068'],
+        'all_control_numbers': ['194068', '123456'],
+        'control_numbers_search': ['194068', '123456'],
+    }),
+
+    # 001 and 035: Duplicate OCLC numbers, but one has provider suffix
+    (['001 194068/springer',
+      '003 OCoLC',
+      '035 ## $a(OCoLC)on0194068'], {
+        'oclc_numbers_display': ['194068'],
+        'oclc_numbers': ['194068'],
+        'all_control_numbers': ['194068'],
+        'control_numbers_search': ['194068', '194068/springer'],
+    }),
+
+    # 001 and 035: Duplicate invalid OCLC numbers
+    (['001 12345',
+      '003 OCoLC',
+      '035 ## $a(OCoLC)on0194068',
+      '035 ## $z(OCoLC)on12345'], {
+        'oclc_numbers_display': ['194068', '12345 [Invalid]'],
+        'oclc_numbers': ['194068'],
+        'all_control_numbers': ['194068', '12345'],
+        'control_numbers_search': ['194068', '12345'],
+    }),
+
+    # 001 and 035: Not-duplicates, only 035 is invalid
+    # Notes:
+    #   - This is an edge case that should never actually happen due
+    #     to the way we maintain OCLC holdings.
+    #   - The `search` value is transposed because, during processing,
+    #     we defer parsing of the 001 until the end. In this case, the
+    #     001 is forced DISPLAY before invalid numbers, but the search
+    #     value is left alone because it does not matter.
+    (['001 194068',
+      '003 OCoLC',
+      '035 ## $z(OCoLC)on12345'], {
+        'oclc_numbers_display': ['194068', '12345 [Invalid]'],
+        'oclc_numbers': ['194068'],
+        'all_control_numbers': ['194068', '12345'],
+        'control_numbers_search': ['12345', '194068'],
+    }),
+
+    # 001 and 035: Not-duplicates, 035 is not OCLC
+    (['001 194068',
+      '003 OCoLC',
+      '035 ## $a(YBP)ybp12345'], {
+        'oclc_numbers_display': ['194068'],
+        'other_control_numbers_display': ['ybp12345 (source: YBP)'],
+        'oclc_numbers': ['194068'],
+        'all_control_numbers': ['194068', 'ybp12345'],
+        'control_numbers_search': ['ybp12345', '194068'],
+    }),
+
+    # 001 and 035: Not-duplicates, 001 is not OCLC
+    (['001 ybp12345',
+      '003 YBP',
+      '035 ## $a(OCoLC)194068'], {
+        'oclc_numbers_display': ['194068'],
+        'other_control_numbers_display': ['ybp12345 (source: YBP)'],
+        'oclc_numbers': ['194068'],
+        'all_control_numbers': ['194068', 'ybp12345'],
+        'control_numbers_search': ['194068', 'ybp12345'],
+    }),
+
 ], ids=[
+    # Edge cases
+    'No data ==> no control numbers',
+    'ONLY an 003 ==> no control numbers',
+
+    # 001 (Control number -- may or may not be OCLC)
+    '001: Plain number is OCLC number',
+    '001: OCLC number w/prefix (ocm)',
+    '001: OCLC number w/prefix (ocn)',
+    '001: OCLC number w/prefix (on)',
+    '001: OCLC number w/prefix and leading zeros',
+    '001: OCLC number w/leading zeros',
+    '001: OCLC number w/provider suffix',
+    '001: Non-OCLC vendor number',
+    '001: Non-OCLC vendor number with no 003',
+    '001: OCLC number w/incorrect 003',
+
     # 010 (LCCN)
     '010: $a is an LCCN, $b is a National Union Catalog number',
     '010: $z is an invalid LCCN',
@@ -7357,6 +7547,15 @@ def test_todscpipeline_getstandardnumberinfo(raw_marcfields, expected,
     '035: OCLC number normalization (ocm)',
     '035: OCLC number normalization (ocn)',
     '035: OCLC number normalization (on)',
+
+    # 001 and 035 interaction
+    '001 and 035: Duplicate OCLC numbers',
+    '001 and 035: Not-duplicate OCLC numbers',
+    '001 and 035: Duplicate OCLC numbers, but one has provider suffix',
+    '001 and 035: Duplicate invalid OCLC numbers',
+    '001 and 035: Not-duplicates, only 035 is invalid',
+    '001 and 035: Not-duplicates, 035 is not OCLC',
+    '001 and 035: Not-duplicates, 001 is not OCLC'
 ])
 def test_todscpipeline_getcontrolnumberinfo(raw_marcfields, expected,
                                             bl_sierra_test_record,
@@ -7371,7 +7570,7 @@ def test_todscpipeline_getcontrolnumberinfo(raw_marcfields, expected,
     pipeline = todsc_pipeline_class()
     bib = bl_sierra_test_record('bib_no_items')
     bibmarc = bibrecord_to_pymarc(bib)
-    bibmarc.remove_fields('001', '010', '016', '035')
+    bibmarc.remove_fields('001', '003', '010', '016', '035')
     marcfields = fieldstrings_to_fields(raw_marcfields)
     bibmarc = add_marc_fields(bibmarc, marcfields)
     val = pipeline.get_control_number_info(bib, bibmarc)

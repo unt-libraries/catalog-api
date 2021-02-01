@@ -1073,6 +1073,7 @@ class StandardControlNumberParser(SequentialMarcFieldParser):
         '074': 'gpo',
         '088': 'report'
     }
+    oclc_suffix_separator = '/'
 
     def __init__(self, field, utils=None):
         super(StandardControlNumberParser, self).__init__(field)
@@ -1104,6 +1105,8 @@ class StandardControlNumberParser(SequentialMarcFieldParser):
         if match:
             ntype, norm = match.groups()
             if norm:
+                if not ntype:
+                    ntype = 'unknown'
                 if ntype == 'OCoLC':
                     ntype = None
                     norm = re.sub('^[A-Za-z0]+', r'', norm)
@@ -1157,6 +1160,10 @@ class StandardControlNumberParser(SequentialMarcFieldParser):
                 val, ntype = self.clean_oclc_num(val)
                 if ntype:
                     entry['type'] = ntype
+                else:
+                    val, sep, suffix = val.partition(self.oclc_suffix_separator)
+                    if sep:
+                        entry['oclc_suffix'] = ''.join([sep, suffix])
             if val:
                 entry['number'] = val
                 self.numbers.append(entry)
@@ -3728,38 +3735,81 @@ class ToDiscoverPipeline(object):
             'standard_numbers_search': search or None,
         }
 
-    def get_control_number_info(self, r, marc_record):
-        lccns_display, oclc_display, others_display, search = [], [], [], []
-        lccn, oclc_numbers = '', [],
-        all_control_numbers = []
+    def compile_control_numbers(self, f):
+        for p in StandardControlNumberParser(f).parse():
+            nums = [p[k] for k in ('normalized', 'number') if k in p]
+            numtype = p['type'] if p['type'] in ('lccn', 'oclc') else 'others'
+            oclc_and_suffix = None
+            if numtype == 'oclc' and 'oclc_suffix' in p:
+                oclc_and_suffix = ''.join((nums[0], p['oclc_suffix']))
+            yield {
+                'main_number': nums[0],
+                'type': numtype,
+                'all_numbers': nums,
+                'is_valid': p['is_valid'],
+                'oclc_and_suffix': oclc_and_suffix,
+                'display_val': format_number_display_val(p)
+            }
 
-        control_num_fields = ('010', '016', '035')
-        for f in marc_record.get_fields(*control_num_fields):
-            for p in StandardControlNumberParser(f).parse():
-                nums = [p[k] for k in ('normalized', 'number') if k in p]
-                for num in nums:
-                    search.append(num)
-                    all_control_numbers.append(num)
-                display = format_number_display_val(p)
-                if p['type'] == 'lccn':
-                    lccns_display.append(display)
-                    if p['is_valid'] and nums and not lccn:
-                        lccn = nums[0]
-                elif p['type'] == 'oclc':
-                    oclc_display.append(display)
-                    if p['is_valid'] and nums and nums[0] not in oclc_numbers:
-                        oclc_numbers.append(nums[0])
+    def get_control_number_info(self, r, marc_record):
+        disp = {'lccn': [], 'oclc': [], 'others': []}
+        num = {'lccn': [], 'oclc': [], 'all': []}
+        search = []
+
+        def _put_compiled_into_vars(c, display, numbers, search, prepend=False):
+            if c['main_number'] not in numbers['all']:
+                if prepend:
+                    display[c['type']].insert(0, c['display_val'])
+                    numbers['all'] = c['all_numbers'] + numbers['all']
                 else:
-                    others_display.append(display)
+                    display[c['type']].append(c['display_val'])
+                    numbers['all'].extend(c['all_numbers'])
+                if c['type'] in ('lccn', 'oclc') and c['is_valid']:
+                    numbers[c['type']].append(c['main_number'])
+                search.extend(c['all_numbers'])
+            if c['oclc_and_suffix']:
+                if c['oclc_and_suffix'] not in search:
+                    search.append(c['oclc_and_suffix'])
+            return display, numbers, search
+
+        deferred = {}
+        control_num_tags = ('001', '003', '010', '016', '035')
+        for f in marc_record.get_fields(*control_num_tags):
+            if f.tag in ('001', '003'):
+                deferred[f.tag] = f.data
+            else:
+                for c in self.compile_control_numbers(f):
+                    args = (disp, num, search)
+                    disp, num, search = _put_compiled_into_vars(c, *args)
+
+        if '001' in deferred:
+            val = deferred['001']
+            is_oclc = re.match(r'(on|ocm|ocn)?\d+(\/.+)?$', val)
+            # OCLC numbers in 001 are treated as valid only if
+            # there are not already valid OCLC numbers found in
+            # 035s that we've already processed.
+            is_valid = not is_oclc or len(num['oclc']) == 0
+            org_code = 'OCoLC' if is_oclc else deferred.get('003', None)
+            if org_code is not None:
+                val = '({}){}'.format(org_code, val)
+            sftag = 'a' if is_valid else 'z'
+            fake035 = make_mfield('035', subfields=[sftag, val])
+            for c in self.compile_control_numbers(fake035):
+                args, kwargs = (disp, num, search), {}
+                if c['type'] == 'oclc':
+                    # If this is a valid OCLC number, we want it to
+                    # display before any invalid OCLC numbers.
+                    kwargs = {'prepend': is_valid}
+                disp, num, search = _put_compiled_into_vars(c, *args, **kwargs)
 
         return {
-            'lccns_display': lccns_display or None,
-            'oclc_numbers_display': oclc_display or None,
-            'lccn_number': lccn or None,
-            'oclc_numbers': oclc_numbers or None,
-            'other_control_numbers_display': others_display or None,
-            'all_control_numbers': all_control_numbers or None,
+            'lccn_number': (num['lccn'] or [None])[0],
+            'lccns_display': disp['lccn'] or None,
+            'oclc_numbers_display': disp['oclc'] or None,
+            'other_control_numbers_display': disp['others'] or None,
             'control_numbers_search': search or None,
+            'oclc_numbers': num['oclc'] or None,
+            'all_control_numbers': num['all'] or None
         }
 
     def get_games_facets_info(self, r, marc_record):
