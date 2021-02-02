@@ -2122,6 +2122,7 @@ def test_todscpipeline_getpubinfo_pub_and_place_search(fparams, expected,
 
 @pytest.mark.parametrize('bib_locations, item_locations, sup_item_locations,'
                          'expected', [
+    # czm / same bib and item location
     ( (('czm', 'Chilton Media Library'),),
       (('czm', 'Chilton Media Library'),),
       tuple(),
@@ -2130,6 +2131,8 @@ def test_todscpipeline_getpubinfo_pub_and_place_search(fparams, expected,
        'building_facet': ['Chilton Media Library'],
        'shelf_facet': []},
     ),
+
+    # czm / bib loc exists, but no items
     ( (('czm', 'Chilton Media Library'),),
       tuple(),
       tuple(),
@@ -2138,6 +2141,8 @@ def test_todscpipeline_getpubinfo_pub_and_place_search(fparams, expected,
        'building_facet': ['Chilton Media Library'],
        'shelf_facet': []},
     ),
+
+    # czm / all items are suppressed
     ( (('czm', 'Chilton Media Library'),),
       tuple(),
       (('lwww', 'UNT ONLINE RESOURCES'), ('w3', 'Willis Library-3rd Floor'),),
@@ -2146,6 +2151,8 @@ def test_todscpipeline_getpubinfo_pub_and_place_search(fparams, expected,
        'building_facet': ['Chilton Media Library'],
        'shelf_facet': []},
     ),
+
+    # czm / unknown bib location and one unknown item location
     ( (('blah', 'Blah'),),
       (('blah2', 'Blah2'), ('czm', 'Chilton Media Library'),),
       tuple(),
@@ -2154,6 +2161,8 @@ def test_todscpipeline_getpubinfo_pub_and_place_search(fparams, expected,
        'building_facet': ['Chilton Media Library'],
        'shelf_facet': []}
     ),
+
+    # w3 / one suppressed item, one unsuppressed item, diff locs
     ( (('czm', 'Chilton Media Library'),),
       (('w3', 'Willis Library-3rd Floor'),),
       (('lwww', 'UNT ONLINE RESOURCES'),),
@@ -2162,6 +2171,8 @@ def test_todscpipeline_getpubinfo_pub_and_place_search(fparams, expected,
        'building_facet': ['Willis Library'],
        'shelf_facet': ['Willis Library-3rd Floor']},
     ),
+
+    # w3 / one suppressed item, one unsuppressed item, same locs
     ( (('czm', 'Chilton Media Library'),),
       (('w3', 'Willis Library-3rd Floor'),),
       (('w3', 'Willis Library-3rd Floor'),),
@@ -2170,6 +2181,8 @@ def test_todscpipeline_getpubinfo_pub_and_place_search(fparams, expected,
        'building_facet': ['Willis Library'],
        'shelf_facet': ['Willis Library-3rd Floor']},
     ),
+
+    # all bib and item locations are unknown
     ( (('blah', 'Blah'),),
       (('blah2', 'Blah2'), ('blah', 'Blah'),),
       tuple(),
@@ -2178,6 +2191,8 @@ def test_todscpipeline_getpubinfo_pub_and_place_search(fparams, expected,
        'building_facet': [],
        'shelf_facet': []}
     ),
+
+    # r, lwww / online-only item with bib location in different collection
     ( (('r', 'Discovery Park Library'),),
       (('lwww', 'UNT ONLINE RESOURCES'),),
       tuple(),
@@ -2186,6 +2201,8 @@ def test_todscpipeline_getpubinfo_pub_and_place_search(fparams, expected,
        'building_facet': [],
        'shelf_facet': []}
     ),
+
+    # r, lwww / two different bib locations, no items
     ( (('r', 'Discovery Park Library'), ('lwww', 'UNT ONLINE RESOURCES')),
       tuple(),
       tuple(),
@@ -2194,6 +2211,8 @@ def test_todscpipeline_getpubinfo_pub_and_place_search(fparams, expected,
        'building_facet': ['Discovery Park Library'],
        'shelf_facet': []}
     ),
+
+    # w, lwww / online-only item with bib location in same collection
     ( (('w', 'Willis Library'),),
       (('lwww', 'UNT ONLINE RESOURCES'),),
       tuple(),
@@ -2202,6 +2221,8 @@ def test_todscpipeline_getpubinfo_pub_and_place_search(fparams, expected,
        'building_facet': [],
        'shelf_facet': []}
     ),
+
+    # x, xdoc / Remote Storage, bib loc is x
     ( (('x', 'Remote Storage'),),
       (('xdoc', 'Government Documents Remote Storage'),),
       tuple(),
@@ -2210,6 +2231,8 @@ def test_todscpipeline_getpubinfo_pub_and_place_search(fparams, expected,
        'building_facet': ['Remote Storage'],
        'shelf_facet': []}
     ),
+
+    # sd, xdoc / Remote Storage, bib loc is not x
     ( (('sd', 'Eagle Commons Library Government Documents'),),
       (('xdoc', 'Government Documents Remote Storage'),),
       tuple(),
@@ -2218,6 +2241,8 @@ def test_todscpipeline_getpubinfo_pub_and_place_search(fparams, expected,
        'building_facet': ['Remote Storage'],
        'shelf_facet': []}
     ),
+
+    # w, lwww, w3 / bib with online and physical locations
     ( (('w', 'Willis Library'),),
       (('lwww', 'UNT ONLINE RESOURCES'), ('w3', 'Willis Library-3rd Floor'),),
       tuple(),
@@ -2226,6 +2251,8 @@ def test_todscpipeline_getpubinfo_pub_and_place_search(fparams, expected,
        'building_facet': ['Willis Library'],
        'shelf_facet': ['Willis Library-3rd Floor']}
     ),
+
+    # sd, gwww, sdus, rst, xdoc / multiple items at multiple locations
     ( (('sd', 'Eagle Commons Library Government Documents'),),
       (('gwww', 'GOVT ONLINE RESOURCES'),
        ('sdus', 'Eagle Commons Library US Documents'),
