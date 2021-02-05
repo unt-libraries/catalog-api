@@ -12,7 +12,7 @@
     <fieldType name="long" class="solr.LongField" omitNorms="true"/>
     <fieldType name="float" class="solr.FloatField" omitNorms="true"/>
     <fieldType name="double" class="solr.DoubleField" omitNorms="true"/>
-    <fieldType name="sint" class="solr.SortableIntField" sortMissingLast="true" omitNorms="true"/>
+    <fieldType name="sint" class="solr.TrieIntField" sortMissingLast="true" omitNorms="true"/>
     <fieldType name="slong" class="solr.SortableLongField" sortMissingLast="true" omitNorms="true"/>
     <fieldType name="sfloat" class="solr.SortableFloatField" sortMissingLast="true" omitNorms="true"/>
     <fieldType name="sdouble" class="solr.SortableDoubleField" sortMissingLast="true" omitNorms="true"/>
@@ -257,7 +257,7 @@
     <!-- FACET FIELDS ===================================================================================== -->
     <field name="publication_decade_facet" type="reverse_number" indexed="true" stored="false" multiValued="true"/>
     <field name="publication_year_facet" type="reverse_number" indexed="true" stored="false" multiValued="true"/>
-    <field name="publication_year_range_facet" type="string" indexed="true" stored="true" multiValued="true"/>
+    <field name="publication_year_range_facet" type="sint" indexed="true" stored="true" multiValued="true"/>
     <copyField source="publication_year_facet" dest="publication_year_range_facet"/>
     <field name="access_facet" type="string" indexed="true" stored="false" multiValued="true"/>
     <field name="building_facet" type="string" indexed="true" stored="false" multiValued="true"/>
