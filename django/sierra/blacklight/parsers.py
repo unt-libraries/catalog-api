@@ -9,6 +9,9 @@ import logging
 import re
 import collections
 
+from utils import toascii
+from sierra.settings.marcdata import PERSON_NOBILIARY_PARTICLES
+
 from django.conf import settings
 
 # set up logger, for debugging
@@ -506,27 +509,73 @@ def normalize_cr_symbol(cr_statement):
     return cr_statement
 
 
-def person_name(data, indicators):
+def person_name(name, indicators=None):
     """
     Parse a personal name into forename, surname, and family name.
+
+    It's assumed that titles have been split off and/or you are sure
+    that `name` does not include titles, only the name proper (such as
+    the portion in X00$a).
     """
-    (forename, surname, family_name) = ('', '', '')
-    if has_comma_in_middle(data):
-        (surname, forename) = re.split(r',\s*', data, 1)
+    forename, surname, family_name = '', '', ''
+    if has_comma_in_middle(name):
+        (surname, forename) = re.split(r',\s*', strip_ends(name), 1)
     else:
         is_forename = True if indicators[0] == '0' else False
         is_surname = True if indicators[0] == '1' else False
         is_family_name = True if indicators[0] == '3' else False
         if is_forename:
-            forename = data
+            forename = name
         else:
-            surname = data
+            surname = name
             if is_family_name or re.search(r'\s*family\b', surname, flags=re.I):
                 family_name = surname
                 surname = re.sub(r'\s*family\b', '', surname, flags=re.I)
+
     return {'forename': strip_ends(forename) or None,
             'surname': strip_ends(surname) or None,
             'family_name': strip_ends(family_name) or None}
+
+
+def person_title(ptitle):
+    """
+    Parse a personal title to find a `prefix` and nobiliary `particle`.
+
+    This uses some of the data in `settings.MARCDATA` to identify
+    whether or not an individual personal title is or contains a title
+    that serves as a name prefix, such as "King" from "King of
+    England." Also identifies nobiliary particles, such as "of" from
+    "King of England." This information can be helpful when trying to
+    determine how to handle a particular title.
+
+    Return value is a dict with keys `prefix`, `particle`, and
+    `full_title`. If each of these is None, then it could not determine
+    whether or not the string value actually is a personal title.
+    """
+    def normalize(string):
+        n = toascii.map_from_unicode(string).lower()
+        return re.sub(r'\W+', ' ', n).strip(' ')
+
+    prefix, particle, full_title = None, None, None
+    pretitles = settings.MARCDATA.PERSON_PRETITLES_ASCII
+    nparticles = settings.MARCDATA.PERSON_NOBILIARY_PARTICLES
+    norm_pt = normalize(ptitle)
+
+    if norm_pt in pretitles:
+        prefix, full_title = ptitle, ptitle
+    elif norm_pt in nparticles:
+        particle, full_title = ptitle, ptitle
+    else:
+        title_re = r'(?:([A-Z].*?)\s)?([a-z][^A-Z]*?)(?:[^A-Z][A-Z].*)?$'
+        match = re.match(title_re, ptitle)
+        if match:
+            prefix, np = match.groups()
+            if prefix and normalize(prefix) not in pretitles:
+                prefix, np, ptitle = None, None, None
+            if np and np not in nparticles:
+                np = None
+            prefix, particle, full_title = prefix, np, ptitle
+    return {'prefix': prefix, 'particle': particle, 'full_title': full_title}
 
 
 class Truncator(object):

@@ -876,7 +876,14 @@ def test_dissertationnotesfieldparser_parse(subfields, expected,
 
 @pytest.mark.parametrize('raw_marcfields, expected', [
     (['700 0#$a***,$cMadame de'],
-     ['', 'Madame de', 'Madame de']),
+     ['', 'Madame de', 'Madame, Madame de']),
+    (['700 1#$aPompadour,$cMadame de'],
+     ['Pompadour', 'Madame Pompadour Madame de Pompadour',
+      'Madame Pompadour, Madame de Pompadour']),
+    (['700 1#$aWinchilsea, Anne Finch,$cCountess of'],
+     ['Winchilsea, Anne Finch Winchilsea, A.F Winchilsea',
+      'Countess Anne Winchilsea Countess of Winchilsea',
+      'Countess Anne Finch Winchilsea, Countess of Winchilsea',]),
     (['700 1#$aPeng + Hu,$eeditor.'],
      ['Peng Hu', 'Peng Hu', 'Peng Hu']),
     (['100 0#$aH. D.$q(Hilda Doolittle),$d1886-1961.'],
@@ -913,8 +920,8 @@ def test_dissertationnotesfieldparser_parse(subfields, expected,
       'Ludwig van Beethoven Spirit', 'Ludwig van Beethoven, Spirit']),
     (['100 1#$aMasséna, André,$cprince d\'Essling,$d1758-1817.'],
      ['Masséna, André Masséna, A Masséna',
-      'prince André Masséna prince d Essling',
-      'prince André Masséna, prince d Essling']),
+      'André Masséna prince d Essling',
+      'André Masséna, prince d Essling']),
     (['100 1#$aWalle-Lissnijder,$cvan de.'],
      ['Walle Lissnijder', 'van de Walle Lissnijder',
       'van de Walle Lissnijder']),
@@ -4360,6 +4367,142 @@ def test_preferredtitleparser_parse(tag, subfields, expected, params_to_fields):
         indicators = '  '
     fields = params_to_fields([(tag, subfields, indicators)])[0]
     assert s2m.PreferredTitleParser(fields).parse() == expected
+
+
+@pytest.mark.parametrize('name_str, expected', [
+    ('Author of The diary of a physician, 1807-1877.', {
+        'heading': 'Author of The diary of a physician, 1807-1877',
+        'forename': 'Author of The diary of a physician',
+        'type': 'person'
+    }),
+    ('Claude, d\'Abbeville, pere, d. 1632.', {
+        'heading': 'Claude, d\'Abbeville, pere, d. 1632',
+        'surname': 'Claude',
+        'person_titles': ['d\'Abbeville', 'pere'],
+        'type': 'person'
+    }),
+    ('John, the Baptist, Saint.', {
+        'heading': 'John, the Baptist, Saint',
+        'surname': 'John',
+        'person_titles': ['the Baptist', 'Saint'],
+        'type': 'person'
+    }),
+    ('Charles II, Prince of Wales', {
+        'heading': 'Charles II, Prince of Wales',
+        'surname': 'Charles II',
+        'person_titles': ['Prince of Wales'],
+        'type': 'person'
+    }),
+    ('El-Abiad, Ahmed H., 1926-', {
+        'heading': 'El-Abiad, Ahmed H., 1926-',
+        'surname': 'El-Abiad',
+        'forename': 'Ahmed H.',
+        'type': 'person'
+    }),
+    ('Thomas, Aquinas, Saint, 1225?-1274.', {
+        'heading': 'Thomas, Aquinas, Saint, 1225?-1274',
+        'surname': 'Thomas',
+        'forename': 'Aquinas',
+        'person_titles': ['Saint'],
+        'type': 'person'
+    }),
+    ('Levi, James, fl. 1706-1739.', {
+        'heading': 'Levi, James, fl. 1706-1739',
+        'surname': 'Levi',
+        'forename': 'James',
+        'type': 'person'
+    }),
+    ('Joannes Aegidius, Zamorensis, 1240 or 41-ca. 1316.', {
+        'heading': 'Joannes Aegidius, Zamorensis, 1240 or 41-ca. 1316',
+        'surname': 'Joannes Aegidius',
+        'forename': 'Zamorensis',
+        'type': 'person'
+    }),
+    ('Churchill, Winston, Sir, 1874-1965.', {
+        'heading': 'Churchill, Winston, Sir, 1874-1965',
+        'surname': 'Churchill',
+        'forename': 'Winston',
+        'person_titles': ['Sir'],
+        'type': 'person'
+    }),
+    ('Beethoven, Ludwig van, 1770-1827.', {
+        'heading': 'Beethoven, Ludwig van, 1770-1827',
+        'surname': 'Beethoven',
+        'forename': 'Ludwig van',
+        'type': 'person'
+    }),
+    ('H. D. (Hilda Doolittle), 1886-1961.', {
+        'heading': 'H. D. (Hilda Doolittle), 1886-1961',
+        'forename': 'H. D.',
+        'fuller_form_of_name': 'Hilda Doolittle',
+        'type': 'person'
+    }),
+    ('Fowler, T. M. (Thaddeus Mortimer), 1842-1922.', {
+        'heading': 'Fowler, T. M. (Thaddeus Mortimer), 1842-1922',
+        'forename': 'T. M.',
+        'surname': 'Fowler',
+        'fuller_form_of_name': 'Thaddeus Mortimer',
+        'type': 'person'
+    }),
+    ('United States. Congress (97th, 2nd session : 1982). House.', {
+        'heading_parts': [{'name': 'United States'},
+                          {'name': 'Congress',
+                           'qualifier': '97th, 2nd session : 1982'},
+                          {'name': 'House'}],
+        'is_jurisdiction': False,
+        'type': 'organization'
+    }),
+    ('Cyprus (Archdiocese)', {
+        'heading_parts': [{'name': 'Cyprus',
+                           'qualifier': 'Archdiocese'}],
+        'is_jurisdiction': False,
+        'type': 'organization'
+    }),
+    ('United States. President (1981-1989 : Reagan)', {
+        'heading_parts': [{'name': 'United States'},
+                          {'name': 'President',
+                           'qualifier': '1981-1989 : Reagan'}],
+        'is_jurisdiction': False,
+        'type': 'organization'
+    }),
+    ('New York Public Library', {
+        'heading_parts': [{'name': 'New York Public Library'}],
+        'is_jurisdiction': False,
+        'type': 'organization'
+    }),
+    ('International American Conference (8th : 1938 : Lima, Peru). '
+     'Delegation from Mexico.', {
+        'heading_parts': [{'name': 'International American Conference',
+                           'qualifier': '8th : 1938 : Lima, Peru'},
+                          {'name': 'Delegation from Mexico'}],
+        'is_jurisdiction': False,
+        'type': 'organization'
+    }),
+    ('Paris. Peace Conference, 1919.', {
+        'heading_parts': [{'name': 'Paris'},
+                          {'name': 'Peace Conference, 1919'}],
+        'is_jurisdiction': False,
+        'type': 'organization'
+    }),
+    ('Paris Peace Conference (1919-1920)', {
+        'heading_parts': [{'name': 'Paris Peace Conference',
+                           'qualifier': '1919-1920'}],
+        'is_jurisdiction': False,
+        'type': 'organization'
+    }),
+])
+def test_parsenamestring(name_str, expected):
+    """
+    The `parse_name_string` function should return the expected result
+    when given the provided `name_str`.
+    """
+    val = s2m.parse_name_string(name_str)
+    for k, v in val.items():
+        print k, v
+        if k in expected:
+            assert v == expected[k]
+        else:
+            assert v is None
 
 
 @pytest.mark.parametrize('fparams, expected', [

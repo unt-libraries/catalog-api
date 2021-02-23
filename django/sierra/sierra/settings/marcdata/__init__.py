@@ -14,4 +14,6 @@ from .vocabularies import COLLECTIVE_TITLE_TERMS, MUSIC_FORM_TERMS,\
                           MUSIC_FORM_TERMS_PLURAL, MUSIC_FORM_TERMS_ALL
 from .subjectmaps import LCSH_SUBDIVISION_PATTERNS, LCSH_SUBDIVISION_TERM_MAP,\
                          lcsh_sd_to_facet_values
-from .persontitles import PERSON_PRETITLES, PERSON_NOBILIARY_PARTICLES
+from .persontitles import PERSON_PRETITLES, PERSON_PRETITLES_ASCII,\
+                          PERSON_PRETITLES_REGEX, PERSON_NOBILIARY_PARTICLES,\
+                          PERSON_NOBILIARY_PARTICLES_REGEX

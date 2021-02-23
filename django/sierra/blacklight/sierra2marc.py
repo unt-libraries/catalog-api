@@ -399,6 +399,7 @@ class PersonalNameParser(SequentialMarcFieldParser):
         self.heading_parts = []
         self.relator_terms = OrderedDict()
         self.parsed_name = {}
+        self.main_name = ''
         self.titles = []
         self.numeration = ''
         self.fuller_form_of_name = ''
@@ -406,9 +407,6 @@ class PersonalNameParser(SequentialMarcFieldParser):
     def do_relators(self, tag, val):
         for relator_term in self.utils.compile_relator_terms(tag, val):
             self.relator_terms[relator_term] = None
-
-    def do_name(self, tag, val):
-        self.parsed_name = p.person_name(val, self.field.indicators)
 
     def do_titles(self, tag, val):
         self.titles.extend([v for v in p.strip_ends(val).split(', ')])
@@ -428,7 +426,7 @@ class PersonalNameParser(SequentialMarcFieldParser):
         elif tag not in self.ignore_sftags:
             self.heading_parts.append(val)
             if tag == 'a':
-                self.do_name(tag, val)
+                self.main_name = val
             elif tag == 'b':
                 self.do_numeration(tag, val)
             elif tag == 'c':
@@ -438,13 +436,14 @@ class PersonalNameParser(SequentialMarcFieldParser):
 
     def compile_results(self):
         heading = p.normalize_punctuation(' '.join(self.heading_parts))
+        parsed_name = p.person_name(self.main_name, self.field.indicators)
         return {
             'heading': p.strip_ends(heading) or None,
             'relations': self.relator_terms.keys() or None,
-            'forename': self.parsed_name.get('forename', None),
-            'surname': self.parsed_name.get('surname', None),
+            'forename': parsed_name.get('forename', None),
+            'surname': parsed_name.get('surname', None),
             'numeration': self.numeration or None,
-            'person_titles': self.titles or None,
+            'person_titles': self.titles,
             'type': 'person',
             'fuller_form_of_name': self.fuller_form_of_name or None,
             'materials_specified': self.materials_specified or None
@@ -499,7 +498,7 @@ class OrgEventNameParser(SequentialMarcFieldParser):
         if self._event_info:
             event_info = self._build_event_info()
             event_parts.append({'name': self._build_unit_name('event'),
-                                'event_info': event_info})
+                                'qualifier': event_info})
 
             # Even if this is clearly an event, if it's the first thing
             # in an X10 field, record it as an org as well.
@@ -516,7 +515,7 @@ class OrgEventNameParser(SequentialMarcFieldParser):
 
         combined_part = {'name': self._prev_part_name}
         if event_info:
-            combined_part['event_info'] = event_info
+            combined_part['qualifier'] = event_info
         return org_parts, event_parts, [combined_part]
 
     def parse_subfield(self, tag, val):
@@ -1257,6 +1256,91 @@ def extract_title_struct_from_field(field):
     return PreferredTitleParser(field).parse()
 
 
+def parse_name_string(name_string):
+    """
+    Parse a name heading contained in a string.
+
+    The goal of this function is to *try* parsing a name heading string
+    into a data structure such as what a `PersonalNameParser` or
+    `OrgEventNameParser` would produce.
+
+    The main purpose is to parse author names from Linking Fields
+    (76X-78X $a) that are just heading strings without any additional
+    subfield coding and get them into a form we can use to work with.
+    """
+    def _forename_is_ptitle(forename):
+        parsed = p.person_title(forename)
+        return bool(parsed['full_title'])
+
+    is_person = False
+    protected = p.strip_ends(p.protect_periods(name_string), True, 'right')
+    heading = p.restore_periods(protected)
+
+    forename, surname, ptitles, fuller_form = None, None, None, None
+    
+    dates_re = r'([^,\.]*(?:\D?[\d]{4}\??-|\D\d{4}))'
+    pdates_match = re.match(r'(.+), {}$'.format(dates_re), protected)
+    if pdates_match:
+        is_person = True
+        protected, dates = pdates_match.groups()
+    
+    pname_match = re.match(r'((?:\s?[^,\.\s]+){1,3}), ([^,\.]+)(?:, )?(.+)?$',
+                           protected)
+    if pname_match:
+        is_person = True
+        surname, forename, ptitles = pname_match.groups()
+        if forename and _forename_is_ptitle(forename):
+            if ptitles:
+                ptitles =  ', '.join([forename, ptitles])
+            else:
+                ptitles = forename
+            forename = None
+    elif pdates_match:
+        forename = protected
+
+    if is_person:
+        if forename:
+            fullerform_match = re.match(r'(.*?) ?\((.+)\)$', forename)
+            if fullerform_match:
+                forename, fuller_form = fullerform_match.groups()
+        if ptitles:
+            ptitles = [p.restore_periods(pt) for pt in ptitles.split(', ')]
+
+        ret_val = {
+            'heading': heading,
+            'relations': None,
+            'forename': forename,
+            'surname': surname,
+            'numeration': None,
+            'person_titles': ptitles,
+            'type': 'person',
+            'fuller_form_of_name': fuller_form,
+            'materials_specified': None
+        }
+        for key in ('forename', 'surname', 'fuller_form_of_name'):
+            if ret_val[key]:
+                ret_val[key] = p.restore_periods(ret_val[key])
+        return ret_val
+
+    heading_parts = []
+    for part_str in protected.split('. '):
+        qual_match = re.match(r'(.*?) ?\((.+)\)$', part_str)
+        if qual_match:
+            name, qualifier = qual_match.groups()
+            part = {'name': p.restore_periods(name),
+                    'qualifier': p.restore_periods(qualifier)}
+        else:
+            part = {'name': p.restore_periods(part_str)}
+        heading_parts.append(part)
+    return {
+        'relations': None,
+        'heading_parts': heading_parts,
+        'type': 'organization',
+        'is_jurisdiction': False,
+        'materials_specified': None,
+    }
+
+
 def shorten_name(name_struct):
     if name_struct['type'] == 'person':
         forename, surname = name_struct['forename'], name_struct['surname']
@@ -1424,12 +1508,12 @@ class PersonalNamePermutator(object):
 
     def split_n_prefix_titles(self, n):
         """
-        Use `settings.MARCDATA.PERSON_PRETITLES` to help subdivide a
-        list of personal titles (X00$c) into `n` prefix titles and the
-        rest suffix titles. This is to identify titles (e.g.
-        honorifics) that should be placed as a prefix, such as
-        "Sir Ian McKellan" or "Saint Thomas, Aquinas." Returns a tuple,
-        list of prefixes and list of suffixes.
+        Use `parsers.person_titles` to help subdivide a list of
+        personal titles (X00$c) into `n` prefix titles and the rest
+        suffix titles. This is to identify titles (e.g. honorifics)
+        that should be placed as a prefix, such as in "Sir Ian
+        McKellan" or "Saint Thomas, Aquinas." Returns a tuple: a list
+        of prefixes and a list of suffixes.
 
         In some cases a full suffix implies a shorter prefix title:
         "King of England" implies the prefix "King." When these are
@@ -1437,30 +1521,31 @@ class PersonalNamePermutator(object):
         is added as a prefix and the full suffix "King of England" is
         added as a suffix. (Terms are deduplicated, as well.)
         """
-        def norm(string):
-            n = toascii.map_from_unicode(string).lower()
-            return re.sub(r'\W+', ' ', n).strip(' ')
-
         prefixes, suffixes = OrderedDict(), OrderedDict()
-        pretitles = settings.MARCDATA.PERSON_PRETITLES
-        nparticles = settings.MARCDATA.PERSON_NOBILIARY_PARTICLES
         for i, t in enumerate(self.original_name['person_titles'] or []):
             t = p.strip_all_punctuation(t)
+            needs_suffix = True
             if len(prefixes) < n:
-                if norm(t) in pretitles | nparticles:
-                    prefixes[t] = None
-                    continue
-
-                np_re = r'^(.+?) ({})( .+)?$'.format('|'.join(nparticles))
-                match = re.search(np_re, t, flags=re.IGNORECASE)
-                if match:
-                    prefix_only = match.group(3) is None
-                    if norm(match.group(1)) in pretitles:
-                        if prefix_only:
-                            prefixes[t] = None
-                            continue
-                        prefixes[match.group(1)] = None
-            suffixes[t] = None
+                parsed = p.person_title(t)
+                if parsed:
+                    prefix = parsed['prefix']
+                    particle = parsed['particle']
+                    if t == particle:
+                        prefixes[t] = None
+                        needs_suffix = False
+                    else:
+                        if particle and t.endswith(' {}'.format(particle)):
+                            fn = self.authorized_name['forename']
+                            sn = self.authorized_name['surname']
+                            complete_with = sn or fn
+                            if complete_with:
+                                t = ' '.join([t, complete_with[0]])
+                        if prefix:
+                            prefixes[prefix] = None
+                            if t == parsed['prefix']:
+                                needs_suffix = False
+            if needs_suffix:
+                suffixes[t] = None
         return prefixes.keys(), suffixes.keys()
 
     def is_initial(self, token):
@@ -2688,16 +2773,16 @@ class ToDiscoverPipeline(object):
             json_entry['v'] = fval
             json['p'].append(json_entry)
             facet_vals.append(fval)
-            if 'event_info' in part:
-                ev_info = part['event_info']
-                need_punct_before_ev_info = bool(re.match(r'^\w', ev_info))
-                if need_punct_before_ev_info:
-                    heading = ', '.join((heading, ev_info))
+            if 'qualifier' in part:
+                qualifier = part['qualifier']
+                need_punct_before_qualifier = bool(re.match(r'^\w', qualifier))
+                if need_punct_before_qualifier:
+                    heading = ', '.join((heading, qualifier))
                     json['p'][-1]['s'] = ', '
                 else:
-                    heading = ' '.join((heading, ev_info))
+                    heading = ' '.join((heading, qualifier))
                 ev_fval = heading
-                json_entry = {'d': ev_info, 'v': ev_fval}
+                json_entry = {'d': qualifier, 'v': ev_fval}
                 json['p'].append(json_entry)
                 facet_vals.append(ev_fval)
             if not this_is_last_part:

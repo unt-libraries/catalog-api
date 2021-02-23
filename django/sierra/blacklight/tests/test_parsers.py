@@ -539,28 +539,86 @@ def test_normalize_cr_symbol(data, expected):
     assert parsers.normalize_cr_symbol(data) == expected
 
 
-@pytest.mark.parametrize('data, first_indicator, exp_forename, exp_surname, exp_family_name', [
-    ('Thomale, Jason,', '0', 'Jason', 'Thomale', None),
-    ('Thomale, Jason,', '1', 'Jason', 'Thomale', None),
-    ('Thomale, Jason,', '3', 'Jason', 'Thomale', None),
-    ('John,', '0', 'John', None, None),
-    ('John II Comnenus,', '0', 'John II Comnenus', None, None),
-    ('Byron, George Gordon Byron,', '1', 'George Gordon Byron', 'Byron', None),
-    ('Joannes Aegidius, Zamorensis,', '1', 'Zamorensis', 'Joannes Aegidius',
-        None),
-    ('Morton family.', '3', None, 'Morton', 'Morton family'),
-    ('Morton family.', '2', None, 'Morton', 'Morton family'),
-    ('Morton family.', '2', None, 'Morton', 'Morton family'),
+@pytest.mark.parametrize('data, first_indicator, expected', [
+    ('Doe, John,', '0', ('John', 'Doe', None)),
+    ('Doe, John,', '1', ('John', 'Doe', None)),
+    ('Doe, John,', '3', ('John', 'Doe', None)),
+    ('Churchill, Winston', '0', ('Winston', 'Churchill', None)),
+    ('John,', '0', ('John', None, None)),
+    ('John II Comnenus,', '0', ('John II Comnenus', None, None)),
+    ('Byron, George Gordon Byron,', '1',
+     ('George Gordon Byron', 'Byron', None)),
+    ('Joannes Aegidius, Zamorensis,', '1',
+     ('Zamorensis', 'Joannes Aegidius', None)),
+    ('Morton family.', '3', (None, 'Morton', 'Morton family')),
+    ('Morton family.', '2', (None, 'Morton', 'Morton family')),
+    ('Morton family.', '2', (None, 'Morton', 'Morton family')),
+    ('Beethoven, Ludwig van,', '0', ('Ludwig van', 'Beethoven', None))
 ])
-def test_person_name(data, first_indicator, exp_forename, exp_surname, exp_family_name):
+def test_person_name(data, first_indicator, expected):
     """
     `person_name` should parse a personal name into the expected
-    forename, surname, and family name.
+    forename, surname, family name, and person_titles.
     """
+    exp_forename, exp_surname, exp_family_name = expected
     name = parsers.person_name(data, first_indicator)
+    print name
     assert name['forename'] == exp_forename
     assert name['surname'] == exp_surname
     assert name['family_name'] == exp_family_name
+
+
+@pytest.mark.parametrize('ptitle, expected', [
+    ('Prince of Denmark', ('Prince', 'of', 'Prince of Denmark')),
+    ('Prince', ('Prince', None, 'Prince')),
+    ('Prince of', ('Prince', 'of', 'Prince of')),
+    ('of Denmark', (None, 'of', 'of Denmark')),
+    ('of', (None, 'of', 'of')),
+    ('d\'Abbeville', (None, 'd', 'd\'Abbeville')),
+    ('map maker', (None, None, 'map maker')),
+    ('King of the English', ('King', 'of the', 'King of the English')),
+
+    # Edge cases:
+
+    # 'the Baptist' follows a pattern indicating it's probably not a
+    # part of the actual name (due to the lowercase 'the'). But, 'the'
+    # is not in the list of nobiliary particles and so is not treated
+    # as such.
+    ('the Baptist', (None, None, 'the Baptist')),
+    ('grandson of James II', (None, None, 'grandson of James II')),
+
+    # 'Esquire' is of course a known personal title, but generally
+    # appears as a suffix, not a prefix. Currently we do not employ a
+    # list of ALL known personal titles, only prefixes. At this time,
+    # this function will not identify this as a personal title. It's
+    # expected that the caller will know this is a title, such as if it
+    # comes from an X00$c field.
+    ('Esquire', (None, None, None)),
+    ('Ph.D', (None, None, None)),
+
+    # With the name, 'Masséna, André, prince d'Essling' -- for some
+    # reason 'prince' is lower case, which breaks the expected pattern
+    # when looking for a prefix at the beginning of a title like "King
+    # of England." Perhaps in these cases the 'prince' with a lowercase
+    # 'p' indicates they are not referred to as "Prince."
+    ('prince d\'essling', (None, None, 'prince d\'essling')),
+
+    # Anything that isn't recognizable as a title will return None for
+    # all components.
+    ('Winston Churchill', (None, None, None)),
+    ('Ludwig van Beethoven', (None, None, None)),
+])
+def test_person_title(ptitle, expected):
+    """
+    `person_title` should parse a personal title into the expected
+    `prefix`, `particle`, and `full_title` components.
+    """
+    exp_prefix, exp_particle, exp_full = expected
+    ptitle = parsers.person_title(ptitle)
+    print ptitle
+    assert ptitle['prefix'] == exp_prefix
+    assert ptitle['particle'] == exp_particle
+    assert ptitle['full_title'] == exp_full
 
 
 @pytest.mark.parametrize('data, mn, mx, trunc_patterns, trunc_to_punct, exp', [

@@ -2,6 +2,9 @@
 
 from __future__ import unicode_literals
 
+from utils import toascii
+
+
 """
 Contains data related to personal titles
 """
@@ -39,7 +42,7 @@ PERSON_PRETITLES = set([
     'mawlana', 'hājī', 'haji', 'sayyid', 'sayyidah', 'sharif', 'venerable',
     'ven', 'eminent', 'emi', 'emperor', 'empress', 'king emperor',
     'queen empress', 'kaiser', 'tsar', 'tsarina', 'high king', 'high queen',
-    'great king', 'great queen' 'king', 'queen', 'archduke', 'archduchess',
+    'great king', 'great queen', 'king', 'queen', 'archduke', 'archduchess',
     'tsesarevich', 'grand prince', 'grand princess', 'grand duke',
     'grand duchess', 'prince-elector', 'prince', 'princess', 'crown prince',
     'crown princess', 'foreign prince', 'prince du sang', 'infante', 'infanta',
@@ -55,6 +58,11 @@ PERSON_PRETITLES = set([
     'maid', 'don',
 ])
 
+PERSON_PRETITLES_ASCII = set([toascii.map_from_unicode(t)
+                              for t in PERSON_PRETITLES])
+
+PERSON_PRETITLES_REGEX = r'|'.join(list(PERSON_PRETITLES_ASCII))
+
 
 # PERSON_NOBILIARY_PARTICLES includes a list of prepositions that might
 # precede a last name, which *could* be put into a MARC 100$c and
@@ -65,3 +73,5 @@ PERSON_NOBILIARY_PARTICLES = set([
     'of', 'of the', 'af', 'von', 'de', 'd', 'du', 'des', 'zu', 'van', 'den',
     'der', 'van de', 'van der', 'van den', 
 ])
+
+PERSON_NOBILIARY_PARTICLES_REGEX = r'|'.join(list(PERSON_NOBILIARY_PARTICLES))
