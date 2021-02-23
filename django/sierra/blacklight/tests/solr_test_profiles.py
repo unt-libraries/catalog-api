@@ -117,6 +117,8 @@ DISCOVER_GENS = (
     ('games_duration_facet', 'auto'),
     ('games_players_facet', 'auto'),
     ('languages', 'auto'),
+    ('publication_year_facet', GENS(tp.multi(GENS.type('int', mn=1000, mx=9999),
+                                             1, 5))),
     ('isbn_numbers', GENS(tp.chance(tp.multi(tp.isbn_number, 1, 5), 66))),
     ('issn_numbers', GENS(tp.chance(tp.multi(tp.issn_number, 1, 5), 33))),
     ('lccn_number', GENS(tp.chance(GENS.type('int', mn=10000, mx=99999), 80))),
