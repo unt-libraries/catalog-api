@@ -2903,15 +2903,15 @@ class ToDiscoverPipeline(object):
             if this_is_last_part and components:
                 components[-1]['sep'] = None
 
-        end_info = [volume] if volume else []
-        end_info += ['ISSN: {}'.format(issn)] if issn else []
+        id_parts = [{'value': volume}] if volume else []
+        id_parts += [{'label': 'ISSN', 'value': issn}] if issn else []
 
         return {
             'author_info': auth_info,
             'before_string': ' '.join(before),
             'title_components': components,
-            'expression_string': ', '.join(eparts) if eparts else None,
-            'end_info_string': ', '.join(end_info) if end_info else None
+            'expression_components': eparts if eparts else None,
+            'id_components': id_parts if id_parts else None
         }
 
     def render_authorized_title(self, title, names, for_subject=False):
@@ -2936,24 +2936,75 @@ class ToDiscoverPipeline(object):
                     json['p'][-1]['s'] = comp['sep']
             prev_comp = comp
 
-        if pre_info['expression_string']:
-            if json['p']:
-                json['p'][-1]['s'] = ' | '
-            heading = ' | '.join((heading, pre_info['expression_string']))
-            json['p'].append({'d': pre_info['expression_string'], 'v': heading})
-            facet_vals.append(heading)
-
-        if pre_info['end_info_string']:
-            if json['p']:
-                json['p'][-1]['s'] = ' | '
-            heading = ' | '.join((heading, pre_info['end_info_string']))
-            json['p'].append({'d': pre_info['end_info_string']})
+        args = [pre_info['expression_components'], pre_info['id_components']]
+        if any(args):
+            kargs = {'json': json, 'facet_vals': facet_vals, 'heading': heading}
+            result = self.render_title_expression_id(*args, **kargs)
+            rkeys = ('json', 'facet_vals', 'heading')
+            json, facet_vals, heading = (result[key] for key in rkeys)
 
         return {
             'json': json,
             'facet_vals': facet_vals,
             'heading': heading,
             'author_info': author_info
+        }
+
+    def render_title_expression_id(self, exp_parts, id_parts, json=None, 
+                                   facet_vals=None, heading=None):
+        json = json or {'p': []}
+        facet_vals = facet_vals or []
+        heading = heading or ''
+        create_exp_link = bool(heading)
+
+        internal_sep, section_sep = '; ', ' — '
+
+        if json['p']:
+            json['p'][-1]['s'] = ' ('
+        else:
+            json['p'].append({'d': '('})
+        heading = '{} ('.format(heading).lstrip()
+        if exp_parts:
+            exp_string = internal_sep.join(exp_parts)
+            heading = '{}{})'.format(heading, exp_string)
+            new_p = {'d': exp_string}
+            if create_exp_link:
+                new_p['v'] = heading
+            json['p'].append(new_p)
+            facet_vals.append(heading)
+        if id_parts:
+            if exp_parts:
+                json['p'][-1]['s'] = section_sep
+                heading = ''.join((heading[:-1], section_sep))
+            to_render = []
+            added_heading_parts = []
+            for i, id_part in enumerate(id_parts):
+                is_last_id_part = i == len(id_parts) - 1
+                value = id_part['value']
+                label = id_part.get('label')
+                link_key = id_part.get('link_key')
+                display = ' '.join((label, value)) if label else value
+                added_heading_parts.append(display)
+                if link_key:
+                    if to_render:
+                        json['p'].append({'d': internal_sep.join(to_render),
+                                          's': internal_sep})
+                    new_p = {'d': display, link_key: value}
+                    if not is_last_id_part:
+                        new_p['s'] = internal_sep
+                    json['p'].append(new_p)
+                else:
+                    to_render.append(display)
+            if to_render:
+                json['p'].append({'d': internal_sep.join(to_render)})
+            added_heading_str = internal_sep.join(added_heading_parts)
+            heading = '{}{})'.format(heading, added_heading_str)
+        json['p'][-1]['s'] = ')'
+
+        return {
+            'json': json,
+            'facet_vals': facet_vals,
+            'heading': heading
         }
 
     def compile_added_title(self, field, title_struct, names):

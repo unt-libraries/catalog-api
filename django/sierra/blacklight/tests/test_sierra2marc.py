@@ -5965,17 +5965,18 @@ def test_generatefacetkey(fval, nf_chars, expected):
                 's': ' > ',
                 'v': 'work-title-first-part!Work title > First part'},
                {'d': 'Second part',
-                's': ' | ',
+                's': ' (',
                 'v': 'work-title-first-part-second-part!'
                      'Work title > First part > Second part'},
-               {'d': 'English, Some version, 1994',
+               {'d': 'English; Some version; 1994',
+                's': ')',
                 'v': 'work-title-first-part-second-part-english-some-version-'
                      '1994!'
-                     'Work title > First part > Second part | '
-                     'English, Some version, 1994'}]},
+                     'Work title > First part > Second part '
+                     '(English; Some version; 1994)'}]},
       ],
       'included_work_titles_search': [
-        'Work title > First part > Second part | English, Some version, 1994',
+        'Work title > First part > Second part (English; Some version; 1994)',
       ],
       'title_series_facet': [
         'work-title!Work title',
@@ -5983,7 +5984,7 @@ def test_generatefacetkey(fval, nf_chars, expected):
         'work-title-first-part-second-part!'
         'Work title > First part > Second part',
         'work-title-first-part-second-part-english-some-version-1994!'
-        'Work title > First part > Second part | English, Some version, 1994'
+        'Work title > First part > Second part (English; Some version; 1994)'
       ]}),
 
     # 730: $lsf and $k (Selections)
@@ -5998,18 +5999,19 @@ def test_generatefacetkey(fval, nf_chars, expected):
                 's': ' > ',
                 'v': 'work-title-first-part!Work title > First part'},
                {'d': 'Second part',
-                's': ' | ',
+                's': ' (',
                 'v': 'work-title-first-part-second-part!'
                      'Work title > First part > Second part'},
-               {'d': 'English, Some version, Selections, 1994',
+               {'d': 'English; Some version; Selections; 1994',
+                's': ')',
                 'v': 'work-title-first-part-second-part-english-some-version-'
                      'selections-1994!'
-                     'Work title > First part > Second part | '
-                     'English, Some version, Selections, 1994'}]},
+                     'Work title > First part > Second part '
+                     '(English; Some version; Selections; 1994)'}]},
       ],
       'included_work_titles_search': [
-        'Work title > First part > Second part | English, Some version, '
-        'Selections, 1994',
+        'Work title > First part > Second part (English; Some version; '
+        'Selections; 1994)',
       ],
       'title_series_facet': [
         'work-title!Work title',
@@ -6017,38 +6019,39 @@ def test_generatefacetkey(fval, nf_chars, expected):
         'work-title-first-part-second-part!'
         'Work title > First part > Second part',
         'work-title-first-part-second-part-english-some-version-selections-'
-        '1994!Work title > First part > Second part | English, Some version, '
-        'Selections, 1994'
+        '1994!Work title > First part > Second part (English; Some version; '
+        'Selections; 1994)'
       ]}),
 
     # 730: multiple languages ($l), Lang1 & Lang2
     ([('730', ['a', 'Three little pigs.', 'l', 'English & German.'], '02')],
      {'included_work_titles_json': [
         {'p': [{'d': 'Three little pigs',
-                's': ' | ',
+                's': ' (',
                 'v': 'three-little-pigs!Three little pigs'},
                {'d': 'English & German',
+                's': ')',
                 'v': 'three-little-pigs-english-german!'
-                     'Three little pigs | English & German'}]},
+                     'Three little pigs (English & German)'}]},
       ],
       'included_work_titles_search': [
-        'Three little pigs | English & German',
+        'Three little pigs (English & German)',
       ],
       'title_series_facet': [
         'three-little-pigs!Three little pigs',
-        'three-little-pigs-english-german!Three little pigs | English & German',
+        'three-little-pigs-english-german!Three little pigs (English & German)',
       ]}),
 
     # 830: $v, volume info
     ([('830', ['a', 'Some series ;', 'v', 'v. 2.'], ' 0')],
      {'related_series_titles_json': [
         {'p': [{'d': 'Some series',
-                's': ' | ',
+                's': ' (',
                 'v': 'some-series!Some series'},
-               {'d': 'v. 2'}]},
+               {'d': 'v. 2', 's': ')'}]},
       ],
       'related_series_titles_search': [
-        'Some series | v. 2',
+        'Some series (v. 2)',
       ],
       'title_series_facet': [
         'some-series!Some series',
@@ -6058,12 +6061,12 @@ def test_generatefacetkey(fval, nf_chars, expected):
     ([('830', ['a', 'Some series.', 'x', '1234-5678'], ' 0')],
      {'related_series_titles_json': [
         {'p': [{'d': 'Some series',
-                's': ' | ',
+                's': ' (',
                 'v': 'some-series!Some series'},
-               {'d': 'ISSN: 1234-5678'}]},
+               {'d': 'ISSN 1234-5678', 's': ')'}]},
       ],
       'related_series_titles_search': [
-        'Some series | ISSN: 1234-5678',
+        'Some series (ISSN 1234-5678)',
       ],
       'title_series_facet': [
         'some-series!Some series',
@@ -6073,12 +6076,12 @@ def test_generatefacetkey(fval, nf_chars, expected):
     ([('830', ['a', 'Some series ;', 'v', 'v. 2.', 'x', '1234-5678'], ' 0')],
      {'related_series_titles_json': [
         {'p': [{'d': 'Some series',
-                's': ' | ',
+                's': ' (',
                 'v': 'some-series!Some series'},
-               {'d': 'v. 2, ISSN: 1234-5678'}]},
+               {'d': 'v. 2; ISSN 1234-5678', 's': ')'}]},
       ],
       'related_series_titles_search': [
-        'Some series | v. 2, ISSN: 1234-5678',
+        'Some series (v. 2; ISSN 1234-5678)',
       ],
       'title_series_facet': [
         'some-series!Some series',
@@ -8469,10 +8472,11 @@ def test_todscpipeline_getgamesfacetsinfo(raw_marcfields, expected,
                   {'d': 'Contemporary paintings',
                    'v': 'studio-magazine-contemporary-paintings!'
                         'Studio magazine > Contemporary paintings',
-                   's': ' | '},
+                   's': ' ('},
                   {'d': 'English',
+                   's': ')',
                    'v': 'studio-magazine-contemporary-paintings-english!'
-                        'Studio magazine > Contemporary paintings | English'},
+                        'Studio magazine > Contemporary paintings (English)'},
                  ]
         },
         'subject_heading_facet': [
@@ -8480,23 +8484,23 @@ def test_todscpipeline_getgamesfacetsinfo(raw_marcfields, expected,
             'studio-magazine-contemporary-paintings!'
             'Studio magazine > Contemporary paintings',
             'studio-magazine-contemporary-paintings-english!'
-            'Studio magazine > Contemporary paintings | English'
+            'Studio magazine > Contemporary paintings (English)'
         ],
         'topic_facet': [
             'studio-magazine!Studio magazine',
             'studio-magazine-contemporary-paintings!'
             'Studio magazine > Contemporary paintings',
             'studio-magazine-contemporary-paintings-english!'
-            'Studio magazine > Contemporary paintings | English'
+            'Studio magazine > Contemporary paintings (English)'
         ],
         'subjects_search_exact_headings': [
-            'Studio magazine > Contemporary paintings | English'
+            'Studio magazine > Contemporary paintings (English)'
         ],
         'subjects_search_main_terms': [
-            'Studio magazine > Contemporary paintings | English'
+            'Studio magazine > Contemporary paintings (English)'
         ],
         'subjects_search_all_terms': [
-            'Studio magazine > Contemporary paintings | English'
+            'Studio magazine > Contemporary paintings (English)'
         ]
     }),
 
