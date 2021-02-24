@@ -248,6 +248,9 @@
     <!-- Subjects / Genres -->
     <field name="subject_headings_json" type="string" indexed="false" stored="true" multiValued="true"/>
     <field name="genre_headings_json" type="string" indexed="false" stored="true" multiValued="true"/>
+    <!-- Linking Fields -->
+    <field name="serial_continuity_linking_json" type="string" indexed="false" stored="true" multiValued="true"/>
+    <field name="related_resources_linking_json" type="string" indexed="false" stored="true" multiValued="true"/>
 
     <!-- SORT FIELDS ====================================================================================== -->
     <field name="publication_sort" type="string" indexed="true" stored="false" multiValued="false"/>

@@ -2121,7 +2121,8 @@ class ToDiscoverPipeline(object):
         'contributor_info', 'title_info', 'general_3xx_info',
         'general_5xx_info', 'call_number_info', 'standard_number_info',
         'control_number_info', 'games_facets_info', 'subjects_info',
-        'language_info', 'record_boost'
+        'language_info', 'record_boost', 'included_works_linking_fields',
+        'series_linking_fields', 'other_linking_fields'
     ]
     prefix = 'get_'
     access_online_label = 'Online'
@@ -4523,6 +4524,41 @@ class ToDiscoverPipeline(object):
         pub_boost = 460 if boost is None else boost
         q_boost = 500 if r.bcode1 in ('-', 'd') else 0
         return {'record_boost': str(pub_boost + q_boost)}
+
+    def get_included_works_linking_fields(self, r, marc_record):
+        """
+        Generate additional Included Works for 774 linking fields.
+        """
+        return {
+            'included_work_titles_json': None,
+            'included_work_titles_search': None,
+            'title_series_facet': None
+        }
+
+    def get_series_linking_fields(self, r, marc_record):
+        """
+        Generate additional Related Series for 760-762 linking fields.
+        """
+        return {
+            'related_series_titles_json': None,
+            'related_series_titles_search': None,
+            'title_series_facet': None
+        }
+
+    def get_other_linking_fields(self, r, marc_record):
+        """
+        Generate linking field display data for 76X-78X, minus 760-762
+        and 774 (which are handled as Series and Included Works,
+        respectively).
+
+        780/785 => `serial_continuity_linking_json` entries
+        765, 767, 770, 772, 773, 775, 776, 777, 786, and 787
+            => `related_resources_linking_json` entries
+        """
+        return {
+            'serial_continuity_linking_json': None,
+            'related_resources_linking_json': None
+        }
 
 
 class DiscoverS2MarcBatch(S2MarcBatch):
