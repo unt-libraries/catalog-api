@@ -9750,6 +9750,505 @@ def test_todscpipeline_getrecordboost(this_year, pyears, pdecades, bib_type,
     assert val['record_boost'] == expected
 
 
+@pytest.mark.parametrize('marc_tags_ind, sf_i, equals, test_value', [
+    # General behavior
+    # Most fields: use $i when ind2 is 8 and $i exists
+    (['765 #8', '767 #8', '770 #8', '772 #8', '773 #8', '774 #8', '775 #8',
+      '776 #8', '777 #8', '786 #8', '787 #8'],
+     'Custom label:', True, 'Custom label'),
+
+    # Most fields: no display label when ind2 is 8 and no $i exists
+    (['765 #8', '767 #8', '770 #8', '772 #8', '773 #8', '774 #8', '775 #8',
+      '776 #8', '777 #8', '786 #8', '787 #8'],
+     None, True, None),
+
+    # All fields: ignore $i when ind2 is not 8
+    (['760 ##', '762 ##', '765 ##', '767 ##', '770 ##', '772 ##', '773 ##',
+      '774 ##', '775 ##', '776 ##', '777 ##', '780 ##', '785 ##', '786 ##',
+      '787 ##'],
+     'Custom label:', False, 'Custom label'),
+
+    # All fields: no display label when ind2 is outside the valid range
+    (['760 #0', '762 #0', '765 #0', '767 #0', '770 #0', '772 #1', '773 #0',
+      '774 #0', '775 #0', '776 #0', '777 #0', '780 #9', '785 #9', '786 #0',
+      '787 #0'],
+     None, True, None),
+
+    # Exceptions to general behavior
+    # Certain fields: no display label when ind2 is blank
+    (['760 ##', '762 ##', '774 ##', '787 ##'],
+     None, True, None),
+
+    # Certain fields: ignore $i even when ind2 is 8 and $i exists
+    (['760 #8', '762 #8', '780 #8', '785 #8'],
+     'Custom label:', False, 'Custom label'),
+
+    # Field-specific labels
+    (['765 ##'], None, True, 'Translation of'),
+    (['767 ##'], None, True, 'Translated as'),
+    (['770 ##'], None, True, 'Supplement'),
+    (['772 ##'], None, True, 'Supplement to'),
+    (['772 #0'], None, True, 'Parent'),
+    (['774 #8'], 'Container of:', True, None),
+    (['780 ##'], None, True, None),
+    (['780 #0'], None, True, 'Continues'),
+    (['780 #1'], None, True, 'Continues in part'),
+    (['780 #2'], None, True, 'Supersedes'),
+    (['780 #3'], None, True, 'Supersedes in part'),
+    (['780 #4'], None, True, 'Merger of'),
+    (['780 #5'], None, True, 'Absorbed'),
+    (['780 #6'], None, True, 'Absorbed in part'),
+    (['780 #7'], None, True, 'Separated from'),
+    (['785 ##'], None, True, None),
+    (['785 #0'], None, True, 'Continued by'),
+    (['785 #1'], None, True, 'Continued in part by'),
+    (['785 #2'], None, True, 'Superseded by'),
+    (['785 #3'], None, True, 'Superseded in part by'),
+    (['785 #4'], None, True, 'Absorbed by'),
+    (['785 #5'], None, True, 'Absorbed in part by'),
+    (['785 #6'], None, True, 'Split into'),
+    (['785 #7'], None, True, 'Merged with'),
+    (['785 #8'], None, True, 'Changed back to'),
+], ids=[
+    # General behavior
+    'Most fields: use $i when ind2 is 8 and $i exists',
+    'Most fields: no display label when ind2 is 8 and no $i exists',
+    'All fields: ignore $i when ind2 is not 8',
+    'All fields: no display label when ind2 is outside the valid range',
+
+    # Exceptions to general behavior
+    'Certain fields: no display label when ind2 is blank',
+    'Certain fields: no display label even when ind2 is 8 and $i exists',
+
+    # Field-specific labels
+    '765 ind2 blank => `Translation of`',
+    '767 ind2 blank => `Translated as`',
+    '770 ind2 blank => `Supplement`',
+    '772 ind2 blank => `Supplement to`',
+    '772 ind2 0 => `Parent`',
+    '774 ind2 8 and $i is "Container of" => No display label',
+    '780 ind2 blank => No display label',
+    '780 ind2 0: => `Continues`',
+    '780 ind2 1: => `Continues in part`',
+    '780 ind2 2: => `Supersedes`',
+    '780 ind2 3: => `Supersedes in part`',
+    '780 ind2 4: => `Merger of`',
+    '780 ind2 5: => `Absorbed`',
+    '780 ind2 6: => `Absorbed in part`',
+    '780 ind2 7: => `Separated from`',
+    '785 ind2 blank => No display label',
+    '785 ind2 0: => `Continued by`',
+    '785 ind2 1: => `Continued in part by`',
+    '785 ind2 2: => `Superseded by`',
+    '785 ind2 3: => `Superseded in part by`',
+    '785 ind2 4: => `Absorbed by`',
+    '785 ind2 5: => `Absorbed in part by`',
+    '785 ind2 6: => `Split into`',
+    '785 ind2 7: => `Merged with`',
+    '785 ind2 8: => `Changed back to`',
+])
+def test_linkingfieldparser_display_labels(marc_tags_ind, sf_i, equals,
+                                           test_value, fieldstrings_to_fields):
+    """
+    For a field constructed using each in the given list of MARC tags
+    plus indicators (`marc_tags_ind`), using the given $i value
+    (`sf_i`), the `LinkingFieldParser.parse` method will return a dict
+    where the display_label entry either `equals` (or does not equal)
+    the `test_value`.
+    """
+    for tag_ind in marc_tags_ind:
+        rawfield = tag_ind
+        if sf_i:
+            rawfield = '{}$i{}'.format(rawfield, sf_i)
+        rawfield = '{}$tSample title'.format(rawfield)
+        field = fieldstrings_to_fields([rawfield])[0]
+        result = s2m.LinkingFieldParser(field).parse()
+        assert (result['display_label'] == test_value) == equals
+
+
+@pytest.mark.parametrize('raw_marcfield, expected', [
+    # Edge cases
+    # Empty field
+    ('787 ##$a', {
+        'display_label': None,
+        'title_parts': None,
+        'author': None,
+        'short_author': None,
+        'display_metadata': None,
+        'identifiers_map': None,
+        'identifiers_list': None,
+        'materials_specified': None,
+    }),
+
+    # No $s or $t title
+    ('787 ##$aSome author.$dPub date.$w(OCoLC)646108719', {
+        'display_label': None,
+        'title_parts': None,
+        'author': 'Some author',
+        'short_author': 'Some author',
+        'display_metadata': ['Pub date'],
+        'identifiers_map': {'oclc': '646108719'},
+        'identifiers_list': [{
+            'code': 'oclc',
+            'numtype': 'control',
+            'label': 'OCLC Number',
+            'number': '646108719'}],
+        'materials_specified': None,
+    }),
+
+    # Title, author, short author, display metadata
+    # $s and $t title, use $t as title
+    ('787 ##$sUniform title.$tTranscribed title.', {
+        'display_label': None,
+        'title_parts': ['Transcribed title'],
+        'author': None,
+        'short_author': None,
+        'display_metadata': None,
+        'identifiers_map': None,
+        'identifiers_list': None,
+        'materials_specified': None,
+    }),
+
+    # $t title only, use $t as title
+    ('787 ##$tTranscribed title.', {
+        'display_label': None,
+        'title_parts': ['Transcribed title'],
+        'author': None,
+        'short_author': None,
+        'display_metadata': None,
+        'identifiers_map': None,
+        'identifiers_list': None,
+        'materials_specified': None,
+    }),
+
+    # $s title only, use $s as title
+    ('787 ##$sUniform title.', {
+        'display_label': None,
+        'title_parts': ['Uniform title'],
+        'author': None,
+        'short_author': None,
+        'display_metadata': None,
+        'identifiers_map': None,
+        'identifiers_list': None,
+        'materials_specified': None,
+    }),
+
+    # title with multiple parts
+    ('787 ##$sRiigi teataja (1990). English. Selections.', {
+        'display_label': None,
+        'title_parts': ['Riigi teataja (1990)', 'English', 'Selections'],
+        'author': None,
+        'short_author': None,
+        'display_metadata': None,
+        'identifiers_map': None,
+        'identifiers_list': None,
+        'materials_specified': None,
+    }),
+
+    # author, personal name
+    ('787 ##$aBeethoven, Ludwig van, 1770-1827.', {
+        'display_label': None,
+        'title_parts': None,
+        'author': 'Beethoven, Ludwig van, 1770-1827',
+        'short_author': 'Beethoven, L.v.',
+        'display_metadata': None,
+        'identifiers_map': None,
+        'identifiers_list': None,
+        'materials_specified': None,
+    }),
+
+    # author, organizational name
+    ('787 ##$aUnited States. Congress.', {
+        'display_label': None,
+        'title_parts': None,
+        'author': 'United States. Congress',
+        'short_author': 'United States, Congress',
+        'display_metadata': None,
+        'identifiers_map': None,
+        'identifiers_list': None,
+        'materials_specified': None,
+    }),
+    
+    # author, meeting name
+    ('787 ##$aFestival of Britain (1951 : London, England)', {
+        'display_label': None,
+        'title_parts': None,
+        'author': 'Festival of Britain (1951 : London, England)',
+        'short_author': 'Festival of Britain',
+        'display_metadata': None,
+        'identifiers_map': None,
+        'identifiers_list': None,
+        'materials_specified': None,
+    }),
+
+    # multiple metadata subfields -- should stay in order
+    # also: $e, and $f are ignored.
+    ('787 ##$b[English edition]$c(London, 1958)$dChennai : Westland, 2011'
+     '$eeng$fdcu$gJan. 1992$hmicrofilm$j20100101'
+     '$kAsia Pacific legal culture and globalization$mScale 1:760,320.'
+     '$n"July 2011"$oN 84-11142$q15:5<30$vBase map data', {
+        'display_label': None,
+        'title_parts': None,
+        'author': None,
+        'short_author': None,
+        'display_metadata': [
+            '[English edition]', 'London, 1958', 'Chennai : Westland, 2011',
+            'Jan. 1992', 'microfilm', '20100101',
+            'Asia Pacific legal culture and globalization', 'Scale 1:760,320',
+            '"July 2011"', 'N 84-11142', '15:5<30', 'Base map data'
+        ],
+        'identifiers_map': None,
+        'identifiers_list': None,
+        'materials_specified': None,
+    }),
+
+    # Identifiers
+    # $r => Report Number
+    ('787 ##$rEPA 430-H-02-001', {
+        'display_label': None,
+        'title_parts': None,
+        'author': None,
+        'short_author': None,
+        'display_metadata': None,
+        'identifiers_map': {'r': 'EPA 430-H-02-001'},
+        'identifiers_list': [{
+            'code': 'r',
+            'numtype': 'standard',
+            'label': 'Report Number',
+            'number': 'EPA 430-H-02-001'}],
+        'materials_specified': None,
+    }),
+
+    # $u => STRN
+    ('787 ##$uFHWA/NC/95-002', {
+        'display_label': None,
+        'title_parts': None,
+        'author': None,
+        'short_author': None,
+        'display_metadata': None,
+        'identifiers_map': {'u': 'FHWA/NC/95-002'},
+        'identifiers_list': [{
+            'code': 'u',
+            'numtype': 'standard',
+            'label': 'STRN',
+            'number': 'FHWA/NC/95-002'}],
+        'materials_specified': None,
+    }),
+
+    # $w (OCoLC) => OCLC Number
+    ('787 ##$w(OCoLC)12700508', {
+        'display_label': None,
+        'title_parts': None,
+        'author': None,
+        'short_author': None,
+        'display_metadata': None,
+        'identifiers_map': {'oclc': '12700508'},
+        'identifiers_list': [{
+            'code': 'oclc',
+            'numtype': 'control',
+            'label': 'OCLC Number',
+            'number': '12700508'}],
+        'materials_specified': None,
+    }),
+
+    # $w (DLC) => LCCN
+    ('787 ##$w(DLC)   92643478', {
+        'display_label': None,
+        'title_parts': None,
+        'author': None,
+        'short_author': None,
+        'display_metadata': None,
+        'identifiers_map': {'lccn': '92643478'},
+        'identifiers_list': [{
+            'code': 'lccn',
+            'numtype': 'control',
+            'label': 'LCCN',
+            'number': '92643478'}],
+        'materials_specified': None,
+    }),
+
+    # $w (CaOONL) => CaOONL Number
+    ('787 ##$w(CaOONL)890390894', {
+        'display_label': None,
+        'title_parts': None,
+        'author': None,
+        'short_author': None,
+        'display_metadata': None,
+        'identifiers_map': {'w': '890390894'},
+        'identifiers_list': [{
+            'code': 'w',
+            'numtype': 'control',
+            'label': 'CaOONL Number',
+            'number': '890390894'}],
+        'materials_specified': None,
+    }),
+
+    # $w with no qualifier => Control Number
+    ('787 ##$w890390894', {
+        'display_label': None,
+        'title_parts': None,
+        'author': None,
+        'short_author': None,
+        'display_metadata': None,
+        'identifiers_map': {'w': '890390894'},
+        'identifiers_list': [{
+            'code': 'w',
+            'numtype': 'control',
+            'label': 'Control Number',
+            'number': '890390894'}],
+        'materials_specified': None,
+    }),
+
+    # $x => ISSN
+    ('787 ##$x1544-7227', {
+        'display_label': None,
+        'title_parts': None,
+        'author': None,
+        'short_author': None,
+        'display_metadata': None,
+        'identifiers_map': {'issn': '1544-7227'},
+        'identifiers_list': [{
+            'code': 'issn',
+            'numtype': 'standard',
+            'label': 'ISSN',
+            'number': '1544-7227'}],
+        'materials_specified': None,
+    }),
+
+    # $y => CODEN
+    ('787 ##$yFBKRAT', {
+        'display_label': None,
+        'title_parts': None,
+        'author': None,
+        'short_author': None,
+        'display_metadata': None,
+        'identifiers_map': {'coden': 'FBKRAT'},
+        'identifiers_list': [{
+            'code': 'coden',
+            'numtype': 'standard',
+            'label': 'CODEN',
+            'number': 'FBKRAT'}],
+        'materials_specified': None,
+    }),
+
+    # $z => ISBN
+    ('787 ##$z477440490X', {
+        'display_label': None,
+        'title_parts': None,
+        'author': None,
+        'short_author': None,
+        'display_metadata': None,
+        'identifiers_map': {'isbn': '477440490X'},
+        'identifiers_list': [{
+            'code': 'isbn',
+            'numtype': 'standard',
+            'label': 'ISBN',
+            'number': '477440490X'}],
+        'materials_specified': None,
+    }),
+
+    # Multiple different identifiers
+    ('787 ##$z9781598847611$w(DLC)   2012034673$w(OCoLC)768800369', {
+        'display_label': None,
+        'title_parts': None,
+        'author': None,
+        'short_author': None,
+        'display_metadata': None,
+        'identifiers_map': {
+            'isbn': '9781598847611',
+            'lccn': '2012034673',
+            'oclc': '768800369',
+        },
+        'identifiers_list': [{
+            'code': 'isbn',
+            'numtype': 'standard',
+            'label': 'ISBN',
+            'number': '9781598847611'
+        }, {
+            'code': 'lccn',
+            'numtype': 'control',
+            'label': 'LCCN',
+            'number': '2012034673'
+        }, {
+            'code': 'oclc',
+            'numtype': 'control',
+            'label': 'OCLC Number',
+            'number': '768800369'
+        }],
+        'materials_specified': None,
+    }),
+
+    # Multiple identifiers of the same type
+    # Only the first is used in `identifiers_map`.
+    ('787 ##$z477440490X$z9784774404905$w(OCoLC)883612986', {
+        'display_label': None,
+        'title_parts': None,
+        'author': None,
+        'short_author': None,
+        'display_metadata': None,
+        'identifiers_map': {
+            'isbn': '477440490X',
+            'oclc': '883612986',
+        },
+        'identifiers_list': [{
+            'code': 'isbn',
+            'numtype': 'standard',
+            'label': 'ISBN',
+            'number': '477440490X'
+        }, {
+            'code': 'isbn',
+            'numtype': 'standard',
+            'label': 'ISBN',
+            'number': '9784774404905'
+        }, {
+            'code': 'oclc',
+            'numtype': 'control',
+            'label': 'OCLC Number',
+            'number': '883612986'
+        }],
+        'materials_specified': None,
+    }),
+
+], ids=[
+    # Edge cases
+    'Empty field',
+    'No $s or $t title',
+
+    # Title, author, short author, display metadata
+    '$s and $t title, use $t as title',
+    '$t title only, use $t as title',
+    '$s title only, use $s as title',
+    'title with multiple parts',
+    'author, personal name',
+    'author, organizational name',
+    'author, meeting name',
+    'multiple metadata subfields -- should stay in order',
+
+    # Identifiers
+    '$r => Report Number',
+    '$u => STRN',
+    '$w (OCoLC) => OCLC Number',
+    '$w (DLC) => LCCN',
+    '$w (CaOONL) => CaOONL Number',
+    '$w with no qualifier => Control Number',
+    '$x => ISSN',
+    '$y => CODEN',
+    '$z => ISBN',
+    'Multiple different identifiers',
+    'Multiple identifiers of the same type',
+])
+def test_linkingfieldparser_parse(raw_marcfield, expected,
+                                  fieldstrings_to_fields):
+    """
+    When passed the given MARC field, the `LinkingFieldParser.parse`
+    method should return the expected results.
+    """
+    field = fieldstrings_to_fields([raw_marcfield])[0]
+    result = s2m.LinkingFieldParser(field).parse()
+    print result
+    assert result == expected
+
+
 def test_s2mmarcbatch_compileoriginalmarc_vf_order(s2mbatch_class,
                                                    bl_sierra_test_record,
                                                    add_varfields_to_record):

@@ -1112,7 +1112,8 @@ class StandardControlNumberParser(SequentialMarcFieldParser):
                 return norm, ntype
         return None, None
 
-    def normalize_lccn(self, lccn):
+    @classmethod
+    def normalize_lccn(cls, lccn):
         lccn = ''.join(lccn.split(' ')).split('/')[0]
         if '-' in lccn:
             left, right = lccn.split('-', 1)
@@ -1241,6 +1242,131 @@ class LanguageParser(SequentialMarcFieldParser):
         return {
             'languages': self.languages.keys(),
             'categorized': {k: v.keys() for k, v in self.categorized.items()}
+        }
+
+
+class LinkingFieldParser(SequentialMarcFieldParser):
+    """
+    Parse linking fields (76X-78X) to extract detailed information.
+    """
+    display_label_map = {
+        '765  ': 'Translation of',
+        '767  ': 'Translated as',
+        '770  ': 'Supplement',
+        '772  ': 'Supplement to',
+        '772 0': 'Parent',
+        '773  ': 'In',
+        '775  ': 'Other edition',
+        '776  ': 'Other format',
+        '777  ': 'Issued with',
+        '780 0': 'Continues',
+        '780 1': 'Continues in part',
+        '780 2': 'Supersedes',
+        '780 3': 'Supersedes in part',
+        '780 4': 'Merger of',
+        '780 5': 'Absorbed',
+        '780 6': 'Absorbed in part',
+        '780 7': 'Separated from',
+        '785 0': 'Continued by',
+        '785 1': 'Continued in part by',
+        '785 2': 'Superseded by',
+        '785 3': 'Superseded in part by',
+        '785 4': 'Absorbed by',
+        '785 5': 'Absorbed in part by',
+        '785 6': 'Split into',
+        '785 7': 'Merged with',
+        '785 8': 'Changed back to',
+        '786  ': 'Data source',
+    }
+    tags_to_id_types = {
+        'r': ('r', 'Report Number'),
+        'u': ('u', 'STRN'),
+        'x': ('issn', 'ISSN'),
+        'y': ('coden', 'CODEN'),
+        'z': ('isbn', 'ISBN'),
+    }
+    display_metadata_sftags = 'bcdghjkmnoqv'
+    identifiers_sftags = 'ruwxyz'
+
+    def __init__(self, field):
+        super(LinkingFieldParser, self).__init__(field)
+        self.display_label_from_i = ''
+        self.ttitle = ''
+        self.stitle = ''
+        self.author = ''
+        self.short_author = ''
+        self.display_metadata = []
+        self.identifiers_map = {}
+        self.identifiers_list = []
+
+    def make_display_label(self, label_from_i):
+        tag, ind2 = self.field.tag, self.field.indicator2
+        if tag not in ('760', '762', '780', '785') and ind2 == '8':
+            if tag != '774' or label_from_i.lower() != 'container of':
+                return label_from_i or None
+        return self.display_label_map.get(' '.join((tag, ind2)))
+
+    def title_to_parts(self, title):
+        if title:
+            protected = p.protect_periods(title)
+            return [p.restore_periods(tp) for tp in protected.split('. ') if tp]
+
+    def do_identifier(self, tag, val):
+        if tag == 'w':
+            id_numtype = 'control'
+            try:
+                source, num = val[1:].split(')', 1)
+            except ValueError:
+                id_code, id_label = tag, 'Control Number'
+            else:
+                val = num
+                if source == 'DLC':
+                    id_code, id_label = 'lccn', 'LCCN'
+                    val = StandardControlNumberParser.normalize_lccn(val)
+                elif source == 'OCoLC':
+                    id_code, id_label = 'oclc', 'OCLC Number'
+                else:
+                    id_code, id_label = tag, ' '.join((source, 'Number'))
+        else:
+            id_numtype = 'standard'
+            id_code, id_label = self.tags_to_id_types[tag]
+        if id_code not in self.identifiers_map:
+            self.identifiers_map[id_code] = val
+        self.identifiers_list.append({
+            'code': id_code,
+            'numtype': id_numtype,
+            'label': id_label,
+            'number': val
+        })
+
+    def parse_subfield(self, tag, val):
+        if tag == 'i':
+            self.display_label_from_i = p.strip_ends(p.strip_wemi(val))
+        else:
+            val = p.strip_ends(val)
+            if tag == 's':
+                self.stitle = val
+            elif tag == 't':
+                self.ttitle = val
+            elif tag == 'a':
+                self.author = val
+                name_struct = parse_name_string(val)
+                self.short_author = shorten_name(name_struct)
+            elif tag in self.display_metadata_sftags:
+                self.display_metadata.append(p.strip_outer_parentheses(val))
+            elif tag in self.identifiers_sftags:
+                self.do_identifier(tag, val)
+
+    def compile_results(self):
+        return {
+            'display_label': self.make_display_label(self.display_label_from_i),
+            'title_parts': self.title_to_parts(self.ttitle or self.stitle),
+            'author': self.author or None,
+            'short_author': self.short_author or None,
+            'display_metadata': self.display_metadata or None,
+            'identifiers_map': self.identifiers_map or None,
+            'identifiers_list': self.identifiers_list or None,
+            'materials_specified': self.materials_specified or None,
         }
 
 
