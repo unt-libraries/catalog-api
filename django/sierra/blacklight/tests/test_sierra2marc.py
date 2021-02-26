@@ -114,6 +114,8 @@ def assert_json_matches_expected():
     obj.
     """
     def _assert_json_matches_expected(json_strs, exp_dicts, exact=False):
+        json_strs = json_strs or []
+        exp_dicts = exp_dicts or []
         if not isinstance(json_strs, (list, tuple)):
             json_strs = [json_strs]
         if not isinstance(exp_dicts, (list, tuple)):
@@ -645,6 +647,50 @@ def test_pullfromsubfields_with_pullfunc(params_to_fields):
         assert val == exp
 
 
+def test_marcfieldgrouper_make_groups(fieldstrings_to_fields):
+    """
+    The `MarcFieldGrouper.make_groups` method should put fields from
+    a MARC record into the appropriate defined groups, without
+    generating duplicates.
+    """
+    rawfields = [
+        'x001 record_id',
+        'x035 ##$a(OCoLC)record_id',
+        'a100 ##$aTest2',
+        't245 ##$aTest3',
+        'n500 ##$aTest4',
+        'n500 ##$aTest5',
+        'w505 ##$aTest6',
+        'n505 ##$aTest7',
+        'a700 ##$aTest8',
+        'a700 ##$aTest9',
+        'u856 ##$aTest10'
+    ]
+    marc_record = s2m.SierraMarcRecord(force_utf8=True)
+    fields = fieldstrings_to_fields(rawfields)
+    marc_record.add_field(*fields)
+    grouper = s2m.MarcFieldGrouper({
+        'author': set(['100', '110', '111', '700', '710', '711']),
+        'main_author': set(['100', '110', '111']),
+        'all_authors': set(['a']),
+        'physical_description': set(['r', '300']),
+        'notes': set(['505', 'n', '500', 'n505']),
+        'other_notes': set(['n']),
+        'control_number': set(['001']),
+        'weird_note': set(['w505']),
+    })
+    groups = grouper.make_groups(marc_record)
+    assert groups == {
+        'author': [fields[2], fields[8], fields[9]],
+        'main_author': [fields[2]],
+        'all_authors': [fields[2], fields[8], fields[9]],
+        'notes': [fields[4], fields[5], fields[6], fields[7]],
+        'other_notes': [fields[4], fields[5], fields[7]],
+        'control_number': [fields[0]],
+        'weird_note': [fields[6]],
+    }
+
+
 @pytest.mark.parametrize('subfields, sep, sff, expected', [
     (['3', 'case files', 'a', 'aperture cards', 'b', '9 x 19 cm.',
       'd', 'microfilm', 'f', '48x'], '; ', None,
@@ -984,20 +1030,20 @@ def test_todscpipeline_do_creates_compiled_dict(todsc_pipeline_class):
         fields = ['dummy1', 'dummy2', 'dummy3', 'dummy4']
         prefix = 'get_'
 
-        def get_dummy1(self, r, marc_record):
+        def get_dummy1(self):
             return {'d1': 'd1v'}
 
-        def get_dummy2(self, r, marc_record):
+        def get_dummy2(self):
             return { 'd2a': 'd2av', 'd2b': 'd2bv' }
 
-        def get_dummy3(self, r, marc_record):
+        def get_dummy3(self):
             return { 'stuff': ['thing'] }
 
-        def get_dummy4(self, r, marc_record):
+        def get_dummy4(self):
             return { 'stuff': ['other thing']}
 
     dummy_pipeline = DummyPipeline()
-    bundle = dummy_pipeline.do('test', 'test')
+    bundle = dummy_pipeline.do(None, None)
     assert bundle == { 'd1': 'd1v', 'd2a': 'd2av', 'd2b': 'd2bv',
                        'stuff': ['thing', 'other thing'] }
 
@@ -1009,7 +1055,7 @@ def test_todscpipeline_getid(bl_sierra_test_record, todsc_pipeline_class):
     """
     pipeline = todsc_pipeline_class()
     bib = bl_sierra_test_record('b6029459')
-    val = pipeline.get_id(bib, None)
+    val = pipeline.do(bib, None, ['id'])
     assert val == {'id': 'b6029459'}
 
 
@@ -1027,7 +1073,7 @@ def test_todscpipeline_getsuppressed(in_val, expected, bl_sierra_test_record,
     pipeline = todsc_pipeline_class()
     bib = bl_sierra_test_record('b6029459')
     setattr_model_instance(bib, 'is_suppressed', in_val)
-    val = pipeline.get_suppressed(bib, None)
+    val = pipeline.do(bib, None, ['suppressed'])
     assert val == {'suppressed': expected}
 
 
@@ -1064,7 +1110,7 @@ def test_todscpipeline_getdateadded(bib_locs, created_date, cat_date, expected,
     setattr_model_instance(bib, 'cataloging_date_gmt', cat_date)
     setattr_model_instance(bib.record_metadata, 'creation_date_gmt',
                            created_date)
-    val = pipeline.get_date_added(bib, None)
+    val = pipeline.do(bib, None, ['date_added'])
     assert val == {'date_added': expected}
 
 
@@ -1082,7 +1128,7 @@ def test_todscpipeline_getiteminfo_ids(bl_sierra_test_record,
     pipeline = todsc_pipeline_class()
     bib = bl_sierra_test_record('bib_no_items')
     bib = update_test_bib_inst(bib, items=[{}, {'is_suppressed': True}, {}])
-    val = pipeline.get_item_info(bib, None)
+    val = pipeline.do(bib, None, ['item_info'])
 
     items = [l.item_record for l in bib.bibrecorditemrecordlink_set.all()]
     expected = [{'i': str(item.record_metadata.record_num)} for item in items
@@ -1179,7 +1225,7 @@ def test_todscpipeline_getiteminfo_callnum_vol(bib_cn_info, items_info,
     pipeline = todsc_pipeline_class()
     bib = bl_sierra_test_record('bib_no_items')
     bib = update_test_bib_inst(bib, varfields=bib_cn_info, items=items_info)
-    val = pipeline.get_item_info(bib, None)
+    val = pipeline.do(bib, None, ['item_info'])
     expected = [{'c': cn, 'v': vol} for cn, vol in expected]
     assert_json_matches_expected(val['items_json'], expected)
 
@@ -1214,7 +1260,7 @@ def test_todscpipeline_getiteminfo_bcodes_notes(items_info, expected,
     pipeline = todsc_pipeline_class()
     bib = bl_sierra_test_record('bib_no_items')
     bib = update_test_bib_inst(bib, items=items_info)
-    val = pipeline.get_item_info(bib, None)
+    val = pipeline.do(bib, None, ['item_info'])
     assert_json_matches_expected(val['items_json'], expected)
 
 
@@ -1279,7 +1325,7 @@ def test_todscpipeline_getiteminfo_num_items(items_info, exp_items,
     pipeline = todsc_pipeline_class()
     bib = bl_sierra_test_record('bib_no_items')
     bib = update_test_bib_inst(bib, items=items_info)
-    val = pipeline.get_item_info(bib, None)
+    val = pipeline.do(bib, None, ['item_info'])
     assert_json_matches_expected(val['items_json'], exp_items)
     if exp_more_items:
         assert val['has_more_items'] == 'true'
@@ -1339,7 +1385,7 @@ def test_todscpipeline_getiteminfo_requesting(items_info, expected_r,
     pipeline = todsc_pipeline_class()
     bib = bl_sierra_test_record('bib_no_items')
     bib = update_test_bib_inst(bib, items=items_info)
-    val = pipeline.get_item_info(bib, None)
+    val = pipeline.do(bib, None, ['item_info'])
     exp_items = [{'r': expected_r} for i in range(0, len(items_info))]
     assert_json_matches_expected(val['items_json'], exp_items[0:3])
     if val['more_items_json'] is not None:
@@ -1373,7 +1419,7 @@ def test_todscpipeline_getiteminfo_pseudo_items(bib_locations, bib_cn_info,
     loc_info = [{'code': code, 'name': name} for code, name in bib_locations]
     locations = get_or_make_location_instances(loc_info)
     bib = update_test_bib_inst(bib, varfields=bib_cn_info, locations=locations)
-    val = pipeline.get_item_info(bib, None)
+    val = pipeline.do(bib, None, ['item_info'])
     assert_json_matches_expected(val['items_json'], expected)
 
 
@@ -1502,7 +1548,7 @@ def test_todscpipeline_geturlsjson(fparams, items_info, expected,
     bibmarc.remove_fields('856', '962')
     bibmarc = add_marc_fields(bibmarc, params_to_fields(fparams))
     pipeline.bundle['id'] = '.b1'
-    val = pipeline.get_urls_json(bib, bibmarc)
+    val = pipeline.do(bib, bibmarc, ['urls_json'], False)
     assert_json_matches_expected(val['urls_json'], expected)
 
 
@@ -1573,7 +1619,7 @@ def test_todscpipeline_getthumbnailurl(fparams, expected_url,
     bibmarc = bibrecord_to_pymarc(bib)
     bibmarc.remove_fields('856', '962')
     bibmarc = add_marc_fields(bibmarc, params_to_fields(fparams))
-    val = pipeline.get_thumbnail_url(bib, bibmarc)
+    val = pipeline.do(bib, bibmarc, ['thumbnail_url'])
     assert val['thumbnail_url'] == expected_url
 
 
@@ -1824,17 +1870,20 @@ def test_todscpipeline_getpubinfo_dates(fparams, exp_pub_sort,
         fparams[0] = ('008', data)
         bibmarc.remove_fields('008')
     bibmarc = add_marc_fields(bibmarc, params_to_fields(fparams))
-    val = pipeline.get_pub_info(bib, bibmarc)
+    val = pipeline.do(bib, bibmarc, ['pub_info'])
     assert val['publication_sort'] == exp_pub_sort
     assert val['publication_year_display'] == exp_pub_year_display
-    assert len(val['publication_year_facet']) == len(exp_pub_year_facet)
-    assert len(val['publication_decade_facet']) == len(exp_pub_decade_facet)
-    assert len(val['publication_dates_search']) == len(exp_pub_dates_search)
-    for v in val['publication_year_facet']:
+    pub_year_facet = val['publication_year_facet'] or []
+    pub_decade_facet = val['publication_decade_facet'] or []
+    pub_dates_search = val['publication_dates_search'] or []
+    assert len(pub_year_facet) == len(exp_pub_year_facet)
+    assert len(pub_decade_facet) == len(exp_pub_decade_facet)
+    assert len(pub_dates_search) == len(exp_pub_dates_search)
+    for v in pub_year_facet:
         assert v in exp_pub_year_facet
-    for v in val['publication_decade_facet']:
+    for v in pub_decade_facet:
         assert v in exp_pub_decade_facet
-    for v in val['publication_dates_search']:
+    for v in pub_dates_search:
         assert v in exp_pub_dates_search
 
 
@@ -2023,7 +2072,7 @@ def test_todscpipeline_getpubinfo_statements(fparams, expected,
         fparams[0] = ('008', data)
         bibmarc.remove_fields('008')
     bibmarc = add_marc_fields(bibmarc, params_to_fields(fparams))
-    val = pipeline.get_pub_info(bib, bibmarc)
+    val = pipeline.do(bib, bibmarc, ['pub_info'])
     if len(expected.keys()) == 0:
         assert 'created_display' not in val.keys()
         assert 'publication_display' not in val.keys()
@@ -2119,12 +2168,12 @@ def test_todscpipeline_getpubinfo_pub_and_place_search(fparams, expected,
         fparams[0] = ('008', data)
         bibmarc.remove_fields('008')
     bibmarc = add_marc_fields(bibmarc, params_to_fields(fparams))
-    val = pipeline.get_pub_info(bib, bibmarc)
+    val = pipeline.do(bib, bibmarc, ['pub_info'])
     if len(expected.keys()) == 0:
         assert 'publication_places_search' not in val.keys()
         assert 'publishers_search' not in val.keys()
     for k, v in expected.items():
-        assert set(v) == set(val[k])
+        assert set(v) == set(val[k] or [])
 
 
 @pytest.mark.parametrize('bib_locations, item_locations, sup_item_locations,'
@@ -2317,10 +2366,10 @@ def test_todscpipeline_getaccessinfo(bib_locations, item_locations,
 
     bib = update_test_bib_inst(bib, items=items_info,
                                locations=bib_loc_instances)
-    val = pipeline.get_access_info(bib, None)
+    val = pipeline.do(bib, None, ['access_info'])
     print val
     for k, v in expected.items():
-        assert set(v) == set(val[k])
+        assert set(v) == set(val[k] or [])
 
 
 @pytest.mark.parametrize('bcode2, expected', [
@@ -2348,7 +2397,7 @@ def test_todscpipeline_getresourcetypeinfo(bcode2,
     pipeline = todsc_pipeline_class()
     bib = bl_sierra_test_record('bib_no_items')
     setattr_model_instance(bib, 'bcode2', bcode2)
-    val = pipeline.get_resource_type_info(bib, None)
+    val = pipeline.do(bib, None, ['resource_type_info'])
     for k, v in expected.items():
         assert v == val[k]
 
@@ -2356,10 +2405,10 @@ def test_todscpipeline_getresourcetypeinfo(bcode2,
 @pytest.mark.parametrize('f008_lang, raw_marcfields, expected', [
     # Edge cases -- empty / missing fields, etc.
     # No language info at all (no 008s, titles, or 041s)
-    ('', [], {}),
+    ('', [], {'languages': None, 'language_notes': None}),
 
     # 008 without valid cps 35-37
-    ('   ', [], {}),
+    ('   ', [], {'languages': None, 'language_notes': None}),
 
     # Main tests
     # Language info just from 008
@@ -2411,7 +2460,8 @@ def test_todscpipeline_getresourcetypeinfo(bcode2,
     ),
 
     # Ignore 041 if it uses something other than MARC relator codes
-    ('', ['041 07$aen$afr$ait$2iso639-1'], {}),
+    ('', ['041 07$aen$afr$ait$2iso639-1'],
+     {'languages': None, 'language_notes': None}),
 
     # Language info just from titles
     ('', ['130 0#$aBible.$pN.T.$pRomans.$lEnglish.$sRevised standard.',
@@ -2423,12 +2473,16 @@ def test_todscpipeline_getresourcetypeinfo(bcode2,
     ),
 
     # Language info from related titles is not used
-    ('', ['730 0#$aBible.$pO.T.$pJudges V.$lGerman$sGrether.'], {}),
+    ('', ['730 0#$aBible.$pO.T.$pJudges V.$lGerman$sGrether.'],
+     {'languages': None, 'language_notes': None}),
 
     # If there are 546s, those lang notes override generated ones
     ('hun', ['041 0#$ahun$bfre$bger$brus',
              '546 ##$aIn Hungarian; summaries in French, German, or Russian.'],
-     {'languages': ['Hungarian', 'French', 'German', 'Russian']}
+     {'languages': ['Hungarian', 'French', 'German', 'Russian'],
+      'language_notes': [
+        'In Hungarian; summaries in French, German, or Russian.'
+      ]}
     ),
 
     # Language info from combined sources
@@ -2486,11 +2540,8 @@ def test_todscpipeline_getlanguageinfo(f008_lang, raw_marcfields, expected,
     bibmarc.remove_fields('008', '041', '130', '240', '546', '700', '710',
                           '711', '730', '740')
     bibmarc = add_marc_fields(bibmarc, marcfields)
-    pipeline.get_title_info(bib, bibmarc)
-    info = pipeline.get_general_5xx_info(bib, bibmarc)
-    if info['language_notes']:
-        pipeline.bundle['language_notes'] = info['language_notes']
-    val = pipeline.get_language_info(bib, bibmarc)
+    fields_to_process = ['title_info', 'general_5xx_info', 'language_info']
+    val = pipeline.do(bib, bibmarc, fields_to_process)
     for k, v in val.items():
         print k, v
         if k in expected:
@@ -2498,12 +2549,6 @@ def test_todscpipeline_getlanguageinfo(f008_lang, raw_marcfields, expected,
                 assert sorted(v) == sorted(expected[k])
             else:
                 assert v == expected[k]
-        else:
-            assert v is None
-    if info['language_notes']:
-        pipeline = todsc_pipeline_class()
-        result = pipeline.do(bib, bibmarc)
-        assert result['language_notes']
 
 
 @pytest.mark.parametrize('fparams, expected', [
@@ -3263,7 +3308,7 @@ def test_todscpipeline_getcontributorinfo(fparams, expected,
     bibmarc.remove_fields('100', '110', '111', '700', '710', '711', '800',
                           '810', '811')
     bibmarc = add_marc_fields(bibmarc, params_to_fields(fparams))
-    val = pipeline.get_contributor_info(bib, bibmarc)
+    val = pipeline.do(bib, bibmarc, ['contributor_info'])
     for k, v in val.items():
         print k, v
         if k in expected:
@@ -6675,7 +6720,7 @@ def test_todscpipeline_gettitleinfo(fparams, expected, bl_sierra_test_record,
                           '245', '246', '247', '490', '700', '710', '711',
                           '730', '740', '800', '810', '811', '830')
     bibmarc = add_marc_fields(bibmarc, params_to_fields(fparams))
-    val = pipeline.get_title_info(bib, bibmarc)
+    val = pipeline.do(bib, bibmarc, ['title_info'])
     for k, v in val.items():
         print k, v
         if k in expected:
@@ -6868,7 +6913,7 @@ def test_todscpipeline_getgeneral3xxinfo(params_to_fields, add_marc_fields,
     fields = params_to_fields(exc_fields + inc_fields)
     marc = add_marc_fields(s2m.SierraMarcRecord(), fields)
     pipeline = todsc_pipeline_class()
-    results = pipeline.get_general_3xx_info(None, marc)
+    results = pipeline.do(None, marc, ['general_3xx_info'])
     assert set(results.keys()) == set(expected.keys())
     for k, v in results.items():
         assert v == expected[k]
@@ -6978,7 +7023,7 @@ def test_todscpipeline_getgeneral5xxinfo(params_to_fields, add_marc_fields,
     fields = params_to_fields(exc_fields + inc_fields)
     marc = add_marc_fields(s2m.SierraMarcRecord(), fields)
     pipeline = todsc_pipeline_class()
-    results = pipeline.get_general_5xx_info(None, marc)
+    results = pipeline.do(None, marc, ['general_5xx_info'])
     assert set(results.keys()) == set(expected.keys())
     for k, v in results.items():
         assert v == expected[k]
@@ -7075,7 +7120,7 @@ def test_todscpipeline_getcallnumberinfo(bib_cn_info, items_info, expected,
     pipeline = todsc_pipeline_class()
     bib = bl_sierra_test_record('bib_no_items')
     bib = update_test_bib_inst(bib, varfields=bib_cn_info, items=items_info)
-    val = pipeline.get_call_number_info(bib, None)
+    val = pipeline.do(bib, None, ['call_number_info'])
     for k, v in val.items():
         print k, v
         if k in expected:
@@ -7387,7 +7432,7 @@ def test_todscpipeline_getstandardnumberinfo(raw_marcfields, expected,
                           '030', '074', '088')
     marcfields = fieldstrings_to_fields(raw_marcfields)
     bibmarc = add_marc_fields(bibmarc, marcfields)
-    val = pipeline.get_standard_number_info(bib, bibmarc)
+    val = pipeline.do(bib, bibmarc, ['standard_number_info'])
     for k, v in val.items():
         print k, v
         if k in expected:
@@ -7746,7 +7791,7 @@ def test_todscpipeline_getcontrolnumberinfo(raw_marcfields, expected,
     bibmarc.remove_fields('001', '003', '010', '016', '035')
     marcfields = fieldstrings_to_fields(raw_marcfields)
     bibmarc = add_marc_fields(bibmarc, marcfields)
-    val = pipeline.get_control_number_info(bib, bibmarc)
+    val = pipeline.do(bib, bibmarc, ['control_number_info'])
     for k, v in val.items():
         print k, v
         if k in expected:
@@ -7852,7 +7897,7 @@ def test_todscpipeline_getgamesfacetsinfo(raw_marcfields, expected,
     marcfields = fieldstrings_to_fields(raw_marcfields)
     bibmarc = add_marc_fields(bibmarc, marcfields)
     pipeline = todsc_pipeline_class()
-    val = pipeline.get_games_facets_info(bib, bibmarc)
+    val = pipeline.do(bib, bibmarc, ['games_facets_info'])
     for k, v in val.items():
         print k, v
         if k in expected:
@@ -9680,7 +9725,7 @@ def test_todscpipeline_getsubjectsinfo(raw_marcfields, expected,
                           '692')
     marcfields = fieldstrings_to_fields(raw_marcfields)
     bibmarc = add_marc_fields(bibmarc, marcfields)
-    val = pipeline.get_subjects_info(bib, bibmarc)
+    val = pipeline.do(bib, bibmarc, ['subjects_info'])
     for k, v in val.items():
         print k, v
         if k in expected:
@@ -9746,7 +9791,7 @@ def test_todscpipeline_getrecordboost(this_year, pyears, pdecades, bib_type,
     pipeline.bundle['publication_decade_facet'] = pdecades
     pipeline.this_year = this_year
     setattr_model_instance(bib, 'bcode1', bib_type)
-    val = pipeline.get_record_boost(bib, bibmarc)
+    val = pipeline.do(bib, bibmarc, ['record_boost'], False)
     assert val['record_boost'] == expected
 
 

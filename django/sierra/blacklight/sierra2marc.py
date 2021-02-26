@@ -316,6 +316,68 @@ class MarcUtils(object):
             self.subject_sd_term_map)
 
 
+class MarcFieldGrouper(object):
+    """
+    Use this to parse a SierraMarcRecord object into pre-defined groups
+    based on (e.g.) MARC tag. This way, if you are doing a lot of
+    operations on a MARC record, where you are issuing a lot of
+    separate `get_fields` requests, you can pre-partition fields into
+    the needed groupings. Effectively, this means you loop over all
+    MARC fields in the record ONCE instead of with each call to
+    `get_fields`.
+
+    Note that the order of MARC fields from the record is retained, and
+    individual fields may appear in multiple groups.
+
+    To use, initialize an object by passing a dict of
+    `group_definitions`, where keys are group names and values are
+    lists or sets of MARC tags. Then call `make_groups`, passing a
+    SierraMarcRecord object whose fields you want to group. It will
+    return a dict where keys are group names and values are lists of
+    field objects.
+    """
+    def __init__(self, group_definitions):
+        self.group_definitions = group_definitions
+        self.inverse_definitions = self.invert_dict(group_definitions)
+
+    @classmethod
+    def invert_dict(cls, d):
+        """
+        Return an inverted dict (values are keys and vice-versa).
+        This handles original values that are strings or
+        list/tuple/sets. Each value in the return dict is a list, i.e.
+        the list of keys from the original dict that included a certain
+        value.
+
+        Use this to create a reverse lookup table.
+        """
+        inverse = {}
+        for key, val in d.items():
+            if isinstance(val, (list, tuple, set)):
+                for item in val:
+                    inverse[item] = inverse.get(item, [])
+                    inverse[item].append(key)
+            else:
+                inverse[val] = inverse.get(val, [])
+                inverse[val].append(key)
+        return inverse
+
+    def make_groups(self, marc_record):
+        """
+        Return a dict of groups => MARC fields, based on this object's
+        group_definitions, for the given `marc_record`.
+        """
+        registry, groups = set(), {}
+        for f in marc_record.fields:
+            for tag in (f.tag, f.group_tag, f.full_tag):
+                for groupname in self.inverse_definitions.get(tag, []):
+                    if (f, groupname) not in registry:
+                        groups[groupname] = groups.get(groupname, [])
+                        groups[groupname].append(f)
+                        registry.add((f, groupname))
+        return groups
+
+
 class SequentialMarcFieldParser(object):
     """
     Parse a pymarc Field obj by parsing subfields sequentially.
@@ -2250,6 +2312,37 @@ class ToDiscoverPipeline(object):
         'language_info', 'record_boost', 'included_works_linking_fields',
         'series_linking_fields', 'other_linking_fields'
     ]
+    marc_grouper = MarcFieldGrouper({
+        '008': set(['008']),
+        'control_numbers': set(['001', '003', '010', '016', '035']),
+        'standard_numbers': set(['020', '022', '024', '025', '026', '027',
+                                 '028', '030', '074', '088']),
+        'language_code': set(['041']),
+        'coded_dates': set(['046']),
+        'main_author': set(['100', '110', '111']),
+        'uniform_title': set(['130', '240', '243']),
+        'transcribed_title': set(['245']),
+        'alternate_title': set(['242', '246', '247']),
+        'publication': set(['260', '264']),
+        'dates_of_publication': set(['362']),
+        'physical_description': set(['r', '310', '321', '340', '342', '343',
+                                     '344', '345', '346', '347', '352', '382']),
+        'series_statement': set(['490']),
+        'notes': set(['n', '502', '505', '508', '511', '520', '546', '583']),
+        'local_game_note': set(['592']),
+        'subject_genre': set(['600', '610', '611', '630', '647', '648', '650',
+                              '651', '653', '655', '656', '657', '690', '691',
+                              '692']),
+        'title_added_entry': set(['700', '710', '711', '730', '740']),
+        'linking_series': set(['760', '762']),
+        'linking_constituent_unit': set(['774']),
+        'linking_serial_continuity': set(['780', '785']),
+        'linking_related_resources': set(['765', '767', '770', '772', '773',
+                                          '776', '777',  '786', '787']),
+        'series_added_entry': set(['800', '810', '811', '830']),
+        'url': set(['856']),
+        'media_link': set(['962']),
+    })
     prefix = 'get_'
     access_online_label = 'Online'
     access_physical_label = 'At the Library'
@@ -2266,6 +2359,9 @@ class ToDiscoverPipeline(object):
         self.name_titles = []
         self.title_languages = []
         self.this_year = datetime.now().year
+        self.r = None
+        self.marc_record = None
+        self.marc_fieldgroups = None
 
     @property
     def sierra_location_labels(self):
@@ -2277,31 +2373,49 @@ class ToDiscoverPipeline(object):
                 self._sierra_location_labels[loc.code] = loc_name
         return self._sierra_location_labels
 
-    def do(self, r, marc_record):
+    def set_up(self, r=None, marc_record=None, reset_params=True):
+        if reset_params:
+            self.bundle = {}
+            self.name_titles = []
+            self.title_languages = []
+        if self.marc_record != marc_record:
+            self.marc_record = marc_record
+            if marc_record:
+                groups = self.marc_grouper.make_groups(marc_record)
+                self.marc_fieldgroups = groups
+        if self.r != r:
+            self.r = r
+
+    def do(self, r, marc_record, fields=None, reset_params=True):
         """
+        This is the "main" method for objects of this class. Use this
+        to run any data through the pipeline (or part of the pipeline).
+
         Provide `r`, a base.models.BibRecord instance, and
         `marc_record`, a pymarc Record object (both representing the
-        same record). Passes these parameters through each method
-        in the `fields` class attribute and returns a dict composed of
-        all keys returned by the individual methods.
+        same record). Runs each method identified via `fields` and
+        returns a dict composed of all keys returned by the individual
+        methods.
+
+        If `fields` is not provided, it uses the `fields` class
+        attribute by default, i.e. the entire pipeline.
         """
-        self.bundle = {}
-        self.name_titles = []
-        self.title_languages = []
-        for fname in self.fields:
+        self.set_up(r=r, marc_record=marc_record, reset_params=reset_params)
+        for fname in (fields or self.fields):
             method_name = '{}{}'.format(self.prefix, fname)
             # Uncomment this block and comment out the following line
             # to force the record ID for records that are causing
             # errors to be output, at the expense of the traceback.
             # try:
-            #     result = getattr(self, method_name)(r, marc_record)
+            #     result = getattr(self, method_name)()
             # except Exception as e:
             #     msg = '{}: {}'.format(self.bundle['id'], e)
             #     raise Exception(msg)
-            result = getattr(self, method_name)(r, marc_record)
+            result = getattr(self, method_name)()
             for k, v in result.items():
+                self.bundle[k] = self.bundle.get(k)
                 if v:
-                    if k in self.bundle and self.bundle[k]:
+                    if self.bundle[k]:
                         self.bundle[k].extend(v)
                     else:
                         self.bundle[k] = v
@@ -2323,19 +2437,19 @@ class ToDiscoverPipeline(object):
             return [vf.field_content for vf in vfields]
         return None
 
-    def get_id(self, r, marc_record):
+    def get_id(self):
         """
         Return the III Record Number, minus the check digit.
         """
-        return { 'id': r.record_metadata.get_iii_recnum(False) }
+        return { 'id': self.r.record_metadata.get_iii_recnum(False) }
 
-    def get_suppressed(self, r, marc_record):
+    def get_suppressed(self):
         """
         Return 'true' if the record is suppressed, else 'false'.
         """
-        return { 'suppressed': 'true' if r.is_suppressed else 'false' }
+        return { 'suppressed': 'true' if self.r.is_suppressed else 'false' }
 
-    def get_date_added(self, r, marc_record):
+    def get_date_added(self):
         """
         Return a date that most closely approximates when the record
         was added to the catalog. E-resources (where all bib locations
@@ -2343,6 +2457,7 @@ class ToDiscoverPipeline(object):
         use the CAT DATE (cataloged date) of the Bib record. Dates are
         converted to the string format needed by Solr.
         """
+        r = self.r
         if all((l.code.endswith('www') for l in r.locations.all())):
             cdate = r.record_metadata.creation_date_gmt
         else:
@@ -2350,11 +2465,12 @@ class ToDiscoverPipeline(object):
         rval = None if cdate is None else cdate.strftime('%Y-%m-%dT%H:%M:%SZ')
         return { 'date_added': rval }
 
-    def get_item_info(self, r, marc_record):
+    def get_item_info(self):
         """
         Return a dict containing item table information: `items_json`,
         `has_more_items`, and `more_items_json`.
         """
+        r = self.r
         items = []
         item_links = [l for l in r.bibrecorditemrecordlink_set.all()]
         for link in sorted(item_links, key=lambda l: l.items_display_order):
@@ -2431,13 +2547,13 @@ class ToDiscoverPipeline(object):
     def _sanitize_url(self, url):
         return re.sub(r'^([^"]+).*$', r'\1', url)
 
-    def get_urls_json(self, r, marc_record):
+    def get_urls_json(self):
         """
         Return a JSON string representing URLs associated with the
         given record.
         """
         urls_data = []
-        for f856 in marc_record.get_fields('856'):
+        for f856 in self.marc_fieldgroups.get('url', []):
             url = f856.get_subfields('u')
             if url:
                 url = self._sanitize_url(url[0])
@@ -2448,7 +2564,7 @@ class ToDiscoverPipeline(object):
                 urls_data.append({'u': url, 'n': note, 'l': label,
                                   't': utype})
 
-        for i, f962 in enumerate(marc_record.get_fields('962')):
+        for i, f962 in enumerate(self.marc_fieldgroups.get('media_link', [])):
             urls = f962.get_subfields('u')
             if urls:
                 url, utype = urls[0], 'media'
@@ -2462,10 +2578,10 @@ class ToDiscoverPipeline(object):
 
         urls_json = []
         for ud in urls_data:
-            ud['t'] = self.review_url_type(ud, len(urls_data), r)
+            ud['t'] = self.review_url_type(ud, len(urls_data), self.r)
             urls_json.append(ujson.dumps(ud))
 
-        return { 'urls_json': urls_json }
+        return {'urls_json': urls_json}
 
     def _url_is_image(self, url):
         """
@@ -2542,13 +2658,15 @@ class ToDiscoverPipeline(object):
             return 'fulltext'
         return url_data['t']
 
-    def get_thumbnail_url(self, r, marc_record):
+    def get_thumbnail_url(self):
         """
         Try finding a (local) thumbnail URL for this bib record. If it
         exists, it will either be from a cover image scanned by the
         Media Library, or it will be from the Digital Library or
         Portal.
         """
+        f856s = self.marc_fieldgroups.get('url', [])
+        f962s = self.marc_fieldgroups.get('media_link', [])
         def _try_media_cover_image(f962s):
             for f962 in f962s:
                 urls = f962.get_subfields('u')
@@ -2566,8 +2684,8 @@ class ToDiscoverPipeline(object):
                     url = re.sub(r'^http:', 'https:', url)
                     return '{}/small/'.format(url)
 
-        url = _try_media_cover_image(marc_record.get_fields('962')) or\
-              _try_digital_library_image(marc_record.get_fields('856')) or\
+        url = _try_media_cover_image(f962s) or\
+              _try_digital_library_image(f856s) or\
               None
 
         return {'thumbnail_url': url}
@@ -2723,7 +2841,7 @@ class ToDiscoverPipeline(object):
                 search_pdates.add(self._format_years_for_display(year))
         return (list(facet_years), list(facet_decades), list(search_pdates))
 
-    def get_pub_info(self, r, marc_record):
+    def get_pub_info(self):
         """
         Get and handle all the needed publication and related info for
         the given bib and marc record.
@@ -2736,7 +2854,7 @@ class ToDiscoverPipeline(object):
 
         pub_info, described_years, places, publishers = {}, set(), set(), set()
         publication_date_notes = []
-        for f26x in marc_record.get_fields('260', '264'):
+        for f26x in self.marc_fieldgroups.get('publication', []):
             years = pull_from_subfields(f26x, 'cg', p.extract_years)
             described_years |= set(years)
             for stype, stext in self._extract_pub_statements_from_26x(f26x):
@@ -2751,7 +2869,7 @@ class ToDiscoverPipeline(object):
                 pub = p.strip_ends(pub)
                 publishers.add(p.strip_outer_parentheses(pub, True))
 
-        for f362 in marc_record.get_fields('362'):
+        for f362 in self.marc_fieldgroups.get('dates_of_publication', []):
             formatted_date = ' '.join(f362.get_subfields('a'))
             years = p.extract_years(formatted_date)
             described_years |= set(years)
@@ -2762,14 +2880,14 @@ class ToDiscoverPipeline(object):
                 publication_date_notes.append(f362.format_field())
 
         coded_dates = []
-        f008 = (marc_record.get_fields('008') or [None])[0]
+        f008 = self.marc_fieldgroups.get('008', [None])[0]
         if f008 is not None and len(f008.data) >= 15:
             data = f008.data
             entries = self._interpret_coded_date(data[6], data[7:11],
                                                  data[11:15])
             coded_dates.extend(entries)
 
-        for field in marc_record.get_fields('046'):
+        for field in self.marc_fieldgroups.get('coded_dates', []):
             coded_group = group_subfields(field, 'abcde', unique='abcde')
             if coded_group:
                 dtype = (coded_group[0].get_subfields('a') or [''])[0]
@@ -2821,7 +2939,8 @@ class ToDiscoverPipeline(object):
         })
         return ret_val
 
-    def get_access_info(self, r, marc_record):
+    def get_access_info(self):
+        r = self.r
         accessf, buildingf, shelff, collectionf = set(), set(), set(), set()
 
         # Note: We only consider bib locations if the bib record has no
@@ -2861,8 +2980,8 @@ class ToDiscoverPipeline(object):
             'collection_facet': list(collectionf),
         }
 
-    def get_resource_type_info(self, r, marc_record):
-        rtype_info = self.bib_rules['resource_type'].evaluate(r)
+    def get_resource_type_info(self):
+        rtype_info = self.bib_rules['resource_type'].evaluate(self.r)
         return {
             'resource_type': rtype_info['resource_type'],
             'resource_type_facet': rtype_info['resource_type_categories'],
@@ -3183,32 +3302,31 @@ class ToDiscoverPipeline(object):
                     self.title_languages.extend(title.get('languages', []))
         return entry
 
-    def parse_nonsubject_name_titles(self, marc_record):
+    def parse_nonsubject_name_titles(self):
         if self.name_titles:
             for entry in self.name_titles:
                 yield entry
         else:
             entry = {'names': [], 'title': None}
-            for f in marc_record.get_fields('100', '110', '111'):
+            for f in self.marc_fieldgroups.get('main_author', []):
                 entry = self.parse_nametitle_field(f, try_title=False)
                 break
 
-            for f in marc_record.get_fields('130', '240', '243'):
+            for f in self.marc_fieldgroups.get('uniform_title', []):
                 entry = self.parse_nametitle_field(f, names=entry['names'])
                 break
 
             self.name_titles = [entry]
             yield entry
 
-            added_fields = marc_record.get_fields('700', '710', '711', '730',
-                                                  '740', '800', '810', '811',
-                                                  '830')
-            for f in added_fields:
+            title_added = self.marc_fieldgroups.get('title_added_entry', [])
+            series_added = self.marc_fieldgroups.get('series_added_entry', [])
+            for f in (title_added + series_added):
                 entry = self.parse_nametitle_field(f)
                 self.name_titles.append(entry)
                 yield entry
 
-    def get_contributor_info(self, r, marc_record):
+    def get_contributor_info(self):
         """
         This is responsible for using the 100, 110, 111, 700, 710, 711,
         800, 810, and 811 to determine the entirety of author,
@@ -3221,7 +3339,7 @@ class ToDiscoverPipeline(object):
         a_sort = None
         headings_set = set()
 
-        for entry in self.parse_nonsubject_name_titles(marc_record):
+        for entry in self.parse_nonsubject_name_titles():
             for name in entry['names']:
                 compiled = name['compiled']
                 field = name['field']
@@ -3489,7 +3607,7 @@ class ToDiscoverPipeline(object):
                 if heading and p.sor_matches_name_heading(sor, heading):
                     return name
 
-    def get_title_info(self, r, marc_record):
+    def get_title_info(self):
         """
         This is responsible for using the 130, 240, 242, 243, 245, 246,
         247, 490, 700, 710, 711, 730, 740, 800, 810, 811, and 830 to
@@ -3506,7 +3624,7 @@ class ToDiscoverPipeline(object):
         responsibility_display, responsibility_search = '', []
         hold_740s = []
 
-        name_titles = self.parse_nonsubject_name_titles(marc_record)
+        name_titles = self.parse_nonsubject_name_titles()
         analyzed_name_titles = self.analyze_name_titles(name_titles)
         num_iw_authors = analyzed_name_titles['num_included_works_authors']
         num_cont_at = analyzed_name_titles['num_controlled_analytic_titles']
@@ -3544,7 +3662,7 @@ class ToDiscoverPipeline(object):
                     title_series_facet.extend(facet_vals)
 
         f245, parsed_245 = None, {}
-        for f in marc_record.get_fields('245'):
+        for f in self.marc_fieldgroups.get('transcribed_title', []):
             f245 = f
             parsed_245 = TranscribedTitleParser(f).parse()
             break
@@ -3619,7 +3737,7 @@ class ToDiscoverPipeline(object):
                 title_series_facet.extend(entry['fvals'])
                 title_keys[entry['title_type']].add(entry['title_key'])
 
-        for f in marc_record.get_fields('242', '246', '247'):
+        for f in self.marc_fieldgroups.get('alternate_title', []):
             parsed = TranscribedTitleParser(f).parse()
             f246_add_notes = f.tag == '246' and f.indicator1 in ('01')
             f247_add_notes = f.tag == '247' and f.indicator2 == '0'
@@ -3641,7 +3759,7 @@ class ToDiscoverPipeline(object):
                     if vtitle['responsibility'] not in responsibility_search:
                         responsibility_search.append(vtitle['responsibility'])
 
-        for f in marc_record.get_fields('490'):
+        for f in self.marc_fieldgroups.get('series_statement', []):
             if f.indicator1 == '0':
                 pre, end = '', []
                 parsed = TranscribedTitleParser(f).parse()
@@ -3754,7 +3872,7 @@ class ToDiscoverPipeline(object):
                 final_render = ' '.join(('({})'.format(ms_render), final_render))
             return ''.join([final_render[0].upper(), final_render[1:]])
 
-    def get_general_3xx_info(self, r, marc_record):
+    def get_general_3xx_info(self):
         def join_subfields_with_semicolons(field, sf_filter):
             return GenericDisplayFieldParser(field, '; ', sf_filter).parse()
 
@@ -3762,7 +3880,11 @@ class ToDiscoverPipeline(object):
             parsed = PerformanceMedParser(field).parse()
             return self.compile_performance_medium(parsed)
 
-        record_parser = MultiFieldMarcRecordParser(marc_record, (
+        f3xxs = self.marc_fieldgroups.get('physical_description', [])
+        marc_stub_rec = SierraMarcRecord(force_utf8=True)
+        marc_stub_rec.add_field(*f3xxs)
+
+        record_parser = MultiFieldMarcRecordParser(marc_stub_rec, (
             ('current_publication_frequency', {
                 'fields': {'include': ('310',)}
             }),
@@ -3811,7 +3933,7 @@ class ToDiscoverPipeline(object):
         ), utils=self.utils)
         return record_parser.parse()
 
-    def get_general_5xx_info(self, r, marc_record):
+    def get_general_5xx_info(self):
         def join_subfields_with_spaces(field, sf_filter):
             return GenericDisplayFieldParser(field, ' ', sf_filter).parse()
 
@@ -3894,7 +4016,11 @@ class ToDiscoverPipeline(object):
                 )
             return join_subfields_with_spaces(field, sf_filter)
 
-        record_parser = MultiFieldMarcRecordParser(marc_record, (
+        f5xxs = self.marc_fieldgroups.get('notes', [])
+        marc_stub_rec = SierraMarcRecord(force_utf8=True)
+        marc_stub_rec.add_field(*f5xxs)
+
+        record_parser = MultiFieldMarcRecordParser(marc_stub_rec, (
             ('toc_notes', {
                 'fields': {'include': ('505',)}
             }),
@@ -3929,7 +4055,7 @@ class ToDiscoverPipeline(object):
         ), utils=self.utils)
         return record_parser.parse()
 
-    def get_call_number_info(self, r, marc_record):
+    def get_call_number_info(self):
         """
         Return a dict containing information about call numbers and
         sudoc numbers to load into Solr fields. Note that bib AND item
@@ -3938,9 +4064,9 @@ class ToDiscoverPipeline(object):
         call_numbers_display, call_numbers_search = [], []
         sudocs_display, sudocs_search = [], []
 
-        call_numbers = r.get_call_numbers() or []
+        call_numbers = self.r.get_call_numbers() or []
 
-        item_links = [l for l in r.bibrecorditemrecordlink_set.all()]
+        item_links = [l for l in self.r.bibrecorditemrecordlink_set.all()]
         for link in sorted(item_links, key=lambda l: l.items_display_order):
             item = link.item_record
             if not item.is_suppressed:
@@ -3963,14 +4089,12 @@ class ToDiscoverPipeline(object):
             'sudocs_search': sudocs_search or None,
         }
 
-    def get_standard_number_info(self, r, marc_record):
+    def get_standard_number_info(self):
         isbns_display, issns_display, others_display, search = [], [], [], []
         isbns, issns = [], []
         all_standard_numbers = []
 
-        standard_num_fields = ('020', '022', '024', '025', '026', '027', '028',
-                               '030', '074', '088')
-        for f in marc_record.get_fields(*standard_num_fields):
+        for f in self.marc_fieldgroups.get('standard_numbers', []):
             for p in StandardControlNumberParser(f).parse():
                 nums = [p[k] for k in ('normalized', 'number') if k in p]
                 for num in nums:
@@ -4014,7 +4138,7 @@ class ToDiscoverPipeline(object):
                 'display_val': format_number_display_val(p)
             }
 
-    def get_control_number_info(self, r, marc_record):
+    def get_control_number_info(self):
         disp = {'lccn': [], 'oclc': [], 'others': []}
         num = {'lccn': [], 'oclc': [], 'all': []}
         search = []
@@ -4036,8 +4160,7 @@ class ToDiscoverPipeline(object):
             return display, numbers, search
 
         deferred = {}
-        control_num_tags = ('001', '003', '010', '016', '035')
-        for f in marc_record.get_fields(*control_num_tags):
+        for f in self.marc_fieldgroups.get('control_numbers', []):
             if f.tag in ('001', '003'):
                 deferred[f.tag] = f.data
             else:
@@ -4075,7 +4198,7 @@ class ToDiscoverPipeline(object):
             'all_control_numbers': num['all'] or None
         }
 
-    def get_games_facets_info(self, r, marc_record):
+    def get_games_facets_info(self):
         """
         This maps values from a local notes field in the MARC (592) to
         a set of games-related facets, based on presence of a Media
@@ -4211,8 +4334,8 @@ class ToDiscoverPipeline(object):
                 upper=UpperBound(99, False)
             )
         }
-        if any([loc.code.startswith('czm') for loc in r.locations.all()]):
-            f592s = marc_record.get_fields('592')
+        if any([loc.code.startswith('czm') for loc in self.r.locations.all()]):
+            f592s = self.marc_fieldgroups.get('local_game_note', [])
             for ttype, start, end in parse_each_592_token(f592s):
                 renderer = renderers.get(ttype)
                 if renderer:
@@ -4483,7 +4606,7 @@ class ToDiscoverPipeline(object):
             'is_genre': is_genre,
         }
 
-    def get_subjects_info(self, r, marc_record):
+    def get_subjects_info(self):
         """
         This extracts all subject and genre headings from relevant 6XX
         fields and generates data for all Solr subject and genre
@@ -4501,9 +4624,7 @@ class ToDiscoverPipeline(object):
         hf_sets = {'subjects': set(), 'genres': set()}
         f_sets = {'topic': set(), 'era': set(), 'region': set(), 'genre': set()}
 
-        sg_field_tags = ('600', '610', '611', '630', '647', '648', '650', '651',
-                         '653', '655', '656', '657', '690', '691', '692')
-        for f in marc_record.get_fields(*sg_field_tags):
+        for f in self.marc_fieldgroups.get('subject_genre', []):
             compiled = self.parse_and_compile_subject_field(f)
             heading = compiled['heading']
             ftype_key = 'genres' if compiled['is_genre'] else 'subjects'
@@ -4555,7 +4676,7 @@ class ToDiscoverPipeline(object):
             'genres_search_all_terms': g_search['all'] or None,
         }
 
-    def get_language_info(self, r, marc_record):
+    def get_language_info(self):
         """
         Collect all relevant language information from the record
         (including the 008[35-37], the 041(s), and languages associated
@@ -4569,7 +4690,7 @@ class ToDiscoverPipeline(object):
         categorized = {'a': OrderedDict()}
         tlangs = self.title_languages
 
-        f008 = (marc_record.get_fields('008') or [None])[0]
+        f008 = self.marc_fieldgroups.get('008', [None])[0]
         if f008 is not None and len(f008.data) >= 38:
             lang_code = f008.data[35:38]
             main_lang = settings.MARCDATA.LANGUAGE_CODES.get(lang_code)
@@ -4581,7 +4702,7 @@ class ToDiscoverPipeline(object):
             all_languages[lang] = None
             categorized['a'][lang] = None
 
-        for f in marc_record.get_fields('041'):
+        for f in self.marc_fieldgroups.get('language_code', []):
             parsed = LanguageParser(f).parse()
             for lang in parsed['languages']:
                 all_languages[lang] = None
@@ -4600,7 +4721,7 @@ class ToDiscoverPipeline(object):
             'language_notes': notes or None,
         }
 
-    def get_record_boost(self, r, marc_record):
+    def get_record_boost(self):
         """
         Generate the value for a numeric field (`record_boost`) based
         on, presently, two factors. One, publication year, as a measure
@@ -4648,10 +4769,10 @@ class ToDiscoverPipeline(object):
 
         boost = find_good_boost(self.this_year, pub_years, are_decades)
         pub_boost = 460 if boost is None else boost
-        q_boost = 500 if r.bcode1 in ('-', 'd') else 0
+        q_boost = 500 if self.r.bcode1 in ('-', 'd') else 0
         return {'record_boost': str(pub_boost + q_boost)}
 
-    def get_included_works_linking_fields(self, r, marc_record):
+    def get_included_works_linking_fields(self):
         """
         Generate additional Included Works for 774 linking fields.
         """
@@ -4661,7 +4782,7 @@ class ToDiscoverPipeline(object):
             'title_series_facet': None
         }
 
-    def get_series_linking_fields(self, r, marc_record):
+    def get_series_linking_fields(self):
         """
         Generate additional Related Series for 760-762 linking fields.
         """
@@ -4671,7 +4792,7 @@ class ToDiscoverPipeline(object):
             'title_series_facet': None
         }
 
-    def get_other_linking_fields(self, r, marc_record):
+    def get_other_linking_fields(self):
         """
         Generate linking field display data for 76X-78X, minus 760-762
         and 774 (which are handled as Series and Included Works,
