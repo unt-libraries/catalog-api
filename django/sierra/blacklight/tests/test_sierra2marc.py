@@ -112,8 +112,12 @@ def assert_json_matches_expected():
     `exp_dicts` are equivalent. Tests to make sure each key/val pair
     in each of exp_dicts is found in the corresponding `json_strs`
     obj.
+
+    Pass True for `complete` if you want to make sure all values in
+    each of `json_strs` is in `exp_dict`. (Pass False if it's okay for
+    each of `json_strs` to have values not in `exp_dicts`.)
     """
-    def _assert_json_matches_expected(json_strs, exp_dicts, exact=False):
+    def _assert_json_matches_expected(json_strs, exp_dicts, complete=True):
         json_strs = json_strs or []
         exp_dicts = exp_dicts or []
         if not isinstance(json_strs, (list, tuple)):
@@ -123,11 +127,50 @@ def assert_json_matches_expected():
         assert len(json_strs) == len(exp_dicts)
         for json, exp_dict in zip(json_strs, exp_dicts):
             cmp_dict = ujson.loads(json)
-            for key in exp_dict.keys():
-                assert cmp_dict[key] == exp_dict[key]
-            if exact:
-                assert set(cmp_dict.keys()) == set(exp_dict.keys())
+            assert len(set(exp_dict.keys()) - set(cmp_dict.keys())) == 0
+            for k, v in cmp_dict.items():
+                if k in exp_dict:
+                    assert v == exp_dict[k]
+                elif complete:
+                    assert v is None
     return _assert_json_matches_expected
+
+
+@pytest.fixture
+def assert_bundle_matches_expected(assert_json_matches_expected):
+    """
+    Pytest fixture for asserting that a `bundle` dict resulting from
+    running a ToDiscoverPipeline process matches an `expected` dict of
+    values.
+
+    Use kwargs to control how much to check and match:
+        - `bundle_complete`: If True, then keys in `bundle` that aren't
+          in `expected` must be None in order to pass. If False, then
+          keys in `bundle` not in `expected` are ignored.
+        - `json_complete`: Same as `bundle_complete`, but for JSON
+          values within `bundle` and `expected`.
+        - `list_order_exact`: If True, then non-JSON list items within
+          `bundle` must appear in the same order as in `expected` to
+          pass; otherwise, order does not matter.
+    """
+    def _assert_bundle_matches_expected(bundle, expected, bundle_complete=True,
+                                        json_complete=True,
+                                        list_order_exact=True):
+        # `expected` should never have keys that are not in `bundle`
+        assert len(set(expected.keys()) - set(bundle.keys())) == 0
+        for k, v in bundle.items():
+            print('{} => {}'.format(k, v))
+            if k in expected:
+                if k.endswith('_json'):
+                    assert_json_matches_expected(v, expected[k],
+                                                 complete=json_complete)
+                elif isinstance(v, list) and not list_order_exact:
+                    assert sorted(v) == sorted(expected[k])
+                else:
+                    assert v == expected[k]
+            elif bundle_complete:
+                assert v is None
+    return _assert_bundle_matches_expected
 
 
 @pytest.fixture
@@ -1227,7 +1270,7 @@ def test_todscpipeline_getiteminfo_callnum_vol(bib_cn_info, items_info,
     bib = update_test_bib_inst(bib, varfields=bib_cn_info, items=items_info)
     val = pipeline.do(bib, None, ['item_info'])
     expected = [{'c': cn, 'v': vol} for cn, vol in expected]
-    assert_json_matches_expected(val['items_json'], expected)
+    assert_json_matches_expected(val['items_json'], expected, complete=False)
 
 
 @pytest.mark.parametrize('items_info, expected', [
@@ -1261,7 +1304,7 @@ def test_todscpipeline_getiteminfo_bcodes_notes(items_info, expected,
     bib = bl_sierra_test_record('bib_no_items')
     bib = update_test_bib_inst(bib, items=items_info)
     val = pipeline.do(bib, None, ['item_info'])
-    assert_json_matches_expected(val['items_json'], expected)
+    assert_json_matches_expected(val['items_json'], expected, complete=False)
 
 
 @pytest.mark.parametrize('items_info, exp_items, exp_more_items', [
@@ -1326,10 +1369,11 @@ def test_todscpipeline_getiteminfo_num_items(items_info, exp_items,
     bib = bl_sierra_test_record('bib_no_items')
     bib = update_test_bib_inst(bib, items=items_info)
     val = pipeline.do(bib, None, ['item_info'])
-    assert_json_matches_expected(val['items_json'], exp_items)
+    assert_json_matches_expected(val['items_json'], exp_items, complete=False)
     if exp_more_items:
         assert val['has_more_items'] == 'true'
-        assert_json_matches_expected(val['more_items_json'], exp_more_items)
+        assert_json_matches_expected(val['more_items_json'], exp_more_items,
+                                     complete=False)
     else:
         assert val['has_more_items'] == 'false'
         assert val['more_items_json'] is None
@@ -1387,9 +1431,11 @@ def test_todscpipeline_getiteminfo_requesting(items_info, expected_r,
     bib = update_test_bib_inst(bib, items=items_info)
     val = pipeline.do(bib, None, ['item_info'])
     exp_items = [{'r': expected_r} for i in range(0, len(items_info))]
-    assert_json_matches_expected(val['items_json'], exp_items[0:3])
+    assert_json_matches_expected(val['items_json'], exp_items[0:3],
+                                 complete=False)
     if val['more_items_json'] is not None:
-        assert_json_matches_expected(val['more_items_json'], exp_items[3:])
+        assert_json_matches_expected(val['more_items_json'], exp_items[3:],
+                                     complete=False)
 
 
 @pytest.mark.parametrize('bib_locations, bib_cn_info, expected', [
@@ -1549,7 +1595,7 @@ def test_todscpipeline_geturlsjson(fparams, items_info, expected,
     bibmarc = add_marc_fields(bibmarc, params_to_fields(fparams))
     pipeline.bundle['id'] = '.b1'
     val = pipeline.do(bib, bibmarc, ['urls_json'], False)
-    assert_json_matches_expected(val['urls_json'], expected)
+    assert_json_matches_expected(val['urls_json'], expected, complete=False)
 
 
 @pytest.mark.parametrize('fparams, expected_url', [
@@ -1855,7 +1901,8 @@ def test_todscpipeline_getpubinfo_dates(fparams, exp_pub_sort,
                                         bl_sierra_test_record,
                                         todsc_pipeline_class,
                                         bibrecord_to_pymarc, params_to_fields,
-                                        add_marc_fields):
+                                        add_marc_fields,
+                                        assert_bundle_matches_expected):
     """
     ToDiscoverPipeline.get_pub_info should return date-string fields
     matching the expected parameters.
@@ -1870,21 +1917,16 @@ def test_todscpipeline_getpubinfo_dates(fparams, exp_pub_sort,
         fparams[0] = ('008', data)
         bibmarc.remove_fields('008')
     bibmarc = add_marc_fields(bibmarc, params_to_fields(fparams))
-    val = pipeline.do(bib, bibmarc, ['pub_info'])
-    assert val['publication_sort'] == exp_pub_sort
-    assert val['publication_year_display'] == exp_pub_year_display
-    pub_year_facet = val['publication_year_facet'] or []
-    pub_decade_facet = val['publication_decade_facet'] or []
-    pub_dates_search = val['publication_dates_search'] or []
-    assert len(pub_year_facet) == len(exp_pub_year_facet)
-    assert len(pub_decade_facet) == len(exp_pub_decade_facet)
-    assert len(pub_dates_search) == len(exp_pub_dates_search)
-    for v in pub_year_facet:
-        assert v in exp_pub_year_facet
-    for v in pub_decade_facet:
-        assert v in exp_pub_decade_facet
-    for v in pub_dates_search:
-        assert v in exp_pub_dates_search
+    bundle = pipeline.do(bib, bibmarc, ['pub_info'])
+    expected = {
+        'publication_sort': exp_pub_sort or None,
+        'publication_year_display': exp_pub_year_display or None,
+        'publication_year_facet': exp_pub_year_facet or None,
+        'publication_decade_facet': exp_pub_decade_facet or None,
+        'publication_dates_search': exp_pub_dates_search or None
+    }
+    assert_bundle_matches_expected(bundle, expected, bundle_complete=False,
+                                   list_order_exact=False)
 
 
 @pytest.mark.parametrize('fparams, expected', [
@@ -2057,7 +2099,8 @@ def test_todscpipeline_getpubinfo_statements(fparams, expected,
                                              bl_sierra_test_record,
                                              todsc_pipeline_class,
                                              bibrecord_to_pymarc,
-                                             params_to_fields, add_marc_fields):
+                                             params_to_fields, add_marc_fields,
+                                             assert_bundle_matches_expected):
     """
     ToDiscoverPipeline.get_pub_info should return display statement
     fields matching the expected parameters.
@@ -2072,15 +2115,12 @@ def test_todscpipeline_getpubinfo_statements(fparams, expected,
         fparams[0] = ('008', data)
         bibmarc.remove_fields('008')
     bibmarc = add_marc_fields(bibmarc, params_to_fields(fparams))
-    val = pipeline.do(bib, bibmarc, ['pub_info'])
-    if len(expected.keys()) == 0:
-        assert 'created_display' not in val.keys()
-        assert 'publication_display' not in val.keys()
-        assert 'distribution_display' not in val.keys()
-        assert 'manufacture_display' not in val.keys()
-        assert 'copyright_display' not in val.keys()
-    for k, v in expected.items():
-        assert v == val[k]
+    bundle = pipeline.do(bib, bibmarc, ['pub_info'])
+    disp_fields = set(['creation_display', 'publication_display',
+                       'distribution_display', 'manufacture_display',
+                       'copyright_display', 'publication_date_notes'])
+    check_bundle = {k: v for k, v in bundle.items() if k in disp_fields}
+    assert_bundle_matches_expected(check_bundle, expected)
 
 
 @pytest.mark.parametrize('fparams, expected', [
@@ -2129,12 +2169,8 @@ def test_todscpipeline_getpubinfo_statements(fparams, expected,
       'publishers_search': ['Producer', 'Publisher', 'Manufacturer']}),
     ([('008', 's2004    '),
       ('260', ['c', '2004.']),
-      ('264', ['c', '2004.'], ' 4')],
-     {'publication_places_search': [],
-      'publishers_search': []}),
-    ([('008', 's2004    '),],
-     {'publication_places_search': [],
-      'publishers_search': []}),
+      ('264', ['c', '2004.'], ' 4')], {}),
+    ([('008', 's2004    '),], {}),
 ], ids=[
     'Plain 260 => publisher and place search values',
     '260 w/manufacturer info, includes mf place and entity',
@@ -2147,12 +2183,13 @@ def test_todscpipeline_getpubinfo_statements(fparams, expected,
     '260/264: missing pub info okay',
     'no 260/264 okay'
 ])
-def test_todscpipeline_getpubinfo_pub_and_place_search(fparams, expected,
-                                                       bl_sierra_test_record,
-                                                       todsc_pipeline_class,
-                                                       bibrecord_to_pymarc,
-                                                       params_to_fields,
-                                                       add_marc_fields):
+def test_todscpipeline_getpubinfo_pub_search(fparams, expected,
+                                             bl_sierra_test_record,
+                                             todsc_pipeline_class,
+                                             bibrecord_to_pymarc,
+                                             params_to_fields,
+                                             add_marc_fields,
+                                             assert_bundle_matches_expected):
     """
     ToDiscoverPipeline.get_pub_info should return publishers_search
     and publication_places_search fields matching the expected
@@ -2168,12 +2205,11 @@ def test_todscpipeline_getpubinfo_pub_and_place_search(fparams, expected,
         fparams[0] = ('008', data)
         bibmarc.remove_fields('008')
     bibmarc = add_marc_fields(bibmarc, params_to_fields(fparams))
-    val = pipeline.do(bib, bibmarc, ['pub_info'])
-    if len(expected.keys()) == 0:
-        assert 'publication_places_search' not in val.keys()
-        assert 'publishers_search' not in val.keys()
-    for k, v in expected.items():
-        assert set(v) == set(val[k] or [])
+    bundle = pipeline.do(bib, bibmarc, ['pub_info'])
+    search_fields = ('publication_places_search', 'publishers_search')
+    check_bundle = {k: v for k, v in bundle.items() if k in search_fields}
+    assert_bundle_matches_expected(check_bundle, expected,
+                                   list_order_exact=False)
 
 
 @pytest.mark.parametrize('bib_locations, item_locations, sup_item_locations,'
@@ -2185,7 +2221,7 @@ def test_todscpipeline_getpubinfo_pub_and_place_search(fparams, expected,
       {'access_facet': ['At the Library'],
        'collection_facet': ['Media Library'],
        'building_facet': ['Chilton Media Library'],
-       'shelf_facet': []},
+       'shelf_facet': None},
     ),
 
     # czm / bib loc exists, but no items
@@ -2195,7 +2231,7 @@ def test_todscpipeline_getpubinfo_pub_and_place_search(fparams, expected,
       {'access_facet': ['At the Library'],
        'collection_facet': ['Media Library'],
        'building_facet': ['Chilton Media Library'],
-       'shelf_facet': []},
+       'shelf_facet': None},
     ),
 
     # czm / all items are suppressed
@@ -2205,7 +2241,7 @@ def test_todscpipeline_getpubinfo_pub_and_place_search(fparams, expected,
       {'access_facet': ['At the Library'],
        'collection_facet': ['Media Library'],
        'building_facet': ['Chilton Media Library'],
-       'shelf_facet': []},
+       'shelf_facet': None},
     ),
 
     # czm / unknown bib location and one unknown item location
@@ -2215,7 +2251,7 @@ def test_todscpipeline_getpubinfo_pub_and_place_search(fparams, expected,
       {'access_facet': ['At the Library'],
        'collection_facet': ['Media Library'],
        'building_facet': ['Chilton Media Library'],
-       'shelf_facet': []}
+       'shelf_facet': None}
     ),
 
     # w3 / one suppressed item, one unsuppressed item, diff locs
@@ -2242,10 +2278,10 @@ def test_todscpipeline_getpubinfo_pub_and_place_search(fparams, expected,
     ( (('blah', 'Blah'),),
       (('blah2', 'Blah2'), ('blah', 'Blah'),),
       tuple(),
-      {'access_facet': [],
-       'collection_facet': [],
-       'building_facet': [],
-       'shelf_facet': []}
+      {'access_facet': None,
+       'collection_facet': None,
+       'building_facet': None,
+       'shelf_facet': None}
     ),
 
     # r, lwww / online-only item with bib location in different collection
@@ -2254,8 +2290,8 @@ def test_todscpipeline_getpubinfo_pub_and_place_search(fparams, expected,
       tuple(),
       {'access_facet': ['Online'],
        'collection_facet': ['General Collection'],
-       'building_facet': [],
-       'shelf_facet': []}
+       'building_facet': None,
+       'shelf_facet': None}
     ),
 
     # r, lwww / two different bib locations, no items
@@ -2265,7 +2301,7 @@ def test_todscpipeline_getpubinfo_pub_and_place_search(fparams, expected,
       {'access_facet': ['At the Library', 'Online'],
        'collection_facet': ['Discovery Park Library', 'General Collection'],
        'building_facet': ['Discovery Park Library'],
-       'shelf_facet': []}
+       'shelf_facet': None}
     ),
 
     # w, lwww / online-only item with bib location in same collection
@@ -2274,8 +2310,8 @@ def test_todscpipeline_getpubinfo_pub_and_place_search(fparams, expected,
       tuple(),
       {'access_facet': ['Online'],
        'collection_facet': ['General Collection'],
-       'building_facet': [],
-       'shelf_facet': []}
+       'building_facet': None,
+       'shelf_facet': None}
     ),
 
     # x, xdoc / Remote Storage, bib loc is x
@@ -2285,7 +2321,7 @@ def test_todscpipeline_getpubinfo_pub_and_place_search(fparams, expected,
       {'access_facet': ['At the Library'],
        'collection_facet': ['Government Documents'],
        'building_facet': ['Remote Storage'],
-       'shelf_facet': []}
+       'shelf_facet': None}
     ),
 
     # sd, xdoc / Remote Storage, bib loc is not x
@@ -2295,7 +2331,7 @@ def test_todscpipeline_getpubinfo_pub_and_place_search(fparams, expected,
       {'access_facet': ['At the Library'],
        'collection_facet': ['Government Documents'],
        'building_facet': ['Remote Storage'],
-       'shelf_facet': []}
+       'shelf_facet': None}
     ),
 
     # w, lwww, w3 / bib with online and physical locations
@@ -2343,7 +2379,8 @@ def test_todscpipeline_getaccessinfo(bib_locations, item_locations,
                                      bl_sierra_test_record,
                                      todsc_pipeline_class,
                                      update_test_bib_inst,
-                                     get_or_make_location_instances):
+                                     get_or_make_location_instances,
+                                     assert_bundle_matches_expected):
     """
     ToDiscoverPipeline.get_access_info should return the expected
     access, collection, building, and shelf facet values based on the
@@ -2366,10 +2403,8 @@ def test_todscpipeline_getaccessinfo(bib_locations, item_locations,
 
     bib = update_test_bib_inst(bib, items=items_info,
                                locations=bib_loc_instances)
-    val = pipeline.do(bib, None, ['access_info'])
-    print val
-    for k, v in expected.items():
-        assert set(v) == set(val[k] or [])
+    bundle = pipeline.do(bib, None, ['access_info'])
+    assert_bundle_matches_expected(bundle, expected, list_order_exact=False)
 
 
 @pytest.mark.parametrize('bcode2, expected', [
@@ -2386,7 +2421,8 @@ def test_todscpipeline_getaccessinfo(bib_locations, item_locations,
 def test_todscpipeline_getresourcetypeinfo(bcode2,
                                            expected, bl_sierra_test_record,
                                            todsc_pipeline_class,
-                                           setattr_model_instance):
+                                           setattr_model_instance,
+                                           assert_bundle_matches_expected):
     """
     ToDiscoverPipeline.get_resource_type_info should return the
     expected resource_type and resource_type_facet values based on the
@@ -2397,9 +2433,8 @@ def test_todscpipeline_getresourcetypeinfo(bcode2,
     pipeline = todsc_pipeline_class()
     bib = bl_sierra_test_record('bib_no_items')
     setattr_model_instance(bib, 'bcode2', bcode2)
-    val = pipeline.do(bib, None, ['resource_type_info'])
-    for k, v in expected.items():
-        assert v == val[k]
+    bundle = pipeline.do(bib, None, ['resource_type_info'])
+    assert_bundle_matches_expected(bundle, expected)
 
 
 @pytest.mark.parametrize('f008_lang, raw_marcfields, expected', [
@@ -2524,7 +2559,7 @@ def test_todscpipeline_getlanguageinfo(f008_lang, raw_marcfields, expected,
                                        marcutils_for_subjects,
                                        bibrecord_to_pymarc,
                                        add_marc_fields,
-                                       assert_json_matches_expected):
+                                       assert_bundle_matches_expected):
     """
     ToDiscoverPipeline.get_language_info should return fields
     matching the expected parameters.
@@ -2541,14 +2576,9 @@ def test_todscpipeline_getlanguageinfo(f008_lang, raw_marcfields, expected,
                           '711', '730', '740')
     bibmarc = add_marc_fields(bibmarc, marcfields)
     fields_to_process = ['title_info', 'general_5xx_info', 'language_info']
-    val = pipeline.do(bib, bibmarc, fields_to_process)
-    for k, v in val.items():
-        print k, v
-        if k in expected:
-            if isinstance(v, list):
-                assert sorted(v) == sorted(expected[k])
-            else:
-                assert v == expected[k]
+    bundle = pipeline.do(bib, bibmarc, fields_to_process)
+    assert_bundle_matches_expected(bundle, expected, bundle_complete=False,
+                                   list_order_exact=False)
 
 
 @pytest.mark.parametrize('fparams, expected', [
@@ -3297,7 +3327,7 @@ def test_todscpipeline_getcontributorinfo(fparams, expected,
                                           bibrecord_to_pymarc,
                                           params_to_fields,
                                           add_marc_fields,
-                                          assert_json_matches_expected):
+                                          assert_bundle_matches_expected):
     """
     ToDiscoverPipeline.get_contributor_info should return fields
     matching the expected parameters.
@@ -3308,16 +3338,8 @@ def test_todscpipeline_getcontributorinfo(fparams, expected,
     bibmarc.remove_fields('100', '110', '111', '700', '710', '711', '800',
                           '810', '811')
     bibmarc = add_marc_fields(bibmarc, params_to_fields(fparams))
-    val = pipeline.do(bib, bibmarc, ['contributor_info'])
-    for k, v in val.items():
-        print k, v
-        if k in expected:
-            if k.endswith('_json'):
-                assert_json_matches_expected(v, expected[k], exact=True)
-            else:
-                assert v == expected[k]
-        else:
-            assert v is None
+    bundle = pipeline.do(bib, bibmarc, ['contributor_info'])
+    assert_bundle_matches_expected(bundle, expected)
 
 
 @pytest.mark.parametrize('tag, subfields, expected', [
@@ -6708,7 +6730,7 @@ def test_generatefacetkey(fval, nf_chars, expected):
 def test_todscpipeline_gettitleinfo(fparams, expected, bl_sierra_test_record,
                                     todsc_pipeline_class, bibrecord_to_pymarc,
                                     params_to_fields, add_marc_fields,
-                                    assert_json_matches_expected):
+                                    assert_bundle_matches_expected):
     """
     ToDiscoverPipeline.get_title_info should return fields matching
     the expected parameters.
@@ -6720,16 +6742,8 @@ def test_todscpipeline_gettitleinfo(fparams, expected, bl_sierra_test_record,
                           '245', '246', '247', '490', '700', '710', '711',
                           '730', '740', '800', '810', '811', '830')
     bibmarc = add_marc_fields(bibmarc, params_to_fields(fparams))
-    val = pipeline.do(bib, bibmarc, ['title_info'])
-    for k, v in val.items():
-        print k, v
-        if k in expected:
-            if k.endswith('_json'):
-                assert_json_matches_expected(v, expected[k], exact=True)
-            else:
-                assert v == expected[k]
-        else:
-            assert v is None
+    bundle = pipeline.do(bib, bibmarc, ['title_info'])
+    assert_bundle_matches_expected(bundle, expected)
 
 
 @pytest.mark.parametrize('parsed_pm, expected', [
@@ -6858,7 +6872,8 @@ def test_todscpipeline_compileperformancemedium(parsed_pm, expected,
 
 
 def test_todscpipeline_getgeneral3xxinfo(params_to_fields, add_marc_fields,
-                                         todsc_pipeline_class):
+                                         todsc_pipeline_class,
+                                         assert_bundle_matches_expected):
     """
     ToDiscoverPipeline.get_general_3xx_info should return fields
     matching the expected parameters.
@@ -6913,14 +6928,13 @@ def test_todscpipeline_getgeneral3xxinfo(params_to_fields, add_marc_fields,
     fields = params_to_fields(exc_fields + inc_fields)
     marc = add_marc_fields(s2m.SierraMarcRecord(), fields)
     pipeline = todsc_pipeline_class()
-    results = pipeline.do(None, marc, ['general_3xx_info'])
-    assert set(results.keys()) == set(expected.keys())
-    for k, v in results.items():
-        assert v == expected[k]
+    bundle = pipeline.do(None, marc, ['general_3xx_info'])
+    assert_bundle_matches_expected(bundle, expected)
 
 
 def test_todscpipeline_getgeneral5xxinfo(params_to_fields, add_marc_fields,
-                                         todsc_pipeline_class):
+                                         todsc_pipeline_class,
+                                         assert_bundle_matches_expected):
     """
     ToDiscoverPipeline.get_general_5xx_info should return fields
     matching the expected parameters.
@@ -7023,10 +7037,8 @@ def test_todscpipeline_getgeneral5xxinfo(params_to_fields, add_marc_fields,
     fields = params_to_fields(exc_fields + inc_fields)
     marc = add_marc_fields(s2m.SierraMarcRecord(), fields)
     pipeline = todsc_pipeline_class()
-    results = pipeline.do(None, marc, ['general_5xx_info'])
-    assert set(results.keys()) == set(expected.keys())
-    for k, v in results.items():
-        assert v == expected[k]
+    bundle = pipeline.do(None, marc, ['general_5xx_info'])
+    assert_bundle_matches_expected(bundle, expected)
 
 
 @pytest.mark.parametrize('bib_cn_info, items_info, expected', [
@@ -7111,7 +7123,8 @@ def test_todscpipeline_getgeneral5xxinfo(params_to_fields, add_marc_fields,
 def test_todscpipeline_getcallnumberinfo(bib_cn_info, items_info, expected,
                                          bl_sierra_test_record,
                                          todsc_pipeline_class,
-                                         update_test_bib_inst):
+                                         update_test_bib_inst,
+                                         assert_bundle_matches_expected):
     """
     The `ToDiscoverPipeline.get_call_number_info` method should
     return the expected values given the provided `bib_cn_info` fields
@@ -7120,13 +7133,8 @@ def test_todscpipeline_getcallnumberinfo(bib_cn_info, items_info, expected,
     pipeline = todsc_pipeline_class()
     bib = bl_sierra_test_record('bib_no_items')
     bib = update_test_bib_inst(bib, varfields=bib_cn_info, items=items_info)
-    val = pipeline.do(bib, None, ['call_number_info'])
-    for k, v in val.items():
-        print k, v
-        if k in expected:
-            assert v == expected[k]
-        else:
-            assert v is None
+    bundle = pipeline.do(bib, None, ['call_number_info'])
+    assert_bundle_matches_expected(bundle, expected)
 
 
 @pytest.mark.parametrize('raw_marcfields, expected', [
@@ -7420,7 +7428,8 @@ def test_todscpipeline_getstandardnumberinfo(raw_marcfields, expected,
                                              todsc_pipeline_class,
                                              bibrecord_to_pymarc,
                                              add_marc_fields,
-                                             fieldstrings_to_fields):
+                                             fieldstrings_to_fields,
+                                             assert_bundle_matches_expected):
     """
     The `ToDiscoverPipeline.get_standard_number_info` method should
     return the expected values given the provided `marcfields`.
@@ -7432,13 +7441,8 @@ def test_todscpipeline_getstandardnumberinfo(raw_marcfields, expected,
                           '030', '074', '088')
     marcfields = fieldstrings_to_fields(raw_marcfields)
     bibmarc = add_marc_fields(bibmarc, marcfields)
-    val = pipeline.do(bib, bibmarc, ['standard_number_info'])
-    for k, v in val.items():
-        print k, v
-        if k in expected:
-            assert v == expected[k]
-        else:
-            assert v is None
+    bundle = pipeline.do(bib, bibmarc, ['standard_number_info'])
+    assert_bundle_matches_expected(bundle, expected)
 
 
 @pytest.mark.parametrize('raw_marcfields, expected', [
@@ -7780,7 +7784,8 @@ def test_todscpipeline_getcontrolnumberinfo(raw_marcfields, expected,
                                             todsc_pipeline_class,
                                             bibrecord_to_pymarc,
                                             add_marc_fields,
-                                            fieldstrings_to_fields):
+                                            fieldstrings_to_fields,
+                                            assert_bundle_matches_expected):
     """
     The `ToDiscoverPipeline.get_control_number_info` method should
     return the expected values given the provided `marcfields`.
@@ -7791,13 +7796,8 @@ def test_todscpipeline_getcontrolnumberinfo(raw_marcfields, expected,
     bibmarc.remove_fields('001', '003', '010', '016', '035')
     marcfields = fieldstrings_to_fields(raw_marcfields)
     bibmarc = add_marc_fields(bibmarc, marcfields)
-    val = pipeline.do(bib, bibmarc, ['control_number_info'])
-    for k, v in val.items():
-        print k, v
-        if k in expected:
-            assert v == expected[k]
-        else:
-            assert v is None
+    bundle = pipeline.do(bib, bibmarc, ['control_number_info'])
+    assert_bundle_matches_expected(bundle, expected)
 
 
 @pytest.mark.parametrize('raw_marcfields, expected', [
@@ -7883,7 +7883,8 @@ def test_todscpipeline_getgamesfacetsinfo(raw_marcfields, expected,
                                           todsc_pipeline_class,
                                           bibrecord_to_pymarc,
                                           add_marc_fields,
-                                          fieldstrings_to_fields):
+                                          fieldstrings_to_fields,
+                                          assert_bundle_matches_expected):
     """
     The `ToDiscoverPipeline.get_games_facets_info` method should
     return the expected values given the provided `raw_marcfields`.
@@ -7897,13 +7898,8 @@ def test_todscpipeline_getgamesfacetsinfo(raw_marcfields, expected,
     marcfields = fieldstrings_to_fields(raw_marcfields)
     bibmarc = add_marc_fields(bibmarc, marcfields)
     pipeline = todsc_pipeline_class()
-    val = pipeline.do(bib, bibmarc, ['games_facets_info'])
-    for k, v in val.items():
-        print k, v
-        if k in expected:
-            assert v == expected[k]
-        else:
-            assert v is None
+    bundle = pipeline.do(bib, bibmarc, ['games_facets_info'])
+    assert_bundle_matches_expected(bundle, expected)
 
 
 @pytest.mark.parametrize('raw_marcfields, expected', [
@@ -9709,7 +9705,7 @@ def test_todscpipeline_getsubjectsinfo(raw_marcfields, expected,
                                        marcutils_for_subjects,
                                        bibrecord_to_pymarc,
                                        add_marc_fields,
-                                       assert_json_matches_expected):
+                                       assert_bundle_matches_expected):
     """
     ToDiscoverPipeline.get_subjects_info should return fields
     matching the expected parameters.
@@ -9725,18 +9721,8 @@ def test_todscpipeline_getsubjectsinfo(raw_marcfields, expected,
                           '692')
     marcfields = fieldstrings_to_fields(raw_marcfields)
     bibmarc = add_marc_fields(bibmarc, marcfields)
-    val = pipeline.do(bib, bibmarc, ['subjects_info'])
-    for k, v in val.items():
-        print k, v
-        if k in expected:
-            if k.endswith('_json'):
-                assert_json_matches_expected(v, expected[k], exact=True)
-            elif isinstance(v, list):
-                assert sorted(v) == sorted(expected[k])
-            else:
-                assert v == expected[k]
-        else:
-            assert v is None
+    bundle = pipeline.do(bib, bibmarc, ['subjects_info'])
+    assert_bundle_matches_expected(bundle, expected, list_order_exact=False)
 
 
 @pytest.mark.parametrize('this_year, pyears, pdecades, bib_type, expected', [
@@ -9791,8 +9777,8 @@ def test_todscpipeline_getrecordboost(this_year, pyears, pdecades, bib_type,
     pipeline.bundle['publication_decade_facet'] = pdecades
     pipeline.this_year = this_year
     setattr_model_instance(bib, 'bcode1', bib_type)
-    val = pipeline.do(bib, bibmarc, ['record_boost'], False)
-    assert val['record_boost'] == expected
+    bundle = pipeline.do(bib, bibmarc, ['record_boost'], False)
+    assert bundle['record_boost'] == expected
 
 
 @pytest.mark.parametrize('marc_tags_ind, sf_i, equals, test_value', [

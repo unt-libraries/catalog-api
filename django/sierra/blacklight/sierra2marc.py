@@ -2709,7 +2709,8 @@ class ToDiscoverPipeline(object):
                 pdate, cdate = tuple(d[0:2]) if len(d) > 1 else ('', '')
                 pdate = p.normalize_punctuation(pdate)
                 cdate = _clean_pub_statement(p.normalize_cr_symbol(cdate))
-                statements.append(('copyright', cdate))
+                if cdate:
+                    statements.append(('copyright', cdate))
             else:
                 pdate = (pull_from_subfields(gr, 'c') or [''])[0]
                 if ptype == 'copyright':
