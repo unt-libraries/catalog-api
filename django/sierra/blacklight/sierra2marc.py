@@ -757,9 +757,9 @@ class TranscribedTitleParser(SequentialMarcFieldParser):
             self.title_parts.append(part)
 
     def append_volume(self, part):
-        part = p.restore_periods(part)
+        vol_sep, volume = format_volume(p.restore_periods(part))
         if len(self.title_parts):
-            part = '; '.join((self.title_parts.pop(), part))
+            part = vol_sep.join((self.title_parts.pop(), volume))
         self.title_parts.append(part)
 
     def split_compound_title(self, tstring, handle_internal_periods):
@@ -1009,18 +1009,24 @@ class PreferredTitleParser(SequentialMarcFieldParser):
                 part = '{}{}'.format(part[0].upper(), part[1:])
             self.title_parts.append(part)
 
-    def describe_collective_title(self, main_part):
-        norm_part = main_part.lower()
-        if not self.title_is_collective:
+    @classmethod
+    def describe_collective_title(cls, title_part, is_243=False,
+                                  might_include_instrument=False):
+        is_collective, is_music_form = is_243, False
+        norm_part = title_part.lower()
+        if not is_collective:
             is_expl_ct = norm_part in settings.MARCDATA.COLLECTIVE_TITLE_TERMS
             is_legal_ct = re.search(r's, etc\W?$', norm_part)
             is_music_ct = re.search(r'\smusic(\s+\(.+\)\s*)?$', norm_part)
             if is_expl_ct or is_music_ct or is_legal_ct:
-                self.title_is_collective = True
+                is_collective = True
+        if might_include_instrument:
+            norm_part = norm_part.split(', ')[0]
         if norm_part in settings.MARCDATA.MUSIC_FORM_TERMS_ALL:
-            self.title_is_music_form = True
+            is_music_form = True
             is_plural = norm_part in settings.MARCDATA.MUSIC_FORM_TERMS_PLURAL
-            self.title_is_collective = is_plural
+            is_collective = is_plural
+        return is_collective, is_music_form
 
     def parse_languages(self, lang_str):
         return [l for l in re.split(r', and | and | & |, ', lang_str) if l]
@@ -1068,7 +1074,10 @@ class PreferredTitleParser(SequentialMarcFieldParser):
             part, end_punct = self.analyzer.pop_isbd_punct_from_title_part(prot)
             if part:
                 if self.flags['is_main_part']:
-                    self.describe_collective_title(part)
+                    is_243 = self.field.tag == '243'
+                    coll, mf = self.describe_collective_title(part, is_243)
+                    self.title_is_collective = coll
+                    self.title_is_music_form = mf
                     self.push_title_part(part, self.prev_punct)
                 elif self.flags['is_perf_medium']:
                     if self.title_is_collective:
@@ -1347,11 +1356,13 @@ class LinkingFieldParser(SequentialMarcFieldParser):
         'y': ('coden', 'CODEN'),
         'z': ('isbn', 'ISBN'),
     }
-    display_metadata_sftags = 'bcdghjkmnoqv'
+    display_metadata_sftags = 'bcdghkmnov'
     identifiers_sftags = 'ruwxyz'
+    series_fieldtags = ('760', '762')
 
     def __init__(self, field):
         super(LinkingFieldParser, self).__init__(field)
+        self.prev_sftag = ''
         self.display_label_from_i = ''
         self.ttitle = ''
         self.stitle = ''
@@ -1360,6 +1371,9 @@ class LinkingFieldParser(SequentialMarcFieldParser):
         self.display_metadata = []
         self.identifiers_map = {}
         self.identifiers_list = []
+        self.ntype = None
+        self.volume = None
+        self.is_series = field.tag in self.series_fieldtags
 
     def make_display_label(self, label_from_i):
         tag, ind2 = self.field.tag, self.field.indicator2
@@ -1369,9 +1383,8 @@ class LinkingFieldParser(SequentialMarcFieldParser):
         return self.display_label_map.get(' '.join((tag, ind2)))
 
     def title_to_parts(self, title):
-        if title:
-            protected = p.protect_periods(title)
-            return [p.restore_periods(tp) for tp in protected.split('. ') if tp]
+        protected = p.protect_periods(title)
+        return [p.restore_periods(tp) for tp in protected.split('. ') if tp]
 
     def do_identifier(self, tag, val):
         if tag == 'w':
@@ -1393,13 +1406,21 @@ class LinkingFieldParser(SequentialMarcFieldParser):
             id_numtype = 'standard'
             id_code, id_label = self.tags_to_id_types[tag]
         if id_code not in self.identifiers_map:
-            self.identifiers_map[id_code] = val
+            self.identifiers_map[id_code] = {
+                'number': val,
+                'numtype': id_numtype
+            }
         self.identifiers_list.append({
             'code': id_code,
             'numtype': id_numtype,
             'label': id_label,
             'number': val
         })
+
+    def do_volume(self, volume):
+        if len(volume) > 2 and volume[0].isupper() and volume[1].islower():
+            return ''.join([volume[0].lower(), volume[1:]])
+        return volume
 
     def parse_subfield(self, tag, val):
         if tag == 'i':
@@ -1410,21 +1431,38 @@ class LinkingFieldParser(SequentialMarcFieldParser):
                 self.stitle = val
             elif tag == 't':
                 self.ttitle = val
+            elif tag == 'g' and self.is_series and self.prev_tag in ('t', 's'):
+                self.volume = self.do_volume(val)
             elif tag == 'a':
                 self.author = val
                 name_struct = parse_name_string(val)
                 self.short_author = shorten_name(name_struct)
+                self.ntype = name_struct['type']
             elif tag in self.display_metadata_sftags:
                 self.display_metadata.append(p.strip_outer_parentheses(val))
             elif tag in self.identifiers_sftags:
                 self.do_identifier(tag, val)
+        self.prev_tag = tag
 
     def compile_results(self):
+        tp, is_coll, is_mf = None, False, False
+        if self.ttitle:
+            tp = self.title_to_parts(self.ttitle)
+        elif self.stitle:
+            tp = self.title_to_parts(self.stitle)
+            if tp:
+                ptp = PreferredTitleParser
+                is_coll, is_mf = ptp.describe_collective_title(tp[0], False,
+                                                               True)
         return {
             'display_label': self.make_display_label(self.display_label_from_i),
-            'title_parts': self.title_to_parts(self.ttitle or self.stitle),
+            'title_parts': tp or None,
+            'title_is_collective': is_coll,
+            'title_is_music_form': is_mf,
+            'volume': self.volume or None,
             'author': self.author or None,
             'short_author': self.short_author or None,
+            'author_type': self.ntype or None,
             'display_metadata': self.display_metadata or None,
             'identifiers_map': self.identifiers_map or None,
             'identifiers_list': self.identifiers_list or None,
@@ -1512,18 +1550,19 @@ def parse_name_string(name_string):
 
     heading_parts = []
     for part_str in protected.split('. '):
-        qual_match = re.match(r'(.*?) ?\((.+)\)$', part_str)
-        if qual_match:
-            name, qualifier = qual_match.groups()
-            part = {'name': p.restore_periods(name),
-                    'qualifier': p.restore_periods(qualifier)}
-        else:
-            part = {'name': p.restore_periods(part_str)}
-        heading_parts.append(part)
+        if part_str:
+            qual_match = re.match(r'(.*?) ?\((.+)\)$', part_str)
+            if qual_match:
+                name, qualifier = qual_match.groups()
+                part = {'name': p.restore_periods(name),
+                        'qualifier': p.restore_periods(qualifier)}
+            else:
+                part = {'name': p.restore_periods(part_str)}
+            heading_parts.append(part)
     return {
         'relations': None,
         'heading_parts': heading_parts,
-        'type': 'organization',
+        'type': 'organization' if heading_parts else None,
         'is_jurisdiction': False,
         'materials_specified': None,
     }
@@ -2012,6 +2051,13 @@ def format_translation(translated_text):
     return '[translated: {}]'.format(translated_text)
 
 
+def format_volume(volume):
+    volume_separator = '; '
+    if volume.isdigit():
+        volume = '[volume] {}'.format(volume)
+    return volume_separator, volume
+
+
 def generate_facet_key(value, nonfiling_chars=0, space_char=r'-'):
     key = value.lower()
     if nonfiling_chars and len(key) > nonfiling_chars:
@@ -2309,8 +2355,7 @@ class ToDiscoverPipeline(object):
         'contributor_info', 'title_info', 'general_3xx_info',
         'general_5xx_info', 'call_number_info', 'standard_number_info',
         'control_number_info', 'games_facets_info', 'subjects_info',
-        'language_info', 'record_boost', 'included_works_linking_fields',
-        'series_linking_fields', 'other_linking_fields'
+        'language_info', 'record_boost', 'linking_fields'
     ]
     marc_grouper = MarcFieldGrouper({
         '008': set(['008']),
@@ -2334,11 +2379,11 @@ class ToDiscoverPipeline(object):
                               '651', '653', '655', '656', '657', '690', '691',
                               '692']),
         'title_added_entry': set(['700', '710', '711', '730', '740']),
-        'linking_series': set(['760', '762']),
-        'linking_constituent_unit': set(['774']),
-        'linking_serial_continuity': set(['780', '785']),
-        'linking_related_resources': set(['765', '767', '770', '772', '773',
-                                          '776', '777',  '786', '787']),
+        'linking_760_762': set(['760', '762']),
+        'linking_774': set(['774']),
+        'linking_780_785': set(['780', '785']),
+        'linking_other': set(['765', '767', '770', '772', '773', '775', '776',
+                              '777', '786', '787']),
         'series_added_entry': set(['800', '810', '811', '830']),
         'url': set(['856']),
         'media_link': set(['962']),
@@ -2357,6 +2402,7 @@ class ToDiscoverPipeline(object):
         super(ToDiscoverPipeline, self).__init__()
         self.bundle = {}
         self.name_titles = []
+        self.work_title_keys = {}
         self.title_languages = []
         self.this_year = datetime.now().year
         self.r = None
@@ -2377,6 +2423,7 @@ class ToDiscoverPipeline(object):
         if reset_params:
             self.bundle = {}
             self.name_titles = []
+            self.work_title_keys = {}
             self.title_languages = []
         if self.marc_record != marc_record:
             self.marc_record = marc_record
@@ -3067,8 +3114,17 @@ class ToDiscoverPipeline(object):
         struct['p'] = new_p
         return struct
 
-    def _prep_author_summary_info(self, names, org_event_default='combined'):
-        name = self.select_best_name(names, org_event_default)
+    def _prep_author_summary_info(self, struct, org_event_default='combined',
+                                  from_linking_field=False):
+        if from_linking_field:
+            return {
+                'full_name': struct.get('author', ''),
+                'short_name': struct.get('short_author', ''),
+                'is_jd': False,
+                'ntype': struct.get('author_type', ''),
+            }
+
+        name = self.select_best_name(struct, org_event_default)
         if name and name['compiled']['heading']:
             return {
                 'full_name': name['compiled']['heading'],
@@ -3095,9 +3151,7 @@ class ToDiscoverPipeline(object):
             title_parts.extend(orig_title_parts[1:])
         return title_parts
 
-    def prerender_authorized_title(self, title, names, for_subject=False):
-        best_author_type = 'combined' if for_subject else 'organization'
-        auth_info = self._prep_author_summary_info(names, best_author_type)
+    def prerender_authorized_title(self, title, auth_info, for_subject=False):
         sep = self.hierarchical_name_separator
         components = []
 
@@ -3148,23 +3202,28 @@ class ToDiscoverPipeline(object):
                 components.append(component)
 
             if this_is_last_part and components:
-                components[-1]['sep'] = None
+                if volume:
+                    volume_sep, volume = format_volume(volume)
+                    components[-1]['sep'] = volume_sep
+                    components.append({'facet': volume, 'display': volume})
+                else:
+                    components[-1]['sep'] = None
 
-        id_parts = [{'value': volume}] if volume else []
-        id_parts += [{'label': 'ISSN', 'value': issn}] if issn else []
+        id_parts = [{'label': 'ISSN', 'value': issn}] if issn else []
 
         return {
-            'author_info': auth_info,
             'before_string': ' '.join(before),
             'title_components': components,
             'expression_components': eparts if eparts else None,
-            'id_components': id_parts if id_parts else None
+            'id_components': id_parts if id_parts else None,
         }
 
     def render_authorized_title(self, title, names, for_subject=False):
-        pre_info = self.prerender_authorized_title(title, names, for_subject)
+        best_author_type = 'combined' if for_subject else 'organization'
+        author_info = self._prep_author_summary_info(names, best_author_type)
+        pre_info = self.prerender_authorized_title(title, author_info,
+                                                   for_subject)
         heading, json, facet_vals = '', {'p': []}, []
-        author_info = pre_info['author_info']
 
         if not for_subject and author_info['full_name']:
             json['a'] = format_key_facet_value(author_info['full_name'])
@@ -3179,7 +3238,7 @@ class ToDiscoverPipeline(object):
             facet_vals.append(heading)
             if comp['display']:
                 json['p'].append({'d': comp['display'], 'v': heading})
-                if json['p'] and comp['sep'] and comp['sep'] != ' ':
+                if json['p'] and comp.get('sep') and comp['sep'] != ' ':
                     json['p'][-1]['s'] = comp['sep']
             prev_comp = comp
 
@@ -3194,44 +3253,45 @@ class ToDiscoverPipeline(object):
             'json': json,
             'facet_vals': facet_vals,
             'heading': heading,
-            'author_info': author_info
+            'author_info': author_info,
+            'work_heading': heading
         }
 
     def render_title_expression_id(self, exp_parts, id_parts, json=None, 
-                                   facet_vals=None, heading=None):
+                                   facet_vals=None, heading=None,
+                                   exp_is_part_of_heading=True):
         json = json or {'p': []}
         facet_vals = facet_vals or []
         heading = heading or ''
-        create_exp_link = bool(heading)
 
         internal_sep, section_sep = '; ', ' — '
+        rendered_exp = ''
 
         if json['p']:
             json['p'][-1]['s'] = ' ('
         else:
             json['p'].append({'d': '('})
-        heading = '{} ('.format(heading).lstrip()
         if exp_parts:
-            exp_string = internal_sep.join(exp_parts)
-            heading = '{}{})'.format(heading, exp_string)
-            new_p = {'d': exp_string}
-            if create_exp_link:
-                new_p['v'] = heading
+            rendered_exp = internal_sep.join(exp_parts)
+            new_p = {'d': rendered_exp}
+            if exp_is_part_of_heading:
+                new_p['v'] = '{} ({})'.format(heading, rendered_exp).lstrip()
+                facet_vals.append(new_p['v'])
+                paren = '({})'.format(rendered_exp)
+                heading = ' '.join((heading, paren)) if heading else paren
             json['p'].append(new_p)
-            facet_vals.append(heading)
         if id_parts:
+            display_ids = []
             if exp_parts:
                 json['p'][-1]['s'] = section_sep
-                heading = ''.join((heading[:-1], section_sep))
             to_render = []
-            added_heading_parts = []
             for i, id_part in enumerate(id_parts):
                 is_last_id_part = i == len(id_parts) - 1
                 value = id_part['value']
                 label = id_part.get('label')
                 link_key = id_part.get('link_key')
                 display = ' '.join((label, value)) if label else value
-                added_heading_parts.append(display)
+                display_ids.append(display)
                 if link_key:
                     if to_render:
                         json['p'].append({'d': internal_sep.join(to_render),
@@ -3244,14 +3304,91 @@ class ToDiscoverPipeline(object):
                     to_render.append(display)
             if to_render:
                 json['p'].append({'d': internal_sep.join(to_render)})
-            added_heading_str = internal_sep.join(added_heading_parts)
-            heading = '{}{})'.format(heading, added_heading_str)
+            rendered_ids = internal_sep.join(display_ids)
         json['p'][-1]['s'] = ')'
 
         return {
             'json': json,
             'facet_vals': facet_vals,
             'heading': heading
+        }
+
+    def render_linking_field(self, linking, as_search=False):
+        heading, disp_heading, json, facet_vals = '', '', {'p': []}, []
+        sep = self.hierarchical_name_separator
+        author_info = self._prep_author_summary_info(linking,
+                                                     from_linking_field=True)
+        label = linking['display_label']
+        title_info = {
+            'is_collective': linking['title_is_collective'],
+            'is_music_form': linking['title_is_music_form'],
+            'title_parts': linking['title_parts'],
+            'expression_parts': None,
+            'materials_specified': linking['materials_specified'],
+            'display_constants': [label] if label else None,
+            'volume': linking['volume']
+        }
+        pre_info = self.prerender_authorized_title(title_info, author_info)
+
+        if pre_info['before_string']:
+            json['b'] = pre_info['before_string']
+
+        prev_comp = {}
+        for comp in pre_info['title_components']:
+            prev_s = prev_comp.get('sep', '')
+            heading = prev_s.join((heading, comp['facet']))
+            disp_heading = prev_s.join((disp_heading, comp['display']))
+            facet_vals.append(heading)
+            if comp['display'] and not as_search:
+                json['p'].append({'d': comp['display'], 'v': heading})
+                if json['p'] and comp.get('sep') and comp['sep'] != ' ':
+                    json['p'][-1]['s'] = comp['sep']
+            prev_comp = comp
+
+        expression_components = linking['display_metadata'] or []
+        id_components = []
+        if as_search:
+            id_map = linking['identifiers_map'] or {}
+            new_jsonp = {'d': disp_heading}
+            title_kw = ' '.join(linking['title_parts'] or [])
+            if title_kw:
+                new_jsonp['t'] = generate_facet_key(title_kw, space_char=' ')
+            author_kw = linking['author']
+            if author_kw:
+                new_jsonp['a'] = generate_facet_key(author_kw, space_char=' ')
+            for id_code in ('oclc', 'isbn', 'issn', 'lccn', 'w', 'coden',
+                            'u', 'r'):
+                if id_code in id_map:
+                    numdef = id_map[id_code]
+                    numtype = 'cn' if numdef['numtype'] == 'control' else 'sn'
+                    new_jsonp[numtype] = numdef['number']
+                    break
+            json['p'].append(new_jsonp)
+
+        for id_def in linking['identifiers_list'] or []:
+            new_id_component = {
+                'value': id_def['number'],
+                'label': id_def['label']
+            }
+            if as_search:
+                link_key = 'cn' if id_def['numtype'] == 'control' else 'sn'
+                new_id_component['link_key'] = link_key
+            id_components.append(new_id_component)
+
+        work_heading = heading
+        args = [expression_components, id_components]
+        if any(args):
+            kargs = {'json': json, 'facet_vals': facet_vals, 'heading': heading,
+                     'exp_is_part_of_heading': False}
+            result = self.render_title_expression_id(*args, **kargs)
+            rkeys = ('json', 'facet_vals', 'heading',)
+            json, facet_vals, heading = (result[key] for key in rkeys)
+
+        return {
+            'json': json,
+            'facet_vals': facet_vals,
+            'heading': heading,
+            'work_heading': work_heading
         }
 
     def compile_added_title(self, field, title_struct, names):
@@ -3267,9 +3404,11 @@ class ToDiscoverPipeline(object):
         if len(rendered['facet_vals']):
             title_key = rendered['facet_vals'][-1]
 
+
         return {
             'author_info': rendered['author_info'],
             'heading': rendered['heading'],
+            'work_title_key': rendered['work_heading'],
             'title_key': title_key,
             'json': rendered['json'],
             'search_vals': [rendered['heading']],
@@ -3571,13 +3710,12 @@ class ToDiscoverPipeline(object):
             else:
                 heading = sep.join((heading, part))
 
-            facet_val = format_key_facet_value(heading, nf_chars)
-            json_entry = {'d': part, 'v': facet_val}
+            json_entry = {'d': part, 'v': heading}
             if not this_is_last_part:
                 json_entry['s'] = sep
 
             json['p'].append(json_entry)
-            facet_vals.append(facet_val)
+            facet_vals.append(heading)
 
         search, ptitles = [heading], []
         for ptitle in ttitle.get('parallel', []):
@@ -3585,7 +3723,7 @@ class ToDiscoverPipeline(object):
             if ptstr:
                 search.append(ptstr)
                 ptitles.append(ptstr)
-                facet_vals.append(format_key_facet_value(ptstr))
+                facet_vals.append(ptstr)
 
         if ptitles:
             translation = format_translation('; '.join(ptitles))
@@ -3596,6 +3734,7 @@ class ToDiscoverPipeline(object):
         return {
             'heading': heading,
             'title_key': '' if not len(facet_vals) else facet_vals[-1],
+            'work_title_key': heading,
             'json': json,
             'search_vals': search,
             'facet_vals': facet_vals
@@ -3619,6 +3758,7 @@ class ToDiscoverPipeline(object):
         json_fields = {'main': '', 'included': [], 'related': [], 'series': []}
         search_fields = {'included': [], 'related': [], 'series': []}
         title_keys = {'included': set(), 'related': set(), 'series': set()}
+        work_title_keys = {'included': set(), 'related': set(), 'series': set()}
         variant_titles_notes, variant_titles_search = [], []
         title_series_facet = []
         title_sort = ''
@@ -3642,24 +3782,28 @@ class ToDiscoverPipeline(object):
                 json = self.do_facet_keys(compiled['json'], nfc)
                 search_vals = compiled['search_vals']
                 facet_vals = self.do_facet_keys(compiled['facet_vals'], nfc)
-                title_key = format_key_facet_value(compiled['title_key'], nfc)
+                title_key = generate_facet_key(compiled['title_key'], nfc)
+                wt_key = generate_facet_key(compiled['work_title_key'], nfc)
                 if entry['is_740']:
                     hold_740s.append({
                         'title_type': entry['title_type'],
                         'json': json,
                         'svals': search_vals,
                         'fvals': facet_vals,
-                        'title_key': title_key
+                        'title_key': title_key,
+                        'work_title_key': wt_key,
                     })
                 else:
                     if entry['title_type'] == 'main':
                         json_fields['main'] = json
                         search_fields['included'].extend(search_vals)
                         title_keys['included'].add(title_key)
+                        work_title_keys['included'].add(wt_key)
                     else:
                         json_fields[entry['title_type']].append(json)
                         search_fields[entry['title_type']].extend(search_vals)
                         title_keys[entry['title_type']].add(title_key)
+                        work_title_keys[entry['title_type']].add(wt_key)
                     title_series_facet.extend(facet_vals)
 
         f245, parsed_245 = None, {}
@@ -3716,18 +3860,24 @@ class ToDiscoverPipeline(object):
                 nfc = nf_chars if is_first else 0
                 compiled = self.compile_added_ttitle(ttitle, nfc, author, True)
                 if compiled is not None:
-                    json, pjson = compiled['json'], json_fields['included']
-                    sv, psv = compiled['search_vals'], search_fields['included']
-                    fv, pfv = compiled['facet_vals'], title_series_facet
+                    json = json_fields['included']
+                    sv = search_fields['included']
+                    fv = title_series_facet
+                    njson = self.do_facet_keys(compiled['json'], nfc)
+                    nsv = compiled['search_vals']
+                    nfv = self.do_facet_keys(compiled['facet_vals'], nfc)
 
                     if added_tt == 'main':
-                        json_fields['main'] = json
+                        json_fields['main'] = njson
                     else:
-                        json_fields['included'] = pjson[:i] + [json] + pjson[i:]
+                        json_fields['included'] = json[:i] + [njson] + json[i:]
 
-                    search_fields['included'] = psv[:i] + sv + psv[i:]
-                    title_series_facet = pfv[:i] + fv + pfv[i:]
-                    title_keys['included'].add(compiled['title_key'])
+                    search_fields['included'] = sv[:i] + nsv + sv[i:]
+                    title_series_facet = fv[:i] + nfv + fv[i:]
+                    t_key = generate_facet_key(compiled['title_key'], nfc)
+                    wt_key = generate_facet_key(compiled['work_title_key'], nfc)
+                    title_keys['included'].add(t_key)
+                    work_title_keys['included'].add(wt_key)
 
         responsibility_display = '; '.join(sor_display_values)
 
@@ -3737,6 +3887,8 @@ class ToDiscoverPipeline(object):
                 search_fields[entry['title_type']].extend(entry['svals'])
                 title_series_facet.extend(entry['fvals'])
                 title_keys[entry['title_type']].add(entry['title_key'])
+                wt_key = entry['work_title_key']
+                work_title_keys[entry['title_type']].add(wt_key)
 
         for f in self.marc_fieldgroups.get('alternate_title', []):
             parsed = TranscribedTitleParser(f).parse()
@@ -3762,26 +3914,37 @@ class ToDiscoverPipeline(object):
 
         for f in self.marc_fieldgroups.get('series_statement', []):
             if f.indicator1 == '0':
-                pre, end = '', []
+                before, id_parts = '', []
                 parsed = TranscribedTitleParser(f).parse()
                 if 'materials_specified' in parsed:
                     ms = parsed['materials_specified']
-                    pre = format_materials_specified(ms)
+                    before = format_materials_specified(ms)
                 if 'issn' in parsed:
-                    end.append('ISSN: {}'.format(parsed['issn']))
+                    id_parts.append({'label': 'ISSN', 'value': parsed['issn']})
                 if 'lccn' in parsed:
-                    end.append('LC Call Number: {}'.format(parsed['lccn']))
+                    id_parts.append({'label': 'LC Call Number',
+                                     'value': parsed['lccn']})
+
                 for stitle in parsed['transcribed']:
-                    render = [pre] if pre else []
                     parts = stitle.get('parts', [])
                     sor = stitle.get('responsibility')
                     if parts and sor:
                         parts[0] = '{} [{}]'.format(parts[0], sor)
-                    render.append(self.hierarchical_name_separator.join(parts))
-                    render.extend(['|', '; '.join(end)] if end else [])
-                    rendered = ' '.join(render)
-                    json_fields['series'].append({'p': [{'d': rendered}]})
-                    search_fields['series'].append(rendered)
+                    st_heading = self.hierarchical_name_separator.join(parts)
+                    new_json = {'p': [{'d': st_heading}]}
+                    wt_key = generate_facet_key(st_heading)
+                    work_title_keys['series'].add(wt_key)
+                    if before:
+                        new_json['b'] = before
+                    if id_parts:
+                        args = [None, id_parts]
+                        kargs = {'json': new_json, 'heading': st_heading,
+                                 'exp_is_part_of_heading': False}
+                        result = self.render_title_expression_id(*args, **kargs)
+                        new_json = result['json']
+                        st_heading = result['heading']
+                    json_fields['series'].append(new_json)
+                    search_fields['series'].append(st_heading)
 
         mwork_json = None
         if json_fields['main']:
@@ -3795,6 +3958,7 @@ class ToDiscoverPipeline(object):
             if title and title not in variant_titles_search:
                 variant_titles_search.append(title)
 
+        self.work_title_keys = work_title_keys
         return {
             'title_display': main_title_info['display'] or None,
             'non_truncated_title_display': main_title_info['non_truncated'],
@@ -4773,39 +4937,66 @@ class ToDiscoverPipeline(object):
         q_boost = 500 if self.r.bcode1 in ('-', 'd') else 0
         return {'record_boost': str(pub_boost + q_boost)}
 
-    def get_included_works_linking_fields(self):
-        """
-        Generate additional Included Works for 774 linking fields.
-        """
+    def compile_linking_field(self, group, f, parsed):
+        if group in ('linking_serial_continuity', 'linking_related_resources'):
+            rendered = self.render_linking_field_title(parsed, as_search=True)
+        else:
+            rendered = self.render_linking_field_title(parsed, as_search=False)
         return {
-            'included_work_titles_json': None,
-            'included_work_titles_search': None,
-            'title_series_facet': None
+            'json': rendered['json'],
+            'search': [rendered['heading']],
+            'facet_vals': rendered['facet_vals']
         }
 
-    def get_series_linking_fields(self):
-        """
-        Generate additional Related Series for 760-762 linking fields.
-        """
-        return {
-            'related_series_titles_json': None,
-            'related_series_titles_search': None,
-            'title_series_facet': None
-        }
+    def _need_linking_field_render(self, rendered_lf, marc_fgroup):
+        if marc_fgroup in ('linking_760_762', 'linking_774'):
+            wt_key = generate_facet_key(rendered_lf['work_heading'])
+            if marc_fgroup == 'linking_760_762':
+                return not (wt_key in self.work_title_keys.get('series', []))
+            elif marc_fgroup == 'linking_774':
+                print(wt_key)
+                print(self.work_title_keys.get('included'))
+                return not (wt_key in self.work_title_keys.get('included', []))
+        return True
 
-    def get_other_linking_fields(self):
+    def get_linking_fields(self):
         """
-        Generate linking field display data for 76X-78X, minus 760-762
-        and 774 (which are handled as Series and Included Works,
-        respectively).
+        Generate linking field data for 76X-78X fields.
 
-        780/785 => `serial_continuity_linking_json` entries
+        760/762 => new related series entries
+        774 => new included works entries
         765, 767, 770, 772, 773, 775, 776, 777, 786, and 787
             => `related_resources_linking_json` entries
+        780/785 => `serial_continuity_linking_json` entries
         """
+        groups = ('linking_760_762', 'linking_774', 'linking_780_785',
+                  'linking_other')
+        json, search, facet_vals = {}, {}, []
+        for group in groups:
+            json[group], search[group] = [], []
+            as_search = group in ('linking_780_785', 'linking_other')
+            for f in self.marc_fieldgroups.get(group, []):
+                parsed = LinkingFieldParser(f).parse()
+                if parsed['title_parts']:
+                    rend = self.render_linking_field(parsed,
+                                                     as_search=as_search)
+                    if self._need_linking_field_render(rend, group):
+                        if as_search:
+                            json_dict = rend['json']
+                        else:
+                            json_dict = self.do_facet_keys(rend['json'])
+                            search[group].append(rend['heading'])
+                            new_fvals = self.do_facet_keys(rend['facet_vals'])
+                            facet_vals.extend(new_fvals)
+                        json[group].append(ujson.dumps(json_dict))
         return {
-            'serial_continuity_linking_json': None,
-            'related_resources_linking_json': None
+            'included_work_titles_json': json['linking_774'] or None,
+            'included_work_titles_search': search['linking_774'] or None,
+            'related_series_titles_json': json['linking_760_762'] or None,
+            'related_series_titles_search': search['linking_760_762'] or None,
+            'serial_continuity_linking_json': json['linking_780_785'] or None,
+            'related_resources_linking_json': json['linking_other'] or None,
+            'title_series_facet': facet_vals or None
         }
 
 

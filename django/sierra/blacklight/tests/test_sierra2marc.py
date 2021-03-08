@@ -3816,11 +3816,11 @@ def test_todscpipeline_getcontributorinfo(fparams, expected,
       'transcribed': [
         {'parts': ['Series statement; v. 1']}]}),
 
-    ('490', ['a', 'Series statement ;', 'v', 'v. 1.',
+    ('490', ['a', 'Series statement ;', 'v', '1.',
              'a', 'Sub-series / Responsibility ;', 'v', 'v. 36'],
      {'nonfiling_chars': 0,
       'transcribed': [
-        {'parts': ['Series statement; v. 1', 'Sub-series; v. 36'],
+        {'parts': ['Series statement; [volume] 1', 'Sub-series; v. 36'],
          'responsibility': 'Responsibility'}]}),
 
     ('490', ['a', 'Series statement ;', 'v', 'v. 1.', 'l', '(LC12345)'],
@@ -5913,22 +5913,26 @@ def test_generatefacetkey(fval, nf_chars, expected):
 
     # 490 (untraced): Untraced 490 => Series titles
     ([('490', ['3', '1990-92:', 'a', 'Some series ,', 'x', '1234-5678 ;',
-               'v', 'v. 1', 'l', '(LC 12345)'], '0 '),
+               'v', '76', 'l', '(LC 12345)'], '0 '),
       ('490', ['3', '1992-93:', 'a', 'Another series =',
-               'a', 'Series in English / Joe Smith ;'], '0 '),
+               'a', 'Series in English / by Joe Smith ;'], '0 '),
       ('490', ['3', '1993-94:', 'a', 'Third series.', 'v', 'v. 1',
                'a', 'Subseries B ;', 'v', 'v. 2', ], '0 ') ],
      {'related_series_titles_json': [
-        {'p': [{'d': '(1990-92) Some series; v. 1 | '
-                     'ISSN: 1234-5678; LC Call Number: LC 12345'}]},
-        {'p': [{'d': '(1992-93) Another series [Joe Smith]'}]},
-        {'p': [{'d': '(1993-94) Third series; v. 1 > Subseries B; v. 2'}]},
+        {'b': '(1990-92)',
+         'p': [{'d': 'Some series; [volume] 76',
+                's': ' ('},
+               {'d': 'ISSN 1234-5678; LC Call Number LC 12345',
+                's': ')'}]},
+        {'b': '(1992-93)',
+         'p': [{'d': 'Another series [by Joe Smith]'}]},
+        {'b': '(1993-94)',
+         'p': [{'d': 'Third series; v. 1 > Subseries B; v. 2'}]},
       ],
       'related_series_titles_search': [
-        '(1990-92) Some series; v. 1 | ISSN: 1234-5678; '
-        'LC Call Number: LC 12345',
-        '(1992-93) Another series [Joe Smith]',
-        '(1993-94) Third series; v. 1 > Subseries B; v. 2'
+        'Some series; [volume] 76',
+        'Another series [by Joe Smith]',
+        'Third series; v. 1 > Subseries B; v. 2'
       ]}),
 
     # 490/800: Traced 490s are not included in Series titles
@@ -6113,15 +6117,17 @@ def test_generatefacetkey(fval, nf_chars, expected):
     ([('830', ['a', 'Some series ;', 'v', 'v. 2.'], ' 0')],
      {'related_series_titles_json': [
         {'p': [{'d': 'Some series',
-                's': ' (',
+                's': '; ',
                 'v': 'some-series!Some series'},
-               {'d': 'v. 2', 's': ')'}]},
+               {'d': 'v. 2',
+                'v': 'some-series-v-2!Some series; v. 2'}]},
       ],
       'related_series_titles_search': [
-        'Some series (v. 2)',
+        'Some series; v. 2',
       ],
       'title_series_facet': [
         'some-series!Some series',
+        'some-series-v-2!Some series; v. 2',
       ]}),
 
     # 830: $x, ISSN info
@@ -6133,25 +6139,29 @@ def test_generatefacetkey(fval, nf_chars, expected):
                {'d': 'ISSN 1234-5678', 's': ')'}]},
       ],
       'related_series_titles_search': [
-        'Some series (ISSN 1234-5678)',
+        'Some series',
       ],
       'title_series_facet': [
         'some-series!Some series',
       ]}),
 
     # 830: $v and $x, volume + ISSN info
-    ([('830', ['a', 'Some series ;', 'v', 'v. 2.', 'x', '1234-5678'], ' 0')],
+    ([('830', ['a', 'Some series,', 'x', '1234-5678 ;', 'v', 'v. 2.', ], ' 0')],
      {'related_series_titles_json': [
         {'p': [{'d': 'Some series',
-                's': ' (',
+                's': '; ',
                 'v': 'some-series!Some series'},
-               {'d': 'v. 2; ISSN 1234-5678', 's': ')'}]},
+               {'d': 'v. 2', 
+                'v': 'some-series-v-2!Some series; v. 2',
+                's': ' ('},
+               {'d': 'ISSN 1234-5678', 's': ')'}]},
       ],
       'related_series_titles_search': [
-        'Some series (v. 2; ISSN 1234-5678)',
+        'Some series; v. 2',
       ],
       'title_series_facet': [
         'some-series!Some series',
+        'some-series-v-2!Some series; v. 2',
       ]}),
 
     # Main titles and truncation
@@ -9903,8 +9913,12 @@ def test_linkingfieldparser_display_labels(marc_tags_ind, sf_i, equals,
     ('787 ##$a', {
         'display_label': None,
         'title_parts': None,
+        'title_is_collective': False,
+        'title_is_music_form': False,
+        'volume': None,
         'author': None,
         'short_author': None,
+        'author_type': None,
         'display_metadata': None,
         'identifiers_map': None,
         'identifiers_list': None,
@@ -9915,10 +9929,16 @@ def test_linkingfieldparser_display_labels(marc_tags_ind, sf_i, equals,
     ('787 ##$aSome author.$dPub date.$w(OCoLC)646108719', {
         'display_label': None,
         'title_parts': None,
+        'title_is_collective': False,
+        'title_is_music_form': False,
+        'volume': None,
         'author': 'Some author',
         'short_author': 'Some author',
+        'author_type': 'organization',
         'display_metadata': ['Pub date'],
-        'identifiers_map': {'oclc': '646108719'},
+        'identifiers_map': {
+            'oclc': {'number': '646108719', 'numtype': 'control'}
+        },
         'identifiers_list': [{
             'code': 'oclc',
             'numtype': 'control',
@@ -9932,8 +9952,12 @@ def test_linkingfieldparser_display_labels(marc_tags_ind, sf_i, equals,
     ('787 ##$sUniform title.$tTranscribed title.', {
         'display_label': None,
         'title_parts': ['Transcribed title'],
+        'title_is_collective': False,
+        'title_is_music_form': False,
+        'volume': None,
         'author': None,
         'short_author': None,
+        'author_type': None,
         'display_metadata': None,
         'identifiers_map': None,
         'identifiers_list': None,
@@ -9944,8 +9968,12 @@ def test_linkingfieldparser_display_labels(marc_tags_ind, sf_i, equals,
     ('787 ##$tTranscribed title.', {
         'display_label': None,
         'title_parts': ['Transcribed title'],
+        'title_is_collective': False,
+        'title_is_music_form': False,
+        'volume': None,
         'author': None,
         'short_author': None,
+        'author_type': None,
         'display_metadata': None,
         'identifiers_map': None,
         'identifiers_list': None,
@@ -9956,8 +9984,12 @@ def test_linkingfieldparser_display_labels(marc_tags_ind, sf_i, equals,
     ('787 ##$sUniform title.', {
         'display_label': None,
         'title_parts': ['Uniform title'],
+        'title_is_collective': False,
+        'title_is_music_form': False,
+        'volume': None,
         'author': None,
         'short_author': None,
+        'author_type': None,
         'display_metadata': None,
         'identifiers_map': None,
         'identifiers_list': None,
@@ -9968,8 +10000,76 @@ def test_linkingfieldparser_display_labels(marc_tags_ind, sf_i, equals,
     ('787 ##$sRiigi teataja (1990). English. Selections.', {
         'display_label': None,
         'title_parts': ['Riigi teataja (1990)', 'English', 'Selections'],
+        'title_is_collective': False,
+        'title_is_music_form': False,
+        'volume': None,
         'author': None,
         'short_author': None,
+        'author_type': None,
+        'display_metadata': None,
+        'identifiers_map': None,
+        'identifiers_list': None,
+        'materials_specified': None,
+    }),
+
+    # $s, non-music collective title
+    ('787 ##$aBeethoven, Ludwig van.$sWorks. Selections', {
+        'display_label': None,
+        'title_parts': ['Works', 'Selections'],
+        'title_is_collective': True,
+        'title_is_music_form': False,
+        'volume': None,
+        'author': 'Beethoven, Ludwig van',
+        'short_author': 'Beethoven, L.v.',
+        'author_type': 'person',
+        'display_metadata': None,
+        'identifiers_map': None,
+        'identifiers_list': None,
+        'materials_specified': None,
+    }),
+
+    # $s, music form collective title
+    ('787 ##$aBeethoven, Ludwig van.$sSonatas.', {
+        'display_label': None,
+        'title_parts': ['Sonatas'],
+        'title_is_collective': True,
+        'title_is_music_form': True,
+        'volume': None,
+        'author': 'Beethoven, Ludwig van',
+        'short_author': 'Beethoven, L.v.',
+        'author_type': 'person',
+        'display_metadata': None,
+        'identifiers_map': None,
+        'identifiers_list': None,
+        'materials_specified': None,
+    }),
+
+    # $s, music form plus instrument collective title
+    ('787 ##$aBeethoven, Ludwig van.$sSonatas, piano.', {
+        'display_label': None,
+        'title_parts': ['Sonatas, piano'],
+        'title_is_collective': True,
+        'title_is_music_form': True,
+        'volume': None,
+        'author': 'Beethoven, Ludwig van',
+        'short_author': 'Beethoven, L.v.',
+        'author_type': 'person',
+        'display_metadata': None,
+        'identifiers_map': None,
+        'identifiers_list': None,
+        'materials_specified': None,
+    }),
+
+    # $s, "N music" collective title
+    ('787 ##$aBeethoven, Ludwig van.$sPiano music.', {
+        'display_label': None,
+        'title_parts': ['Piano music'],
+        'title_is_collective': True,
+        'title_is_music_form': False,
+        'volume': None,
+        'author': 'Beethoven, Ludwig van',
+        'short_author': 'Beethoven, L.v.',
+        'author_type': 'person',
         'display_metadata': None,
         'identifiers_map': None,
         'identifiers_list': None,
@@ -9980,8 +10080,12 @@ def test_linkingfieldparser_display_labels(marc_tags_ind, sf_i, equals,
     ('787 ##$aBeethoven, Ludwig van, 1770-1827.', {
         'display_label': None,
         'title_parts': None,
+        'title_is_collective': False,
+        'title_is_music_form': False,
+        'volume': None,
         'author': 'Beethoven, Ludwig van, 1770-1827',
         'short_author': 'Beethoven, L.v.',
+        'author_type': 'person',
         'display_metadata': None,
         'identifiers_map': None,
         'identifiers_list': None,
@@ -9992,8 +10096,12 @@ def test_linkingfieldparser_display_labels(marc_tags_ind, sf_i, equals,
     ('787 ##$aUnited States. Congress.', {
         'display_label': None,
         'title_parts': None,
+        'title_is_collective': False,
+        'title_is_music_form': False,
+        'volume': None,
         'author': 'United States. Congress',
         'short_author': 'United States, Congress',
+        'author_type': 'organization',
         'display_metadata': None,
         'identifiers_map': None,
         'identifiers_list': None,
@@ -10004,8 +10112,12 @@ def test_linkingfieldparser_display_labels(marc_tags_ind, sf_i, equals,
     ('787 ##$aFestival of Britain (1951 : London, England)', {
         'display_label': None,
         'title_parts': None,
+        'title_is_collective': False,
+        'title_is_music_form': False,
+        'volume': None,
         'author': 'Festival of Britain (1951 : London, England)',
         'short_author': 'Festival of Britain',
+        'author_type': 'organization',
         'display_metadata': None,
         'identifiers_map': None,
         'identifiers_list': None,
@@ -10013,21 +10125,57 @@ def test_linkingfieldparser_display_labels(marc_tags_ind, sf_i, equals,
     }),
 
     # multiple metadata subfields -- should stay in order
-    # also: $e, and $f are ignored.
+    # also: $e, $f, $q, and $v are ignored.
     ('787 ##$b[English edition]$c(London, 1958)$dChennai : Westland, 2011'
      '$eeng$fdcu$gJan. 1992$hmicrofilm$j20100101'
      '$kAsia Pacific legal culture and globalization$mScale 1:760,320.'
      '$n"July 2011"$oN 84-11142$q15:5<30$vBase map data', {
         'display_label': None,
         'title_parts': None,
+        'title_is_collective': False,
+        'title_is_music_form': False,
+        'volume': None,
         'author': None,
         'short_author': None,
+        'author_type': None,
         'display_metadata': [
             '[English edition]', 'London, 1958', 'Chennai : Westland, 2011',
-            'Jan. 1992', 'microfilm', '20100101',
+            'Jan. 1992', 'microfilm',
             'Asia Pacific legal culture and globalization', 'Scale 1:760,320',
-            '"July 2011"', 'N 84-11142', '15:5<30', 'Base map data'
+            '"July 2011"', 'N 84-11142', 'Base map data'
         ],
+        'identifiers_map': None,
+        'identifiers_list': None,
+        'materials_specified': None,
+    }),
+
+    # 760: $g following the title is treated as volume
+    ('760 ##$tSeries title.$gVol. 1.', {
+        'display_label': None,
+        'title_parts': ['Series title'],
+        'title_is_collective': False,
+        'title_is_music_form': False,
+        'volume': 'vol. 1',
+        'author': None,
+        'short_author': None,
+        'author_type': None,
+        'display_metadata': None,
+        'identifiers_map': None,
+        'identifiers_list': None,
+        'materials_specified': None,
+    }),
+
+    # 762: $g following the title is treated as volume
+    ('762 ##$tSeries title.$gNO. 23.', {
+        'display_label': None,
+        'title_parts': ['Series title'],
+        'title_is_collective': False,
+        'title_is_music_form': False,
+        'volume': 'NO. 23',
+        'author': None,
+        'short_author': None,
+        'author_type': None,
+        'display_metadata': None,
         'identifiers_map': None,
         'identifiers_list': None,
         'materials_specified': None,
@@ -10038,10 +10186,16 @@ def test_linkingfieldparser_display_labels(marc_tags_ind, sf_i, equals,
     ('787 ##$rEPA 430-H-02-001', {
         'display_label': None,
         'title_parts': None,
+        'title_is_collective': False,
+        'title_is_music_form': False,
+        'volume': None,
         'author': None,
         'short_author': None,
+        'author_type': None,
         'display_metadata': None,
-        'identifiers_map': {'r': 'EPA 430-H-02-001'},
+        'identifiers_map': {
+            'r': {'number': 'EPA 430-H-02-001', 'numtype': 'standard'}
+        },
         'identifiers_list': [{
             'code': 'r',
             'numtype': 'standard',
@@ -10054,10 +10208,16 @@ def test_linkingfieldparser_display_labels(marc_tags_ind, sf_i, equals,
     ('787 ##$uFHWA/NC/95-002', {
         'display_label': None,
         'title_parts': None,
+        'title_is_collective': False,
+        'title_is_music_form': False,
+        'volume': None,
         'author': None,
         'short_author': None,
+        'author_type': None,
         'display_metadata': None,
-        'identifiers_map': {'u': 'FHWA/NC/95-002'},
+        'identifiers_map': {
+            'u': {'number': 'FHWA/NC/95-002', 'numtype': 'standard'}
+        },
         'identifiers_list': [{
             'code': 'u',
             'numtype': 'standard',
@@ -10070,10 +10230,16 @@ def test_linkingfieldparser_display_labels(marc_tags_ind, sf_i, equals,
     ('787 ##$w(OCoLC)12700508', {
         'display_label': None,
         'title_parts': None,
+        'title_is_collective': False,
+        'title_is_music_form': False,
+        'volume': None,
         'author': None,
         'short_author': None,
+        'author_type': None,
         'display_metadata': None,
-        'identifiers_map': {'oclc': '12700508'},
+        'identifiers_map': {
+            'oclc': {'number': '12700508', 'numtype': 'control'}
+        },
         'identifiers_list': [{
             'code': 'oclc',
             'numtype': 'control',
@@ -10086,10 +10252,16 @@ def test_linkingfieldparser_display_labels(marc_tags_ind, sf_i, equals,
     ('787 ##$w(DLC)   92643478', {
         'display_label': None,
         'title_parts': None,
+        'title_is_collective': False,
+        'title_is_music_form': False,
+        'volume': None,
         'author': None,
         'short_author': None,
+        'author_type': None,
         'display_metadata': None,
-        'identifiers_map': {'lccn': '92643478'},
+        'identifiers_map': {
+            'lccn': {'number': '92643478', 'numtype': 'control'}
+        },
         'identifiers_list': [{
             'code': 'lccn',
             'numtype': 'control',
@@ -10102,10 +10274,16 @@ def test_linkingfieldparser_display_labels(marc_tags_ind, sf_i, equals,
     ('787 ##$w(CaOONL)890390894', {
         'display_label': None,
         'title_parts': None,
+        'title_is_collective': False,
+        'title_is_music_form': False,
+        'volume': None,
         'author': None,
         'short_author': None,
+        'author_type': None,
         'display_metadata': None,
-        'identifiers_map': {'w': '890390894'},
+        'identifiers_map': {
+            'w': {'number': '890390894', 'numtype': 'control'}
+        },
         'identifiers_list': [{
             'code': 'w',
             'numtype': 'control',
@@ -10118,10 +10296,16 @@ def test_linkingfieldparser_display_labels(marc_tags_ind, sf_i, equals,
     ('787 ##$w890390894', {
         'display_label': None,
         'title_parts': None,
+        'title_is_collective': False,
+        'title_is_music_form': False,
+        'volume': None,
         'author': None,
         'short_author': None,
+        'author_type': None,
         'display_metadata': None,
-        'identifiers_map': {'w': '890390894'},
+        'identifiers_map': {
+            'w': {'number': '890390894', 'numtype': 'control'}
+        },
         'identifiers_list': [{
             'code': 'w',
             'numtype': 'control',
@@ -10134,10 +10318,16 @@ def test_linkingfieldparser_display_labels(marc_tags_ind, sf_i, equals,
     ('787 ##$x1544-7227', {
         'display_label': None,
         'title_parts': None,
+        'title_is_collective': False,
+        'title_is_music_form': False,
+        'volume': None,
         'author': None,
         'short_author': None,
+        'author_type': None,
         'display_metadata': None,
-        'identifiers_map': {'issn': '1544-7227'},
+        'identifiers_map': {
+            'issn': {'number': '1544-7227', 'numtype': 'standard'}
+        },
         'identifiers_list': [{
             'code': 'issn',
             'numtype': 'standard',
@@ -10150,10 +10340,16 @@ def test_linkingfieldparser_display_labels(marc_tags_ind, sf_i, equals,
     ('787 ##$yFBKRAT', {
         'display_label': None,
         'title_parts': None,
+        'title_is_collective': False,
+        'title_is_music_form': False,
+        'volume': None,
         'author': None,
         'short_author': None,
+        'author_type': None,
         'display_metadata': None,
-        'identifiers_map': {'coden': 'FBKRAT'},
+        'identifiers_map': {
+            'coden': {'number': 'FBKRAT', 'numtype': 'standard'}
+        },
         'identifiers_list': [{
             'code': 'coden',
             'numtype': 'standard',
@@ -10166,10 +10362,16 @@ def test_linkingfieldparser_display_labels(marc_tags_ind, sf_i, equals,
     ('787 ##$z477440490X', {
         'display_label': None,
         'title_parts': None,
+        'title_is_collective': False,
+        'title_is_music_form': False,
+        'volume': None,
         'author': None,
         'short_author': None,
+        'author_type': None,
         'display_metadata': None,
-        'identifiers_map': {'isbn': '477440490X'},
+        'identifiers_map': {
+            'isbn': {'number': '477440490X', 'numtype': 'standard'}
+        },
         'identifiers_list': [{
             'code': 'isbn',
             'numtype': 'standard',
@@ -10182,13 +10384,17 @@ def test_linkingfieldparser_display_labels(marc_tags_ind, sf_i, equals,
     ('787 ##$z9781598847611$w(DLC)   2012034673$w(OCoLC)768800369', {
         'display_label': None,
         'title_parts': None,
+        'title_is_collective': False,
+        'title_is_music_form': False,
+        'volume': None,
         'author': None,
         'short_author': None,
+        'author_type': None,
         'display_metadata': None,
         'identifiers_map': {
-            'isbn': '9781598847611',
-            'lccn': '2012034673',
-            'oclc': '768800369',
+            'isbn': {'number': '9781598847611', 'numtype': 'standard'},
+            'lccn': {'number': '2012034673', 'numtype': 'control'},
+            'oclc': {'number': '768800369', 'numtype': 'control'},
         },
         'identifiers_list': [{
             'code': 'isbn',
@@ -10214,12 +10420,16 @@ def test_linkingfieldparser_display_labels(marc_tags_ind, sf_i, equals,
     ('787 ##$z477440490X$z9784774404905$w(OCoLC)883612986', {
         'display_label': None,
         'title_parts': None,
+        'title_is_collective': False,
+        'title_is_music_form': False,
+        'volume': None,
         'author': None,
         'short_author': None,
+        'author_type': None,
         'display_metadata': None,
         'identifiers_map': {
-            'isbn': '477440490X',
-            'oclc': '883612986',
+            'isbn': {'number': '477440490X', 'numtype': 'standard'},
+            'oclc': {'number': '883612986', 'numtype': 'control'},
         },
         'identifiers_list': [{
             'code': 'isbn',
@@ -10239,7 +10449,6 @@ def test_linkingfieldparser_display_labels(marc_tags_ind, sf_i, equals,
         }],
         'materials_specified': None,
     }),
-
 ], ids=[
     # Edge cases
     'Empty field',
@@ -10249,11 +10458,17 @@ def test_linkingfieldparser_display_labels(marc_tags_ind, sf_i, equals,
     '$s and $t title, use $t as title',
     '$t title only, use $t as title',
     '$s title only, use $s as title',
+    '$s, non-music collective title',
+    '$s, music form collective title',
+    '$s, music form plus instrument collective title',
+    '$s, "N music" collective title',
     'title with multiple parts',
     'author, personal name',
     'author, organizational name',
     'author, meeting name',
     'multiple metadata subfields -- should stay in order',
+    '760: $g following the title is treated as volume',
+    '762: $g following the title is treated as volume',
 
     # Identifiers
     '$r => Report Number',
@@ -10278,6 +10493,1187 @@ def test_linkingfieldparser_parse(raw_marcfield, expected,
     result = s2m.LinkingFieldParser(field).parse()
     print result
     assert result == expected
+
+
+@pytest.mark.parametrize('raw_marcfields, expected', [
+    # 760 and 762 (additional Related Series)
+    # 760-762: Empty MARC fields => no results
+    (['760 ## $a', '762 ## $a'], {}),
+
+    # 760-762: No title ($s or $t) => no results
+    (['760 ## $aSurname, Forename$w(OCoLC)12345',
+      '762 ## $aSurname, Forename$w(OCoLC)12345'], {}),
+
+    # 760-762: Title alone
+    (['760 0# $tSeries title',
+      '762 0# $tSubseries title'],
+     {'related_series_titles_json': [
+        {'p': [{'d': 'Series title',
+                'v': 'series-title!Series title'}]},
+        {'p': [{'d': 'Subseries title',
+                'v': 'subseries-title!Subseries title'}]},
+      ],
+      'related_series_titles_search': [
+        'Series title',
+        'Subseries title',
+      ],
+      'title_series_facet': [
+        'series-title!Series title',
+        'subseries-title!Subseries title',
+      ]}),
+
+    # 760-762: Multi-part title
+    (['760 0# $tSeries title. Part one',
+      '762 0# $tSubseries title. Part one'],
+     {'related_series_titles_json': [
+        {'p': [{'d': 'Series title',
+                'v': 'series-title!Series title',
+                's': ' > '},
+               {'d': 'Part one',
+                'v': 'series-title-part-one!Series title > Part one'}]},
+        {'p': [{'d': 'Subseries title',
+                'v': 'subseries-title!Subseries title',
+                's': ' > '},
+               {'d': 'Part one',
+                'v': 'subseries-title-part-one!Subseries title > Part one'}]},
+      ],
+      'related_series_titles_search': [
+        'Series title > Part one',
+        'Subseries title > Part one',
+      ],
+      'title_series_facet': [
+        'series-title!Series title',
+        'series-title-part-one!Series title > Part one',
+        'subseries-title!Subseries title',
+        'subseries-title-part-one!Subseries title > Part one'
+      ]}),
+
+    # 760-762: Personal author and title
+    (['760 0# $aSmith, John A., 1900-1980.$tSeries title',
+      '762 0# $aSmith, John A., 1900-1980.$tSubseries title'],
+     {'related_series_titles_json': [
+        {'p': [{'d': 'Series title [by Smith, J.A.]',
+                'v': 'series-title!Series title'}]},
+        {'p': [{'d': 'Subseries title [by Smith, J.A.]',
+                'v': 'subseries-title!Subseries title'}]},
+      ],
+      'related_series_titles_search': [
+        'Series title',
+        'Subseries title',
+      ],
+      'title_series_facet': [
+        'series-title!Series title',
+        'subseries-title!Subseries title',
+      ]}),
+
+    # 760-762: Multi-part org author and title
+    (['760 0# $aUnited States. Congress$tSeries title',
+      '762 0# $aUnited States. Congress$tSubseries title'],
+     {'related_series_titles_json': [
+        {'p': [{'d': 'Series title [United States, Congress]',
+                'v': 'series-title!Series title'}]},
+        {'p': [{'d': 'Subseries title [United States, Congress]',
+                'v': 'subseries-title!Subseries title'}]},
+      ],
+      'related_series_titles_search': [
+        'Series title',
+        'Subseries title',
+      ],
+      'title_series_facet': [
+        'series-title!Series title',
+        'subseries-title!Subseries title',
+      ]}),
+
+    # 760-762: Author and multi-part title
+    (['760 0# $aSmith, John A., 1900-1980.$tSeries title. Part one',
+      '762 0# $aUnited States. Congress. House.$tSubseries title. Part one'],
+     {'related_series_titles_json': [
+        {'p': [{'d': 'Series title [by Smith, J.A.]',
+                'v': 'series-title!Series title',
+                's': ' > '},
+               {'d': 'Part one',
+                'v': 'series-title-part-one!Series title > Part one'}]},
+        {'p': [{'d': 'Subseries title [United States ... House]',
+                'v': 'subseries-title!Subseries title',
+                's': ' > '},
+               {'d': 'Part one',
+                'v': 'subseries-title-part-one!Subseries title > Part one'}]},
+      ],
+      'related_series_titles_search': [
+        'Series title > Part one',
+        'Subseries title > Part one',
+      ],
+      'title_series_facet': [
+        'series-title!Series title',
+        'series-title-part-one!Series title > Part one',
+        'subseries-title!Subseries title',
+        'subseries-title-part-one!Subseries title > Part one'
+      ]}),
+
+    # 760-762: Author/title plus additional metadata
+    (['760 0# $aSmith, John A., 1900-1980.$tSeries title.$gNo. 1-$nSome note.',
+      '762 0# $aSmith, John A., 1900-1980.$tSubseries title.$oABC12345'],
+     {'related_series_titles_json': [
+        {'p': [{'d': 'Series title [by Smith, J.A.]',
+                'v': 'series-title!Series title',
+                's': '; '},
+               {'d': 'no. 1-',
+                'v': 'series-title-no-1!Series title; no. 1-',
+                's': ' ('},
+               {'d': 'Some note',
+                's': ')'}]},
+        {'p': [{'d': 'Subseries title [by Smith, J.A.]',
+                'v': 'subseries-title!Subseries title',
+                's': ' ('},
+               {'d': 'ABC12345',
+                's': ')'}]},
+      ],
+      'related_series_titles_search': [
+        'Series title; no. 1-',
+        'Subseries title',
+      ],
+      'title_series_facet': [
+        'series-title!Series title',
+        'series-title-no-1!Series title; no. 1-',
+        'subseries-title!Subseries title',
+      ]}),
+
+    # 760-762: Author/title plus identifiers
+    (['760 0# $aSmith, John A., 1900-1980.$tSeries title$x0084-1358'
+             '$w(DLC)sf 81008035 ',
+      '762 0# $aSmith, John A., 1900-1980.$tSubseries title$w(OCoLC)856411436'],
+     {'related_series_titles_json': [
+        {'p': [{'d': 'Series title [by Smith, J.A.]',
+                'v': 'series-title!Series title',
+                's': ' ('},
+               {'d': 'ISSN 0084-1358; LCCN sf81008035',
+                's': ')'}]},
+        {'p': [{'d': 'Subseries title [by Smith, J.A.]',
+                'v': 'subseries-title!Subseries title',
+                's': ' ('},
+               {'d': 'OCLC Number 856411436',
+                's': ')'}]},
+      ],
+      'related_series_titles_search': [
+        'Series title',
+        'Subseries title',
+      ],
+      'title_series_facet': [
+        'series-title!Series title',
+        'subseries-title!Subseries title',
+      ]}),
+
+    # 760-762: Author/title plus additional metadata and identifiers
+    (['760 0# $aSmith, John A., 1900-1980.$tSeries title.$gNo. 1-$nSome note.'
+             '$x0084-1358$w(DLC)sf 81008035 ',
+      '762 0# $aSmith, John A., 1900-1980.$tSubseries title.$oABC12345'
+             '$w(OCoLC)856411436'],
+     {'related_series_titles_json': [
+        {'p': [{'d': 'Series title [by Smith, J.A.]',
+                'v': 'series-title!Series title',
+                's': '; '},
+               {'d': 'no. 1-',
+                'v': 'series-title-no-1!Series title; no. 1-',
+                's': ' ('},
+               {'d': 'Some note',
+                's': ' — '},
+               {'d': 'ISSN 0084-1358; LCCN sf81008035',
+                's': ')'}]},
+        {'p': [{'d': 'Subseries title [by Smith, J.A.]',
+                'v': 'subseries-title!Subseries title',
+                's': ' ('},
+               {'d': 'ABC12345',
+                's': ' — '},
+               {'d': 'OCLC Number 856411436',
+                's': ')'}]},
+      ],
+      'related_series_titles_search': [
+        'Series title; no. 1-',
+        'Subseries title',
+      ],
+      'title_series_facet': [
+        'series-title!Series title',
+        'series-title-no-1!Series title; no. 1-',
+        'subseries-title!Subseries title',
+      ]}),
+
+    # 760-762: Do not duplicate existing Related Series (from 490/8XX)
+    # De-duplication is based on a generated "work title key."
+    #   - Each key contains the full title only, plus the volumes, if
+    #     present. Author short names are not included, unless they are
+    #     part of the facet value itself (from a collective title).
+    #     Expression and ID components are not included.
+    #   - The `get_title_info` method generates these for 490s and 8XXs
+    #     and then stores them on the pipeline object for comparison.
+    #   - One is generated for each 760 and 762 and compared against
+    #     the existing set. If found, that field is skipped.
+    (['490 0# $aSeries one$x1111-1111',
+      '490 0# $aSeries two$x2222-2222 ;$v76$l(LC 12345)',
+      '760 0# $aSmith, Joe.$tSeries one.',
+      '760 0# $aSmith, Joe.$tSeries one.$gNo. 2.',
+      '762 0# $aSmith, Joe.$tSeries two.',
+      '762 0# $tSeries three.',
+      '800 1# $aSmith, Joe.$tSeries three.'],
+     {'related_series_titles_json': [
+        {'a': 'smith-joe!Smith, Joe',
+         'p': [{'d': 'Series three [by Smith, J.]',
+                'v': 'series-three!Series three'}]},
+        {'p': [{'d': 'Series one',
+                's': ' ('},
+               {'d': 'ISSN 1111-1111',
+                's': ')'}]},
+        {'p': [{'d': 'Series two; [volume] 76',
+                's': ' ('},
+               {'d': 'ISSN 2222-2222; LC Call Number LC 12345',
+                's': ')'}]},
+        {'p': [{'d': 'Series one [by Smith, J.]',
+                'v': 'series-one!Series one',
+                's': '; '},
+               {'d': 'no. 2',
+                'v': 'series-one-no-2!Series one; no. 2'}]},
+        {'p': [{'d': 'Series two [by Smith, J.]',
+                'v': 'series-two!Series two'}]},
+      ],
+      'related_series_titles_search': [
+        'Series three',
+        'Series one',
+        'Series two; [volume] 76',
+        'Series one; no. 2',
+        'Series two',
+      ],
+      'title_series_facet': [
+        'series-three!Series three',
+        'series-one!Series one',
+        'series-one-no-2!Series one; no. 2',
+        'series-two!Series two',
+      ]}),
+
+
+    # 774 (addition Included Works)
+    # 774: Empty MARC fields => no results
+    (['774 ## $a'], {}),
+
+    # 774: No title ($s or $t) => no results
+    (['774 ## $aSurname, Forename$w(OCoLC)12345'], {}),
+
+    # 774: Title alone
+    (['774 0# $tWork title one',
+      '774 0# $tWork title two'],
+     {'included_work_titles_json': [
+        {'p': [{'d': 'Work title one',
+                'v': 'work-title-one!Work title one'}]},
+        {'p': [{'d': 'Work title two',
+                'v': 'work-title-two!Work title two'}]},
+      ],
+      'included_work_titles_search': [
+        'Work title one',
+        'Work title two',
+      ],
+      'title_series_facet': [
+        'work-title-one!Work title one',
+        'work-title-two!Work title two',
+      ]}),
+
+    # 774: Multi-part title
+    (['774 0# $tWork title one. Part one',
+      '774 0# $tWork title two. Part one'],
+     {'included_work_titles_json': [
+        {'p': [{'d': 'Work title one',
+                'v': 'work-title-one!Work title one', 
+                's': ' > '},
+               {'d': 'Part one',
+                'v': 'work-title-one-part-one!Work title one > Part one'}]},
+        {'p': [{'d': 'Work title two',
+                'v': 'work-title-two!Work title two', 
+                's': ' > '},
+               {'d': 'Part one',
+                'v': 'work-title-two-part-one!Work title two > Part one'}]},
+      ],
+      'included_work_titles_search': [
+        'Work title one > Part one',
+        'Work title two > Part one',
+      ],
+      'title_series_facet': [
+        'work-title-one!Work title one',
+        'work-title-one-part-one!Work title one > Part one',
+        'work-title-two!Work title two',
+        'work-title-two-part-one!Work title two > Part one',
+      ]}),
+
+    # 774: Personal author and title
+    (['774 0# $aSmith, John A., 1900-1980.$tWork title one',
+      '774 0# $aSmith, John A., 1900-1980.$tWork title two'],
+     {'included_work_titles_json': [
+        {'p': [{'d': 'Work title one [by Smith, J.A.]',
+                'v': 'work-title-one!Work title one'}]},
+        {'p': [{'d': 'Work title two [by Smith, J.A.]',
+                'v': 'work-title-two!Work title two'}]},
+      ],
+      'included_work_titles_search': [
+        'Work title one',
+        'Work title two',
+      ],
+      'title_series_facet': [
+        'work-title-one!Work title one',
+        'work-title-two!Work title two',
+      ]}),
+
+    # 774: Multi-part org author and title
+    (['774 0# $aUnited States. Congress.$tWork title one',
+      '774 0# $aUnited States. Congress.$tWork title two'],
+     {'included_work_titles_json': [
+        {'p': [{'d': 'Work title one [United States, Congress]',
+                'v': 'work-title-one!Work title one'}]},
+        {'p': [{'d': 'Work title two [United States, Congress]',
+                'v': 'work-title-two!Work title two'}]},
+      ],
+      'included_work_titles_search': [
+        'Work title one',
+        'Work title two',
+      ],
+      'title_series_facet': [
+        'work-title-one!Work title one',
+        'work-title-two!Work title two',
+      ]}),
+
+    # 774: Author and multi-part title
+    (['774 0# $aSmith, John A., 1900-1980.$tWork title one. Part one',
+      '774 0# $aUnited States. Congress. House.$tWork title two. Part one'],
+     {'included_work_titles_json': [
+        {'p': [{'d': 'Work title one [by Smith, J.A.]',
+                'v': 'work-title-one!Work title one', 
+                's': ' > '},
+               {'d': 'Part one',
+                'v': 'work-title-one-part-one!Work title one > Part one'}]},
+        {'p': [{'d': 'Work title two [United States ... House]',
+                'v': 'work-title-two!Work title two',
+                's': ' > '},
+               {'d': 'Part one',
+                'v': 'work-title-two-part-one!Work title two > Part one'}]},
+      ],
+      'included_work_titles_search': [
+        'Work title one > Part one',
+        'Work title two > Part one',
+      ],
+      'title_series_facet': [
+        'work-title-one!Work title one',
+        'work-title-one-part-one!Work title one > Part one',
+        'work-title-two!Work title two',
+        'work-title-two-part-one!Work title two > Part one',
+      ]}),
+
+    # 774: Personal author plus collective titles
+    (['774 0# $aSmith, John A., 1900-1980.$sPiano music. Selections.',
+      '774 0# $aSmith, John A., 1900-1980.$sPoems.',
+      '774 0# $aSmith, John A., 1900-1980.$sSonatas, piano.'],
+     {'included_work_titles_json': [
+        {'p': [{'d': 'Piano music [of Smith, J.A.] (Selections)',
+                'v': 'piano-music-of-smith-j-a-selections!'
+                     'Piano music [of Smith, J.A.] (Selections)'}]},
+        {'p': [{'d': 'Poems [of Smith, J.A.] (Complete)',
+                'v': 'poems-of-smith-j-a-complete!'
+                     'Poems [of Smith, J.A.] (Complete)'}]},
+        {'p': [{'d': 'Sonatas, piano [by Smith, J.A.] (Complete)',
+                'v': 'sonatas-piano-by-smith-j-a-complete!'
+                     'Sonatas, piano [by Smith, J.A.] (Complete)'}]},
+      ],
+      'included_work_titles_search': [
+        'Piano music [of Smith, J.A.] (Selections)',
+        'Poems [of Smith, J.A.] (Complete)',
+        'Sonatas, piano [by Smith, J.A.] (Complete)',
+      ],
+      'title_series_facet': [
+        'piano-music-of-smith-j-a-selections!'
+        'Piano music [of Smith, J.A.] (Selections)',
+        'poems-of-smith-j-a-complete!Poems [of Smith, J.A.] (Complete)',
+        'sonatas-piano-by-smith-j-a!Sonatas, piano [by Smith, J.A.]',
+        'sonatas-piano-by-smith-j-a-complete!'
+        'Sonatas, piano [by Smith, J.A.] (Complete)',
+      ]}),
+
+    # 774: Author/title plus additional metadata
+    (['774 0# $aSmith, John A., 1900-1980.$tWork title one (2014).$bFirst ed.'
+             '$dNew York : Publisher, 2014.',
+      '774 0# $aSmith, John A., 1900-1980.$tWork title two.$c(London : 1958)'
+             '$hvolumes : ill. ; 29 cm'],
+     {'included_work_titles_json': [
+        {'p': [{'d': 'Work title one (2014) [by Smith, J.A.]',
+                'v': 'work-title-one-2014!Work title one (2014)',
+                's': ' ('},
+               {'d': 'First ed.; New York : Publisher, 2014',
+                's': ')'}]},
+        {'p': [{'d': 'Work title two [by Smith, J.A.]',
+                'v': 'work-title-two!Work title two',
+                's': ' ('},
+               {'d': 'London : 1958; volumes : ill. ; 29 cm',
+                's': ')'}]},
+      ],
+      'included_work_titles_search': [
+        'Work title one (2014)',
+        'Work title two',
+      ],
+      'title_series_facet': [
+        'work-title-one-2014!Work title one (2014)',
+        'work-title-two!Work title two',
+      ]}),
+
+    # 774: Author/title plus identifiers
+    (['774 0# $aSmith, John A., 1900-1980.$tWork title one$z12345',
+      '774 0# $aSmith, John A., 1900-1980.$tWork title two$rAB-12345'],
+     {'included_work_titles_json': [
+        {'p': [{'d': 'Work title one [by Smith, J.A.]',
+                'v': 'work-title-one!Work title one',
+                's': ' ('},
+               {'d': 'ISBN 12345',
+                's': ')'}]},
+        {'p': [{'d': 'Work title two [by Smith, J.A.]',
+                'v': 'work-title-two!Work title two',
+                's': ' ('},
+               {'d': 'Report Number AB-12345',
+                's': ')'}]},
+      ],
+      'included_work_titles_search': [
+        'Work title one',
+        'Work title two',
+      ],
+      'title_series_facet': [
+        'work-title-one!Work title one',
+        'work-title-two!Work title two',
+      ]}),
+
+    # 774: Author/title plus additional metadata and identifiers
+    (['774 0# $aSmith, John A., 1900-1980.$tWork title one (2014).$bFirst ed.'
+             '$dNew York : Publisher, 2014.$z12345',
+      '774 0# $aSmith, John A., 1900-1980.$tWork title two.$c(London : 1958)'
+             '$hvolumes : ill. ; 29 cm$rAB-12345'],
+     {'included_work_titles_json': [
+        {'p': [{'d': 'Work title one (2014) [by Smith, J.A.]',
+                'v': 'work-title-one-2014!Work title one (2014)',
+                's': ' ('},
+               {'d': 'First ed.; New York : Publisher, 2014',
+                's': ' — '},
+               {'d': 'ISBN 12345',
+                's': ')'}]},
+        {'p': [{'d': 'Work title two [by Smith, J.A.]',
+                'v': 'work-title-two!Work title two',
+                's': ' ('},
+               {'d': 'London : 1958; volumes : ill. ; 29 cm',
+                's': ' — '},
+               {'d': 'Report Number AB-12345',
+                's': ')'}]},
+      ],
+      'included_work_titles_search': [
+        'Work title one (2014)',
+        'Work title two',
+      ],
+      'title_series_facet': [
+        'work-title-one-2014!Work title one (2014)',
+        'work-title-two!Work title two',
+      ]}),
+
+    # 774: Do not duplicate existing Included Works (from 2XX/7XX)
+    # De-duplication is based on a generated "work title key."
+    #   - Each key contains the full title only. Author short names are
+    #     not included, unless they are part of the facet value itself
+    #     (from a collective title). Expression and ID components are
+    #     not included.
+    #   - The `get_title_info` method generates these for analytical
+    #     titles and stores them on the pipeline object for comparison.
+    #   - One is generated for each 774 and compared against the
+    #     existing set. If found, that field is skipped.
+    (['730 02 $aWork title.$pFirst part.$lEnglish.$sSome version.$f1994.',
+      '774 0# $aSmith, John A., 1900-1980.$sWork title. First part. English. '
+             'Some version. 1994.',
+      '774 0# $aSmith, John A., 1900-1980.$tAnother title.$bFirst ed.'
+             '$dNew York : Publisher, 2014.$z12345'],
+     {'included_work_titles_json': [
+        {'p': [{'d': 'Work title',
+                's': ' > ',
+                'v': 'work-title!Work title'},
+               {'d': 'First part',
+                's': ' (',
+                'v': 'work-title-first-part!Work title > First part'},
+               {'d': 'English; Some version; 1994',
+                's': ')',
+                'v': 'work-title-first-part-english-some-version-1994!'
+                     'Work title > First part (English; Some version; 1994)'}]},
+        {'p': [{'d': 'Another title [by Smith, J.A.]',
+                'v': 'another-title!Another title',
+                's': ' ('},
+               {'d': 'First ed.; New York : Publisher, 2014',
+                's': ' — '},
+               {'d': 'ISBN 12345',
+                's': ')'}]},
+      ],
+      'included_work_titles_search': [
+        'Work title > First part (English; Some version; 1994)',
+        'Another title'
+      ],
+      'title_series_facet': [
+        'work-title!Work title',
+        'work-title-first-part!Work title > First part',
+        'work-title-first-part-english-some-version-1994!'
+        'Work title > First part (English; Some version; 1994)',
+        'another-title!Another title'
+      ]}),
+
+    # 780-785 (serial_continuity_linking_json)
+    # 780-785: Empty MARC fields => no results
+    (['780 ## $a', '785 ## $a'], {}),
+
+    # 780-785: No title ($s or $t) => no results
+    (['780 00 $aSurname, Forename$w(OCoLC)12345',
+      '785 00 $aSurname, Forename$w(OCoLC)12345'], {}),
+
+    # 780-785: Title alone
+    (['780 00 $tPrevious title',
+      '785 00 $tNext title'],
+     {'serial_continuity_linking_json': [
+        {'b': 'Continues:',
+         'p': [{'d': 'Previous title',
+                't': 'previous title'}]},
+        {'b': 'Continued by:',
+         'p': [{'d': 'Next title',
+                't': 'next title'}]},
+      ]}),
+
+    # 780-785: Multi-part title
+    (['780 00 $tPrevious title. Vol 1.',
+      '785 00 $tNext title. Vol 1.'],
+     {'serial_continuity_linking_json': [
+        {'b': 'Continues:',
+         'p': [{'d': 'Previous title > Vol 1',
+                't': 'previous title vol 1'}]},
+        {'b': 'Continued by:',
+         'p': [{'d': 'Next title > Vol 1',
+                't': 'next title vol 1'}]},
+      ]}),
+
+    # 780-785: Personal author and title
+    (['780 00 $aSmith, John A., 1900-1980.$tPrevious title',
+      '785 00 $aSmith, John A., 1900-1980.$tNext title'],
+     {'serial_continuity_linking_json': [
+        {'b': 'Continues:',
+         'p': [{'d': 'Previous title [by Smith, J.A.]',
+                't': 'previous title',
+                'a': 'smith john a 1900 1980'}]},
+        {'b': 'Continued by:',
+         'p': [{'d': 'Next title [by Smith, J.A.]',
+                't': 'next title',
+                'a': 'smith john a 1900 1980'}]},
+      ]}),
+
+    # 780-785: Multi-part org author and title
+    (['780 00 $aUnited States. Congress.$tPrevious title',
+      '785 00 $aUnited States. Congress.$tNext title'],
+     {'serial_continuity_linking_json': [
+        {'b': 'Continues:',
+         'p': [{'d': 'Previous title [United States, Congress]',
+                't': 'previous title',
+                'a': 'united states congress'}]},
+        {'b': 'Continued by:',
+         'p': [{'d': 'Next title [United States, Congress]',
+                't': 'next title',
+                'a': 'united states congress'}]},
+      ]}),
+
+    # 780-785: Author and multi-part title
+    (['780 00 $aSmith, John A., 1900-1980.$tPrevious title. Vol 1.',
+      '785 00 $aUnited States. Congress. House.$tNext title. Vol 1.'],
+     {'serial_continuity_linking_json': [
+        {'b': 'Continues:',
+         'p': [{'d': 'Previous title [by Smith, J.A.] > Vol 1',
+                'a': 'smith john a 1900 1980',
+                't': 'previous title vol 1'}]},
+        {'b': 'Continued by:',
+         'p': [{'d': 'Next title [United States ... House] > Vol 1',
+                'a': 'united states congress house',
+                't': 'next title vol 1'}]},
+      ]}),
+
+    # 780-785: Author/title plus additional metadata
+    (['780 00 $aSmith, John A., 1900-1980.$tPrevious title.$kSeries.'
+             '$kSubseries.',
+      '785 00 $aSmith, John A., 1900-1980.$tNext title.$dNew York : 2010.'],
+     {'serial_continuity_linking_json': [
+        {'b': 'Continues:',
+         'p': [{'d': 'Previous title [by Smith, J.A.]',
+                't': 'previous title',
+                'a': 'smith john a 1900 1980',
+                's': ' ('},
+               {'d': 'Series; Subseries',
+                's': ')'}]},
+        {'b': 'Continued by:',
+         'p': [{'d': 'Next title [by Smith, J.A.]',
+                't': 'next title',
+                'a': 'smith john a 1900 1980',
+                's': ' ('},
+               {'d': 'New York : 2010',
+                's': ')'}]},
+      ]}),
+
+    # 780-785: Author/title plus identifiers
+    (['780 00 $aSmith, John A., 1900-1980.$tPrevious title.$x1234-5678'
+             '$w(DLC)sc 83007721 ',
+      '785 00 $aSmith, John A., 1900-1980.$tNext title.$x1234-5679'],
+     {'serial_continuity_linking_json': [
+        {'b': 'Continues:',
+         'p': [{'d': 'Previous title [by Smith, J.A.]',
+                't': 'previous title',
+                'a': 'smith john a 1900 1980',
+                'sn': '1234-5678',
+                's': ' ('},
+               {'d': 'ISSN 1234-5678',
+                'sn': '1234-5678', 
+                's': '; '},
+               {'d': 'LCCN sc83007721',
+                'cn': 'sc83007721', 
+                's': ')'}]},
+        {'b': 'Continued by:',
+         'p': [{'d': 'Next title [by Smith, J.A.]',
+                't': 'next title',
+                'a': 'smith john a 1900 1980',
+                'sn': '1234-5679',
+                's': ' ('},
+               {'d': 'ISSN 1234-5679',
+                'sn': '1234-5679',
+                's': ')'}]}
+      ]}),
+
+    # 780-785: Author/title plus additional metadata and identifiers
+    (['780 00 $aSmith, John A., 1900-1980.$tPrevious title.$kSeries.'
+             '$kSubseries.$x1234-5678$w(DLC)sc 83007721 ',
+      '785 00 $aSmith, John A., 1900-1980.$tNext title.$dNew York : 2010.'
+             '$x1234-5679'],
+     {'serial_continuity_linking_json': [
+        {'b': 'Continues:',
+         'p': [{'d': 'Previous title [by Smith, J.A.]',
+                't': 'previous title',
+                'a': 'smith john a 1900 1980',
+                'sn': '1234-5678',
+                's': ' ('},
+               {'d': 'Series; Subseries',
+                's': ' — '},
+               {'d': 'ISSN 1234-5678',
+                'sn': '1234-5678', 
+                's': '; '},
+               {'d': 'LCCN sc83007721',
+                'cn': 'sc83007721', 
+                's': ')'}]},
+        {'b': 'Continued by:',
+         'p': [{'d': 'Next title [by Smith, J.A.]',
+                't': 'next title',
+                'a': 'smith john a 1900 1980',
+                'sn': '1234-5679',
+                's': ' ('},
+               {'d': 'New York : 2010',
+                's': ' — '},
+               {'d': 'ISSN 1234-5679',
+                'sn': '1234-5679',
+                's': ')'}]},
+      ]}),
+
+
+    # 765-773, 776-777, 786-787 (related_resources_linking_json)
+    # Others: Empty MARC fields => no results
+    (['765 ## $a', '767 ## $a', '770 ## $a', '772 ## $a', '773 ## $a',
+      '776 ## $a', '777 ## $a', '786 ## $a', '787 ## $a'], {}),
+
+    # Others: No title ($s or $t) => no results
+    (['765 ## $aSurname, Forename$w(OCoLC)12345',
+      '767 ## $aSurname, Forename$w(OCoLC)12345',
+      '770 ## $aSurname, Forename$w(OCoLC)12345',
+      '772 ## $aSurname, Forename$w(OCoLC)12345',
+      '773 ## $aSurname, Forename$w(OCoLC)12345',
+      '776 ## $aSurname, Forename$w(OCoLC)12345',
+      '777 ## $aSurname, Forename$w(OCoLC)12345',
+      '786 ## $aSurname, Forename$w(OCoLC)12345',
+      '787 ## $aSurname, Forename$w(OCoLC)12345'], {}),
+
+    # Others: Title alone
+    (['765 0# $tTítulo en Español',
+      '787 08 $iSequel to:$tSequel title'],
+     {'related_resources_linking_json': [
+        {'b': 'Translation of:',
+         'p': [{'d': 'Título en Español',
+                't': 'titulo en espanol'}]},
+        {'b': 'Sequel to:',
+         'p': [{'d': 'Sequel title',
+                't': 'sequel title'}]},
+      ]}),
+
+    # Others: Multi-part title
+    (['765 0# $tTítulo en Español. Parte uno.',
+      '787 08 $iSequel to:$tSequel title. Part one.'],
+     {'related_resources_linking_json': [
+        {'b': 'Translation of:',
+         'p': [{'d': 'Título en Español > Parte uno',
+                't': 'titulo en espanol parte uno'}]},
+        {'b': 'Sequel to:',
+         'p': [{'d': 'Sequel title > Part one',
+                't': 'sequel title part one'}]},
+      ]}),
+
+    # Others: Personal author and title
+    (['765 0# $aSmith, John A., 1900-1980.$tTítulo en Español',
+      '787 08 $iSequel to:$aSmith, John A., 1900-1980.$tSequel title'],
+     {'related_resources_linking_json': [
+        {'b': 'Translation of:',
+         'p': [{'d': 'Título en Español [by Smith, J.A.]',
+                'a': 'smith john a 1900 1980',
+                't': 'titulo en espanol'}]},
+        {'b': 'Sequel to:',
+         'p': [{'d': 'Sequel title [by Smith, J.A.]',
+                'a': 'smith john a 1900 1980',
+                't': 'sequel title'}]},
+      ]}),
+
+    # Others: Multi-part org author and title
+    (['765 0# $aUnited States. Congress.$tTítulo en Español',
+      '787 08 $iSequel to:$aUnited States. Congress.$tSequel title'],
+     {'related_resources_linking_json': [
+        {'b': 'Translation of:',
+         'p': [{'d': 'Título en Español [United States, Congress]',
+                'a': 'united states congress',
+                't': 'titulo en espanol'}]},
+        {'b': 'Sequel to:',
+         'p': [{'d': 'Sequel title [United States, Congress]',
+                'a': 'united states congress',
+                't': 'sequel title'}]},
+      ]}),
+
+    # Others: Author and multi-part title
+    (['765 0# $aSmith, John A., 1900-1980.$tTítulo en Español. Parte uno.',
+      '787 08 $iSequel to:$aUnited States. Congress. House.'
+             '$tSequel title. Part one.'],
+     {'related_resources_linking_json': [
+        {'b': 'Translation of:',
+         'p': [{'d': 'Título en Español [by Smith, J.A.] > Parte uno',
+                'a': 'smith john a 1900 1980',
+                't': 'titulo en espanol parte uno'}]},
+        {'b': 'Sequel to:',
+         'p': [{'d': 'Sequel title [United States ... House] > Part one',
+                'a': 'united states congress house',
+                't': 'sequel title part one'}]},
+      ]}),
+
+    # Others: Author/title plus additional metadata
+    (['765 0# $aSmith, John A., 1900-1980.$tTítulo en Español.'
+             '$b[Spanish edition].$mMaterial-specific info.',
+      '787 08 $iSequel to:$aSmith, John A., 1900-1980.$tSequel title.'
+             '$dPublisher.'],
+     {'related_resources_linking_json': [
+        {'b': 'Translation of:',
+         'p': [{'d': 'Título en Español [by Smith, J.A.]',
+                'a': 'smith john a 1900 1980',
+                't': 'titulo en espanol',
+                's': ' ('},
+               {'d': '[Spanish edition]; Material-specific info',
+                's': ')'}]},
+        {'b': 'Sequel to:',
+         'p': [{'d': 'Sequel title [by Smith, J.A.]',
+                'a': 'smith john a 1900 1980',
+                't': 'sequel title',
+                's': ' ('},
+               {'d': 'Publisher',
+                's': ')'}]},
+      ]}),
+
+    # Others: Author/title plus identifiers
+    (['765 0# $aSmith, John A., 1900-1980.$tTítulo en Español'
+             '$w(DLC)   90646274 $z12345$w(OCoLC)6258868',
+      '787 08 $iSequel to:$aSmith, John A., 1900-1980.$tSequel title'
+             '$yIJMTAW'],
+     {'related_resources_linking_json': [
+        {'b': 'Translation of:',
+         'p': [{'d': 'Título en Español [by Smith, J.A.]',
+                'a': 'smith john a 1900 1980',
+                't': 'titulo en espanol',
+                'cn': '6258868',
+                's': ' ('},
+               {'d': 'LCCN 90646274',
+                'cn': '90646274',
+                's': '; '},
+               {'d': 'ISBN 12345',
+                'sn': '12345',
+                's': '; '},
+               {'d': 'OCLC Number 6258868',
+                'cn': '6258868',
+                's': ')'}]},
+        {'b': 'Sequel to:',
+         'p': [{'d': 'Sequel title [by Smith, J.A.]',
+                'a': 'smith john a 1900 1980',
+                't': 'sequel title',
+                'sn': 'IJMTAW',
+                's': ' ('},
+               {'d': 'CODEN IJMTAW',
+                'sn': 'IJMTAW',
+                's': ')'}]},
+      ]}),
+
+    # Others: Author/title plus additional metadata and identifiers
+    (['765 0# $aSmith, John A., 1900-1980.$tTítulo en Español.'
+             '$b[Spanish edition].$mMaterial-specific info.$w(DLC)   90646274 '
+             '$z12345$w(OCoLC)6258868',
+      '787 08 $iSequel to:$aSmith, John A., 1900-1980.$tSequel title.'
+             '$dPublisher.$yIJMTAW'],
+     {'related_resources_linking_json': [
+        {'b': 'Translation of:',
+         'p': [{'d': 'Título en Español [by Smith, J.A.]',
+                'a': 'smith john a 1900 1980',
+                't': 'titulo en espanol',
+                'cn': '6258868',
+                's': ' ('},
+               {'d': '[Spanish edition]; Material-specific info',
+                's': ' — '},
+               {'d': 'LCCN 90646274',
+                'cn': '90646274',
+                's': '; '},
+               {'d': 'ISBN 12345',
+                'sn': '12345',
+                's': '; '},
+               {'d': 'OCLC Number 6258868',
+                'cn': '6258868',
+                's': ')'}]},
+        {'b': 'Sequel to:',
+         'p': [{'d': 'Sequel title [by Smith, J.A.]',
+                'a': 'smith john a 1900 1980',
+                't': 'sequel title',
+                'sn': 'IJMTAW',
+                's': ' ('},
+               {'d': 'Publisher',
+                's': ' — '},
+               {'d': 'CODEN IJMTAW',
+                'sn': 'IJMTAW',
+                's': ')'}]},
+      ]}),
+
+    # Others: Main link picks best identifier (first OCLC)
+    (['787 08 $tSequel title$r9999$uAAAA$w(OCoLC)1111$x2222$x3333$z4444'
+             '$w(DLC)5555$w(ABC)6666$w7777$y8888'],
+     {'related_resources_linking_json': [
+        {'p': [{'d': 'Sequel title',
+                't': 'sequel title',
+                'cn': '1111',
+                's': ' ('},
+               {'d': 'Report Number 9999', 'sn': '9999', 's': '; '},
+               {'d': 'STRN AAAA', 'sn': 'AAAA', 's': '; '},
+               {'d': 'OCLC Number 1111', 'cn': '1111', 's': '; '},
+               {'d': 'ISSN 2222', 'sn': '2222', 's': '; '},
+               {'d': 'ISSN 3333', 'sn': '3333', 's': '; '},
+               {'d': 'ISBN 4444', 'sn': '4444', 's': '; '},
+               {'d': 'LCCN 5555', 'cn': '5555', 's': '; '},
+               {'d': 'ABC Number 6666', 'cn': '6666', 's': '; '},
+               {'d': 'Control Number 7777', 'cn': '7777', 's': '; '},
+               {'d': 'CODEN 8888', 'sn': '8888', 's': ')'}]},
+      ]}),
+
+    # Others: Main link picks best identifier (first ISBN)
+    (['787 08 $tSequel title$r9999$uAAAA$x2222$x3333$z4444$w(DLC)5555'
+             '$w(ABC)6666$w7777$y8888'],
+     {'related_resources_linking_json': [
+        {'p': [{'d': 'Sequel title',
+                't': 'sequel title',
+                'sn': '4444',
+                's': ' ('},
+               {'d': 'Report Number 9999', 'sn': '9999', 's': '; '},
+               {'d': 'STRN AAAA', 'sn': 'AAAA', 's': '; '},
+               {'d': 'ISSN 2222', 'sn': '2222', 's': '; '},
+               {'d': 'ISSN 3333', 'sn': '3333', 's': '; '},
+               {'d': 'ISBN 4444', 'sn': '4444', 's': '; '},
+               {'d': 'LCCN 5555', 'cn': '5555', 's': '; '},
+               {'d': 'ABC Number 6666', 'cn': '6666', 's': '; '},
+               {'d': 'Control Number 7777', 'cn': '7777', 's': '; '},
+               {'d': 'CODEN 8888', 'sn': '8888', 's': ')'}]},
+      ]}),
+
+    # Others: Main link picks best identifier (first ISSN)
+    (['787 08 $tSequel title$r9999$uAAAA$x2222$x3333$w(DLC)5555$w(ABC)6666'
+             '$w7777$y8888'],
+     {'related_resources_linking_json': [
+        {'p': [{'d': 'Sequel title',
+                't': 'sequel title',
+                'sn': '2222',
+                's': ' ('},
+               {'d': 'Report Number 9999', 'sn': '9999', 's': '; '},
+               {'d': 'STRN AAAA', 'sn': 'AAAA', 's': '; '},
+               {'d': 'ISSN 2222', 'sn': '2222', 's': '; '},
+               {'d': 'ISSN 3333', 'sn': '3333', 's': '; '},
+               {'d': 'LCCN 5555', 'cn': '5555', 's': '; '},
+               {'d': 'ABC Number 6666', 'cn': '6666', 's': '; '},
+               {'d': 'Control Number 7777', 'cn': '7777', 's': '; '},
+               {'d': 'CODEN 8888', 'sn': '8888', 's': ')'}]},
+      ]}),
+
+    # Others: Main link picks best identifier (first LCCN)
+    (['787 08 $tSequel title$r9999$uAAAA$w(DLC)5555$w(ABC)6666$w7777$y8888'],
+     {'related_resources_linking_json': [
+        {'p': [{'d': 'Sequel title',
+                't': 'sequel title',
+                'cn': '5555',
+                's': ' ('},
+               {'d': 'Report Number 9999', 'sn': '9999', 's': '; '},
+               {'d': 'STRN AAAA', 'sn': 'AAAA', 's': '; '},
+               {'d': 'LCCN 5555', 'cn': '5555', 's': '; '},
+               {'d': 'ABC Number 6666', 'cn': '6666', 's': '; '},
+               {'d': 'Control Number 7777', 'cn': '7777', 's': '; '},
+               {'d': 'CODEN 8888', 'sn': '8888', 's': ')'}]},
+      ]}),
+
+    # Others: Main link picks best identifier (first $w)
+    (['787 08 $tSequel title$r9999$uAAAA$w(ABC)6666$w7777$y8888'],
+     {'related_resources_linking_json': [
+        {'p': [{'d': 'Sequel title',
+                't': 'sequel title',
+                'cn': '6666',
+                's': ' ('},
+               {'d': 'Report Number 9999', 'sn': '9999', 's': '; '},
+               {'d': 'STRN AAAA', 'sn': 'AAAA', 's': '; '},
+               {'d': 'ABC Number 6666', 'cn': '6666', 's': '; '},
+               {'d': 'Control Number 7777', 'cn': '7777', 's': '; '},
+               {'d': 'CODEN 8888', 'sn': '8888', 's': ')'}]},
+      ]}),
+
+    # Others: Main link picks best identifier (CODEN)
+    (['787 08 $tSequel title$r9999$uAAAA$y8888'],
+     {'related_resources_linking_json': [
+        {'p': [{'d': 'Sequel title',
+                't': 'sequel title',
+                'sn': '8888',
+                's': ' ('},
+               {'d': 'Report Number 9999', 'sn': '9999', 's': '; '},
+               {'d': 'STRN AAAA', 'sn': 'AAAA', 's': '; '},
+               {'d': 'CODEN 8888', 'sn': '8888', 's': ')'}]},
+      ]}),
+
+    # Others: Main link picks best identifier ($u)
+    (['787 08 $tSequel title$r9999$uAAAA'],
+     {'related_resources_linking_json': [
+        {'p': [{'d': 'Sequel title',
+                't': 'sequel title',
+                'sn': 'AAAA',
+                's': ' ('},
+               {'d': 'Report Number 9999', 'sn': '9999', 's': '; '},
+               {'d': 'STRN AAAA', 'sn': 'AAAA', 's': ')'}]},
+      ]}),
+
+    # Others: Main link picks best identifier ($r)
+    (['787 08 $tSequel title$r9999'],
+     {'related_resources_linking_json': [
+        {'p': [{'d': 'Sequel title',
+                't': 'sequel title',
+                'sn': '9999',
+                's': ' ('},
+               {'d': 'Report Number 9999', 'sn': '9999', 's': ')'}]},
+      ]}),
+
+    # General tests
+    # `Materials specified` and display labels play well together
+    (['772 00 $31990-1991$tParent title'],
+     {'related_resources_linking_json': [
+         {'b': '(1990-1991) Parent:',
+          'p': [{'d': 'Parent title',
+                 't': 'parent title'}]}
+     ]}),
+
+    # 775$e and $f are ignored
+    (['775 0# $tEdition title$eng$filu'],
+     {'related_resources_linking_json': [
+         {'b': 'Other edition:',
+          'p': [{'d': 'Edition title',
+                 't': 'edition title'}]}
+     ]}),
+
+    # 773$p and $q are ignored
+    (['773 0# $pHost$tHost title.$q96:4<23'],
+     {'related_resources_linking_json': [
+         {'b': 'In:',
+          'p': [{'d': 'Host title',
+                 't': 'host title'}]}
+     ]}),
+
+    # 786$j is ignored but $v is used
+    (['786 0# $tSource title.$j013000$vData source information'],
+     {'related_resources_linking_json': [
+         {'b': 'Data source:',
+          'p': [{'d': 'Source title',
+                 't': 'source title',
+                 's': ' ('},
+                {'d': 'Data source information',
+                 's': ')'}]}
+     ]}),
+
+    # All four types of fields on one record
+    (['760 0# $tSeries title.$gvol 2.$x1111-1111',
+      '767 0# $tTranslated title.$bEnglish edition.$w(OCoLC)11111111',
+      '770 0# $tSupplement title.',
+      '774 08 $iContainer of:$aSmith, John, 1900-1980.$tIncluded title.',
+      '776 08 $iOnline version:$tMain title.$w(OCoLC)22222222',
+      '777 0# $aSmith, John, 1900-1980.$tOther title.',
+      '780 00 $tEarlier title.$x2222-2222$w(OCoLC)33333333'],
+     {'related_series_titles_json': [
+        {'p': [{'d': 'Series title',
+                'v': 'series-title!Series title',
+                's': '; '},
+               {'d': 'vol 2',
+                'v': 'series-title-vol-2!Series title; vol 2',
+                's': ' ('},
+               {'d': 'ISSN 1111-1111',
+                's': ')'}]},
+      ],
+      'related_series_titles_search': [
+        'Series title; vol 2',
+      ],
+      'included_work_titles_json': [
+        {'p': [{'d': 'Included title [by Smith, J.]',
+                'v': 'included-title!Included title'}]},
+      ],
+      'included_work_titles_search': [
+        'Included title',
+      ],
+      'title_series_facet': [
+        'series-title!Series title',
+        'series-title-vol-2!Series title; vol 2',
+        'included-title!Included title',
+      ],
+      'related_resources_linking_json': [
+        {'b': 'Translated as:',
+         'p': [{'d': 'Translated title',
+                't': 'translated title',
+                'cn': '11111111',
+                's': ' ('},
+               {'d': 'English edition',
+                's': ' — '},
+               {'d': 'OCLC Number 11111111',
+                'cn': '11111111',
+                's': ')'}]},
+        {'b': 'Supplement:',
+         'p': [{'d': 'Supplement title',
+                't': 'supplement title'}]},
+        {'b': 'Online version:',
+         'p': [{'d': 'Main title',
+                't': 'main title',
+                'cn': '22222222',
+                's': ' ('},
+               {'d': 'OCLC Number 22222222',
+                'cn': '22222222',
+                's': ')'}]},
+        {'b': 'Issued with:',
+         'p': [{'d': 'Other title [by Smith, J.]',
+                'a': 'smith john 1900 1980',
+                't': 'other title'},]},
+      ],
+      'serial_continuity_linking_json': [
+        {'b': 'Continues:',
+         'p': [{'d': 'Earlier title',
+                't': 'earlier title',
+                'cn': '33333333',
+                's': ' ('},
+               {'d': 'ISSN 2222-2222',
+                'sn': '2222-2222',
+                's': '; '},
+               {'d': 'OCLC Number 33333333',
+                'cn': '33333333',
+                's': ')'}]},
+      ]
+    })
+
+
+], ids=[
+    # 760 and 762 (additional Related Series)
+    '760-762: Empty MARC fields => no results',
+    '760-762: No title ($s or $t) => no results',
+    '760-762: Title alone',
+    '760-762: Multi-part title',
+    '760-762: Personal author and title',
+    '760-762: Multi-part org author and title',
+    '760-762: Author and multi-part title',
+    '760-762: Author/title plus additional metadata',
+    '760-762: Author/title plus identifiers',
+    '760-762: Author/title plus additional metadata and identifiers',
+    '760-762: Do not duplicate existing Related Series (from 490/8XX)',
+
+    # 774 (addition Included Works)
+    '774: Empty MARC fields => no results',
+    '774: No title ($s or $t) => no results',
+    '774: Title alone',
+    '774: Multi-part title',
+    '774: Personal author and title',
+    '774: Multi-part org author and title',
+    '774: Author and multi-part title',
+    '774: Personal author plus collective titles',
+    '774: Author/title plus additional metadata',
+    '774: Author/title plus identifiers',
+    '774: Author/title plus additional metadata and identifiers',
+    '774: Do not duplicate existing Included Works (from 2XX/7XX)',
+
+    # 780-785 (serial_continuity_linking_json)
+    '780-785: Empty MARC fields => no results',
+    '780-785: No title ($s or $t) => no results',
+    '780-785: Title alone',
+    '780-785: Multi-part title',
+    '780-785: Personal author and title',
+    '780-785: Multi-part org author and title',
+    '780-785: Author and multi-part title',
+    '780-785: Author/title plus additional metadata',
+    '780-785: Author/title plus identifiers',
+    '780-785: Author/title plus additional metadata and identifiers',
+
+    # 765-773, 776-777, 786-787 (related_resources_linking_json)
+    'Others: Empty MARC fields => no results',
+    'Others: No title ($s or $t) => no results',
+    'Others: Title alone',
+    'Others: Multi-part title',
+    'Others: Personal author and title',
+    'Others: Multi-part org author and title',
+    'Others: Author and multi-part title',
+    'Others: Author/title plus additional metadata',
+    'Others: Author/title plus identifiers',
+    'Others: Author/title plus additional metadata and identifiers',
+    'Others: Main link picks best identifier (OCLC)',
+    'Others: Main link picks best identifier (ISBN)',
+    'Others: Main link picks best identifier (ISSN)',
+    'Others: Main link picks best identifier (LCCN)',
+    'Others: Main link picks best identifier ($w)',
+    'Others: Main link picks best identifier (CODEN)',
+    'Others: Main link picks best identifier ($u)',
+    'Others: Main link picks best identifier ($r)',
+
+    # General tests
+    '`Materials specified` and display labels play well together',
+    '775$e and $f are ignored',
+    '773$p and $q are ignored',
+    '786$j and $v are used',
+    'All four types of fields on one record',
+])
+def test_todscpipeline_getlinkingfields(raw_marcfields, expected,
+                                        fieldstrings_to_fields,
+                                        bl_sierra_test_record,
+                                        todsc_pipeline_class,
+                                        bibrecord_to_pymarc,
+                                        add_marc_fields,
+                                        assert_bundle_matches_expected):
+    """
+    ToDiscoverPipeline.get_linking_fields should return data matching
+    the expected parameters.
+    """
+    pipeline = todsc_pipeline_class()
+    marcfields = fieldstrings_to_fields(raw_marcfields)
+    to_do = ['linking_fields']
+    to_remove = ['760', '762', '765', '767', '770', '772', '773', '774', '776',
+                 '777', '780', '785', '786', '787']
+    title_tags = ('130', '240', '242', '243', '245', '246', '247', '490', '700',
+                  '710', '711', '730', '740', '800', '810', '811', '830')
+    if any([f.tag in title_tags for f in marcfields]):
+        to_do.insert(0, 'title_info')
+        to_remove.extend(title_tags)
+
+    bib = bl_sierra_test_record('bib_no_items')
+    bibmarc = bibrecord_to_pymarc(bib)
+    bibmarc.remove_fields(*to_remove)
+    bibmarc = add_marc_fields(bibmarc, marcfields)
+    bundle = pipeline.do(bib, bibmarc, to_do)
+    assert_bundle_matches_expected(bundle, expected)
 
 
 def test_s2mmarcbatch_compileoriginalmarc_vf_order(s2mbatch_class,
