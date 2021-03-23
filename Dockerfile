@@ -20,6 +20,8 @@ RUN git clone https://github.com/vishnubob/wait-for-it.git ../wait-for-it
 
 COPY requirements/* /project/requirements/
 
+RUN pip install setuptools-scm==5.0.2
+
 RUN pip install -r /project/requirements/requirements-base.txt \
                 -r /project/requirements/requirements-dev.txt \
                 -r /project/requirements/requirements-tests.txt
