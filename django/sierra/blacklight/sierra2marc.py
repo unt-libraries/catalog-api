@@ -1434,10 +1434,15 @@ class LinkingFieldParser(SequentialMarcFieldParser):
             elif tag == 'g' and self.is_series and self.prev_tag in ('t', 's'):
                 self.volume = self.do_volume(val)
             elif tag == 'a':
-                self.author = val
                 name_struct = parse_name_string(val)
                 self.short_author = shorten_name(name_struct)
                 self.ntype = name_struct['type']
+                if name_struct['type'] == 'person':
+                    self.author = val
+                else:
+                    self.author = ' '.join([
+                        hp['name'] for hp in name_struct['heading_parts']
+                    ])
             elif tag in self.display_metadata_sftags:
                 self.display_metadata.append(p.strip_outer_parentheses(val))
             elif tag in self.identifiers_sftags:
@@ -3350,12 +3355,13 @@ class ToDiscoverPipeline(object):
         if as_search:
             id_map = linking['identifiers_map'] or {}
             new_jsonp = {'d': disp_heading}
-            title_kw = ' '.join(linking['title_parts'] or [])
-            if title_kw:
-                new_jsonp['t'] = generate_facet_key(title_kw, space_char=' ')
-            author_kw = linking['author']
-            if author_kw:
-                new_jsonp['a'] = generate_facet_key(author_kw, space_char=' ')
+            tkw = ' > '.join(linking['title_parts'] or [])
+            if tkw:
+                # Limit the size of the linked `title` search to 20
+                # words; strip quotation marks.
+                new_jsonp['t'] = ' '.join(tkw.split(' ')[0:20]).replace('"', '')
+            if linking['author']:
+                new_jsonp['a'] = linking['author'].replace('"', '')
             for id_code in ('oclc', 'isbn', 'issn', 'lccn', 'w', 'coden',
                             'u', 'r'):
                 if id_code in id_map:
