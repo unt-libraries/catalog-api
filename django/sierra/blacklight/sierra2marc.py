@@ -3355,7 +3355,7 @@ class ToDiscoverPipeline(object):
         if as_search:
             id_map = linking['identifiers_map'] or {}
             new_jsonp = {'d': disp_heading}
-            tkw = ' > '.join(linking['title_parts'] or [])
+            tkw = heading
             if tkw:
                 # Limit the size of the linked `title` search to 20
                 # words; strip quotation marks.
