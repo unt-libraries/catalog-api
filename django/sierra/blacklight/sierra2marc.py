@@ -2929,8 +2929,12 @@ class ToDiscoverPipeline(object):
 
         for f362 in self.marc_fieldgroups.get('dates_of_publication', []):
             formatted_date = ' '.join(f362.get_subfields('a'))
-            years = p.extract_years(formatted_date)
-            described_years |= set(years)
+            # NOTE: Extracting years from 362s (as below) was leading
+            # to falsely extracting volume numbers as years, so we
+            # probably should not do that. That's why the next two
+            # lines are commented out.
+            # years = p.extract_years(formatted_date)
+            # described_years |= set(years)
             if f362.indicator1 == '0':
                 pub_info['publication'] = pub_info.get('publication', [])
                 pub_info['publication'].append(formatted_date)
