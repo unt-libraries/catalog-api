@@ -1160,6 +1160,14 @@ class StandardControlNumberParser(SequentialMarcFieldParser):
         else:
             self.ntype = self.other_types.get(field.tag)
 
+    @classmethod
+    def split_cn_and_source(cls, data):
+        try:
+            source, num = data[1:].split(')', 1)
+        except ValueError:
+            source, num = None, data
+        return source, num.strip()
+
     def clean_isbn(self, isbn):
         match = re.search(r'(?:^|\s)([\dX\-]+)[^\(]*(?:\((.+)\))?', isbn)
         if match:
@@ -1171,17 +1179,12 @@ class StandardControlNumberParser(SequentialMarcFieldParser):
         return None, None
 
     def clean_oclc_num(self, oclc_num):
-        match = re.search(r'^[^\(]*?(?:\((\w+)\))?\W*(.*)$', oclc_num)
-        if match:
-            ntype, norm = match.groups()
-            if norm:
-                if not ntype:
-                    ntype = 'unknown'
-                if ntype == 'OCoLC':
-                    ntype = None
-                    norm = re.sub('^[A-Za-z0]+', r'', norm)
-                return norm, ntype
-        return None, None
+        ntype, norm = self.split_cn_and_source(oclc_num)
+        ntype = ntype or 'unknown'
+        if ntype == 'OCoLC':
+            ntype = None
+            norm = re.sub('^[A-Za-z0]+', r'', norm)
+        return norm, ntype
 
     @classmethod
     def normalize_lccn(cls, lccn):
@@ -1389,32 +1392,31 @@ class LinkingFieldParser(SequentialMarcFieldParser):
     def do_identifier(self, tag, val):
         if tag == 'w':
             id_numtype = 'control'
-            try:
-                source, num = val[1:].split(')', 1)
-            except ValueError:
+            source, num = StandardControlNumberParser.split_cn_and_source(val)
+            if source is None:
                 id_code, id_label = tag, 'Control Number'
             else:
-                val = num
                 if source == 'DLC':
                     id_code, id_label = 'lccn', 'LCCN'
-                    val = StandardControlNumberParser.normalize_lccn(val)
+                    num = StandardControlNumberParser.normalize_lccn(num)
                 elif source == 'OCoLC':
                     id_code, id_label = 'oclc', 'OCLC Number'
                 else:
                     id_code, id_label = tag, ' '.join((source, 'Number'))
         else:
+            num = val
             id_numtype = 'standard'
             id_code, id_label = self.tags_to_id_types[tag]
         if id_code not in self.identifiers_map:
             self.identifiers_map[id_code] = {
-                'number': val,
+                'number': num,
                 'numtype': id_numtype
             }
         self.identifiers_list.append({
             'code': id_code,
             'numtype': id_numtype,
             'label': id_label,
-            'number': val
+            'number': num
         })
 
     def do_volume(self, volume):

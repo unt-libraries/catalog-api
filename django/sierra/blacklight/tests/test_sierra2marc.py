@@ -7640,8 +7640,8 @@ def test_todscpipeline_getstandardnumberinfo(raw_marcfields, expected,
     }),
 
     # 035: non-OCLC number
-    (['035 ## $a(CaOTULAS)41063988'], {
-        'other_control_numbers_display': ['41063988 (source: CaOTULAS)'],
+    (['035 ## $a(CaO-TULAS)41063988'], {
+        'other_control_numbers_display': ['41063988 (source: CaO-TULAS)'],
         'all_control_numbers': ['41063988'],
         'control_numbers_search': ['41063988'],
     }),
