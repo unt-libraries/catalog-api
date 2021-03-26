@@ -2827,7 +2827,10 @@ class ToDiscoverPipeline(object):
                     year = year.replace('u', '0s')
                 elif match.groups()[1] == 'uu':
                     century = unicode(int(match.groups()[0] or 0) + 1)
-                    suffix = century_suffix_map.get(century[-1], 'th')
+                    if century[-2:] in ('11', '12', '13'):
+                        suffix = 'th'
+                    else:
+                        suffix = century_suffix_map.get(century[-1], 'th')
                     year = '{}{} century'.format(century, suffix)
                 else:
                     return '?'
