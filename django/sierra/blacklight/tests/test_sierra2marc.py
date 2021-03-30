@@ -4457,6 +4457,20 @@ def test_preferredtitleparser_parse(tag, subfields, expected, params_to_fields):
         'person_titles': ['d\'Abbeville', 'pere'],
         'type': 'person'
     }),
+    ('Dickinson, David K., author.', {
+        'heading': 'Dickinson, David K.',
+        'forename': 'David K.',
+        'surname': 'Dickinson',
+        'relations': ['author'],
+        'type': 'person'
+    }),
+    ('Hecht, Ben, 1893-1964, writing, direction, production.', {
+        'heading': 'Hecht, Ben, 1893-1964',
+        'forename': 'Ben',
+        'surname': 'Hecht',
+        'relations': ['writing', 'direction', 'production'],
+        'type': 'person'
+    }),
     ('John, the Baptist, Saint.', {
         'heading': 'John, the Baptist, Saint',
         'surname': 'John',
@@ -11252,13 +11266,13 @@ def test_linkingfieldparser_parse(raw_marcfield, expected,
       ]}),
 
     # Others: Author and multi-part title
-    (['765 0# $aSmith, John A., 1900-1980.$tTítulo en Español. Parte uno.',
+    (['765 0# $aSmith, John A., author.$tTítulo en Español. Parte uno.',
       '787 08 $iSequel to:$aUnited States. Congress. House.'
              '$tSequel title. Part one.'],
      {'related_resources_linking_json': [
         {'b': 'Translation of:',
          'p': [{'d': 'Título en Español [by Smith, J.A.] > Parte uno',
-                'a': 'Smith, John A., 1900-1980',
+                'a': 'Smith, John A.',
                 't': 'Título en Español > Parte uno'}]},
         {'b': 'Sequel to:',
          'p': [{'d': 'Sequel title [United States ... House] > Part one',

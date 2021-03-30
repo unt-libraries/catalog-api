@@ -1440,7 +1440,7 @@ class LinkingFieldParser(SequentialMarcFieldParser):
                 self.short_author = shorten_name(name_struct)
                 self.ntype = name_struct['type']
                 if name_struct['type'] == 'person':
-                    self.author = val
+                    self.author = name_struct['heading']
                 else:
                     self.author = ' '.join([
                         hp['name'] for hp in name_struct['heading_parts']
@@ -1507,29 +1507,42 @@ def parse_name_string(name_string):
 
     is_person = False
     protected = p.strip_ends(p.protect_periods(name_string), True, 'right')
-    heading = p.restore_periods(protected)
-
     forename, surname, ptitles, fuller_form = None, None, None, None
+    relations = None
+
+    relations_match = re.match(r'(.+?), ([^A-Z0-9]+)$', protected)
+    try:
+        protected, rel_string = relations_match.groups()
+    except AttributeError:
+        pass
+    else:
+        relations = rel_string.split(', ')
+
+    heading = p.restore_periods(protected)
     
-    dates_re = r'([^,\.]*(?:\D?[\d]{4}\??-|\D\d{4}))'
-    pdates_match = re.match(r'(.+), {}$'.format(dates_re), protected)
-    if pdates_match:
-        is_person = True
-        protected, dates = pdates_match.groups()
-    
+    dates_re = r'[^,\.]*(?:\D?[\d]{4}\??-|\D\d{4})'
+    pdates_match = re.match(r'(.+), ({})$'.format(dates_re), protected)
+    try:
+        protected, _ = pdates_match.groups()
+    except AttributeError:
+        pass
+
     pname_match = re.match(r'((?:\s?[^,\.\s]+){1,3}), ([^,\.]+)(?:, )?(.+)?$',
                            protected)
-    if pname_match:
-        is_person = True
+    try:
         surname, forename, ptitles = pname_match.groups()
+    except AttributeError:
+        if pdates_match:
+            is_person = True
+            forename = protected
+    else:
+        is_person = True
         if forename and _forename_is_ptitle(forename):
             if ptitles:
                 ptitles =  ', '.join([forename, ptitles])
             else:
                 ptitles = forename
             forename = None
-    elif pdates_match:
-        forename = protected
 
     if is_person:
         if forename:
@@ -1541,7 +1554,7 @@ def parse_name_string(name_string):
 
         ret_val = {
             'heading': heading,
-            'relations': None,
+            'relations': relations,
             'forename': forename,
             'surname': surname,
             'numeration': None,
