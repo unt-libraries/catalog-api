@@ -11699,6 +11699,751 @@ def test_todscpipeline_getlinkingfields(raw_marcfields, expected,
     assert_bundle_matches_expected(bundle, expected)
 
 
+@pytest.mark.parametrize('raw_marcfield, expected', [
+    # 250 Edition Statements
+    # Simple edition by itself
+    ('250 ## $a1st ed.', {
+        'edition_type': 'edition_statement',
+        'edition_info': {
+            'editions': [{'value': '1st ed.'}]
+        },
+        'materials_specified': None,
+    }),
+    
+    # Edition and materials specified
+    ('250 ## $31998-2005:$a1st ed.', {
+        'edition_type': 'edition_statement',
+        'edition_info': {
+            'editions': [{'value': '1st ed.'}]
+        },
+        'materials_specified': ['1998-2005'],
+    }),
+
+    # Edition with bracketed portion
+    ('250 ## $a1st [ed.]', {
+        'edition_type': 'edition_statement',
+        'edition_info': {
+            'editions': [{'value': '1st [ed.]'}]
+        },
+        'materials_specified': None,
+    }),
+
+    # Edition all in brackets
+    ('250 ## $a[1st ed.]', {
+        'edition_type': 'edition_statement',
+        'edition_info': {
+            'editions': [{'value': '[1st ed.]'}]
+        },
+        'materials_specified': None,
+    }),
+
+    # Simple edition plus responsibility
+    ('250 ## $a1st ed. /$bedited by J. Smith', {
+        'edition_type': 'edition_statement',
+        'edition_info': {
+            'editions': [{
+                'value': '1st ed.',
+                'responsibility': 'edited by J. Smith'
+            }]
+        },
+        'materials_specified': None,
+    }),
+
+    # Edition plus responsibility and revision
+    ('250 ## $a1st ed. /$bedited by J. Smith, 2nd rev.', {
+        'edition_type': 'edition_statement',
+        'edition_info': {
+            'editions': [{
+                'value': '1st ed.',
+                'responsibility': 'edited by J. Smith, 2nd rev.'
+            }]
+        },
+        'materials_specified': None,
+    }),
+
+    # Edition plus responsibility and revision plus responsibility
+    ('250 ## $a1st ed. /$bedited by J. Smith, 2nd rev. / by N. Smith.', {
+        'edition_type': 'edition_statement',
+        'edition_info': {
+            'editions': [{
+                'value': '1st ed.',
+                'responsibility': 'edited by J. Smith, 2nd rev., by N. Smith'
+            }]
+        },
+        'materials_specified': None,
+    }),
+
+    # Edition and parallel edition
+    ('250 ## $a1st ed. =$b1a ed.', {
+        'edition_type': 'edition_statement',
+        'edition_info': {
+            'editions': [{'value': '1st ed.'}],
+            'parallel': [{'value': '1a ed.'}]
+        },
+        'materials_specified': None,
+    }),
+
+    # Edition/parallel, with one SOR at end
+    ('250 ## $a1st ed. =$b1a ed. / edited by J. Smith.', {
+        'edition_type': 'edition_statement',
+        'edition_info': {
+            'editions': [{
+                'value': '1st ed.',
+                'responsibility': 'edited by J. Smith'
+            }],
+            'parallel': [{'value': '1a ed.'}]
+        },
+        'materials_specified': None,
+    }),
+
+    # Edition, with SOR and parallel SOR
+    ('250 ## $a1st ed. /$bedited by J. Smith = editado por J. Smith.', {
+        'edition_type': 'edition_statement',
+        'edition_info': {
+            'editions': [{
+                'value': '1st ed.',
+                'responsibility': 'edited by J. Smith'
+            }],
+            'parallel': [{'responsibility': 'editado por J. Smith'}]
+        },
+        'materials_specified': None,
+    }),
+
+    # Edition/SOR plus parallel edition/SOR
+    ('250 ## $a1st ed. /$bedited by J. Smith = 1a ed. / editado por J. Smith.',
+     {
+        'edition_type': 'edition_statement',
+        'edition_info': {
+            'editions': [{
+                'value': '1st ed.',
+                'responsibility': 'edited by J. Smith'
+            }],
+            'parallel': [{
+                'value': '1a ed.',
+                'responsibility': 'editado por J. Smith'
+            }]
+        },
+        'materials_specified': None,
+    }),
+
+    # Edition/revision plus parallel (including SORs)
+    ('250 ## $a1st ed. /$bedited by J. Smith = 1a ed. / editado por J. Smith, '
+             '2nd rev. / by B. Roberts = 2a rev. / por B. Roberts.',
+     {
+        'edition_type': 'edition_statement',
+        'edition_info': {
+            'editions': [{
+                'value': '1st ed.',
+                'responsibility': 'edited by J. Smith'
+            }, {
+                'value': '2nd rev.',
+                'responsibility': 'by B. Roberts'
+            }],
+            'parallel': [{
+                'value': '1a ed.',
+                'responsibility': 'editado por J. Smith'
+            }, {
+                'value': '2a rev.',
+                'responsibility': 'por B. Roberts'
+            }]
+        },
+        'materials_specified': None,
+    }),
+
+    # 250s, edges of "revision" detection
+    # AACR2 allows for a "named revision" following the main edition,
+    # which denotes a specific version of an edition, and appears like
+    # an additonal edition (following a ", "). It's very similar to a
+    # multi-title 245 but follows ", " instead of ". " and is therefore
+    # much harder to detect reliably. The AACR2 examples all show ", "
+    # plus a number or capitalized word, but naively looking for that
+    # pattern gives rise to many, many false positives -- lists of
+    # names, for example (1st ed. / edited by J. Smith, B. Roberts).
+    #
+    # In reality, failing to detect a named revision may or may not be
+    # a problem, depending on the situation.
+    #    - `1st edition, New revision` -- In this case it's all treated
+    #      as one contiguous edition string, which is fine.
+    #    - `1st edition / edited by J. Smith, New revision` -- In this
+    #      case, "New revision" is treated as part of the SOR; this
+    #      will display relatively clearly, with the downside that the
+    #      named revision becomes searchable as part of the SOR search
+    #      field. Materially this shouldn't have a big impact -- the
+    #      text is still searchable, just arguably with a small effect
+    #      on relevance for terms that match.
+    #    - `1st ed. = 1a ed., New rev. = Nueva rev.` -- In this case,
+    #      not detecting the named revision makes it part of the
+    #      parallel text, "1a ed." This is blatantly incorrect and
+    #      ends up displaying as, `1st ed. [translated: 1a ed., New
+    #      rev.]`.
+    #
+    # The third scenario listed above is the most problematic but also
+    # the rarest. Through testing against our catalog data it does
+    # appear possible to find reliably with minimal false positives.
+
+    # Otherwise valid pattern not following " = " is not recognized
+    ('250 ## $a1st ed. /$bedited by J. Smith, New revision.',
+     {
+        'edition_type': 'edition_statement',
+        'edition_info': {
+            'editions': [{
+                'value': '1st ed.',
+                'responsibility': 'edited by J. Smith, New revision'
+            }]
+        },
+        'materials_specified': None,
+    }),
+
+    # Obvious names are not recognized
+    ('250 ## $a1st ed. =$b1a ed. / edited by J. Smith, Bob Roberts.',
+     {
+        'edition_type': 'edition_statement',
+        'edition_info': {
+            'editions': [{
+                'value': '1st ed.',
+                'responsibility': 'edited by J. Smith, Bob Roberts'
+            }],
+            'parallel': [{
+                'value': '1a ed.'
+            }]
+        },
+        'materials_specified': None,
+    }),
+
+    # Valid numeric pattern is recognizzed
+    ('250 ## $a1st ed. =$b1a ed., 2nd rev.',
+     {
+        'edition_type': 'edition_statement',
+        'edition_info': {
+            'editions': [{
+                'value': '1st ed.',
+            }, {
+                'value': '2nd rev.'
+            }],
+            'parallel': [{
+                'value': '1a ed.'
+            }]
+        },
+        'materials_specified': None,
+    }),
+
+    # Valid one-word pattern is recognized
+    ('250 ## $a1st ed. =$b1a ed., Klavierauszug = Piano reduction',
+     {
+        'edition_type': 'edition_statement',
+        'edition_info': {
+            'editions': [{
+                'value': '1st ed.',
+            }, {
+                'value': 'Klavierauszug'
+            }],
+            'parallel': [{
+                'value': '1a ed.'
+            }, {
+                'value': 'Piano reduction'
+            }]
+        },
+        'materials_specified': None,
+    }),
+
+    # Valid multi-word pattern is recognized
+    ('250 ## $a1st ed. =$b1a ed., New Blah rev.',
+     {
+        'edition_type': 'edition_statement',
+        'edition_info': {
+            'editions': [{
+                'value': '1st ed.',
+            }, {
+                'value': 'New Blah rev.'
+            }],
+            'parallel': [{
+                'value': '1a ed.'
+            }]
+        },
+        'materials_specified': None,
+    }),
+
+    # 250s, other edge cases
+    # Missing `/` before $b
+    ('250 ## $a1st ed.,$bedited by J. Smith', {
+        'edition_type': 'edition_statement',
+        'edition_info': {
+            'editions': [{
+                'value': '1st ed.',
+                'responsibility': 'edited by J. Smith'
+            }]
+        },
+        'materials_specified': None,
+    }),
+
+    # Full edition statement is in $a (no $b)
+    ('250 ## $a1st ed. / edited by J. Smith = 1a ed. / editado por J. Smith, '
+             '2nd rev. / by B. Roberts = 2a rev. / por B. Roberts.',
+     {
+        'edition_type': 'edition_statement',
+        'edition_info': {
+            'editions': [{
+                'value': '1st ed.',
+                'responsibility': 'edited by J. Smith'
+            }, {
+                'value': '2nd rev.',
+                'responsibility': 'by B. Roberts'
+            }],
+            'parallel': [{
+                'value': '1a ed.',
+                'responsibility': 'editado por J. Smith'
+            }, {
+                'value': '2a rev.',
+                'responsibility': 'por B. Roberts'
+            }]
+        },
+        'materials_specified': None,
+    }),
+
+    # $b follows 2nd (or 3rd, etc.) ISBD punctuation mark
+    ('250 ## $a1st ed. / edited by J. Smith =$b1a ed. / editado por J. Smith, '
+             '2nd rev. / by B. Roberts = 2a rev. / por B. Roberts.',
+     {
+        'edition_type': 'edition_statement',
+        'edition_info': {
+            'editions': [{
+                'value': '1st ed.',
+                'responsibility': 'edited by J. Smith'
+            }, {
+                'value': '2nd rev.',
+                'responsibility': 'by B. Roberts'
+            }],
+            'parallel': [{
+                'value': '1a ed.',
+                'responsibility': 'editado por J. Smith'
+            }, {
+                'value': '2a rev.',
+                'responsibility': 'por B. Roberts'
+            }]
+        },
+        'materials_specified': None,
+    }),
+
+    # Multiple $bs
+    ('250 ## $a1st ed. /$bedited by J. Smith =$b1a ed. / editado por J. Smith, '
+             '2nd rev. / by B. Roberts = 2a rev. / por B. Roberts.',
+     {
+        'edition_type': 'edition_statement',
+        'edition_info': {
+            'editions': [{
+                'value': '1st ed.',
+                'responsibility': 'edited by J. Smith'
+            }, {
+                'value': '2nd rev.',
+                'responsibility': 'by B. Roberts'
+            }],
+            'parallel': [{
+                'value': '1a ed.',
+                'responsibility': 'editado por J. Smith'
+            }, {
+                'value': '2a rev.',
+                'responsibility': 'por B. Roberts'
+            }]
+        },
+        'materials_specified': None,
+    }),
+
+    # Extra spacing between `/` and $b
+    ('250 ## $a1st ed. / $bedited by J. Smith', {
+        'edition_type': 'edition_statement',
+        'edition_info': {
+            'editions': [{
+                'value': '1st ed.',
+                'responsibility': 'edited by J. Smith'
+            }]
+        },
+        'materials_specified': None,
+    }),
+
+    # Extra spacing between `=` and $b
+    ('250 ## $a1st ed. = $b1a ed.', {
+        'edition_type': 'edition_statement',
+        'edition_info': {
+            'editions': [{'value': '1st ed.'}],
+            'parallel': [{'value': '1a ed.'}]
+        },
+        'materials_specified': None,
+    }),
+
+    # 251 Versions
+    # Single version
+    ('251 ## $aFirst draft.',
+     {
+        'edition_type': 'version',
+        'edition_info': {
+            'editions': [{
+                'value': 'First draft',
+            }]
+        },
+        'materials_specified': None,
+    }),
+
+    # Version plus materials specified
+    ('251 ## $31988-1989:$aFirst draft.',
+     {
+        'edition_type': 'version',
+        'edition_info': {
+            'editions': [{
+                'value': 'First draft',
+            }]
+        },
+        'materials_specified': ['1988-1989'],
+    }),
+
+    # Multiple versions, in multiple $as
+    ('251 ## $aFirst draft$aSecond version',
+     {
+        'edition_type': 'version',
+        'edition_info': {
+            'editions': [{
+                'value': 'First draft; Second version',
+            }]
+        },
+        'materials_specified': None,
+    }),
+
+
+    # 254 Music Presentation Statements
+    # Single statement
+    ('254 ## $aFull score.',
+     {
+        'edition_type': 'musical_presentation_statement',
+        'edition_info': {
+            'editions': [{
+                'value': 'Full score',
+            }]
+        },
+        'materials_specified': None,
+    }),
+
+    # Multiple statements in multiple $as
+    ('254 ## $aFull score$aPartitur.',
+     {
+        'edition_type': 'musical_presentation_statement',
+        'edition_info': {
+            'editions': [{
+                'value': 'Full score; Partitur',
+            }]
+        },
+        'materials_specified': None,
+    }),
+
+], ids=[
+    # 250 Edition Statements
+    'Simple edition by itself',
+    'Edition and materials specified',
+    'Edition with bracketed portion',
+    'Edition all in brackets',
+    'Simple edition plus responsibility',
+    'Edition plus responsibility and revision',
+    'Edition plus responsibility and revision plus responsibility',
+    'Edition and parallel edition',
+    'Edition/parallel, with one SOR at end',
+    'Edition, with SOR and parallel SOR',
+    'Edition/SOR plus parallel edition/SOR',
+    'Edition/revision plus parallel (including SORs)',
+
+    # 250s, edges of "revision" detection
+    'Otherwise valid pattern not following " = " not recognized',
+    'Obvious names are not recognized',
+    'Valid numeric pattern is recognized',
+    'Valid one-word pattern is recognized',
+    'Valid multi-word pattern is recognized',
+
+    # 250s, other edge cases
+    'Missing `/` before $b',
+    'Full edition statement is in $a (no $b)',
+    '$b follows 2nd (or 3rd, etc.) ISBD punctuation mark',
+    'Multiple $bs',
+    'Extra spacing between `/` and $b',
+    'Extra spacing between `=` and $b',
+
+    # 251 Versions
+    'Single version',
+    'Version plus materials specified;',
+    'Multiple versions, in multiple $as',
+
+    # 254 Music Presentation Statements
+    'Single statement',
+    'Multiple statements in multiple $as',
+])
+def test_editionparser_parse(raw_marcfield, expected, fieldstrings_to_fields):
+    """
+    When passed the given MARC field, the `EditionParser.parse` method
+    should return the expected results.
+    """
+    field = fieldstrings_to_fields([raw_marcfield])[0]
+    result = s2m.EditionParser(field).parse()
+    print result
+    assert result == expected
+
+
+@pytest.mark.parametrize('raw_marcfields, expected', [
+    # Edge cases
+    # No 250, 251, 254 => no editions
+    ([], {}),
+    # 250, 251, 254 with no $ab => no editions
+    (['250 ## $cThis is$dincorrect.'], {}),
+
+    # 250 Edition Statements
+    # Simple edition by itself
+    (['250 ## $a1st ed.'],
+     {
+        'editions_display': ['1st ed.'],
+        'editions_search': ['1st ed.']
+    }),
+    
+    # Edition and materials specified
+    (['250 ## $31988-1989:$a1st ed.'],
+     {
+        'editions_display': ['(1988-1989): 1st ed.'],
+        'editions_search': ['1st ed.']
+    }),
+
+    # Simple edition plus responsibility
+    (['250 ## $a1st ed. /$bedited by J. Smith'],
+     {
+        'editions_display': ['1st ed., edited by J. Smith'],
+        'editions_search': ['1st ed.'],
+        'responsibility_search': ['edited by J. Smith']
+    }),
+
+    # Edition plus responsibility and revision
+    # Note: the revision goes into `responsibility_search` -- not much
+    # we can do about that.
+    (['250 ## $a1st ed. /$bedited by J. Smith, 2nd rev.'],
+     {
+        'editions_display': ['1st ed., edited by J. Smith, 2nd rev.'],
+        'editions_search': ['1st ed.'],
+        'responsibility_search': ['edited by J. Smith, 2nd rev.']
+    }),
+
+    # Edition plus responsibility and revision plus responsibility
+    (['250 ## $a1st ed. /$bedited by J. Smith, 2nd rev. / by B. Roberts'],
+     {
+        'editions_display': [
+            '1st ed., edited by J. Smith, 2nd rev., by B. Roberts'
+        ],
+        'editions_search': ['1st ed.'],
+        'responsibility_search': [
+            'edited by J. Smith, 2nd rev., by B. Roberts'
+        ]
+    }),
+
+    # Edition and parallel edition
+    (['250 ## $a1st ed. =$b1a ed.'],
+     {
+        'editions_display': ['1st ed. [translated: 1a ed.]'],
+        'editions_search': ['1st ed.', '1a ed.'],
+    }),
+
+    # Edition/parallel, with one SOR at end
+    (['250 ## $a1st ed. =$b1a ed. / edited by J. Smith'],
+     {
+        'editions_display': [
+            '1st ed., edited by J. Smith [translated: 1a ed.]'
+        ],
+        'editions_search': ['1st ed.', '1a ed.'],
+        'responsibility_search': ['edited by J. Smith']
+    }),
+
+    # Edition, with SOR and parallel SOR
+    (['250 ## $a1st ed. /$bedited by J. Smith = editado por J. Smith.'],
+     {
+        'editions_display': [
+            '1st ed., edited by J. Smith [translated: editado por J. Smith]'
+        ],
+        'editions_search': ['1st ed.'],
+        'responsibility_search': ['edited by J. Smith', 'editado por J. Smith']
+    }),
+
+    # Edition/SOR plus parallel edition/SOR
+    (['250 ## $a1st ed. /$bedited by J. Smith = 1a ed. / editado por J. '
+              'Smith.'],
+     {
+        'editions_display': [
+            '1st ed., edited by J. Smith [translated: 1a ed., editado por J. '
+            'Smith]'
+        ],
+        'editions_search': ['1st ed.', '1a ed.'],
+        'responsibility_search': ['edited by J. Smith', 'editado por J. Smith']
+    }),
+
+    # Edition/revision plus parallel (including SORs)
+    (['250 ## $a1st ed. /$bedited by J. Smith = 1a ed. / editado por J. '
+              'Smith, New rev. / by B. Roberts = Nueva rev. / por B. Roberts.'],
+     {
+        'editions_display': [
+            '1st ed., edited by J. Smith; New rev., by B. Roberts [translated: '
+            '1a ed., editado por J. Smith; Nueva rev., por B. Roberts]'
+        ],
+        'editions_search': [
+            '1st ed.; New rev.',
+            '1a ed.; Nueva rev.'
+        ],
+        'responsibility_search': [
+            'edited by J. Smith; by B. Roberts', 
+            'editado por J. Smith; por B. Roberts'
+        ]
+    }),
+
+    # Edition/revision plus multiple parallels
+    (['250 ## $a1st ed. /$bedited by J. Smith = 1a ed. / editado por J. '
+              'Smith = 1e ed. / whatever, New rev. / by B. Roberts = '
+              'Nueva rev. / por B. Roberts.'],
+     {
+        'editions_display': [
+            '1st ed., edited by J. Smith; New rev., by B. Roberts [translated: '
+            '1a ed., editado por J. Smith; 1e ed., whatever; Nueva rev., '
+            'por B. Roberts]'
+        ],
+        'editions_search': [
+            '1st ed.; New rev.',
+            '1a ed.; 1e ed.; Nueva rev.'
+        ],
+        'responsibility_search': [
+            'edited by J. Smith; by B. Roberts', 
+            'editado por J. Smith; whatever; por B. Roberts'
+        ]
+    }),
+
+    # 251 Versions
+    # Single version
+    (['251 ## $aFirst draft.'],
+     {
+        'editions_display': ['First draft'],
+        'editions_search': ['First draft']
+    }),
+
+    # Version plus materials specified
+    (['251 ## $31988-1989:$aFirst draft.'],
+     {
+        'editions_display': ['(1988-1989): First draft'],
+        'editions_search': ['First draft']
+    }),
+
+    # Multiple versions, in multiple $as
+    (['251 ## $aFirst draft$aSecond version.'],
+     {
+        'editions_display': ['First draft; Second version'],
+        'editions_search': ['First draft; Second version']
+    }),
+
+    # Multiple versions, multiple 251 instances
+    (['251 ## $aFirst draft.',
+      '251 ## $aSecond version.'],
+     {
+        'editions_display': ['First draft', 'Second version'],
+        'editions_search': ['First draft', 'Second version']
+    }),
+
+    # 254 Music Presentation Statements
+    # Single statement
+    (['254 ## $aFull score.'],
+     {
+        'editions_display': ['Full score'],
+        'type_format_search': ['Full score']
+    }),
+
+    # Multiple statements in multiple $as
+    (['254 ## $aFull score.$aPartitur.'],
+     {
+        'editions_display': ['Full score; Partitur'],
+        'type_format_search': ['Full score; Partitur']
+    }),
+
+    # Multiple statements in multiple 254s
+    (['254 ## $aFull score.',
+      '254 ## $aPartitur.'],
+     {
+        'editions_display': ['Full score', 'Partitur'],
+        'type_format_search': ['Full score', 'Partitur']
+    }),
+
+    # Other
+    # 250, 251, 254 all at once
+    (['250 ## $a1st ed. =$b1a ed. / edited by J. Smith.',
+      '250 ## $aNew rev. =$bNueva rev. / revised by B. Roberts.',
+      '251 ## $aFinal draft.',
+      '254 ## $aFull score.'],
+     {
+        'editions_display': [
+            '1st ed., edited by J. Smith [translated: 1a ed.]',
+            'New rev., revised by B. Roberts [translated: Nueva rev.]',
+            'Final draft',
+            'Full score'
+        ],
+        'editions_search': [
+            '1st ed.',
+            '1a ed.',
+            'New rev.',
+            'Nueva rev.',
+            'Final draft',
+        ],
+        'responsibility_search': [
+            'edited by J. Smith',
+            'revised by B. Roberts'
+        ],
+        'type_format_search': ['Full score']
+    }),
+], ids=[
+    # Edge cases
+    'Empty 250, 251, 254 => no editions',
+    '250, 251, 254 with no $ab => no editions',
+
+    # 250 Edition Statements
+    'Simple edition by itself',
+    'Edition and materials specified',
+    'Simple edition plus responsibility',
+    'Edition plus responsibility and revision',
+    'Edition plus responsibility and revision plus responsibility',
+    'Edition and parallel edition',
+    'Edition/parallel, with one SOR at end',
+    'Edition, with SOR and parallel SOR',
+    'Edition/SOR plus parallel edition/SOR',
+    'Edition/revision plus parallel (including SORs)',
+    'Edition/revision plus multiple parallels',
+
+    # 251 Versions
+    'Single version',
+    'Version plus materials specified',
+    'Multiple versions, in multiple $as',
+    'Multiple versions, multiple 251 instances',
+
+    # 254 Music Presentation Statements
+    'Single statement',
+    'Multiple statements in multiple $as',
+    'Multiple statements in multiple 254s',
+
+    # Other
+    '250, 251, 254 all at once',
+])
+def test_todscpipeline_geteditions(raw_marcfields, expected,
+                                   fieldstrings_to_fields,
+                                   bl_sierra_test_record,
+                                   todsc_pipeline_class,
+                                   bibrecord_to_pymarc,
+                                   add_marc_fields,
+                                   assert_bundle_matches_expected):
+    """
+    ToDiscoverPipeline.get_editions should return data matching the
+    expected parameters.
+    """
+    pipeline = todsc_pipeline_class()
+    marcfields = fieldstrings_to_fields(raw_marcfields)
+    bib = bl_sierra_test_record('bib_no_items')
+    bibmarc = bibrecord_to_pymarc(bib)
+    bibmarc.remove_fields('250', '251', '254')
+    bibmarc = add_marc_fields(bibmarc, marcfields)
+    bundle = pipeline.do(bib, bibmarc, ['editions'])
+    assert_bundle_matches_expected(bundle, expected)
+
+
 def test_s2mmarcbatch_compileoriginalmarc_vf_order(s2mbatch_class,
                                                    bl_sierra_test_record,
                                                    add_varfields_to_record):

@@ -245,6 +245,8 @@
     <field name="related_work_titles_json" type="string" indexed="false" stored="true" multiValued="true"/>
     <field name="related_series_titles_json" type="string" indexed="false" stored="true" multiValued="true"/>
     <field name="variant_titles_notes" type="string" indexed="false" stored="true" multiValued="true"/>
+    <!-- Edition -->
+    <field name="editions_display" type="string" indexed="false" stored="true" multiValued="true"/>
     <!-- Subjects / Genres -->
     <field name="subject_headings_json" type="string" indexed="false" stored="true" multiValued="true"/>
     <field name="genre_headings_json" type="string" indexed="false" stored="true" multiValued="true"/>
@@ -314,6 +316,9 @@
     <field name="related_work_titles_search" type="text" indexed="true" stored="false" multiValued="true"/>
     <field name="related_series_titles_search" type="text" indexed="true" stored="false" multiValued="true"/>
     <field name="variant_titles_search" type="text" indexed="true" stored="false" multiValued="true"/>
+
+    <!-- Edition -->
+    <field name="editions_search" type="text" indexed="true" stored="false" multiValued="true"/>
 
     <!-- Description and Notes -->
     <field name="toc_notes" type="stem_text" indexed="true" stored="true" multiValued="true"/>

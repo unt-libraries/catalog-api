@@ -1960,6 +1960,7 @@
          author_search^500
          contributors_search^475
          responsibility_search^450
+         editions_search^450
          genres_search_main_terms^450
          genres_search_all_terms^300
          subjects_search_main_terms^400
@@ -1982,6 +1983,7 @@
          all_title_variants_search^6000
          author_search^5500
          contributors_search^4500
+         editions_search^4500
          genres_search_main_terms^4000
          subjects_search_main_terms^3000
          genres_search_all_terms^2500
@@ -2014,12 +2016,14 @@
          publication_dates_search^1000
          main_title_search^1000
          all_title_variants_search^700
+         editions_search^450
          related_work_titles_search^200
          toc_notes^10
        </str>
        <str name="title_pf">
          main_title_search^10000
          all_title_variants_search^5500
+         editions_search^4500
          related_work_titles_search^1001
          toc_notes^1001
        </str>

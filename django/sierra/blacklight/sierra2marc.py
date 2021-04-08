@@ -8,6 +8,7 @@ from __future__ import unicode_literals
 import pymarc
 import logging
 import re
+import itertools
 import ujson
 from datetime import datetime
 from collections import OrderedDict
@@ -1116,6 +1117,98 @@ class PreferredTitleParser(SequentialMarcFieldParser):
             ret_val['volume'] = self.volume
             ret_val['issn'] = self.issn
         return ret_val
+
+
+class EditionParser(SequentialMarcFieldParser):
+    edition_types = {
+        '250': 'edition_statement',
+        '251': 'version',
+        '254': 'musical_presentation_statement'
+    }
+    def __init__(self, field):
+        super(EditionParser, self).__init__(field)
+        self.edition_type = self.edition_types.get(field.tag)
+        self._edition_stack = []
+
+    def extract_info_from_edition_statement(self, stmt):
+        edition_info = {}
+
+        # The idea with the below regex and `re.split` call is to split
+        # off any secondary (or tertiary, etc.) statements, usually
+        # identifying a revision of a specific edition. These are set
+        # off with ", " and then a number or capitalized word, like:
+        #    3rd ed. / by John Doe, New revision / by J. Smith.
+        #                         ---
+        # However, there is a problem with false positives. So this
+        # uses the following (more constrained) heuristics.
+        #    - Look for ", " following parallel information (" = ").
+        #      These are less likely to be false positives, and it's
+        #      more important to know where the translation ends. E.g.,
+        #      "3rd ed. = Tercer ed., New rev. = Nuevo rev." Not
+        #      splitting on ", " here would put "New rev." with the
+        #      Spanish translation for "3rd ed."
+        #    - The ", " must be followed by any one of three patterns
+        #      that occur before the next comma or ISBD punctuation:
+        #        - A number plus any number of words.
+        #        - One capitalized word ONLY.
+        #        - One capitalized word plus any number of words, at
+        #          least one of which must not be capitalized.
+        rev_re = (r'(.*? = .*?), (?='
+                  r'(?:[0-9][^,=/]+|[A-Z][^,=/\s]+|[A-Z][^,=/]+ [a-z][^,=/]+)'
+                  r'(?: [/=]|$))')
+        for ed in re.split(rev_re, stmt):
+            values, sors = [], []
+            lock_sor = False
+            for p_chunk in ed.split(' = '):
+                sor_chunks = [p.strip_ends(v) for v in p_chunk.split(' / ')]
+                if len(sor_chunks) == 1:
+                    if lock_sor:
+                        sors.append(sor_chunks[0])
+                    else:
+                        values.append(sor_chunks[0])
+                else:
+                    values.append(sor_chunks[0])
+                    sors.append(', '.join(sor_chunks[1:]))
+                    lock_sor = True
+
+            for i, pair in enumerate(itertools.izip_longest(values, sors)):
+                value, sor = pair
+                entry = {}
+                if value:
+                    entry['value'] = p.restore_periods(value)
+                if sor:
+                    entry['responsibility'] = p.restore_periods(sor)
+                if entry:
+                    key = 'editions' if i == 0 else 'parallel'
+                    edition_info[key] = edition_info.get(key, [])
+                    edition_info[key].append(entry)
+        return edition_info
+
+    def parse_subfield(self, tag, val):
+        if val:
+            val = p.protect_periods(val).strip()
+            if tag == 'b' and self._edition_stack:
+                last_val = self._edition_stack[-1]
+                if len(last_val) > 1 and last_val[-2:] not in (' /', ' ='):
+                    self._edition_stack[-1] = ' '.join([last_val, '/'])
+            if tag in 'ab':
+                self._edition_stack.append(val)
+
+    def compile_results(self):
+        ed_info = {}
+        if self._edition_stack:
+            if self.edition_type == 'edition_statement':
+                isbd_str = ' '.join(self._edition_stack)
+                ed_info = self.extract_info_from_edition_statement(isbd_str)
+            else:
+                ed = '; '.join([p.strip_ends(v) for v in self._edition_stack])
+                ed_info = {'editions': [{'value': p.restore_periods(ed)}]}
+
+        return {
+            'edition_type': self.edition_type,
+            'edition_info': ed_info or None,
+            'materials_specified': self.materials_specified or None
+        }
 
 
 class StandardControlNumberParser(SequentialMarcFieldParser):
@@ -2375,7 +2468,7 @@ class ToDiscoverPipeline(object):
         'contributor_info', 'title_info', 'general_3xx_info',
         'general_5xx_info', 'call_number_info', 'standard_number_info',
         'control_number_info', 'games_facets_info', 'subjects_info',
-        'language_info', 'record_boost', 'linking_fields'
+        'language_info', 'record_boost', 'linking_fields', 'editions'
     ]
     marc_grouper = MarcFieldGrouper({
         '008': set(['008']),
@@ -2388,6 +2481,7 @@ class ToDiscoverPipeline(object):
         'uniform_title': set(['130', '240', '243']),
         'transcribed_title': set(['245']),
         'alternate_title': set(['242', '246', '247']),
+        'edition': set(['250', '251', '254']),
         'publication': set(['260', '264']),
         'dates_of_publication': set(['362']),
         'physical_description': set(['r', '310', '321', '340', '342', '343',
@@ -5025,6 +5119,71 @@ class ToDiscoverPipeline(object):
             'serial_continuity_linking_json': json['linking_780_785'] or None,
             'related_resources_linking_json': json['linking_other'] or None,
             'title_series_facet': facet_vals or None
+        }
+
+    def render_edition_component(self, parts):
+        keys = ('display', 'responsibility', 'value')
+        stacks = {k: [] for k in keys}
+        for entry in parts:
+            render_stack = []
+            for key in ('value', 'responsibility'):
+                if key in entry:
+                    render_stack.append(entry[key])
+                    stacks[key].append(entry[key])
+            stacks['display'].append(', '.join(render_stack))
+        return {k: '; '.join(stacks[k]) for k in keys}
+
+    def compile_edition(self, parsed):
+        display = ''
+        compiled = {
+            'responsibility': [],
+            'value': []
+        }
+        info = parsed['edition_info'] or {}
+        if 'editions' in info:
+            rendered = self.render_edition_component(info['editions'])
+            display = rendered['display']
+            if parsed['materials_specified']:
+                ms = format_materials_specified(parsed['materials_specified'])
+                display = ' '.join([format_display_constants([ms]), display])
+            for key in compiled.keys():
+                if rendered[key]:
+                    compiled[key].append(rendered[key])
+            if 'parallel' in info:
+                translated = self.render_edition_component(info['parallel'])
+                formatted = format_translation(translated['display'])
+                display = ' '.join([display, formatted])
+                for key in compiled.keys():
+                    if translated[key]:
+                        compiled[key].append(translated[key])
+        compiled['display'] = display
+        return compiled
+
+    def get_editions(self):
+        """
+        Get edition information from the 250, 251, and 254 fields.
+        """
+        ed_display, ed_search = [], []
+        resp_search, fmt_search = [], []
+
+        for f in self.marc_fieldgroups.get('edition', []):
+            compiled = self.compile_edition(EditionParser(f).parse())
+            print(compiled)
+            if compiled['display']:
+                ed_display.append(compiled['display'])
+            if compiled['responsibility']:
+                resp_search.extend(compiled['responsibility'])
+
+            if f.tag == '254':
+                fmt_search.extend(compiled['value'])
+            else:
+                ed_search.extend(compiled['value'])
+
+        return {
+            'editions_display': ed_display or None,
+            'editions_search': ed_search or None,
+            'responsibility_search': resp_search or None,
+            'type_format_search': fmt_search or None
         }
 
 
