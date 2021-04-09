@@ -12444,6 +12444,97 @@ def test_todscpipeline_geteditions(raw_marcfields, expected,
     assert_bundle_matches_expected(bundle, expected)
 
 
+@pytest.mark.parametrize('raw_marcfields, expected', [
+    # Edge cases
+    # No 866s => no library has
+    ([], {}),
+    # 866 with no $a or $z => no library has
+    (['866 ## $cThis is$dincorrect.'], {}),
+
+    # 866s
+    # 866 with $a and $z
+    (['866 31 $av. 1-4 (1941-1943), v. 6-86 (1945-1987)$zSome issues missing'], 
+     {'library_has_display': [
+        'v. 1-4 (1941-1943), v. 6-86 (1945-1987); Some issues missing'
+      ]
+    }),
+
+    # 866 with $a and multiple $zs
+    (['866 31 $av. 1-4 (1941-1943), v. 6-86 (1945-1987)$zSome issues missing;'
+             '$zAnother note'], 
+     {'library_has_display': [
+        'v. 1-4 (1941-1943), v. 6-86 (1945-1987); Some issues missing; '
+        'Another note'
+      ]
+    }),
+
+    # 866 with $8, $a, $x, $2, $z -- only $a and $z are included
+    (['866 31 $80$av. 1-4 (1941-1943), v. 6-86 (1945-1987)$xinternal note'
+             '$zSome issues missing$2usnp'], 
+     {'library_has_display': [
+        'v. 1-4 (1941-1943), v. 6-86 (1945-1987); Some issues missing'
+      ]
+    }),
+
+    # 866 with only $a
+    (['866 31 $av. 1-4 (1941-1943), v. 6-86 (1945-1987)'], 
+     {'library_has_display': [
+        'v. 1-4 (1941-1943), v. 6-86 (1945-1987)'
+      ]
+    }),
+
+    # 866 with only $z
+    (['866 31 $zSome issues missing'], 
+     {'library_has_display': [
+        'Some issues missing'
+      ]
+    }),
+
+    # Multiple 866s
+    (['866 31 $av. 1-4 (1941-1943)',
+      '866 31 $av. 6-86 (1945-1987)',
+      '866 31 $zSome issues missing'], 
+     {'library_has_display': [
+        'v. 1-4 (1941-1943)',
+        'v. 6-86 (1945-1987)',
+        'Some issues missing'
+      ]
+    }),
+
+], ids=[
+    # Edge cases
+    'No 866s => no library has',
+    '866 with no $a or $z => no library has',
+
+    # 866s
+    '866 with $a and $z',
+    '866 with $a and multiple $zs',
+    '866 with $8, $a, $x, $2, $z -- only $a and $z are included',
+    '866 with only $a',
+    '866 with only $z',
+    'Multiple 866s',
+])
+def test_todscpipeline_getserialholdings(raw_marcfields, expected,
+                                         fieldstrings_to_fields,
+                                         bl_sierra_test_record,
+                                         todsc_pipeline_class,
+                                         bibrecord_to_pymarc,
+                                         add_marc_fields,
+                                         assert_bundle_matches_expected):
+    """
+    ToDiscoverPipeline.get_serial_holdings should return data matching
+    the expected parameters.
+    """
+    pipeline = todsc_pipeline_class()
+    marcfields = fieldstrings_to_fields(raw_marcfields)
+    bib = bl_sierra_test_record('bib_no_items')
+    bibmarc = bibrecord_to_pymarc(bib)
+    bibmarc.remove_fields('866')
+    bibmarc = add_marc_fields(bibmarc, marcfields)
+    bundle = pipeline.do(bib, bibmarc, ['serial_holdings'])
+    assert_bundle_matches_expected(bundle, expected)
+
+
 def test_s2mmarcbatch_compileoriginalmarc_vf_order(s2mbatch_class,
                                                    bl_sierra_test_record,
                                                    add_varfields_to_record):

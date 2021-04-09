@@ -178,17 +178,15 @@
   </types>
 
   <fields>
-    <!-- REVISED SCHEMA ###################################################################################
-         Fields in this section have been fully implemented.
-
-         To implement a field:
-            - Add it below.
-            - Add it to sierra2marc.py.
-            - Add relevant tests for it.
+    <!-- SCHEMA FIELDS ###################################################################################
+         To implement a new field:
+            - Add it, below.
             - Make sure it's represented in solr_test_profiles.py.
             - If needed, update the solrconfig.xml file so that it uses the new field:
                 - For fields that display in search results, add to "catalog-search" request
                   handler, `fl` parameter.
+            - Add the needed processes to populate the field to sierra2marc.py.
+            - Add relevant tests for it.
 
          After implementing a field, run tests.
     -->
@@ -253,6 +251,8 @@
     <!-- Linking Fields -->
     <field name="serial_continuity_linking_json" type="string" indexed="false" stored="true" multiValued="true"/>
     <field name="related_resources_linking_json" type="string" indexed="false" stored="true" multiValued="true"/>
+    <!-- Serial Holdings -->
+    <field name="library_has_display" type="string" indexed="false" stored="true" multiValued="true"/>
 
     <!-- SORT FIELDS ====================================================================================== -->
     <field name="publication_sort" type="string" indexed="true" stored="false" multiValued="false"/>

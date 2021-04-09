@@ -2468,7 +2468,8 @@ class ToDiscoverPipeline(object):
         'contributor_info', 'title_info', 'general_3xx_info',
         'general_5xx_info', 'call_number_info', 'standard_number_info',
         'control_number_info', 'games_facets_info', 'subjects_info',
-        'language_info', 'record_boost', 'linking_fields', 'editions'
+        'language_info', 'record_boost', 'linking_fields', 'editions',
+        'serial_holdings'
     ]
     marc_grouper = MarcFieldGrouper({
         '008': set(['008']),
@@ -2500,6 +2501,7 @@ class ToDiscoverPipeline(object):
                               '777', '786', '787']),
         'series_added_entry': set(['800', '810', '811', '830']),
         'url': set(['856']),
+        'library_has': set(['866']),
         'media_link': set(['962']),
     })
     prefix = 'get_'
@@ -5184,6 +5186,22 @@ class ToDiscoverPipeline(object):
             'editions_search': ed_search or None,
             'responsibility_search': resp_search or None,
             'type_format_search': fmt_search or None
+        }
+
+    def get_serial_holdings(self):
+        """
+        Return serial holdings information. Currently this only uses
+        the MARC 866 field, but in the future we may expand this to
+        include other information from check-in/holdings records.
+        """
+        library_has_display = []
+        sf_filter = {'include': 'az'}
+        for f in self.marc_fieldgroups.get('library_has', []):
+            val = GenericDisplayFieldParser(f, '; ', sf_filter).parse()
+            if val:
+                library_has_display.append(val)
+        return {
+            'library_has_display': library_has_display or None
         }
 
 
