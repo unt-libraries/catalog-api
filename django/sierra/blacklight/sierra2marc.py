@@ -25,7 +25,7 @@ from utils import helpers, toascii
 IGNORED_MARC_FIELDS_BY_GROUP_TAG = {
     'n': ('539', '901', '959'),
     'r': ('306', '307', '336', '337', '338', '341', '348', '351', '355', '357',
-          '377', '380', '381', '383', '384', '385', '386', '387', '388', '389'),
+          '377', '380', '381', '383', '384', '385', '386', '387', '389'),
 }
 
 
@@ -2484,8 +2484,10 @@ class ToDiscoverPipeline(object):
         'transcribed_title': set(['245']),
         'alternate_title': set(['242', '246', '247']),
         'edition': set(['250', '251', '254']),
+        'production_country': set(['257']),
         'publication': set(['260', '264']),
         'dates_of_publication': set(['362']),
+        'time_period_of_creation': set(['388']),
         'physical_description': set(['r', '310', '321', '340', '342', '343',
                                      '344', '345', '346', '347', '352', '382']),
         'series_statement': set(['490']),
@@ -3037,6 +3039,9 @@ class ToDiscoverPipeline(object):
                 pub = p.strip_ends(pub)
                 publishers.add(p.strip_outer_parentheses(pub, True))
 
+        for f257 in self.marc_fieldgroups.get('production_country', []):
+            places.update([p.strip_ends(sf) for sf in f257.get_subfields('a')])
+
         for f362 in self.marc_fieldgroups.get('dates_of_publication', []):
             formatted_date = ' '.join(f362.get_subfields('a'))
             # NOTE: Extracting years from 362s (as below) was leading
@@ -3098,6 +3103,9 @@ class ToDiscoverPipeline(object):
 
         yfacet, dfacet, sdates = self._make_pub_limit_years(described_years)
 
+        for f388 in self.marc_fieldgroups.get('time_period_of_creation', []):
+            sdates.extend([sf for sf in f388.get_subfields('a')])
+
         ret_val = {'{}_display'.format(k): v for k, v in pub_info.items()}
         ret_val.update({
             'publication_sort': sort.replace('u', '-'),
@@ -3106,7 +3114,7 @@ class ToDiscoverPipeline(object):
             'publication_year_display': year_display,
             'publication_places_search': list(places),
             'publishers_search': list(publishers),
-            'publication_dates_search': sdates,
+            'publication_dates_search': list(set(sdates)),
             'publication_date_notes': publication_date_notes
         })
         return ret_val
@@ -4228,7 +4236,7 @@ class ToDiscoverPipeline(object):
                     'include': ('r', '370'),
                     'exclude': IGNORED_MARC_FIELDS_BY_GROUP_TAG['r'] +
                                ('310', '321', '340', '342', '343', '344', '345',
-                                '346', '347', '352', '362', '382')
+                                '346', '347', '352', '362', '382', '388')
                 }
             })
         ), utils=self.utils)

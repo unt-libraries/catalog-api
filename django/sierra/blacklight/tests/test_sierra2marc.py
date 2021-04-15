@@ -1854,6 +1854,15 @@ def test_todscpipeline_getthumbnailurl(fparams, expected_url,
     ([('008', 's2014    '),
       ('362', ['a', 'Published in 1st century.'], '1 ')],
      '2014', '2014', ['2014'], ['2010-2019',], ['2014', '2010s']),
+    ([('008', 's2014    '),
+      ('388', ['a', '18th century', '2', 'fast'], '  ')],
+     '2014', '2014', ['2014'], ['2010-2019',],
+     ['2014', '2010s', '18th century']),
+    ([('008', 's2014    '),
+      ('388', ['a', '18th century', '2', 'fast'], '  '),
+      ('388', ['a', '2014', '2', 'fast'], '  ')],
+     '2014', '2014', ['2014'], ['2010-2019',],
+     ['2014', '2010s', '18th century']),
 ], ids=[
     'standard, single date in 008 repeated in 260',
     'standard, single date in 008 repeated in 264',
@@ -1900,7 +1909,9 @@ def test_todscpipeline_getthumbnailurl(fparams, expected_url,
     'three-digit year only 260c works',
     'formatted date in 362 (ignored)',
     'non-formatted date in 362 (ignored)',
-    'century (1st) in 362 (ignored)'
+    'century (1st) in 362 (ignored)',
+    'time period of creation in 382',
+    'time period of creation in 382 deduplicated against other dates'
 ])
 def test_todscpipeline_getpubinfo_dates(fparams, exp_pub_sort,
                                         exp_pub_year_display,
@@ -1919,7 +1930,7 @@ def test_todscpipeline_getpubinfo_dates(fparams, exp_pub_sort,
     pipeline = todsc_pipeline_class()
     bib = bl_sierra_test_record('bib_no_items')
     bibmarc = bibrecord_to_pymarc(bib)
-    bibmarc.remove_fields('260', '264', '362')
+    bibmarc.remove_fields('260', '264', '362', '388')
     if len(fparams) and fparams[0][0] == '008':
         data = bibmarc.get_fields('008')[0].data
         data = '{}{}{}'.format(data[0:6], fparams[0][1], data[15:])
@@ -2180,6 +2191,16 @@ def test_todscpipeline_getpubinfo_statements(fparams, expected,
       ('260', ['c', '2004.']),
       ('264', ['c', '2004.'], ' 4')], {}),
     ([('008', 's2004    '),], {}),
+    ([('008', 's2004    '),
+      ('257', ['a', 'United States ;', 'a', 'Italy']),
+      ('264', ['a', 'Place :', 'b', 'Producer,', 'c', '2004.'], ' 0')],
+     {'publication_places_search': ['United States', 'Italy', 'Place'],
+      'publishers_search': ['Producer']}),
+    ([('008', 's2004    '),
+      ('257', ['a', 'Place ;', 'a', 'Italy']),
+      ('264', ['a', 'Place :', 'b', 'Producer,', 'c', '2004.'], ' 0')],
+     {'publication_places_search': ['Italy', 'Place'],
+      'publishers_search': ['Producer']}),
 ], ids=[
     'Plain 260 => publisher and place search values',
     '260 w/manufacturer info, includes mf place and entity',
@@ -2190,7 +2211,9 @@ def test_todscpipeline_getpubinfo_statements(fparams, expected,
     '264: multiple fields include all relevant info (deduplicated)',
     '260/264: unknown info ([S.l.], [s.n.], X not identified) stripped',
     '260/264: missing pub info okay',
-    'no 260/264 okay'
+    'no 260/264 is okay',
+    '257: Country of production => publication places',
+    '257 is deduplicated against other publication places',
 ])
 def test_todscpipeline_getpubinfo_pub_search(fparams, expected,
                                              bl_sierra_test_record,
@@ -2207,7 +2230,7 @@ def test_todscpipeline_getpubinfo_pub_search(fparams, expected,
     pipeline = todsc_pipeline_class()
     bib = bl_sierra_test_record('bib_no_items')
     bibmarc = bibrecord_to_pymarc(bib)
-    bibmarc.remove_fields('260', '264')
+    bibmarc.remove_fields('257', '260', '264')
     if len(fparams) and fparams[0][0] == '008':
         data = bibmarc.get_fields('008')[0].data
         data = '{}{}{}'.format(data[0:6], fparams[0][1], data[15:])
