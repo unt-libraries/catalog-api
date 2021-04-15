@@ -6431,6 +6431,25 @@ def test_generatefacetkey(fval, nf_chars, expected):
 
     # Variant titles
 
+    # 210: Abbrev title in 210, $a $b $2
+    ([('210', ['a', 'Annu. rep.', 'b', '(Chic.)', '2', 'dnlm'], '0#')],
+     {'variant_titles_notes': [
+        'Abbreviated title: Annu. rep. (Chic.)'],
+      'variant_titles_search': [
+        'Annu. rep. (Chic.)'],
+      }),
+
+
+    # 222: Key title in 222, $a $b $2
+    ([('222', ['a', 'Annual report', 'b', '(Chicago)', '2', 'dnlm'], '0#')],
+     {'variant_titles_notes': [
+        'ISSN key title: Annual report (Chicago)'],
+      'variant_titles_search': [
+        'Annual report (Chicago)'],
+      }),
+
+    # 222/245: Duplicate title in 222
+
     # 242: Parallel title in 242, w/language ($y)
     ([('242', ['a', 'Title in English.', 'n', 'Part 1', 'y', 'eng'], '00')],
      {'variant_titles_notes': [
@@ -6744,6 +6763,8 @@ def test_generatefacetkey(fval, nf_chars, expected):
     '740, ignore num of non-filing chars if it does not make sense',
 
     # Variant titles
+    '210: Abbrev title in 210, $a $b $2',
+    '222: Key title in 222, $a $b $2',
     '242: Parallel title in 242, w/language ($y)',
     '242: Parallel title in 242, no language',
     '242: Parallel title w/responsibility',

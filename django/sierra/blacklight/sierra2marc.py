@@ -2480,6 +2480,7 @@ class ToDiscoverPipeline(object):
         'coded_dates': set(['046']),
         'main_author': set(['100', '110', '111']),
         'uniform_title': set(['130', '240', '243']),
+        'key_title': set(['210', '222']),
         'transcribed_title': set(['245']),
         'alternate_title': set(['242', '246', '247']),
         'edition': set(['250', '251', '254']),
@@ -4013,6 +4014,17 @@ class ToDiscoverPipeline(object):
                 title_keys[entry['title_type']].add(entry['title_key'])
                 wt_key = entry['work_title_key']
                 work_title_keys[entry['title_type']].add(wt_key)
+
+        for f in self.marc_fieldgroups.get('key_title', []):
+            t = ' '.join([sf[1] for sf in f.filter_subfields('ab')])
+            if t:
+                if t not in variant_titles_search:
+                    variant_titles_search.append(t)
+                if f.tag == '210':
+                    label = 'Abbreviated title'
+                else:
+                    label = 'ISSN key title'
+                variant_titles_notes.append('{}: {}'.format(label, t))
 
         for f in self.marc_fieldgroups.get('alternate_title', []):
             parsed = TranscribedTitleParser(f).parse()
