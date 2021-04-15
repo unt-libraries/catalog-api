@@ -25,7 +25,7 @@ from utils import helpers, toascii
 IGNORED_MARC_FIELDS_BY_GROUP_TAG = {
     'n': ('539', '901', '959'),
     'r': ('306', '307', '336', '337', '338', '341', '348', '351', '355', '357',
-          '377', '380', '381', '383', '384', '385', '386', '387', '389'),
+          '377', '380', '381', '385', '386', '387', '389'),
 }
 
 
@@ -2487,6 +2487,7 @@ class ToDiscoverPipeline(object):
         'production_country': set(['257']),
         'publication': set(['260', '264']),
         'dates_of_publication': set(['362']),
+        'music_number_and_key': set(['383', '384']),
         'time_period_of_creation': set(['388']),
         'physical_description': set(['r', '310', '321', '340', '342', '343',
                                      '344', '345', '346', '347', '352', '382']),
@@ -4102,6 +4103,21 @@ class ToDiscoverPipeline(object):
             if title and title not in variant_titles_search:
                 variant_titles_search.append(title)
 
+        music_fields = self.marc_fieldgroups.get('music_number_and_key', [])
+        if music_fields:
+            title_test_keys = work_title_keys['included']
+            if main_title_info['sort']:
+                title_test_keys.add(main_title_info['sort'])
+            for f in music_fields:
+                val_stack = []
+                for val in f.get_subfields(*tuple('abcde')):
+                    val_key = generate_facet_key(val)
+                    print(val_key)
+                    if not any([val_key in k for k in title_test_keys]):
+                        val_stack.append(val)
+                if val_stack:
+                    variant_titles_search.append(' '.join(val_stack))
+
         self.work_title_keys = work_title_keys
         return {
             'title_display': main_title_info['display'] or None,
@@ -4236,7 +4252,8 @@ class ToDiscoverPipeline(object):
                     'include': ('r', '370'),
                     'exclude': IGNORED_MARC_FIELDS_BY_GROUP_TAG['r'] +
                                ('310', '321', '340', '342', '343', '344', '345',
-                                '346', '347', '352', '362', '382', '388')
+                                '346', '347', '352', '362', '382', '383', '384',
+                                '388')
                 }
             })
         ), utils=self.utils)

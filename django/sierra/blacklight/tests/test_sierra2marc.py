@@ -6695,8 +6695,48 @@ def test_generatefacetkey(fval, nf_chars, expected):
 
     # 247: No note if ind2 is 1
     ([('247', ['a', 'Some title', 'f', 'Mar. 1924-Nov. 1927'], '11')],
-     {'variant_titles_search': ['Some title, Mar. 1924-Nov. 1927'],
-      }),
+     {'variant_titles_search': ['Some title, Mar. 1924-Nov. 1927']}),
+
+    # 383: Music numbers as variant titles
+    ([('383', ['a', 'no. 14,', 'b', 'op. 27, no. 2'], '  '),
+      ('383', ['b', 'op. 5', 'e', 'Hummel'], '  '),
+      ('383', ['c', 'RV 269', 'c', 'RV 315', 'c', 'RV 293', 'c', 'RV 297',
+               'd', 'Ryom', '2', 'mlati'], '  ')],
+     {'variant_titles_search': [
+        'no. 14, op. 27, no. 2',
+        'op. 5 Hummel',
+        'RV 269 RV 315 RV 293 RV 297 Ryom'
+    ]}),
+
+
+    # 240/383: Music numbers as variant titles (duplicates)
+    ([('245', ['a', 'Piano sonata in C# minor,',
+               'n', 'no. 14, op. 27, no. 2,'], '00'),
+      ('383', ['a', 'no. 14,', 'b', 'op. 27, no. 2'], '  '),
+      ('383', ['b', 'op. 5', 'e', 'Hummel'], '  ')],
+     {'title_display': 'Piano sonata in C# minor, no. 14, op. 27, no. 2',
+      'main_title_search': ['Piano sonata in C# minor, no. 14, op. 27, no. 2'],
+      'title_sort': 'piano-sonata-in-c-minor-no-14-op-27-no-2',
+      'variant_titles_search': [
+        'Piano sonata in C# minor, no. 14, op. 27, no. 2',
+        'op. 5 Hummel',
+    ]}),
+
+    # 384: Music key as variant title
+    ([('384', ['a', 'C# minor'], '  ')],
+     {'variant_titles_search': ['C# minor']
+    }),
+
+    # 384: Music key as variant title (duplicates)
+    ([('245', ['a', 'Piano sonata in C# minor,',
+               'n', 'no. 14, op. 27, no. 2,'], '00'),
+      ('384', ['a', 'C# minor'], '  ')],
+     {'title_display': 'Piano sonata in C# minor, no. 14, op. 27, no. 2',
+      'main_title_search': ['Piano sonata in C# minor, no. 14, op. 27, no. 2'],
+      'title_sort': 'piano-sonata-in-c-minor-no-14-op-27-no-2',
+      'variant_titles_search': [
+        'Piano sonata in C# minor, no. 14, op. 27, no. 2'
+    ]}),
 
 ], ids=[
     # Edge cases
@@ -6803,6 +6843,10 @@ def test_generatefacetkey(fval, nf_chars, expected):
     '247: Former title',
     '246: No note if ind1 is NOT 0 or 1',
     '247: No note if ind2 is 1',
+    '383: Music numbers as variant titles',
+    '245/383: Music numbers as variant titles (duplicates)',
+    '384: Music key as variant title',
+    '384: Music key as variant title (duplicates)',
 ])
 def test_todscpipeline_gettitleinfo(fparams, expected, bl_sierra_test_record,
                                     todsc_pipeline_class, bibrecord_to_pymarc,
@@ -6815,9 +6859,10 @@ def test_todscpipeline_gettitleinfo(fparams, expected, bl_sierra_test_record,
     pipeline = todsc_pipeline_class()
     bib = bl_sierra_test_record('bib_no_items')
     bibmarc = bibrecord_to_pymarc(bib)
-    bibmarc.remove_fields('100', '110', '111', '130', '240', '242', '243',
-                          '245', '246', '247', '490', '700', '710', '711',
-                          '730', '740', '800', '810', '811', '830')
+    bibmarc.remove_fields('100', '110', '111', '130', '210', '222', '240',
+                          '242', '243', '245', '246', '247', '383', '384',
+                          '490', '700', '710', '711', '730', '740', '800',
+                          '810', '811', '830')
     bibmarc = add_marc_fields(bibmarc, params_to_fields(fparams))
     bundle = pipeline.do(bib, bibmarc, ['title_info'])
     assert_bundle_matches_expected(bundle, expected)
