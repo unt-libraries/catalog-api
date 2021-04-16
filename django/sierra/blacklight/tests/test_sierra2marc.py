@@ -2202,6 +2202,17 @@ def test_todscpipeline_getpubinfo_statements(fparams, expected,
       ('264', ['a', 'Place :', 'b', 'Producer,', 'c', '2004.'], ' 0')],
      {'publication_places_search': ['Italy', 'Place'],
       'publishers_search': ['Producer']}),
+    ([('008', 's2004    '),
+      ('264', ['a', 'Place :', 'b', 'Producer,', 'c', '2004.'], ' 0'),
+      ('752', ['a', 'United States', 'b', 'California',
+               'c', 'Los Angeles (County)', 'd', 'Los Angeles',
+               'f', 'Little Tokyo.', '2', 'tgn'])],
+     {'publication_places_search': [
+        'Place',
+        'United States California Los Angeles (County) Los Angeles Little '
+        'Tokyo.'
+      ],
+      'publishers_search': ['Producer']}),
 ], ids=[
     'Plain 260 => publisher and place search values',
     '260 w/manufacturer info, includes mf place and entity',
@@ -2215,6 +2226,7 @@ def test_todscpipeline_getpubinfo_statements(fparams, expected,
     'no 260/264 is okay',
     '257: Country of production => publication places',
     '257 is deduplicated against other publication places',
+    '752: Hierarchical place name',
 ])
 def test_todscpipeline_getpubinfo_pub_search(fparams, expected,
                                              bl_sierra_test_record,
@@ -2231,7 +2243,7 @@ def test_todscpipeline_getpubinfo_pub_search(fparams, expected,
     pipeline = todsc_pipeline_class()
     bib = bl_sierra_test_record('bib_no_items')
     bibmarc = bibrecord_to_pymarc(bib)
-    bibmarc.remove_fields('257', '260', '264')
+    bibmarc.remove_fields('257', '260', '264', '752')
     if len(fparams) and fparams[0][0] == '008':
         data = bibmarc.get_fields('008')[0].data
         data = '{}{}{}'.format(data[0:6], fparams[0][1], data[15:])
