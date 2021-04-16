@@ -7066,6 +7066,9 @@ def test_todscpipeline_getnotes_5xxinfo(params_to_fields, add_marc_fields,
     handled = ('592',)
     exc_fields = [(''.join(('n', t)), ['a', 'No']) for t in exclude + handled]
     inc_fields = [
+        ('r385', ['m', 'Age group', 'a', 'Children', 'm', 'Language group',
+                  'a', 'Spanish Speaking', '2', 'ericd']),
+        ('r385', ['3', 'video recording', 'a', 'Parents']),
         ('n500', ['a', 'General Note.', '0', 'exclude']),
         ('n502', ['a', 'Karl Schmidt\'s thesis (doctoral), Munich, 1965.']),
         ('n502', ['b', 'Ph. D.', 'c', 'University of North Texas',
@@ -7141,7 +7144,8 @@ def test_todscpipeline_getnotes_5xxinfo(params_to_fields, add_marc_fields,
             'Some diss. Ph. D. ― University of North Texas, August, 2012.'
         ],
         'notes': [
-            'General Note.',
+            'Audience: Children; Spanish Speaking',
+            '(video recording) Audience: Parents',
             'Audience: Clinical students, postgraduate house officers.',
             'Reading grade level: 3.1.',
             '(video recording) Ages: 18+.',
@@ -7151,6 +7155,7 @@ def test_todscpipeline_getnotes_5xxinfo(params_to_fields, add_marc_fields,
             'skills impaired; audio learner (source: LENOCA)',
             'Motivation/interest level: Moderately motivated.',
             'MPAA rating: R.',
+            'General Note.',
             '(plates) condition reviewed; 20040915; mutilated',
             'Cannot determine the relationship to Bowling illustrated, also '
             'published in New York, 1952-58.',

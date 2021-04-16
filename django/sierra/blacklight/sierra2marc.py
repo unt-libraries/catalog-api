@@ -25,7 +25,7 @@ from utils import helpers, toascii
 IGNORED_MARC_FIELDS_BY_GROUP_TAG = {
     'n': ('539', '901', '959'),
     'r': ('306', '307', '336', '337', '338', '341', '348', '351', '355', '357',
-          '377', '380', '381', '385', '386', '387', '389'),
+          '377', '380', '381', '386', '387', '389'),
 }
 
 
@@ -2493,7 +2493,8 @@ class ToDiscoverPipeline(object):
         'music_number_and_key': set(['383', '384']),
         'time_period_of_creation': set(['388']),
         'physical_description': set(['r', '310', '321', '340', '342', '343',
-                                     '344', '345', '346', '347', '352', '382']),
+                                     '344', '345', '346', '347', '352', '382',
+                                     '385']),
         'series_statement': set(['490']),
         'notes': set(['n', '502', '505', '508', '511', '520', '546', '583']),
         'local_game_note': set(['592']),
@@ -4260,23 +4261,24 @@ class ToDiscoverPipeline(object):
             label = label_maps['520'].get(field.indicator1, None)
             return SummaryParser(field, ' ', sf_filter, label).parse()
 
-        def parse_all_other_notes(field, sf_filter):
-            label = label_maps.get(field.tag, {}).get(field.indicator1)
-
+        def parse_audience(field, sf_filter):
+            ind1 = ' ' if field.tag == '385' else field.indicator1
+            label = label_maps['521'].get(ind1)
+            filt = {'include': '3a'}
+            val = join_subfields_with_semicolons(field, filt, label)
             if field.tag == '521':
-                filt = {'include': '3a'}
-                val = join_subfields_with_semicolons(field, filt, label)
                 source = ', '.join(field.get_subfields('b'))
                 if source:
                     val = '{} (source: {})'.format(val, p.strip_ends(source))
-                return val
+            return val
 
+        def parse_all_other_notes(field, sf_filter):
+            label = label_maps.get(field.tag, {}).get(field.indicator1)
             if field.tag == '583':
                 if field.indicator1 == '1':
                     return join_subfields_with_semicolons(field, sf_filter,
                                                           label)
                 return None
-
             return join_subfields_with_spaces(field, sf_filter, label)
 
         f3xxs = self.marc_fieldgroups.get('physical_description', [])
@@ -4329,7 +4331,7 @@ class ToDiscoverPipeline(object):
                     'exclude': IGNORED_MARC_FIELDS_BY_GROUP_TAG['r'] +
                                ('310', '321', '340', '342', '343', '344', '345',
                                 '346', '347', '352', '362', '382', '383', '384',
-                                '388')
+                                '385', '388')
                 }
             }),
             ('toc_notes', {
@@ -4354,17 +4356,27 @@ class ToDiscoverPipeline(object):
                 'fields': {'include': ('502',)},
                 'parse_func': parse_502_dissertation_notes
             }),
+            ('audience', {
+                'fields': {'include': ('385', '521')},
+                'parse_func': parse_audience
+            }),
             ('notes', {
                 'fields': {
                     'include': ('n', '583'),
                     'exclude': IGNORED_MARC_FIELDS_BY_GROUP_TAG['n'] +
-                               ('502', '505', '508', '511', '520', '546',
+                               ('502', '505', '508', '511', '520', '521', '546',
                                 '592'),
                 },
                 'parse_func': parse_all_other_notes
             })
         ), utils=self.utils)
-        return record_parser.parse()
+        fields = record_parser.parse()
+        notes = fields.get('notes', [])
+        for i, entry in enumerate(fields.pop('audience', [])):
+            notes.insert(i, entry)
+        if notes:
+            fields['notes'] = notes
+        return fields
 
     def get_call_number_info(self):
         """
