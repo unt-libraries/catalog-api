@@ -7117,6 +7117,9 @@ def test_todscpipeline_getnotes_5xxinfo(params_to_fields, add_marc_fields,
                        '5', 'DLC'], '  '),
         ('n588', ['a', 'Vol. 2, no. 2 (Feb. 1984); title from cover.'], '0 '),
         ('n588', ['a', '2001.'], '1 '),
+        ('d658', ['a', 'Health objective 4',
+                  'b', 'handicapped impaired education',
+                  'd', 'highly correlated', 'c', 'NHPO4-1991', '2', 'ohco'])
     ]
     expected = {
         'toc_notes': [
@@ -7160,6 +7163,8 @@ def test_todscpipeline_getnotes_5xxinfo(params_to_fields, add_marc_fields,
             'MPAA rating: R.',
             'Creator demographics, Performers: Children; French',
             '(video recording) Creator demographics: Parents',
+            'Curriculum objective: Health objective 4; handicapped impaired '
+            'education; highly correlated; NHPO4-1991',
             'General Note.',
             '(plates) condition reviewed; 20040915; mutilated',
             'Cannot determine the relationship to Bowling illustrated, also '

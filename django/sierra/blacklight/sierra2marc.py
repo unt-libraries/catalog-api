@@ -2501,6 +2501,7 @@ class ToDiscoverPipeline(object):
         'subject_genre': set(['600', '610', '611', '630', '647', '648', '650',
                               '651', '653', '655', '656', '657', '690', '691',
                               '692']),
+        'curriculum_objective': set(['658']),
         'title_added_entry': set(['700', '710', '711', '730', '740']),
         'linking_760_762': set(['760', '762']),
         'linking_774': set(['774']),
@@ -4279,6 +4280,11 @@ class ToDiscoverPipeline(object):
             filt = {'include': '3a'}
             return join_subfields_with_semicolons(field, filt, label)
 
+        def parse_curriculum_objective(field, sf_filter):
+            label = 'Curriculum objective'
+            filt = {'include': 'abcd'}
+            return join_subfields_with_semicolons(field, filt, label)
+
         def parse_all_other_notes(field, sf_filter):
             label = label_maps.get(field.tag, {}).get(field.indicator1)
             if field.tag == '583':
@@ -4290,9 +4296,11 @@ class ToDiscoverPipeline(object):
 
         f3xxs = self.marc_fieldgroups.get('physical_description', [])
         f5xxs = self.marc_fieldgroups.get('notes', [])
+        curriculum_obj = self.marc_fieldgroups.get('curriculum_objective', [])
         marc_stub_rec = SierraMarcRecord(force_utf8=True)
         marc_stub_rec.add_field(*f3xxs)
         marc_stub_rec.add_field(*f5xxs)
+        marc_stub_rec.add_field(*curriculum_obj)
 
         record_parser = MultiFieldMarcRecordParser(marc_stub_rec, (
             ('current_publication_frequency', {
@@ -4371,6 +4379,10 @@ class ToDiscoverPipeline(object):
                 'fields': {'include': ('386',)},
                 'parse_func': parse_creator_demographics
             }),
+            ('curriculum_objective', {
+                'fields': {'include': ('658',)},
+                'parse_func': parse_curriculum_objective
+            }),
             ('notes', {
                 'fields': {
                     'include': ('n', '583'),
@@ -4385,6 +4397,7 @@ class ToDiscoverPipeline(object):
         notes = fields.get('notes', [])
         grouped_notes = fields.pop('audience', [])
         grouped_notes.extend(fields.pop('creator_demographics', []))
+        grouped_notes.extend(fields.pop('curriculum_objective', []))
         for i, entry in enumerate(grouped_notes):
             notes.insert(i, entry)
         if notes:
