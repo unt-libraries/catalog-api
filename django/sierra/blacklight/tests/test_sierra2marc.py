@@ -734,31 +734,31 @@ def test_marcfieldgrouper_make_groups(fieldstrings_to_fields):
     }
 
 
-@pytest.mark.parametrize('subfields, sep, sff, expected', [
+@pytest.mark.parametrize('subfields, label, sep, sff, expected', [
     (['3', 'case files', 'a', 'aperture cards', 'b', '9 x 19 cm.',
-      'd', 'microfilm', 'f', '48x'], '; ', None,
+      'd', 'microfilm', 'f', '48x'], None, '; ', None,
       '(case files) aperture cards; 9 x 19 cm.; microfilm; 48x'),
     (['3', 'case files', 'a', 'aperture cards', 'b', '9 x 19 cm.',
-      'd', 'microfilm', 'f', '48x'], '; ', {'exclude': '3'},
-      'aperture cards; 9 x 19 cm.; microfilm; 48x'),
+      'd', 'microfilm', 'f', '48x'], 'Specs', '; ', {'exclude': '3'},
+      'Specs: aperture cards; 9 x 19 cm.; microfilm; 48x'),
     (['3', 'case files', 'a', 'aperture cards', 'b', '9 x 19 cm.',
-      '3', 'microfilm', 'f', '48x'], '; ', None,
-      '(case files) aperture cards; 9 x 19 cm.; 48x'),
+      '3', 'microfilm', 'f', '48x'], 'Specs', '; ', None,
+      '(case files) Specs: aperture cards; 9 x 19 cm.; 48x'),
     (['a', 'aperture cards', 'b', '9 x 19 cm.', 'd', 'microfilm',
-      'f', '48x', '3', 'case files'], '; ', None,
+      'f', '48x', '3', 'case files'], None, '; ', None,
       'aperture cards; 9 x 19 cm.; microfilm; 48x'),
     (['3', 'case files', '3', 'aperture cards', 'b', '9 x 19 cm.',
-      'd', 'microfilm', 'f', '48x'], '; ', None,
+      'd', 'microfilm', 'f', '48x'], None, '; ', None,
       '(case files, aperture cards) 9 x 19 cm.; microfilm; 48x'),
     (['3', 'case files', 'a', 'aperture cards', 'b', '9 x 19 cm.',
-      'd', 'microfilm', 'f', '48x'], '. ', None,
+      'd', 'microfilm', 'f', '48x'], None, '. ', None,
       '(case files) aperture cards. 9 x 19 cm. microfilm. 48x'),
     (['a', 'Register at https://libproxy.library.unt.edu/login?url=https://what'
-           'ever.com'], ' ', None,
+           'ever.com'], None, ' ', None,
       'Register at https://libproxy.library.unt.edu/login?url=https://whatever.'
       'com'),
 ])
-def test_genericdisplayfieldparser_parse(subfields, sep, sff, expected,
+def test_genericdisplayfieldparser_parse(subfields, label, sep, sff, expected,
                                          params_to_fields):
     """
     The GenericDisplayFieldParser `parse` method should return the
@@ -767,7 +767,8 @@ def test_genericdisplayfieldparser_parse(subfields, sep, sff, expected,
     (subfield filter).
     """
     field = params_to_fields([('300', subfields)])[0]
-    assert s2m.GenericDisplayFieldParser(field, sep, sff).parse() == expected
+    result = s2m.GenericDisplayFieldParser(field, sep, sff, label).parse()
+    assert result == expected
 
 
 @pytest.mark.parametrize('subfields, expected', [
@@ -7092,6 +7093,7 @@ def test_todscpipeline_getnotes_5xxinfo(params_to_fields, add_marc_fields,
         ('n521', ['a', 'Clinical students, postgraduate house officers.'],
          '  '),
         ('n521', ['a', '3.1.'], '0 '),
+        ('n521', ['3', 'video recording', 'a', '18+.'], '1 '),
         ('n521', ['a', '7-10.'], '1 '),
         ('n521', ['a', '7 & up.'], '2 '),
         ('n521', ['a', 'Vision impaired', 'a', 'fine motor skills impaired',
@@ -7142,6 +7144,7 @@ def test_todscpipeline_getnotes_5xxinfo(params_to_fields, add_marc_fields,
             'General Note.',
             'Audience: Clinical students, postgraduate house officers.',
             'Reading grade level: 3.1.',
+            '(video recording) Ages: 18+.',
             'Ages: 7-10.',
             'Grades: 7 & up.',
             'Special audience characteristics: Vision impaired; fine motor '

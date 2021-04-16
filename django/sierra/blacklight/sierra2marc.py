@@ -2226,7 +2226,7 @@ class GenericDisplayFieldParser(SequentialMarcFieldParser):
     handled automatically, assuming it occurs at the beginning of the
     field.
     """
-    def __init__(self, field, separator=' ', sf_filter=None):
+    def __init__(self, field, separator=' ', sf_filter=None, label=None):
         filtered = field.filter_subfields(**sf_filter) if sf_filter else field
         super(GenericDisplayFieldParser, self).__init__(filtered)
         self.separator = separator
@@ -2234,16 +2234,20 @@ class GenericDisplayFieldParser(SequentialMarcFieldParser):
         self.sf_filter = sf_filter
         self.value_stack = []
         self.sep_is_not_space = bool(re.search(r'\S', separator))
+        self.label = label
 
     def parse_subfield(self, tag, val):
         if tag != '3':
-            if len(self.materials_specified):
-                ms_str = format_materials_specified(self.materials_specified)
-                val = ' '.join((ms_str, val))
-                self.materials_specified = []
             self.value_stack.append(val)
 
     def compile_results(self):
+        result_stack = []
+        if self.materials_specified:
+            ms_str = format_materials_specified(self.materials_specified)
+            result_stack.append(ms_str)
+        if self.label:
+            result_stack.append(format_display_constants([self.label]))
+
         value_stack = []
         for i, val in enumerate(self.value_stack):
             val = val.strip(self.separator)
@@ -2251,8 +2255,8 @@ class GenericDisplayFieldParser(SequentialMarcFieldParser):
             if self.sep_is_not_space and not is_last:
                 val = p.strip_ends(val, end='right')
             value_stack.append(val)
-        result = self.separator.join(value_stack)
-        return result
+        result_stack.append(self.separator.join(value_stack))
+        return ' '.join(result_stack)
 
 
 class PerformanceMedParser(SequentialMarcFieldParser):
@@ -4202,18 +4206,32 @@ class ToDiscoverPipeline(object):
         which we're characterizing as both 3XX and 5XX fields. I.e., we
         are using most 3XX fields to generate a note.
         """
-        def _generate_display_constant(parse_func, test_val, mapping):
-            label = mapping.get(test_val, None)
-            if label:
-                label = format_display_constants([label])
-                return ' '.join([label, parse_func()])
-            return parse_func()
+        label_maps = {
+            '520': {
+                '0': 'Subject',
+                '1': 'Review',
+                '2': 'Scope and content',
+                '3': 'Abstract',
+                '4': 'Content advice'
+            },
+            '521': {
+                ' ': 'Audience',
+                '0': 'Reading grade level',
+                '1': 'Ages',
+                '2': 'Grades',
+                '3': 'Special audience characteristics',
+                '4': 'Motivation/interest level'
+            },
+            '588': {
+                '0': 'Description based on',
+                '1': 'Latest issue consulted'
+            }
+        }
+        def join_subfields_with_spaces(f, sf_filter, label=None):
+            return GenericDisplayFieldParser(f, ' ', sf_filter, label).parse()
 
-        def join_subfields_with_spaces(field, sf_filter):
-            return GenericDisplayFieldParser(field, ' ', sf_filter).parse()
-
-        def join_subfields_with_semicolons(field, sf_filter):
-            return GenericDisplayFieldParser(field, '; ', sf_filter).parse()
+        def join_subfields_with_semicolons(f, sf_filter, label=None):
+            return GenericDisplayFieldParser(f, '; ', sf_filter, label).parse()
 
         def parse_performance_medium(field, sf_filter):
             parsed = PerformanceMedParser(field).parse()
@@ -4227,11 +4245,8 @@ class ToDiscoverPipeline(object):
             return p.normalize_punctuation(diss_note)
 
         def parse_511_performers(field, sf_filter):
-            return _generate_display_constant(
-                lambda: join_subfields_with_spaces(field, sf_filter),
-                field.indicator1,
-                {'1': 'Cast'}
-            )
+            label = 'Cast' if field.indicator1 == '1' else None
+            return join_subfields_with_spaces(field, sf_filter, label)
 
         def parse_520_summary_notes(field, sf_filter):
             class SummaryParser(GenericDisplayFieldParser):
@@ -4242,34 +4257,15 @@ class ToDiscoverPipeline(object):
                         val = p.strip_ends(val, end='right')
                         val = '[{}]'.format(val)
                     super(SummaryParser, self).parse_subfield(tag, val)
-
-            def parse_summary(field, sf_filter):
-                return SummaryParser(field, ' ', sf_filter).parse()
-
-            return _generate_display_constant(
-                lambda: parse_summary(field, sf_filter),
-                field.indicator1,
-                {'0': 'Subject',
-                 '1': 'Review',
-                 '2': 'Scope and content',
-                 '3': 'Abstract',
-                 '4': 'Content advice'
-                }
-            )
+            label = label_maps['520'].get(field.indicator1, None)
+            return SummaryParser(field, ' ', sf_filter, label).parse()
 
         def parse_all_other_notes(field, sf_filter):
+            label = label_maps.get(field.tag, {}).get(field.indicator1)
+
             if field.tag == '521':
-                val = _generate_display_constant(
-                    lambda: join_subfields_with_semicolons(field,
-                                                           {'include': '3a'}),
-                    field.indicator1,
-                    {' ': 'Audience',
-                     '0': 'Reading grade level',
-                     '1': 'Ages',
-                     '2': 'Grades',
-                     '3': 'Special audience characteristics',
-                     '4': 'Motivation/interest level'}
-                )
+                filt = {'include': '3a'}
+                val = join_subfields_with_semicolons(field, filt, label)
                 source = ', '.join(field.get_subfields('b'))
                 if source:
                     val = '{} (source: {})'.format(val, p.strip_ends(source))
@@ -4277,17 +4273,11 @@ class ToDiscoverPipeline(object):
 
             if field.tag == '583':
                 if field.indicator1 == '1':
-                    return join_subfields_with_semicolons(field, sf_filter)
+                    return join_subfields_with_semicolons(field, sf_filter,
+                                                          label)
                 return None
 
-            if field.tag == '588':
-                return _generate_display_constant(
-                    lambda: join_subfields_with_spaces(field, sf_filter),
-                    field.indicator1,
-                    {'0': 'Description based on',
-                     '1': 'Latest issue consulted'}
-                )
-            return join_subfields_with_spaces(field, sf_filter)
+            return join_subfields_with_spaces(field, sf_filter, label)
 
         f3xxs = self.marc_fieldgroups.get('physical_description', [])
         f5xxs = self.marc_fieldgroups.get('notes', [])
