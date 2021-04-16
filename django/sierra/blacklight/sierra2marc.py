@@ -25,7 +25,7 @@ from utils import helpers, toascii
 IGNORED_MARC_FIELDS_BY_GROUP_TAG = {
     'n': ('539', '901', '959'),
     'r': ('306', '307', '336', '337', '338', '341', '348', '351', '355', '357',
-          '377', '380', '381', '386', '387', '389'),
+          '377', '380', '381', '387', '389'),
 }
 
 
@@ -2494,7 +2494,7 @@ class ToDiscoverPipeline(object):
         'time_period_of_creation': set(['388']),
         'physical_description': set(['r', '310', '321', '340', '342', '343',
                                      '344', '345', '346', '347', '352', '382',
-                                     '385']),
+                                     '385', '386']),
         'series_statement': set(['490']),
         'notes': set(['n', '502', '505', '508', '511', '520', '546', '583']),
         'local_game_note': set(['592']),
@@ -4272,6 +4272,13 @@ class ToDiscoverPipeline(object):
                     val = '{} (source: {})'.format(val, p.strip_ends(source))
             return val
 
+        def parse_creator_demographics(field, sf_filter):
+            labels = ['Creator demographics']
+            labels.extend([p.strip_ends(sf) for sf in field.get_subfields('i')])
+            label = ', '.join(labels)
+            filt = {'include': '3a'}
+            return join_subfields_with_semicolons(field, filt, label)
+
         def parse_all_other_notes(field, sf_filter):
             label = label_maps.get(field.tag, {}).get(field.indicator1)
             if field.tag == '583':
@@ -4331,7 +4338,7 @@ class ToDiscoverPipeline(object):
                     'exclude': IGNORED_MARC_FIELDS_BY_GROUP_TAG['r'] +
                                ('310', '321', '340', '342', '343', '344', '345',
                                 '346', '347', '352', '362', '382', '383', '384',
-                                '385', '388')
+                                '385', '386', '388')
                 }
             }),
             ('toc_notes', {
@@ -4360,6 +4367,10 @@ class ToDiscoverPipeline(object):
                 'fields': {'include': ('385', '521')},
                 'parse_func': parse_audience
             }),
+            ('creator_demographics', {
+                'fields': {'include': ('386',)},
+                'parse_func': parse_creator_demographics
+            }),
             ('notes', {
                 'fields': {
                     'include': ('n', '583'),
@@ -4372,7 +4383,9 @@ class ToDiscoverPipeline(object):
         ), utils=self.utils)
         fields = record_parser.parse()
         notes = fields.get('notes', [])
-        for i, entry in enumerate(fields.pop('audience', [])):
+        grouped_notes = fields.pop('audience', [])
+        grouped_notes.extend(fields.pop('creator_demographics', []))
+        for i, entry in enumerate(grouped_notes):
             notes.insert(i, entry)
         if notes:
             fields['notes'] = notes
