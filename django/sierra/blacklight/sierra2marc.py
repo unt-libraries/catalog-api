@@ -2465,11 +2465,10 @@ class ToDiscoverPipeline(object):
     fields = [
         'id', 'suppressed', 'date_added', 'item_info', 'urls_json',
         'thumbnail_url', 'pub_info', 'access_info', 'resource_type_info',
-        'contributor_info', 'title_info', 'general_3xx_info',
-        'general_5xx_info', 'call_number_info', 'standard_number_info',
-        'control_number_info', 'games_facets_info', 'subjects_info',
-        'language_info', 'record_boost', 'linking_fields', 'editions',
-        'serial_holdings'
+        'contributor_info', 'title_info', 'notes', 'call_number_info',
+        'standard_number_info', 'control_number_info', 'games_facets_info',
+        'subjects_info', 'language_info', 'record_boost', 'linking_fields',
+        'editions', 'serial_holdings'
     ]
     marc_grouper = MarcFieldGrouper({
         '008': set(['008']),
@@ -4197,80 +4196,28 @@ class ToDiscoverPipeline(object):
                 final_render = ' '.join(('({})'.format(ms_render), final_render))
             return ''.join([final_render[0].upper(), final_render[1:]])
 
-    def get_general_3xx_info(self):
-        def join_subfields_with_semicolons(field, sf_filter):
-            return GenericDisplayFieldParser(field, '; ', sf_filter).parse()
+    def get_notes(self):
+        """
+        This is the main method responsible for returning notes fields,
+        which we're characterizing as both 3XX and 5XX fields. I.e., we
+        are using most 3XX fields to generate a note.
+        """
+        def _generate_display_constant(parse_func, test_val, mapping):
+            label = mapping.get(test_val, None)
+            if label:
+                label = format_display_constants([label])
+                return ' '.join([label, parse_func()])
+            return parse_func()
 
-        def parse_performance_medium(field, sf_filter):
-            parsed = PerformanceMedParser(field).parse()
-            return self.compile_performance_medium(parsed)
-
-        f3xxs = self.marc_fieldgroups.get('physical_description', [])
-        marc_stub_rec = SierraMarcRecord(force_utf8=True)
-        marc_stub_rec.add_field(*f3xxs)
-
-        record_parser = MultiFieldMarcRecordParser(marc_stub_rec, (
-            ('current_publication_frequency', {
-                'fields': {'include': ('310',)}
-            }),
-            ('former_publication_frequency', {
-                'fields': {'include': ('321',)}
-            }),
-            ('physical_medium', {
-                'fields': {'include': ('340',)},
-                'parse_func': join_subfields_with_semicolons
-            }),
-            ('geospatial_data', {
-                'fields': {'include': ('342', '343')},
-                'parse_func': join_subfields_with_semicolons
-            }),
-            ('audio_characteristics', {
-                'fields': {'include': ('344',)},
-                'parse_func': join_subfields_with_semicolons
-            }),
-            ('projection_characteristics', {
-                'fields': {'include': ('345',)},
-                'parse_func': join_subfields_with_semicolons
-            }),
-            ('video_characteristics', {
-                'fields': {'include': ('346',)},
-                'parse_func': join_subfields_with_semicolons
-            }),
-            ('digital_file_characteristics', {
-                'fields': {'include': ('347',)},
-                'parse_func': join_subfields_with_semicolons
-            }),
-            ('graphic_representation', {
-                'fields': {'include': ('352',)}
-            }),
-            ('performance_medium', {
-                'fields': {'include': ('382',)},
-                'parse_func': parse_performance_medium
-            }),
-            ('physical_description', {
-                'fields': {
-                    'include': ('r', '370'),
-                    'exclude': IGNORED_MARC_FIELDS_BY_GROUP_TAG['r'] +
-                               ('310', '321', '340', '342', '343', '344', '345',
-                                '346', '347', '352', '362', '382', '383', '384',
-                                '388')
-                }
-            })
-        ), utils=self.utils)
-        return record_parser.parse()
-
-    def get_general_5xx_info(self):
         def join_subfields_with_spaces(field, sf_filter):
             return GenericDisplayFieldParser(field, ' ', sf_filter).parse()
 
         def join_subfields_with_semicolons(field, sf_filter):
             return GenericDisplayFieldParser(field, '; ', sf_filter).parse()
 
-        def _generate_display_constant(parse_func, test_val, mapping):
-            label = mapping.get(test_val, None)
-            if label:
-                return '{}: {}'.format(label, parse_func())
-            return parse_func()
+        def parse_performance_medium(field, sf_filter):
+            parsed = PerformanceMedParser(field).parse()
+            return self.compile_performance_medium(parsed)
 
         def parse_502_dissertation_notes(field, sf_filter):
             if field.get_subfields('a'):
@@ -4342,11 +4289,59 @@ class ToDiscoverPipeline(object):
                 )
             return join_subfields_with_spaces(field, sf_filter)
 
+        f3xxs = self.marc_fieldgroups.get('physical_description', [])
         f5xxs = self.marc_fieldgroups.get('notes', [])
         marc_stub_rec = SierraMarcRecord(force_utf8=True)
+        marc_stub_rec.add_field(*f3xxs)
         marc_stub_rec.add_field(*f5xxs)
 
         record_parser = MultiFieldMarcRecordParser(marc_stub_rec, (
+            ('current_publication_frequency', {
+                'fields': {'include': ('310',)}
+            }),
+            ('former_publication_frequency', {
+                'fields': {'include': ('321',)}
+            }),
+            ('physical_medium', {
+                'fields': {'include': ('340',)},
+                'parse_func': join_subfields_with_semicolons
+            }),
+            ('geospatial_data', {
+                'fields': {'include': ('342', '343')},
+                'parse_func': join_subfields_with_semicolons
+            }),
+            ('audio_characteristics', {
+                'fields': {'include': ('344',)},
+                'parse_func': join_subfields_with_semicolons
+            }),
+            ('projection_characteristics', {
+                'fields': {'include': ('345',)},
+                'parse_func': join_subfields_with_semicolons
+            }),
+            ('video_characteristics', {
+                'fields': {'include': ('346',)},
+                'parse_func': join_subfields_with_semicolons
+            }),
+            ('digital_file_characteristics', {
+                'fields': {'include': ('347',)},
+                'parse_func': join_subfields_with_semicolons
+            }),
+            ('graphic_representation', {
+                'fields': {'include': ('352',)}
+            }),
+            ('performance_medium', {
+                'fields': {'include': ('382',)},
+                'parse_func': parse_performance_medium
+            }),
+            ('physical_description', {
+                'fields': {
+                    'include': ('r', '370'),
+                    'exclude': IGNORED_MARC_FIELDS_BY_GROUP_TAG['r'] +
+                               ('310', '321', '340', '342', '343', '344', '345',
+                                '346', '347', '352', '362', '382', '383', '384',
+                                '388')
+                }
+            }),
             ('toc_notes', {
                 'fields': {'include': ('505',)}
             }),

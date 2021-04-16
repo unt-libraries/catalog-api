@@ -2607,7 +2607,7 @@ def test_todscpipeline_getlanguageinfo(f008_lang, raw_marcfields, expected,
     bibmarc.remove_fields('008', '041', '130', '240', '546', '700', '710',
                           '711', '730', '740')
     bibmarc = add_marc_fields(bibmarc, marcfields)
-    fields_to_process = ['title_info', 'general_5xx_info', 'language_info']
+    fields_to_process = ['title_info', 'notes', 'language_info']
     bundle = pipeline.do(bib, bibmarc, fields_to_process)
     assert_bundle_matches_expected(bundle, expected, bundle_complete=False,
                                    list_order_exact=False)
@@ -6993,12 +6993,12 @@ def test_todscpipeline_compileperformancemedium(parsed_pm, expected,
     assert pipeline.compile_performance_medium(parsed_pm) == expected
 
 
-def test_todscpipeline_getgeneral3xxinfo(params_to_fields, add_marc_fields,
-                                         todsc_pipeline_class,
-                                         assert_bundle_matches_expected):
+def test_todscpipeline_getnotes_3xxinfo(params_to_fields, add_marc_fields,
+                                        todsc_pipeline_class,
+                                        assert_bundle_matches_expected):
     """
-    ToDiscoverPipeline.get_general_3xx_info should return fields
-    matching the expected parameters.
+    ToDiscoverPipeline.get_notes should return fields matching the
+    expected parameters. For simplicity, this limits to 3XX fields.
     """
     exclude = s2m.IGNORED_MARC_FIELDS_BY_GROUP_TAG['r']
     exc_fields = [(''.join(('r', t)), ['a', 'No']) for t in exclude]
@@ -7050,20 +7050,20 @@ def test_todscpipeline_getgeneral3xxinfo(params_to_fields, add_marc_fields,
     fields = params_to_fields(exc_fields + inc_fields)
     marc = add_marc_fields(s2m.SierraMarcRecord(), fields)
     pipeline = todsc_pipeline_class()
-    bundle = pipeline.do(None, marc, ['general_3xx_info'])
+    bundle = pipeline.do(None, marc, ['notes'])
     assert_bundle_matches_expected(bundle, expected)
 
 
-def test_todscpipeline_getgeneral5xxinfo(params_to_fields, add_marc_fields,
+def test_todscpipeline_getnotes_5xxinfo(params_to_fields, add_marc_fields,
                                          todsc_pipeline_class,
                                          assert_bundle_matches_expected):
     """
-    ToDiscoverPipeline.get_general_5xx_info should return fields
-    matching the expected parameters.
+    ToDiscoverPipeline.get_notes should return fields matching the
+    expected parameters. For simplicity, this limits to 5XX fields.
     """
     exclude = s2m.IGNORED_MARC_FIELDS_BY_GROUP_TAG['n']
     handled = ('592',)
-    exc_fields = [(''.join(('r', t)), ['a', 'No']) for t in exclude + handled]
+    exc_fields = [(''.join(('n', t)), ['a', 'No']) for t in exclude + handled]
     inc_fields = [
         ('n500', ['a', 'General Note.', '0', 'exclude']),
         ('n502', ['a', 'Karl Schmidt\'s thesis (doctoral), Munich, 1965.']),
@@ -7159,7 +7159,7 @@ def test_todscpipeline_getgeneral5xxinfo(params_to_fields, add_marc_fields,
     fields = params_to_fields(exc_fields + inc_fields)
     marc = add_marc_fields(s2m.SierraMarcRecord(), fields)
     pipeline = todsc_pipeline_class()
-    bundle = pipeline.do(None, marc, ['general_5xx_info'])
+    bundle = pipeline.do(None, marc, ['notes'])
     assert_bundle_matches_expected(bundle, expected)
 
 
