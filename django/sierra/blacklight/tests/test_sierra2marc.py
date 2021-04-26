@@ -7022,6 +7022,7 @@ def test_todscpipeline_getnotes_3xxinfo(params_to_fields, add_marc_fields,
         ('r347', ['a', 'video file', '2', 'rdaft']),
         ('r347', ['b', 'DVD video']),
         ('r347', ['e', 'region 4', '2', 'rdare']),
+        ('r348', ['a', 'vocal score', 'a', 'conductor part', '2', 'code']),
         ('r352', ['a', 'Raster :', 'b', 'pixel',
                   'd', '(5,000 x', 'e', '5,000) ;', 'q', 'TIFF.']),
         ('r370', ['a', '370 desc 1']),
@@ -7047,6 +7048,7 @@ def test_todscpipeline_getnotes_3xxinfo(params_to_fields, add_marc_fields,
                                'voice; tenor saxophone doubling bass clarinet; '
                                'trumpet; piano; violin doubling viola; double '
                                'bass'],
+        'type_format_search': ['vocal score', 'conductor part'],
         'physical_description': ['300 desc 1', '300 desc 2', '370 desc 1']
     }
     fields = params_to_fields(exc_fields + inc_fields)

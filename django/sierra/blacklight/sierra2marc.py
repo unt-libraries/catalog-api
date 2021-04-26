@@ -24,8 +24,8 @@ from utils import helpers, toascii
 # catalog records, listed by III field group tag.
 IGNORED_MARC_FIELDS_BY_GROUP_TAG = {
     'n': ('539', '901', '959'),
-    'r': ('306', '307', '336', '337', '338', '341', '348', '351', '355', '357',
-          '377', '380', '381', '387', '389'),
+    'r': ('306', '307', '336', '337', '338', '341', '351', '355', '357', '377',
+          '380', '381', '387', '389'),
 }
 
 
@@ -2495,8 +2495,8 @@ class ToDiscoverPipeline(object):
         'dates_of_publication': set(['362']),
         'music_number_and_key': set(['383', '384']),
         'physical_description': set(['r', '310', '321', '340', '342', '343',
-                                     '344', '345', '346', '347', '352', '382',
-                                     '385', '386', '388']),
+                                     '344', '345', '346', '347', '348', '352',
+                                     '382', '385', '386', '388']),
         'series_statement': set(['490']),
         'notes': set(['n', '502', '505', '508', '511', '520', '546', '583']),
         'local_game_note': set(['592']),
@@ -4289,8 +4289,8 @@ class ToDiscoverPipeline(object):
             filt = {'include': 'abcd'}
             return join_subfields_with_semicolons(field, filt, label)
 
-        def parse_search_only_notes(field, sf_filter):
-            if field.tag == '388':
+        def parse_search_only_fields(field, sf_filter):
+            if field.tag in ('348', '388'):
                 return field.get_subfields('a')
 
         def parse_all_other_notes(field, sf_filter):
@@ -4348,13 +4348,17 @@ class ToDiscoverPipeline(object):
                 'fields': {'include': ('382',)},
                 'parse_func': parse_performance_medium
             }),
+            ('type_format_search', {
+                'fields': {'include': ('348',)},
+                'parse_func': parse_search_only_fields
+            }),
             ('physical_description', {
                 'fields': {
                     'include': ('r', '370'),
                     'exclude': IGNORED_MARC_FIELDS_BY_GROUP_TAG['r'] +
                                ('310', '321', '340', '342', '343', '344', '345',
-                                '346', '347', '352', '362', '382', '383', '384',
-                                '385', '386', '388')
+                                '346', '347', '348', '352', '362', '382', '383',
+                                '384', '385', '386', '388')
                 }
             }),
             ('toc_notes', {
@@ -4393,7 +4397,7 @@ class ToDiscoverPipeline(object):
             }),
             ('notes_search', {
                 'fields': {'include': ('388',)},
-                'parse_func': parse_search_only_notes
+                'parse_func': parse_search_only_fields
             }),
             ('notes', {
                 'fields': {
