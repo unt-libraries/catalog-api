@@ -1855,15 +1855,6 @@ def test_todscpipeline_getthumbnailurl(fparams, expected_url,
     ([('008', 's2014    '),
       ('362', ['a', 'Published in 1st century.'], '1 ')],
      '2014', '2014', ['2014'], ['2010-2019',], ['2014', '2010s']),
-    ([('008', 's2014    '),
-      ('388', ['a', '18th century', '2', 'fast'], '  ')],
-     '2014', '2014', ['2014'], ['2010-2019',],
-     ['2014', '2010s', '18th century']),
-    ([('008', 's2014    '),
-      ('388', ['a', '18th century', '2', 'fast'], '  '),
-      ('388', ['a', '2014', '2', 'fast'], '  ')],
-     '2014', '2014', ['2014'], ['2010-2019',],
-     ['2014', '2010s', '18th century']),
 ], ids=[
     'standard, single date in 008 repeated in 260',
     'standard, single date in 008 repeated in 264',
@@ -1910,9 +1901,7 @@ def test_todscpipeline_getthumbnailurl(fparams, expected_url,
     'three-digit year only 260c works',
     'formatted date in 362 (ignored)',
     'non-formatted date in 362 (ignored)',
-    'century (1st) in 362 (ignored)',
-    'time period of creation in 382',
-    'time period of creation in 382 deduplicated against other dates'
+    'century (1st) in 362 (ignored)'
 ])
 def test_todscpipeline_getpubinfo_dates(fparams, exp_pub_sort,
                                         exp_pub_year_display,
@@ -1931,7 +1920,7 @@ def test_todscpipeline_getpubinfo_dates(fparams, exp_pub_sort,
     pipeline = todsc_pipeline_class()
     bib = bl_sierra_test_record('bib_no_items')
     bibmarc = bibrecord_to_pymarc(bib)
-    bibmarc.remove_fields('260', '264', '362', '388')
+    bibmarc.remove_fields('260', '264', '362')
     if len(fparams) and fparams[0][0] == '008':
         data = bibmarc.get_fields('008')[0].data
         data = '{}{}{}'.format(data[0:6], fparams[0][1], data[15:])
@@ -7084,6 +7073,8 @@ def test_todscpipeline_getnotes_5xxinfo(params_to_fields, add_marc_fields,
         ('r386', ['i', 'Performers:', 'm', 'Age group', 'a', 'Children',
                   'a', 'French', '2', 'ericd']),
         ('r386', ['3', 'video recording', 'a', 'Parents']),
+        ('r388', ['a', '1781-1791', 'a', '18th century']),
+        ('r388', ['a', '1980']),
         ('n500', ['a', 'General Note.', '0', 'exclude']),
         ('n502', ['a', 'Karl Schmidt\'s thesis (doctoral), Munich, 1965.']),
         ('n502', ['b', 'Ph. D.', 'c', 'University of North Texas',
@@ -7160,6 +7151,11 @@ def test_todscpipeline_getnotes_5xxinfo(params_to_fields, add_marc_fields,
             'Karl Schmidt\'s thesis (doctoral), Munich, 1965.',
             'Ph. D. ― University of North Texas, August, 2012.',
             'Some diss. Ph. D. ― University of North Texas, August, 2012.'
+        ],
+        'notes_search': [
+            '1781-1791',
+            '18th century',
+            '1980'
         ],
         'notes': [
             'Audience: Children; Spanish Speaking',

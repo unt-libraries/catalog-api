@@ -2440,7 +2440,10 @@ class MultiFieldMarcRecordParser(object):
                 sff = sfdef.get(field.tag, default_sff)
                 field_val = parse_func(field, sff)
                 if field_val:
-                    ret_val[fname].append(field_val)
+                    if isinstance(field_val, (list, tuple)):
+                        ret_val[fname].extend(field_val)
+                    else:
+                        ret_val[fname].append(field_val)
         return ret_val
 
 
@@ -2491,10 +2494,9 @@ class ToDiscoverPipeline(object):
         'publication': set(['260', '264']),
         'dates_of_publication': set(['362']),
         'music_number_and_key': set(['383', '384']),
-        'time_period_of_creation': set(['388']),
         'physical_description': set(['r', '310', '321', '340', '342', '343',
                                      '344', '345', '346', '347', '352', '382',
-                                     '385', '386']),
+                                     '385', '386', '388']),
         'series_statement': set(['490']),
         'notes': set(['n', '502', '505', '508', '511', '520', '546', '583']),
         'local_game_note': set(['592']),
@@ -3113,9 +3115,6 @@ class ToDiscoverPipeline(object):
             year_display = self._format_years_for_display(sort)
 
         yfacet, dfacet, sdates = self._make_pub_limit_years(described_years)
-
-        for f388 in self.marc_fieldgroups.get('time_period_of_creation', []):
-            sdates.extend([sf for sf in f388.get_subfields('a')])
 
         ret_val = {'{}_display'.format(k): v for k, v in pub_info.items()}
         ret_val.update({
@@ -4290,6 +4289,10 @@ class ToDiscoverPipeline(object):
             filt = {'include': 'abcd'}
             return join_subfields_with_semicolons(field, filt, label)
 
+        def parse_search_only_notes(field, sf_filter):
+            if field.tag == '388':
+                return field.get_subfields('a')
+
         def parse_all_other_notes(field, sf_filter):
             label = label_maps.get(field.tag, {}).get(field.indicator1)
             if field.tag == '583':
@@ -4387,6 +4390,10 @@ class ToDiscoverPipeline(object):
             ('curriculum_objective', {
                 'fields': {'include': ('658',)},
                 'parse_func': parse_curriculum_objective
+            }),
+            ('notes_search', {
+                'fields': {'include': ('388',)},
+                'parse_func': parse_search_only_notes
             }),
             ('notes', {
                 'fields': {
