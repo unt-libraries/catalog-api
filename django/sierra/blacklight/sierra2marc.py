@@ -4221,7 +4221,6 @@ class ToDiscoverPipeline(object):
                 '4': 'Content advice'
             },
             '521': {
-                ' ': 'Audience',
                 '0': 'Reading grade level',
                 '1': 'Ages',
                 '2': 'Grades',
@@ -4238,6 +4237,9 @@ class ToDiscoverPipeline(object):
 
         def join_subfields_with_semicolons(f, sf_filter, label=None):
             return GenericDisplayFieldParser(f, '; ', sf_filter, label).parse()
+
+        def get_subfields_as_list(f, sf_filter):
+            return [v for sf, v in f.filter_subfields(**sf_filter)]
 
         def parse_performance_medium(field, sf_filter):
             parsed = PerformanceMedParser(field).parse()
@@ -4269,8 +4271,7 @@ class ToDiscoverPipeline(object):
         def parse_audience(field, sf_filter):
             ind1 = ' ' if field.tag == '385' else field.indicator1
             label = label_maps['521'].get(ind1)
-            filt = {'include': '3a'}
-            val = join_subfields_with_semicolons(field, filt, label)
+            val = join_subfields_with_semicolons(field, sf_filter, label)
             if field.tag == '521':
                 source = ', '.join(field.get_subfields('b'))
                 if source:
@@ -4278,20 +4279,9 @@ class ToDiscoverPipeline(object):
             return val
 
         def parse_creator_demographics(field, sf_filter):
-            labels = ['Creator demographics']
-            labels.extend([p.strip_ends(sf) for sf in field.get_subfields('i')])
-            label = ', '.join(labels)
-            filt = {'include': '3a'}
-            return join_subfields_with_semicolons(field, filt, label)
-
-        def parse_curriculum_objective(field, sf_filter):
-            label = 'Curriculum objective'
-            filt = {'include': 'abcd'}
-            return join_subfields_with_semicolons(field, filt, label)
-
-        def parse_search_only_fields(field, sf_filter):
-            if field.tag in ('348', '388'):
-                return field.get_subfields('a')
+            labels = [p.strip_ends(sf) for sf in field.get_subfields('i')]
+            label = ', '.join(labels) if labels else None
+            return join_subfields_with_semicolons(field, sf_filter, label)
 
         def parse_all_other_notes(field, sf_filter):
             label = label_maps.get(field.tag, {}).get(field.indicator1)
@@ -4302,13 +4292,10 @@ class ToDiscoverPipeline(object):
                 return None
             return join_subfields_with_spaces(field, sf_filter, label)
 
-        f3xxs = self.marc_fieldgroups.get('physical_description', [])
-        f5xxs = self.marc_fieldgroups.get('notes', [])
-        curriculum_obj = self.marc_fieldgroups.get('curriculum_objective', [])
+        fgroups = ('physical_description', 'notes', 'curriculum_objective')
         marc_stub_rec = SierraMarcRecord(force_utf8=True)
-        marc_stub_rec.add_field(*f3xxs)
-        marc_stub_rec.add_field(*f5xxs)
-        marc_stub_rec.add_field(*curriculum_obj)
+        for fgroup in fgroups:
+            marc_stub_rec.add_field(*self.marc_fieldgroups.get(fgroup, []))
 
         record_parser = MultiFieldMarcRecordParser(marc_stub_rec, (
             ('current_publication_frequency', {
@@ -4353,7 +4340,10 @@ class ToDiscoverPipeline(object):
             }),
             ('type_format_search', {
                 'fields': {'include': ('348',)},
-                'parse_func': parse_search_only_fields
+                'subfields': {
+                    'default': {'include': 'a'}
+                },
+                'parse_func': get_subfields_as_list
             }),
             ('physical_description', {
                 'fields': {
@@ -4388,19 +4378,28 @@ class ToDiscoverPipeline(object):
             }),
             ('audience', {
                 'fields': {'include': ('385', '521')},
+                'subfields': {
+                    'default': {'include': '3a'}
+                },
                 'parse_func': parse_audience
             }),
             ('creator_demographics', {
                 'fields': {'include': ('386',)},
+                'subfields': {
+                    'default': {'include': '3a'}
+                },
                 'parse_func': parse_creator_demographics
             }),
-            ('curriculum_objective', {
+            ('curriculum_objectives', {
                 'fields': {'include': ('658',)},
-                'parse_func': parse_curriculum_objective
+                'parse_func': join_subfields_with_semicolons
             }),
             ('notes_search', {
                 'fields': {'include': ('388',)},
-                'parse_func': parse_search_only_fields
+                'subfields': {
+                    'default': {'include': 'a'}
+                },
+                'parse_func': get_subfields_as_list
             }),
             ('notes', {
                 'fields': {
@@ -4412,16 +4411,7 @@ class ToDiscoverPipeline(object):
                 'parse_func': parse_all_other_notes
             })
         ), utils=self.utils)
-        fields = record_parser.parse()
-        notes = fields.get('notes', [])
-        grouped_notes = fields.pop('audience', [])
-        grouped_notes.extend(fields.pop('creator_demographics', []))
-        grouped_notes.extend(fields.pop('curriculum_objective', []))
-        for i, entry in enumerate(grouped_notes):
-            notes.insert(i, entry)
-        if notes:
-            fields['notes'] = notes
-        return fields
+        return record_parser.parse()
 
     def get_call_number_info(self):
         """

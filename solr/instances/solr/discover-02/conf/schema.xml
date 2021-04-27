@@ -340,6 +340,9 @@
     <field name="performers" type="string" indexed="false" stored="true" multiValued="true"/>
     <field name="language_notes" type="string" indexed="false" stored="true" multiValued="true"/>
     <field name="dissertation_notes" type="string" indexed="false" stored="true" multiValued="true"/>
+    <field name="audience" type="string" indexed="false" stored="true" multiValued="true"/>
+    <field name="creator_demographics" type="string" indexed="false" stored="true" multiValued="true"/>
+    <field name="curriculum_objectives" type="string" indexed="false" stored="true" multiValued="true"/>
     <field name="notes" type="string" indexed="false" stored="true" multiValued="true"/>
 
     <!-- Subjects / Genres -->
@@ -388,6 +391,9 @@
     <copyField source="notes" dest="notes_search"/>
     <copyField source="publication_date_notes" dest="notes_search"/>
     <copyField source="variant_titles_notes" dest="notes_search"/>
+    <copyField source="audience" dest="notes_search"/>
+    <copyField source="creator_demographics" dest="notes_search"/>
+    <copyField source="curriculum_objectives" dest="notes_search"/>
     <copyField source="arrangement_of_materials" dest="notes_search"/>
 
     <!-- "Boost" field(s) -->

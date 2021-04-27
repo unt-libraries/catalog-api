@@ -7175,10 +7175,10 @@ def test_todscpipeline_getnotes_5xxinfo(params_to_fields, add_marc_fields,
             '18th century',
             '1980'
         ],
-        'notes': [
-            'Audience: Children; Spanish Speaking',
-            '(video recording) Audience: Parents',
-            'Audience: Clinical students, postgraduate house officers.',
+        'audience': [
+            'Children; Spanish Speaking',
+            '(video recording) Parents',
+            'Clinical students, postgraduate house officers.',
             'Reading grade level: 3.1.',
             '(video recording) Ages: 18+.',
             'Ages: 7-10.',
@@ -7187,10 +7187,16 @@ def test_todscpipeline_getnotes_5xxinfo(params_to_fields, add_marc_fields,
             'skills impaired; audio learner (source: LENOCA)',
             'Motivation/interest level: Moderately motivated.',
             'MPAA rating: R.',
-            'Creator demographics, Performers: Children; French',
-            '(video recording) Creator demographics: Parents',
-            'Curriculum objective: Health objective 4; handicapped impaired '
-            'education; highly correlated; NHPO4-1991',
+        ],
+        'creator_demographics': [
+            'Performers: Children; French',
+            '(video recording) Parents',
+        ],
+        'curriculum_objectives': [
+            'Health objective 4; handicapped impaired education; highly '
+            'correlated; NHPO4-1991',
+        ],
+        'notes': [
             'General Note.',
             '(plates) condition reviewed; 20040915; mutilated',
             'Cannot determine the relationship to Bowling illustrated, also '
