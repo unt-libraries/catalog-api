@@ -7023,6 +7023,9 @@ def test_todscpipeline_getnotes_3xxinfo(params_to_fields, add_marc_fields,
         ('r347', ['b', 'DVD video']),
         ('r347', ['e', 'region 4', '2', 'rdare']),
         ('r348', ['a', 'vocal score', 'a', 'conductor part', '2', 'code']),
+        ('r351', ['3', 'Records', 'c', 'Series;',
+                  'a', 'Organized into four subgroups;',
+                  'b', 'Arranged by office of origin.']),
         ('r352', ['a', 'Raster :', 'b', 'pixel',
                   'd', '(5,000 x', 'e', '5,000) ;', 'q', 'TIFF.']),
         ('r370', ['a', '370 desc 1']),
@@ -7043,6 +7046,9 @@ def test_todscpipeline_getnotes_3xxinfo(params_to_fields, add_marc_fields,
         'projection_characteristics': ['Cinerama', '24 fps'],
         'video_characteristics': ['VHS', 'NTSC'],
         'digital_file_characteristics': ['video file', 'DVD video', 'region 4'],
+        'arrangement_of_materials': ['(Records) Series; Organized into four '
+                                     'subgroups; Arranged by office of '
+                                     'origin.'],
         'graphic_representation': ['Raster : pixel (5,000 x 5,000) ; TIFF.'],
         'performance_medium': ['8 performers: soprano voice (2); mezzo-soprano '
                                'voice; tenor saxophone doubling bass clarinet; '

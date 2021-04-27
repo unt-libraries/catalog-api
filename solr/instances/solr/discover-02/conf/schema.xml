@@ -326,6 +326,7 @@
 
     <field name="current_publication_frequency" type="string" indexed="false" stored="true" multiValued="true"/>
     <field name="former_publication_frequency" type="string" indexed="false" stored="true" multiValued="true"/>
+    <field name="arrangement_of_materials" type="string" indexed="false" stored="true" multiValued="true"/>
     <field name="physical_description" type="string" indexed="false" stored="true" multiValued="true"/>
     <field name="physical_medium" type="string" indexed="false" stored="true" multiValued="true"/>
     <field name="geospatial_data" type="string" indexed="false" stored="true" multiValued="true"/>
@@ -387,6 +388,7 @@
     <copyField source="notes" dest="notes_search"/>
     <copyField source="publication_date_notes" dest="notes_search"/>
     <copyField source="variant_titles_notes" dest="notes_search"/>
+    <copyField source="arrangement_of_materials" dest="notes_search"/>
 
     <!-- "Boost" field(s) -->
     <field name="record_boost" type="integer" indexed="true" stored="true" multiValued="false" />

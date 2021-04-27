@@ -24,8 +24,8 @@ from utils import helpers, toascii
 # catalog records, listed by III field group tag.
 IGNORED_MARC_FIELDS_BY_GROUP_TAG = {
     'n': ('539', '901', '959'),
-    'r': ('306', '307', '336', '337', '338', '341', '351', '355', '357', '377',
-          '380', '381', '387', '389'),
+    'r': ('306', '307', '336', '337', '338', '341', '355', '357', '377', '380',
+          '381', '387', '389'),
 }
 
 
@@ -4341,6 +4341,9 @@ class ToDiscoverPipeline(object):
                 'fields': {'include': ('347',)},
                 'parse_func': join_subfields_with_semicolons
             }),
+            ('arrangement_of_materials', {
+                'fields': {'include': ('351',)}
+            }),
             ('graphic_representation', {
                 'fields': {'include': ('352',)}
             }),
@@ -4357,8 +4360,8 @@ class ToDiscoverPipeline(object):
                     'include': ('r', '370'),
                     'exclude': IGNORED_MARC_FIELDS_BY_GROUP_TAG['r'] +
                                ('310', '321', '340', '342', '343', '344', '345',
-                                '346', '347', '348', '352', '362', '382', '383',
-                                '384', '385', '386', '388')
+                                '346', '347', '348', '351', '352', '362', '382',
+                                '383', '384', '385', '386', '388')
                 }
             }),
             ('toc_notes', {

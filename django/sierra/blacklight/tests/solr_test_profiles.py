@@ -57,7 +57,7 @@ DISCOVER_FIELDS = (
     'genres_search_main_terms', 'genres_search_all_terms', 'languages',
     'record_boost', 'serial_continuity_linking_json',
     'related_resources_linking_json', 'editions_display', 'editions_search',
-    'library_has_display'
+    'library_has_display', 'arrangement_of_materials'
 )
 
 # Discover field specific gen functions
