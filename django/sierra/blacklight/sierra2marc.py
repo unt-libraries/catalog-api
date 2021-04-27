@@ -2505,7 +2505,7 @@ class ToDiscoverPipeline(object):
                               '692']),
         'curriculum_objective': set(['658']),
         'title_added_entry': set(['700', '710', '711', '730', '740']),
-        'hierarchical_place': set(['752',]),
+        'geographic_info': set(['751', '752']),
         'linking_760_762': set(['760', '762']),
         'linking_774': set(['774']),
         'linking_780_785': set(['780', '785']),
@@ -3051,9 +3051,9 @@ class ToDiscoverPipeline(object):
         for f257 in self.marc_fieldgroups.get('production_country', []):
             places.update([p.strip_ends(sf) for sf in f257.get_subfields('a')])
 
-        for f752 in self.marc_fieldgroups.get('hierarchical_place', []):
-            pl = ' '.join([sf for sf in f752.get_subfields(*tuple('abcdfgh'))])
-            places.add(pl)
+        for f in self.marc_fieldgroups.get('geographic_info', []):
+            place = ' '.join([sf for sf in f.get_subfields(*tuple('abcdfgh'))])
+            places.add(place)
 
         for f362 in self.marc_fieldgroups.get('dates_of_publication', []):
             formatted_date = ' '.join(f362.get_subfields('a'))
