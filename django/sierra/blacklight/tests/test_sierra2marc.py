@@ -7691,8 +7691,7 @@ def test_todscpipeline_getstandardnumberinfo(raw_marcfields, expected,
     }),
 
     # 001: OCLC number w/provider suffix
-    (['001 on0194068/springer',
-      '003 OCoLC'], {
+    (['001 on0194068/springer'], {
         'oclc_numbers_display': ['194068'],
         'oclc_numbers': ['194068'],
         'all_control_numbers': ['194068'],
@@ -7700,23 +7699,14 @@ def test_todscpipeline_getstandardnumberinfo(raw_marcfields, expected,
     }),
 
     # 001: Non-OCLC vendor number
-    (['001 ybp0194068',
-      '003 YBP'], {
-        'other_control_numbers_display': ['ybp0194068 (source: YBP)'],
-        'all_control_numbers': ['ybp0194068'],
-        'control_numbers_search': ['ybp0194068'],
-    }),
-
-    # 001: Non-OCLC vendor number with no 003
     (['001 ybp0194068'], {
         'other_control_numbers_display': ['[Unknown Type]: ybp0194068'],
         'all_control_numbers': ['ybp0194068'],
         'control_numbers_search': ['ybp0194068'],
     }),
 
-    # 001: OCLC number w/incorrect 003
-    (['001 194068',
-      '003 YBP'], {
+    # 001: Just OCLC number
+    (['001 194068'], {
         'oclc_numbers_display': ['194068'],
         'oclc_numbers': ['194068'],
         'all_control_numbers': ['194068'],
@@ -7840,7 +7830,6 @@ def test_todscpipeline_getstandardnumberinfo(raw_marcfields, expected,
 
     # 001 and 035: Duplicate OCLC numbers
     (['001 194068',
-      '003 OCoLC',
       '035 ## $a(OCoLC)on0194068'], {
         'oclc_numbers_display': ['194068'],
         'oclc_numbers': ['194068'],
@@ -7850,7 +7839,6 @@ def test_todscpipeline_getstandardnumberinfo(raw_marcfields, expected,
 
     # 001 and 035: Not-duplicate OCLC numbers
     (['001 123456',
-      '003 OCoLC',
       '035 ## $a(OCoLC)on0194068'], {
         'oclc_numbers_display': ['194068', '123456 [Invalid]'],
         'oclc_numbers': ['194068'],
@@ -7860,7 +7848,6 @@ def test_todscpipeline_getstandardnumberinfo(raw_marcfields, expected,
 
     # 001 and 035: Duplicate OCLC numbers, but one has provider suffix
     (['001 194068/springer',
-      '003 OCoLC',
       '035 ## $a(OCoLC)on0194068'], {
         'oclc_numbers_display': ['194068'],
         'oclc_numbers': ['194068'],
@@ -7870,7 +7857,6 @@ def test_todscpipeline_getstandardnumberinfo(raw_marcfields, expected,
 
     # 001 and 035: Duplicate invalid OCLC numbers
     (['001 12345',
-      '003 OCoLC',
       '035 ## $a(OCoLC)on0194068',
       '035 ## $z(OCoLC)on12345'], {
         'oclc_numbers_display': ['194068', '12345 [Invalid]'],
@@ -7888,7 +7874,6 @@ def test_todscpipeline_getstandardnumberinfo(raw_marcfields, expected,
     #     001 is forced DISPLAY before invalid numbers, but the search
     #     value is left alone because it does not matter.
     (['001 194068',
-      '003 OCoLC',
       '035 ## $z(OCoLC)on12345'], {
         'oclc_numbers_display': ['194068', '12345 [Invalid]'],
         'oclc_numbers': ['194068'],
@@ -7898,7 +7883,6 @@ def test_todscpipeline_getstandardnumberinfo(raw_marcfields, expected,
 
     # 001 and 035: Not-duplicates, 035 is not OCLC
     (['001 194068',
-      '003 OCoLC',
       '035 ## $a(YBP)ybp12345'], {
         'oclc_numbers_display': ['194068'],
         'other_control_numbers_display': ['ybp12345 (source: YBP)'],
@@ -7909,10 +7893,9 @@ def test_todscpipeline_getstandardnumberinfo(raw_marcfields, expected,
 
     # 001 and 035: Not-duplicates, 001 is not OCLC
     (['001 ybp12345',
-      '003 YBP',
       '035 ## $a(OCoLC)194068'], {
         'oclc_numbers_display': ['194068'],
-        'other_control_numbers_display': ['ybp12345 (source: YBP)'],
+        'other_control_numbers_display': ['[Unknown Type]: ybp12345'],
         'oclc_numbers': ['194068'],
         'all_control_numbers': ['194068', 'ybp12345'],
         'control_numbers_search': ['194068', 'ybp12345'],
@@ -7932,8 +7915,7 @@ def test_todscpipeline_getstandardnumberinfo(raw_marcfields, expected,
     '001: OCLC number w/leading zeros',
     '001: OCLC number w/provider suffix',
     '001: Non-OCLC vendor number',
-    '001: Non-OCLC vendor number with no 003',
-    '001: OCLC number w/incorrect 003',
+    '001: Just OCLC number',
 
     # 010 (LCCN)
     '010: $a is an LCCN, $b is a National Union Catalog number',

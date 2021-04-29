@@ -2487,7 +2487,7 @@ class ToDiscoverPipeline(object):
     ]
     marc_grouper = MarcFieldGrouper({
         '008': set(['008']),
-        'control_numbers': set(['001', '003', '010', '016', '035']),
+        'control_numbers': set(['001', '010', '016', '035']),
         'standard_numbers': set(['020', '022', '024', '025', '026', '027',
                                  '028', '030', '074', '088']),
         'language_code': set(['041']),
@@ -4543,7 +4543,7 @@ class ToDiscoverPipeline(object):
 
         deferred = {}
         for f in self.marc_fieldgroups.get('control_numbers', []):
-            if f.tag in ('001', '003'):
+            if f.tag == '001':
                 deferred[f.tag] = f.data
             else:
                 for c in self.compile_control_numbers(f):
@@ -4557,7 +4557,7 @@ class ToDiscoverPipeline(object):
             # there are not already valid OCLC numbers found in
             # 035s that we've already processed.
             is_valid = not is_oclc or len(num['oclc']) == 0
-            org_code = 'OCoLC' if is_oclc else deferred.get('003', None)
+            org_code = 'OCoLC' if is_oclc else None
             if org_code is not None:
                 val = '({}){}'.format(org_code, val)
             sftag = 'a' if is_valid else 'z'
