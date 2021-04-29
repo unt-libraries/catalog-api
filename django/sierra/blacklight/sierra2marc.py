@@ -24,8 +24,8 @@ from utils import helpers, toascii
 # catalog records, listed by III field group tag.
 IGNORED_MARC_FIELDS_BY_GROUP_TAG = {
     'n': ('539', '901', '959'),
-    'r': ('306', '307', '335', '336', '337', '338', '341', '355', '357', '377',
-          '380', '381', '387', '389'),
+    'r': ('306', '307', '335', '336', '337', '338', '341', '355', '357', '380',
+          '381', '387', '389'),
 }
 
 
@@ -1361,7 +1361,7 @@ class StandardControlNumberParser(SequentialMarcFieldParser):
 
 class LanguageParser(SequentialMarcFieldParser):
     """
-    Parse 041 fields to extract detailed language information.
+    Parse 041/377 fields to extract detailed language information.
     """
     category_map = (
         ('a', 'Item content'),
@@ -1398,12 +1398,16 @@ class LanguageParser(SequentialMarcFieldParser):
 
     def parse_subfield(self, tag, val):
         if tag not in self.utils.control_sftags:
-            tag = 'a' if tag == 'd' else tag
-            language = settings.MARCDATA.LANGUAGE_CODES.get(val)
+            cat = 'a' if self.field.tag == '377' or tag == 'd' else tag
+            if self.field.tag == '377' and tag == 'l':
+                language = p.strip_ends(val)
+            else:
+                language = settings.MARCDATA.LANGUAGE_CODES.get(val)
+
             if language:
                 self.languages[language] = None
-                self.categorized[tag] = self.categorized.get(tag, OrderedDict())
-                self.categorized[tag][language] = None
+                self.categorized[cat] = self.categorized.get(cat, OrderedDict())
+                self.categorized[cat][language] = None
 
     def compile_results(self):
         return {
@@ -2492,7 +2496,7 @@ class ToDiscoverPipeline(object):
         'control_numbers': set(['001', '010', '016', '035']),
         'standard_numbers': set(['020', '022', '024', '025', '026', '027',
                                  '028', '030', '074', '088']),
-        'language_code': set(['041']),
+        'language_code': set(['041', '377']),
         'coded_dates': set(['046']),
         'main_author': set(['100', '110', '111']),
         'uniform_title': set(['130', '240', '243']),
@@ -4438,7 +4442,8 @@ class ToDiscoverPipeline(object):
                 'solr_fields': ('physical_description', 'type_format_search')
             },
             'exclude': set(IGNORED_MARC_FIELDS_BY_GROUP_TAG['r']
-                           + IGNORED_MARC_FIELDS_BY_GROUP_TAG['n'] + ('592',))
+                           + IGNORED_MARC_FIELDS_BY_GROUP_TAG['n'] 
+                           + ('377', '592',))
         }, utils=self.utils)
         return record_parser.parse()
 
@@ -5066,10 +5071,10 @@ class ToDiscoverPipeline(object):
     def get_language_info(self):
         """
         Collect all relevant language information from the record
-        (including the 008[35-37], the 041(s), and languages associated
-        with titles) and return labels for `languages`. In addition, if
-        `language_notes` is not already present (from parsing one or
-        more 546 fields), generate notes as needed.
+        (including the 008[35-37], the 041(s), 377(s), and languages
+        associated with titles), and return labels for `languages`. In
+        addition, if `language_notes` is not already present (from
+        parsing one or more 546 fields), generate notes as needed.
         """
         facet, notes = [], []
         needs_notes = not self.bundle.get('language_notes')

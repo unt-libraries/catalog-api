@@ -2542,6 +2542,30 @@ def test_todscpipeline_getresourcetypeinfo(bcode2,
     ('', ['041 07$aen$afr$ait$2iso639-1'],
      {'languages': None, 'language_notes': None}),
 
+    # Language info just from 377, example 1
+    ('', ['377 ##$afre'],
+     {'languages': ['French'],
+      'language_notes': [
+        'Item content: French',
+      ]}
+    ),
+
+    # Language info just from 377, example 2
+    ('', ['377 ##$aeng$afre'],
+     {'languages': ['English', 'French'],
+      'language_notes': [
+        'Item content: English, French',
+      ]}
+    ),
+
+    # Language info just from 377, example 3
+    ('', ['377 ##$aeng$lBostonian'],
+     {'languages': ['English', 'Bostonian'],
+      'language_notes': [
+        'Item content: English, Bostonian',
+      ]}
+    ),
+
     # Language info just from titles
     ('', ['130 0#$aBible.$pN.T.$pRomans.$lEnglish.$sRevised standard.',
           '730 02$aBible.$pO.T.$pJudges V.$lGerman$sGrether.'],
@@ -2565,23 +2589,25 @@ def test_todscpipeline_getresourcetypeinfo(bcode2,
     ),
 
     # Language info from combined sources
-    ('eng', ['041 0#$deng$eeng$efre$eger',
+    ('eng', ['041 0#$deng$eeng$efre',
              '041 0#$geng',
-             '041 1#$deng$hrus$eeng$nrus$geng$gfre$gger',
+             '041 1#$deng$hrus$eeng$nrus$geng$gfre',
              '130 0#$aBible.$pN.T.$pRomans.$lEnglish.$sRevised standard.',
+             '377 ##$lEnglish',
+             '377 ##$ager',
              '730 02$aSome title.$lKlingon.'],
      {'languages': ['English', 'French', 'German', 'Russian', 'Klingon'],
       'language_notes': [
-        'Item content: English, Klingon',
+        'Item content: English, Klingon, German',
         'Translated from (original): Russian',
-        'Librettos: English, French, German',
+        'Librettos: English, French',
         'Librettos translated from (original): Russian',
-        'Accompanying materials: English, French, German'
+        'Accompanying materials: English, French'
       ]}
     ),
 ], ids=[
     # Edge cases
-    'No language info at all (no 008s, titles, or 041s)',
+    'No language info at all (no 008s, titles, 041s, or 377s)',
     '008 without valid cps 35-37',
 
     # Main tests
@@ -2591,6 +2617,9 @@ def test_todscpipeline_getresourcetypeinfo(bcode2,
     'Language info just from 041, example 3',
     'Language info just from 041, example 4  -- multiple 041s',
     'Ignore 041 if it uses something other than MARC relator codes',
+    'Language info just from 377, example 1',
+    'Language info just from 377, example 2',
+    'Language info just from 377, example 3',
     'Language info just from titles',
     'Language info from related titles is not used',
     'If there are 546s, those lang notes override generated ones',
@@ -2616,8 +2645,8 @@ def test_todscpipeline_getlanguageinfo(f008_lang, raw_marcfields, expected,
         data = '{}{}{}'.format(data[0:35], f008_lang, data[38:])
         raw_marcfields = [('008 {}'.format(data))] + raw_marcfields
     marcfields = fieldstrings_to_fields(raw_marcfields)
-    bibmarc.remove_fields('008', '041', '130', '240', '546', '700', '710',
-                          '711', '730', '740')
+    bibmarc.remove_fields('008', '041', '130', '240', '377', '546', '700',
+                          '710', '711', '730', '740')
     bibmarc = add_marc_fields(bibmarc, marcfields)
     fields_to_process = ['title_info', 'notes', 'language_info']
     bundle = pipeline.do(bib, bibmarc, fields_to_process)
