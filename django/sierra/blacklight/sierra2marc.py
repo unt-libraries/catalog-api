@@ -24,8 +24,8 @@ from utils import helpers, toascii
 # catalog records, listed by III field group tag.
 IGNORED_MARC_FIELDS_BY_GROUP_TAG = {
     'n': ('539', '901', '959'),
-    'r': ('306', '307', '336', '337', '338', '341', '355', '357', '377', '380',
-          '381', '387', '389'),
+    'r': ('306', '307', '335', '336', '337', '338', '341', '355', '357', '377',
+          '380', '381', '387', '389'),
 }
 
 
@@ -2384,48 +2384,48 @@ class DissertationNotesFieldParser(SequentialMarcFieldParser):
 class MultiFieldMarcRecordParser(object):
     """
     General purpose class for parsing blocks of fields on a MARC
-    record. The `parse` method returns a dictionary mapping field names
-    to value lists that result from parsing the fields on the input
+    record. The `parse` method returns a dictionary that maps field
+    names to lists of values after parsing the fields on the input
     MARC `record`.
 
     The `mapping` value (passed to __init__) controls how to translate
-    MARC to the output dictionary. It should be a tuple structured as
-    such:
+    MARC to the return value. For example:
 
-        mapping = (
-            ('author_search', {
-                'fields': {
-                    'include': ('a', '100', '700'),
-                    'exclude': ('111', '711')
-                },
-                'subfields': {
-                    'default': {'exclude': 'w01258'},
-                    '100': {'include': 'acd'},
-                }
+        mapping = {
+            '100': {
+                'subfields': {'exclude': 'w01258'},
+                'solr_fields': ('author_display', 'author_search'),
                 'parse_func': lambda field: field.format_field()
-            }),
-        )
+            },
+            'a': {
+                'subfields': {'exclude': 'w01258'},
+                'solr_fields': ('author_display', 'author_search'),
+            },
+            'exclude': set(('110', '111'))
+        }
 
-    The first tuple value is the name of the output field (which
-    becomes a key in the output dictionary). The second is a dictionary
-    of options defining how to get field values from the MARC. These
-    options include:
+    Each key should be a MARC tag, a III field group tag, or `exclude`.
+    The parse process loops through each MARC field on the record, in
+    the order in which it appears. It tries to find a valid definition
+    entry in `mapping`, first by MARC tag, and then by III field group
+    tag. If a specific MARC tag is found, then that is used. If the
+    appropriate group field tag is found, then that is used IF the MARC
+    tag does not appear in the set of `exclude` tags.
 
-    `fields` -- a dict containing `include` and `exclude` values to
-    pass as kwargs to the `filter_fields` method on the record, to get
-    a list of fields to process. This is non-optional.
+    The field definition is a dict that uses the following keys. 
 
-    `subfields` -- a dict mapping MARC field tags to lists of subfield
-    filters to pass as kwargs to the `filter_subfields` method during
-    processing. A `default` key may be included.
+    `solr_fields` -- (Required.) A list or tuple containing the Solr
+    fields to generate for the given MARC field.
 
-    `parse_func` -- a function or method that parses each individual
-    field. It should receive the MARC field object and applicable
-    subfield filter, and it should return a string.
+    `subfields` -- (Optional.) The subfield filter to pass as kwargs to
+    the `filter_subfields` method during processing. Defaults to the
+    `default_sf_filter` passed on initialization, or a filter that
+    simply excludes `utils.control_sftags`.
 
-    A fallback default subfield filter may also be included, passed on
-    initialization (`default_df_filter`). If not included, it falls
-    back to the `utils.control_sftags` list.
+    `parse_func` -- (Optional.) A function or method that parses each
+    individual field. It should receive the MARC field object and
+    applicable subfield filter, and it should return a string.
+    Defaults to the `default_parse_func` method.
     """
     def __init__(self, record, mapping, utils=None, default_sf_filter=None):
         self.record = record
@@ -2439,19 +2439,21 @@ class MultiFieldMarcRecordParser(object):
 
     def parse(self):
         ret_val = {}
-        for fname, fdef in self.mapping:
-            parse_func = fdef.get('parse_func', self.default_parse_func)
-            sfdef = fdef.get('subfields', {})
-            default_sff = sfdef.get('default', self.default_sf_filter)
-            ret_val[fname] = ret_val.get(fname, [])
-            for field in self.record.filter_fields(**fdef['fields']):
-                sff = sfdef.get(field.tag, default_sff)
-                field_val = parse_func(field, sff)
+        for f in self.record.fields:
+            fdef = self.mapping.get(f.tag)
+            if fdef is None and f.tag not in self.mapping.get('exclude', set()):
+                fdef = self.mapping.get(f.group_tag)
+            if fdef:
+                parse_func = fdef.get('parse_func', self.default_parse_func)
+                sff = fdef.get('subfields', self.default_sf_filter)
+                field_val = parse_func(f, sff)
                 if field_val:
-                    if isinstance(field_val, (list, tuple)):
-                        ret_val[fname].extend(field_val)
-                    else:
-                        ret_val[fname].append(field_val)
+                    for fname in fdef['solr_fields']:
+                        ret_val[fname] = ret_val.get(fname, [])
+                        if isinstance(field_val, (list, tuple)):
+                            ret_val[fname].extend(field_val)
+                        else:
+                            ret_val[fname].append(field_val)
         return ret_val
 
 
@@ -4317,124 +4319,127 @@ class ToDiscoverPipeline(object):
         for fgroup in fgroups:
             marc_stub_rec.add_field(*self.marc_fieldgroups.get(fgroup, []))
 
-        record_parser = MultiFieldMarcRecordParser(marc_stub_rec, (
-            ('current_publication_frequency', {
-                'fields': {'include': ('310',)}
-            }),
-            ('former_publication_frequency', {
-                'fields': {'include': ('321',)}
-            }),
-            ('physical_medium', {
-                'fields': {'include': ('340',)},
+        record_parser = MultiFieldMarcRecordParser(marc_stub_rec, {
+            '310': {
+                'solr_fields': ('current_publication_frequency',
+                                'publication_dates_search')
+            },
+            '321': {
+                'solr_fields': ('former_publication_frequency',
+                                'publication_dates_search')
+            },
+            '340': {
+                'solr_fields': ('physical_medium', 'type_format_search'),
                 'parse_func': join_subfields_with_semicolons
-            }),
-            ('geospatial_data', {
-                'fields': {'include': ('342', '343')},
+            },
+            '342': {
+                'solr_fields': ('geospatial_data', 'type_format_search'),
                 'parse_func': join_subfields_with_semicolons
-            }),
-            ('audio_characteristics', {
-                'fields': {'include': ('344',)},
+            },
+            '343': {
+                'solr_fields': ('geospatial_data', 'type_format_search'),
                 'parse_func': join_subfields_with_semicolons
-            }),
-            ('projection_characteristics', {
-                'fields': {'include': ('345',)},
+            },
+            '344': {
+                'solr_fields': ('audio_characteristics', 'type_format_search'),
                 'parse_func': join_subfields_with_semicolons
-            }),
-            ('video_characteristics', {
-                'fields': {'include': ('346',)},
+            },
+            '345': {
+                'solr_fields': ('projection_characteristics',
+                                'type_format_search'),
                 'parse_func': join_subfields_with_semicolons
-            }),
-            ('digital_file_characteristics', {
-                'fields': {'include': ('347',)},
+            },
+            '346': {
+                'solr_fields': ('video_characteristics', 'type_format_search'),
                 'parse_func': join_subfields_with_semicolons
-            }),
-            ('arrangement_of_materials', {
-                'fields': {'include': ('351',)}
-            }),
-            ('graphic_representation', {
-                'fields': {'include': ('352',)}
-            }),
-            ('performance_medium', {
-                'fields': {'include': ('382',)},
+            },
+            '347': {
+                'solr_fields': ('digital_file_characteristics',
+                                'type_format_search'),
+                'parse_func': join_subfields_with_semicolons
+            },
+            '348': {
+                'subfields': {'include': 'a'},
+                'solr_fields': ('type_format_search',),
+                'parse_func': get_subfields_as_list
+            },
+            '351': {
+                'solr_fields': ('arrangement_of_materials', 'notes_search')
+            },
+            '352': {
+                'solr_fields': ('graphic_representation', 'type_format_search')
+            },
+            '370': {
+                'subfields': {'include': '3cfgist'},
+                'solr_fields': ('physical_description', 'notes_search')
+            },
+            '382': {
+                'solr_fields': ('performance_medium', 'type_format_search'),
                 'parse_func': parse_performance_medium
-            }),
-            ('type_format_search', {
-                'fields': {'include': ('348',)},
-                'subfields': {
-                    'default': {'include': 'a'}
-                },
-                'parse_func': get_subfields_as_list
-            }),
-            ('physical_description', {
-                'fields': {
-                    'include': ('r', '370'),
-                    'exclude': IGNORED_MARC_FIELDS_BY_GROUP_TAG['r'] +
-                               ('310', '321', '340', '342', '343', '344', '345',
-                                '346', '347', '348', '351', '352', '362', '382',
-                                '383', '384', '385', '386', '388')
-                }
-            }),
-            ('toc_notes', {
-                'fields': {'include': ('505',)}
-            }),
-            ('production_credits', {
-                'fields': {'include': ('508',)}
-            }),
-            ('performers', {
-                'fields': {'include': ('511',)},
-                'parse_func': parse_511_performers
-            }),
-            ('summary_notes', {
-                'fields': {'include': ('520',)},
-                'parse_func': parse_520_summary_notes
-            }),
-            ('language_notes', {
-                'fields': {'include': ('546',)},
-                'parse_func': join_subfields_with_spaces
-            }),
-            ('dissertation_notes', {
-                'fields': {'include': ('502',)},
-                'parse_func': parse_502_dissertation_notes
-            }),
-            ('audience', {
-                'fields': {'include': ('385', '521')},
-                'subfields': {
-                    'default': {'include': '3a'}
-                },
+            },
+            '385': {
+                'subfields': {'include': '3a'},
+                'solr_fields': ('audience', 'notes_search'),
                 'parse_func': parse_audience
-            }),
-            ('creator_demographics', {
-                'fields': {'include': ('386',)},
-                'subfields': {
-                    'default': {'include': '3a'}
-                },
+            },
+            '386': {
+                'subfields': {'include': '3a'},
+                'solr_fields': ('creator_demographics', 'notes_search'),
                 'parse_func': parse_creator_demographics
-            }),
-            ('curriculum_objectives', {
-                'fields': {'include': ('658',)},
-                'parse_func': join_subfields_with_semicolons
-            }),
-            ('system_details', {
-                'fields': {'include': ('538', '753')},
-                'parse_func': parse_system_details
-            }),
-            ('notes_search', {
-                'fields': {'include': ('388',)},
-                'subfields': {
-                    'default': {'include': 'a'}
-                },
+            },
+            '388': {
+                'subfields': {'include': 'a'},
+                'solr_fields': ('notes_search',),
                 'parse_func': get_subfields_as_list
-            }),
-            ('notes', {
-                'fields': {
-                    'include': ('n', '583'),
-                    'exclude': IGNORED_MARC_FIELDS_BY_GROUP_TAG['n'] +
-                               ('502', '505', '508', '511', '520', '521', '538',
-                                '546', '592'),
-                },
+            },
+            '502': {
+                'solr_fields': ('dissertation_notes', 'notes_search'),
+                'parse_func': parse_502_dissertation_notes
+            },
+            '505': {
+                'solr_fields': ('toc_notes',)
+            },
+            '508': {
+                'solr_fields': ('production_credits', 'responsibility_search')
+            },
+            '511': {
+                'solr_fields': ('performers', 'responsibility_search'),
+                'parse_func': parse_511_performers
+            },
+            '520': {
+                'solr_fields': ('summary_notes', 'notes_search'),
+                'parse_func': parse_520_summary_notes
+            },
+            '521': {
+                'subfields': {'include': '3a'},
+                'solr_fields': ('audience', 'notes_search'),
+                'parse_func': parse_audience
+            },
+            '538': {
+                'solr_fields': ('system_details', 'type_format_search'),
+                'parse_func': parse_system_details
+            },
+            '546': {
+                'solr_fields': ('language_notes', 'type_format_search'),
+            },
+            '658': {
+                'solr_fields': ('curriculum_objectives', 'notes_search'),
+                'parse_func': join_subfields_with_semicolons
+            },
+            '753': {
+                'solr_fields': ('system_details', 'type_format_search'),
+                'parse_func': parse_system_details
+            },
+            'n': {
+                'solr_fields': ('notes', 'notes_search'),
                 'parse_func': parse_all_other_notes
-            })
-        ), utils=self.utils)
+            },
+            'r': {
+                'solr_fields': ('physical_description', 'type_format_search')
+            },
+            'exclude': set(IGNORED_MARC_FIELDS_BY_GROUP_TAG['r']
+                           + IGNORED_MARC_FIELDS_BY_GROUP_TAG['n'] + ('592',))
+        }, utils=self.utils)
         return record_parser.parse()
 
     def get_call_number_info(self):

@@ -7038,7 +7038,7 @@ def test_todscpipeline_getnotes_3xxinfo(params_to_fields, add_marc_fields,
                   'b', 'Arranged by office of origin.']),
         ('r352', ['a', 'Raster :', 'b', 'pixel',
                   'd', '(5,000 x', 'e', '5,000) ;', 'q', 'TIFF.']),
-        ('r370', ['a', '370 desc 1']),
+        ('r370', ['4', 'stg', 'i', 'Setting:', 'f', 'Wyoming']),
         ('r382', ['a', 'soprano voice', 'n', '2', 'a', 'mezzo-soprano voice',
                   'n', '1', 'a', 'tenor saxophone', 'n', '1',
                   'd', 'bass clarinet', 'n', '1', 'a', 'trumpet',
@@ -7064,8 +7064,33 @@ def test_todscpipeline_getnotes_3xxinfo(params_to_fields, add_marc_fields,
                                'voice; tenor saxophone doubling bass clarinet; '
                                'trumpet; piano; violin doubling viola; double '
                                'bass'],
-        'type_format_search': ['vocal score', 'conductor part'],
-        'physical_description': ['300 desc 1', '300 desc 2', '370 desc 1']
+        'publication_dates_search': ['Monthly, 1958-', 'Bimonthly, 1954-1957'],
+        'physical_description': ['300 desc 1',
+                                 '300 desc 2',
+                                 'Setting: Wyoming'],
+        'type_format_search': ['300 desc 1',
+                               '300 desc 2',
+                               '(self-portrait) rice paper; 7" x 9"',
+                               'Polyconic; 0.9996; 0; 500,000',
+                               'Coordinate pair; meters; 22; 22.',
+                               'analog',
+                               'Dolby-B encoded',
+                               'Cinerama',
+                               '24 fps',
+                               'VHS',
+                               'NTSC',
+                               'video file',
+                               'DVD video',
+                               'region 4',
+                               'vocal score', 'conductor part',
+                               'Raster : pixel (5,000 x 5,000) ; TIFF.',
+                               '8 performers: soprano voice (2); mezzo-soprano '
+                               'voice; tenor saxophone doubling bass clarinet; '
+                               'trumpet; piano; violin doubling viola; double '
+                               'bass'],
+        'notes_search': ['(Records) Series; Organized into four subgroups; '
+                         'Arranged by office of origin.',
+                         'Setting: Wyoming']
     }
     fields = params_to_fields(exc_fields + inc_fields)
     marc = add_marc_fields(s2m.SierraMarcRecord(), fields)
@@ -7176,11 +7201,6 @@ def test_todscpipeline_getnotes_5xxinfo(params_to_fields, add_marc_fields,
             'Ph. D. ― University of North Texas, August, 2012.',
             'Some diss. Ph. D. ― University of North Texas, August, 2012.'
         ],
-        'notes_search': [
-            '1781-1791',
-            '18th century',
-            '1980'
-        ],
         'audience': [
             'Children; Spanish Speaking',
             '(video recording) Parents',
@@ -7217,6 +7237,57 @@ def test_todscpipeline_getnotes_5xxinfo(params_to_fields, add_marc_fields,
             'Description based on: Vol. 2, no. 2 (Feb. 1984); title from '
             'cover.',
             'Latest issue consulted: 2001.'
+        ],
+        'responsibility_search': [
+            'Educational consultant, Roseanne Gillis.',
+            'Hosted by Hugh Downs.',
+            'Cast: Colin Blakely, Jane Lapotaire.'
+        ],
+        'type_format_search': [
+            'IBM PC; Pascal; DOS 1.1',
+            'System requirements: IBM PC or compatible; 256K bytes of internal '
+            'memory; DOS 1.1',
+            'Project methodology for digital version; Technical details: '
+            'http://www.columbia.edu/dlc/linglung/methodology.html',
+            '(Marriage certificate) German; Fraktur.'
+        ],
+        'notes_search': [
+            'Children; Spanish Speaking',
+            '(video recording) Parents',
+            'Performers: Children; French',
+            '(video recording) Parents',
+            '1781-1791',
+            '18th century',
+            '1980',
+            'General Note.',
+            'Karl Schmidt\'s thesis (doctoral), Munich, 1965.',
+            'Ph. D. ― University of North Texas, August, 2012.',
+            'Some diss. Ph. D. ― University of North Texas, August, 2012.',
+            'Short summary. Long summary.',
+            'Short summary. Long summary.',
+            'Subject: Two head-and-shoulder portraits ...',
+            'Review: This book is great!',
+            'Scope and content: Item consists of XYZ.',
+            'Abstract: The study examines ...',
+            'Content advice: Contains violence [Revealweb organization code]',
+            'Content advice: "Not safe for life." [Family Filmgoer]',
+            'Clinical students, postgraduate house officers.',
+            'Reading grade level: 3.1.',
+            '(video recording) Ages: 18+.',
+            'Ages: 7-10.',
+            'Grades: 7 & up.',
+            'Special audience characteristics: Vision impaired; fine motor '
+            'skills impaired; audio learner (source: LENOCA)',
+            'Motivation/interest level: Moderately motivated.',
+            'MPAA rating: R.',
+            '(plates) condition reviewed; 20040915; mutilated',
+            'Cannot determine the relationship to Bowling illustrated, also '
+            'published in New York, 1952-58.',
+            'Description based on: Vol. 2, no. 2 (Feb. 1984); title from '
+            'cover.',
+            'Latest issue consulted: 2001.',
+            'Health objective 4; handicapped impaired education; highly '
+            'correlated; NHPO4-1991',
         ],
     }
     fields = params_to_fields(exc_fields + inc_fields)
