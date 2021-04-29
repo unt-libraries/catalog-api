@@ -343,6 +343,7 @@
     <field name="audience" type="string" indexed="false" stored="true" multiValued="true"/>
     <field name="creator_demographics" type="string" indexed="false" stored="true" multiValued="true"/>
     <field name="curriculum_objectives" type="string" indexed="false" stored="true" multiValued="true"/>
+    <field name="system_details" type="string" indexed="false" stored="true" multiValued="true"/>
     <field name="notes" type="string" indexed="false" stored="true" multiValued="true"/>
 
     <!-- Subjects / Genres -->
@@ -380,6 +381,7 @@
     <copyField source="digital_file_characteristics" dest="type_format_search"/>
     <copyField source="graphic_representation" dest="type_format_search"/>
     <copyField source="performance_medium" dest="type_format_search"/>
+    <copyField source="system_details" dest="type_format_search"/>
 
     <copyField source="production_credits" dest="responsibility_search"/>
     <copyField source="performers" dest="responsibility_search"/>

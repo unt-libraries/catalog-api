@@ -7127,6 +7127,11 @@ def test_todscpipeline_getnotes_5xxinfo(params_to_fields, add_marc_fields,
                   'a', 'audio learner', 'b', 'LENOCA.'], '3 '),
         ('n521', ['a', 'Moderately motivated.'], '4 '),
         ('n521', ['a', 'MPAA rating: R.'], '8 '),
+        ('n538', ['a', 'System requirements: IBM PC or compatible; 256K bytes '
+                       'of internal memory; DOS 1.1']),
+        ('n538', ['a', 'Project methodology for digital version',
+                  'i', 'Technical details:',
+                  'u', 'http://www.columbia.edu/dlc/linglung/methodology.html']),
         ('n546', ['3', 'Marriage certificate', 'a', 'German;',
                   'b', 'Fraktur.']),
         ('n583', ['3', 'plates', 'a', 'condition reviewed', 'c', '20040915',
@@ -7140,7 +7145,8 @@ def test_todscpipeline_getnotes_5xxinfo(params_to_fields, add_marc_fields,
         ('n588', ['a', '2001.'], '1 '),
         ('d658', ['a', 'Health objective 4',
                   'b', 'handicapped impaired education',
-                  'd', 'highly correlated', 'c', 'NHPO4-1991', '2', 'ohco'])
+                  'd', 'highly correlated', 'c', 'NHPO4-1991', '2', 'ohco']),
+        ('y753', ['a', 'IBM PC', 'b', 'Pascal', 'c', 'DOS 1.1'])
     ]
     expected = {
         'toc_notes': [
@@ -7195,6 +7201,13 @@ def test_todscpipeline_getnotes_5xxinfo(params_to_fields, add_marc_fields,
         'curriculum_objectives': [
             'Health objective 4; handicapped impaired education; highly '
             'correlated; NHPO4-1991',
+        ],
+        'system_details': [
+            'IBM PC; Pascal; DOS 1.1',
+            'System requirements: IBM PC or compatible; 256K bytes of internal '
+            'memory; DOS 1.1',
+            'Project methodology for digital version; Technical details: '
+            'http://www.columbia.edu/dlc/linglung/methodology.html'
         ],
         'notes': [
             'General Note.',

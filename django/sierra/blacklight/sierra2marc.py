@@ -2233,8 +2233,17 @@ class GenericDisplayFieldParser(SequentialMarcFieldParser):
         self.original_field = field
         self.sf_filter = sf_filter
         self.value_stack = []
-        self.sep_is_not_space = bool(re.search(r'\S', separator))
         self.label = label
+
+    def determine_separator(self, val):
+        return self.separator
+
+    def add_separator(self, val):
+        sep = self.determine_separator(val)
+        val = val.rstrip(sep)
+        if sep != ' ':
+            val = p.strip_ends(val, end='right')
+        return ''.join([val, sep])
 
     def parse_subfield(self, tag, val):
         if tag != '3':
@@ -2250,12 +2259,11 @@ class GenericDisplayFieldParser(SequentialMarcFieldParser):
 
         value_stack = []
         for i, val in enumerate(self.value_stack):
-            val = val.strip(self.separator)
             is_last = i == len(self.value_stack) - 1
-            if self.sep_is_not_space and not is_last:
-                val = p.strip_ends(val, end='right')
+            if not is_last:
+                val = self.add_separator(val)
             value_stack.append(val)
-        result_stack.append(self.separator.join(value_stack))
+        result_stack.append(''.join(value_stack))
         return ' '.join(result_stack)
 
 
@@ -2506,6 +2514,7 @@ class ToDiscoverPipeline(object):
         'curriculum_objective': set(['658']),
         'title_added_entry': set(['700', '710', '711', '730', '740']),
         'geographic_info': set(['751', '752']),
+        'system_details': set(['753']),
         'linking_760_762': set(['760', '762']),
         'linking_774': set(['774']),
         'linking_780_785': set(['780', '785']),
@@ -4283,6 +4292,16 @@ class ToDiscoverPipeline(object):
             label = ', '.join(labels) if labels else None
             return join_subfields_with_semicolons(field, sf_filter, label)
 
+        def parse_system_details(field, sf_filter):
+            if field.tag == '753':
+                return join_subfields_with_semicolons(field, sf_filter)
+
+            class Field538Parser(GenericDisplayFieldParser):
+                def determine_separator(self, val):
+                    return '; ' if val[-1].isalnum() else ' '
+
+            return Field538Parser(field, '', sf_filter).parse()
+
         def parse_all_other_notes(field, sf_filter):
             label = label_maps.get(field.tag, {}).get(field.indicator1)
             if field.tag == '583':
@@ -4292,7 +4311,8 @@ class ToDiscoverPipeline(object):
                 return None
             return join_subfields_with_spaces(field, sf_filter, label)
 
-        fgroups = ('physical_description', 'notes', 'curriculum_objective')
+        fgroups = ('system_details', 'physical_description', 'notes',
+                   'curriculum_objective')
         marc_stub_rec = SierraMarcRecord(force_utf8=True)
         for fgroup in fgroups:
             marc_stub_rec.add_field(*self.marc_fieldgroups.get(fgroup, []))
@@ -4394,6 +4414,10 @@ class ToDiscoverPipeline(object):
                 'fields': {'include': ('658',)},
                 'parse_func': join_subfields_with_semicolons
             }),
+            ('system_details', {
+                'fields': {'include': ('538', '753')},
+                'parse_func': parse_system_details
+            }),
             ('notes_search', {
                 'fields': {'include': ('388',)},
                 'subfields': {
@@ -4405,8 +4429,8 @@ class ToDiscoverPipeline(object):
                 'fields': {
                     'include': ('n', '583'),
                     'exclude': IGNORED_MARC_FIELDS_BY_GROUP_TAG['n'] +
-                               ('502', '505', '508', '511', '520', '521', '546',
-                                '592'),
+                               ('502', '505', '508', '511', '520', '521', '538',
+                                '546', '592'),
                 },
                 'parse_func': parse_all_other_notes
             })

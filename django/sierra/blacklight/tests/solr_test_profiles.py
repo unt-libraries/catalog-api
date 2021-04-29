@@ -58,7 +58,7 @@ DISCOVER_FIELDS = (
     'record_boost', 'serial_continuity_linking_json',
     'related_resources_linking_json', 'editions_display', 'editions_search',
     'library_has_display', 'audience', 'creator_demographics',
-    'curriculum_objectives', 'arrangement_of_materials'
+    'curriculum_objectives', 'arrangement_of_materials', 'system_details'
 )
 
 # Discover field specific gen functions
