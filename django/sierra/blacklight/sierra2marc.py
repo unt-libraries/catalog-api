@@ -24,8 +24,8 @@ from utils import helpers, toascii
 # catalog records, listed by III field group tag.
 IGNORED_MARC_FIELDS_BY_GROUP_TAG = {
     'n': ('539', '901', '959'),
-    'r': ('306', '307', '335', '336', '337', '338', '341', '355', '357', '380',
-          '381', '387', '389'),
+    'r': ('306', '307', '335', '336', '337', '338', '341', '355', '357', '381',
+          '387', '389'),
 }
 
 
@@ -2514,9 +2514,9 @@ class ToDiscoverPipeline(object):
         'series_statement': set(['490']),
         'notes': set(['n', '502', '505', '508', '511', '520', '546', '583']),
         'local_game_note': set(['592']),
-        'subject_genre': set(['600', '610', '611', '630', '647', '648', '650',
-                              '651', '653', '655', '656', '657', '690', '691',
-                              '692']),
+        'subject_genre': set(['380', '600', '610', '611', '630', '647', '648',
+                              '650', '651', '653', '655', '656', '657', '690',
+                              '691', '692']),
         'curriculum_objective': set(['658']),
         'title_added_entry': set(['700', '710', '711', '730', '740']),
         'geographic_info': set(['751', '752']),
@@ -4443,7 +4443,7 @@ class ToDiscoverPipeline(object):
             },
             'exclude': set(IGNORED_MARC_FIELDS_BY_GROUP_TAG['r']
                            + IGNORED_MARC_FIELDS_BY_GROUP_TAG['n'] 
-                           + ('377', '592',))
+                           + ('377', '380', '592',))
         }, utils=self.utils)
         return record_parser.parse()
 
@@ -4865,7 +4865,7 @@ class ToDiscoverPipeline(object):
         is_fast = 'fast' in f.get_subfields('2')
         is_uncontrolled = f.tag == '653'
         is_for_search_only = f.tag == '692'
-        is_genre = f.tag == '655'
+        is_genre = f.tag in ('380', '655')
         needs_json = not is_for_search_only
         needs_facets = not is_uncontrolled and not is_for_search_only
         nf_chars = f.indicator1 if f.tag == '630' else 0

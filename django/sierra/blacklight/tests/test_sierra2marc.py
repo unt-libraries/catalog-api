@@ -8921,6 +8921,29 @@ def test_todscpipeline_getgamesfacetsinfo(raw_marcfields, expected,
         ]
     }),
 
+    # 380, genre term (main term only), LCSH
+    (['380 ##$aAudiobooks'], {
+        'genre_headings_json': {
+            'p': [{'d': 'Audiobooks',
+                   'v': 'audiobooks!Audiobooks'}]
+        },
+        'genre_heading_facet': [
+            'audiobooks!Audiobooks'
+        ],
+        'genre_facet': [
+            'audiobooks!Audiobooks'
+        ],
+        'genres_search_exact_headings': [
+            'Audiobooks'
+        ],
+        'genres_search_main_terms': [
+            'Audiobooks'
+        ],
+        'genres_search_all_terms': [
+            'Audiobooks'
+        ]
+    }),
+
     # 655, genre term (main term only), LCSH
     (['655 #4$aAudiobooks.'], {
         'genre_headings_json': {
@@ -9692,7 +9715,8 @@ def test_todscpipeline_getgamesfacetsinfo(raw_marcfields, expected,
 
     # Multi-field tests
     # Multiple 6XXs, genres, etc.
-    (['600 1#$aChurchill, Winston,$cSir,$d1874-1965$vFiction.',
+    (['380 ##$aPlays',
+      '600 1#$aChurchill, Winston,$cSir,$d1874-1965$vFiction.',
       '650 #0$aAstronauts$xHistory$y20th century.',
       '650 #0$aAstronauts$vJuvenile films.',
       '655 #4$aAudiobooks$xFrench.',
@@ -9727,6 +9751,10 @@ def test_todscpipeline_getgamesfacetsinfo(raw_marcfields, expected,
                  ]
         }],
         'genre_headings_json': [{
+            'p': [{'d': 'Plays',
+                   'v': 'plays!Plays'}
+                 ]
+        }, {
             'p': [{'d': 'Audiobooks',
                    'v': 'audiobooks!Audiobooks',
                    's': ' > '},
@@ -9746,6 +9774,7 @@ def test_todscpipeline_getgamesfacetsinfo(raw_marcfields, expected,
             'astronauts-juvenile-films!Astronauts > Juvenile films'
         ],
         'genre_heading_facet': [
+            'plays!Plays',
             'audiobooks!Audiobooks',
             'audiobooks-french!Audiobooks > French'
         ],
@@ -9757,6 +9786,7 @@ def test_todscpipeline_getgamesfacetsinfo(raw_marcfields, expected,
             'history-modern!History, Modern'
         ],
         'genre_facet': [
+            'plays!Plays',
             'fiction!Fiction',
             'juvenile-films!Juvenile films',
             'audiobooks!Audiobooks',
@@ -9772,6 +9802,7 @@ def test_todscpipeline_getgamesfacetsinfo(raw_marcfields, expected,
             'Spacemen'
         ],
         'genres_search_exact_headings': [
+            'Plays',
             'Audiobooks > French'
         ],
         'subjects_search_main_terms': [
@@ -9782,6 +9813,7 @@ def test_todscpipeline_getgamesfacetsinfo(raw_marcfields, expected,
             'Spacemen'
         ],
         'genres_search_main_terms': [
+            'Plays',
             'Audiobooks'
         ],
         'subjects_search_all_terms': [
@@ -9794,6 +9826,7 @@ def test_todscpipeline_getgamesfacetsinfo(raw_marcfields, expected,
             'Spacemen'
         ],
         'genres_search_all_terms': [
+            'Plays',
             'Fiction',
             'Juvenile films',
             'Audiobooks',
@@ -9809,7 +9842,8 @@ def test_todscpipeline_getgamesfacetsinfo(raw_marcfields, expected,
     # The latter currently is not considered a duplicate of the former,
     # even though it is redundant. (This behavior is subject to
     # change.)
-    (['610 10$aUnited States.$bArmy.',
+    (['380 ##$aHistory$2fast',
+      '610 10$aUnited States.$bArmy.',
       '610 17$aUnited States.$bArmy.$2fast',
       '610 10$aUnited States.$bArmy.$xHistory.',
       '650 #0$aMilitary uniforms.',
@@ -9931,6 +9965,7 @@ def test_todscpipeline_getgamesfacetsinfo(raw_marcfields, expected,
     '650, topical term (main term only)',
     '651, geographic term (main term only)',
     '653, uncontrolled keyword term',
+    '380, genre term (main term only), LCSH',
     '655, genre term (main term only), LCSH',
     '655, genre term, AAT-style',
     '656, occupation term, local',
@@ -9983,9 +10018,9 @@ def test_todscpipeline_getsubjectsinfo(raw_marcfields, expected,
     pipeline = SubjectTestBLASMPL()
     bib = bl_sierra_test_record('bib_no_items')
     bibmarc = bibrecord_to_pymarc(bib)
-    bibmarc.remove_fields('600', '610', '611', '630', '647', '648', '650',
-                          '651', '653', '655', '656', '657', '690', '691',
-                          '692')
+    bibmarc.remove_fields('380', '600', '610', '611', '630', '647', '648',
+                          '650', '651', '653', '655', '656', '657', '690',
+                          '691', '692')
     marcfields = fieldstrings_to_fields(raw_marcfields)
     bibmarc = add_marc_fields(bibmarc, marcfields)
     bundle = pipeline.do(bib, bibmarc, ['subjects_info'])
