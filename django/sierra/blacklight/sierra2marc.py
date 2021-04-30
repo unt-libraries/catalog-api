@@ -5315,6 +5315,18 @@ class DiscoverS2MarcBatch(S2MarcBatch):
     This straight up converts the Sierra DB BibRecord record (and
     associated data) to a SierraMarcRecord object.
     """
+    def compile_leader(self, r, base):
+        try:
+            lf = r.record_metadata.leaderfield_set.all()[0]
+        except IndexError:
+            return base
+
+        return ''.join([
+            base[0:5], lf.record_status_code, lf.record_type_code,
+            lf.bib_level_code, lf.control_type_code,
+            lf.char_encoding_scheme_code, base[10:17], lf.encoding_level_code,
+            lf.descriptive_cat_form_code, lf.multipart_level_code, base[20:]
+        ])
 
     def compile_control_fields(self, r):
         mfields = []
@@ -5376,6 +5388,7 @@ class DiscoverS2MarcBatch(S2MarcBatch):
         marc_record = SierraMarcRecord(force_utf8=True)
         marc_record.add_field(*self.compile_control_fields(r))
         marc_record.add_field(*self.compile_varfields(r))
+        marc_record.leader = self.compile_leader(r, marc_record.leader)
         return marc_record
 
     def _one_to_marc(self, r):

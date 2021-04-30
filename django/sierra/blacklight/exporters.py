@@ -192,6 +192,7 @@ class BibsToDiscover(ToSolrExporter):
     prefetch_related = [
         'record_metadata__controlfield_set',
         'record_metadata__varfield_set',
+        'record_metadata__leaderfield_set',
         'bibrecorditemrecordlink_set',
         'bibrecorditemrecordlink_set__item_record',
         'bibrecorditemrecordlink_set__item_record__location',
