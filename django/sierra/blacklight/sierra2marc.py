@@ -2549,6 +2549,7 @@ class ToDiscoverPipeline(object):
         self.title_languages = []
         self.this_year = datetime.now().year
         self.year_upper_limit = self.this_year + 5
+        self.year_for_boost = None
         self.r = None
         self.marc_record = None
         self.marc_fieldgroups = None
@@ -2569,6 +2570,7 @@ class ToDiscoverPipeline(object):
             self.name_titles = []
             self.work_title_keys = {}
             self.title_languages = []
+            self.year_for_boost = None
         if self.marc_record != marc_record:
             self.marc_record = marc_record
             if marc_record:
@@ -3085,7 +3087,7 @@ class ToDiscoverPipeline(object):
         def do_expand(dstr1, dstr2, dnum1, dnum2):
             dstrs, years = [], []
             for dstr in [dstr1, dstr2]:
-                if dstr and dstr not in ('uuuu', '9999'):
+                if dstr and dstr != 'uuuu':
                     dstrs.append(dstr)
             if (dnum1, dnum2) == (-1, -1):
                 return [], []
@@ -3102,6 +3104,29 @@ class ToDiscoverPipeline(object):
             for entry in self.interpret_coded_date(fake_dtype, d1, d2):
                 dstr1, dstr2, dnum1, dnum2, _, _ = entry
                 yield do_expand(dstr1, dstr2, dnum1, dnum2)
+
+    def _get_year_for_boost(self, dstrs, latest_year):
+        """
+        Use this to get a good year for the recentness boost factor.
+        dstrs should be the 008/date1 and date2 values, or the
+        equivalent. latest_year should be the latest possible year
+        value (as an int) represented by the dstrs.
+        """
+        use_date = dstrs[0]
+        if self.marc_record.leader[7] == 's':
+            use_date = dstrs[-1]
+        if use_date == '9999':
+            return latest_year
+        if 'u' in use_date:
+            lower = int(use_date.replace('u', '0'))
+            upper = int(use_date.replace('u', '9')) + 1
+            if upper > self.year_upper_limit:
+                upper = self.year_upper_limit
+            return lower + ((upper - lower) / 2)
+        try:
+            return int(use_date)
+        except ValueError:
+            return None
 
     def get_pub_info(self):
         """
@@ -3201,9 +3226,13 @@ class ToDiscoverPipeline(object):
         facet_dates, search_dates = [], []
         for ystrs, expanded in self._expand_years(coded_dates, described_years):
             if expanded:
+                if self.year_for_boost is None:
+                    boost_year = self._get_year_for_boost(ystrs, expanded[-1])
+                    self.year_for_boost = boost_year
                 facet_dates.extend(expanded)
             if ystrs:
-                new_sdates = [self._format_years_for_display(y) for y in ystrs]
+                new_sdates = [self._format_years_for_display(y) for y in ystrs
+                              if y != '9999']
                 search_dates.extend(new_sdates)
         search_dates.extend([str(d) for d in facet_dates])
 
@@ -5207,29 +5236,16 @@ class ToDiscoverPipeline(object):
         Discovery record), then it gets an extra +500 boost, otherwise
         +0.
         """
-        def make_pubyear_boost(this_year, year_string):
+        def make_pubyear_boost(this_year, boost_year):
             anchor_boost, anchor_year = 500, 2020
-            try:
-                pub_year = int(year_string)
-            except (ValueError, TypeError):
-                return None
-            if pub_year <= 5 + this_year:
-                boost = anchor_boost - (anchor_year - pub_year)
+            if (boost_year is not None) and (boost_year <= 5 + this_year):
+                boost = anchor_boost - (anchor_year - boost_year)
                 if boost < 1:
                     boost = 1
                 return boost
+            return 460
 
-        def find_good_boost(this_year, pub_years):
-            for pub_year in sorted(pub_years, reverse=True):
-                boost = make_pubyear_boost(this_year, pub_year)
-                if boost is not None:
-                    return boost
-            return None
-
-        pub_years = self.bundle.get('publication_year_range_facet') or []
-
-        boost = find_good_boost(self.this_year, pub_years)
-        pub_boost = 460 if boost is None else boost
+        pub_boost = make_pubyear_boost(self.this_year, self.year_for_boost)
         q_boost = 500 if self.r.bcode1 in ('-', 'd') else 0
         return {'record_boost': str(pub_boost + q_boost)}
 
