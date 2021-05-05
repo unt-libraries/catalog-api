@@ -2548,6 +2548,7 @@ class ToDiscoverPipeline(object):
         self.work_title_keys = {}
         self.title_languages = []
         self.this_year = datetime.now().year
+        self.year_upper_limit = self.this_year + 5
         self.r = None
         self.marc_record = None
         self.marc_fieldgroups = None
@@ -2915,37 +2916,116 @@ class ToDiscoverPipeline(object):
             statements.append(('manufacture', statement))
         return statements
 
-    def _interpret_coded_date(self, dtype, date1, date2):
-        pub_type_map = {
-            'i': [('creation', 'Collection created in ')],
-            'k': [('creation', 'Collection created in ')],
+    def _sanitize_date(self, dnum, dstr='', allow_9999=False):
+        if dnum == 0:
+            return None
+        if allow_9999 and dnum == 9999:
+            return self.this_year
+        if dnum > self.year_upper_limit:
+            if 'u' in dstr:
+                mil, cent, dec = list(str(self.year_upper_limit)[:-1])
+                valid_approximates = [
+                    '{}uuu'.format(mil),
+                    '{}{}uu'.format(mil, cent),
+                    '{}{}{}u'.format(mil, cent, dec)
+                ]
+                if dstr in valid_approximates:
+                    return self.year_upper_limit
+            return None
+        return dnum
+
+    def _normalize_coded_date(self, date, allow_9999=False):
+        if date in ('uuuu', '1uuu', '0uuu'):
+            return 'uuuu', -1, -1
+        if re.search(r'^[\du]+$', date):
+            low = int(date.replace('u', '0'))
+            low = self._sanitize_date(low, date, allow_9999)
+            high = int(date.replace('u', '9'))
+            high = self._sanitize_date(high, date, allow_9999)
+            if low is not None and high is not None:
+                return date, low, high
+        return None, None, None
+
+    def _normalize_coded_date_range(self, d1, d2):
+        if d2 == '    ':
+            d2 = '9999'
+        dstr1, low1, high1 = self._normalize_coded_date(d1)
+        dstr2, low2, high2 = self._normalize_coded_date(d2, allow_9999=True)
+
+        if any((v is None for v in (dstr1, low1, high1))):
+            dstr1, low1, high1 = None, None, None
+        if any((v is None for v in (dstr2, low2, high2))):
+            dstr2, low2, high2 = None, None, None
+
+        lowest, highest = low1 or high1, high2 or low2
+        dnum1 = low2 if lowest == -1 else lowest
+        dnum2 = high1 if highest == -1 else highest
+        if dnum1 > dnum2:
+            dnum2 = dnum1
+            dstr2 = None
+        
+        if dstr1 is None:
+            if dnum1 is None:
+                return dstr2, None, dnum2, dnum2
+            return dstr2, None, dnum1, dnum2
+
+        if dnum2 is None:
+            return dstr1, None, dnum1, dnum1
+
+        if dstr1 == dstr2:
+            return dstr1, None, dnum1, dnum2
+
+        return dstr1, dstr2, dnum1, dnum2
+
+    def interpret_coded_date(self, dtype, date1, date2):
+        pubtype_map_single_range = {
+            'i': ('creation', 'Collection created in '),
+            'k': ('creation', 'Collection created in '),
+            '046kl': ('creation', ''),
+            '046op': ('creation', 'Content originally created in ')
+        }
+        pubtype_map_atomic = {            
             'p': [('distribution', 'Released in '),
                   ('creation', 'Created or produced in ')],
             'r': [('distribution', 'Reproduced or reissued in '),
                   ('publication', 'Originally published in ')],
             't': [('publication', ''), ('copyright', '')],
-            '046kl': [('creation', '')],
-            '046op': [('creation', 'Content originally created in ')]
+            
         }
-        default_entry = [('publication', '')]
-        coded_dates = []
-        date1 = date1[0:4] if len(date1) > 4 else date1
-        date2 = date2[0:4] if len(date2) > 4 else date2
-        date1_valid = bool(re.search(r'^[\du]+$', date1) and date1 != '0000')
-        date2_valid = bool(re.search(r'^[\du]+$', date2))
-        if date1_valid:
-            if dtype in ('es') or date1 == date2 or not date2_valid:
-                date2 = None
-            details_list = pub_type_map.get(dtype, default_entry)
-            if len(details_list) > 1:
-                dates = [date1, date2]
-                for i, details in enumerate(details_list):
-                    pub_field, label = details
-                    coded_dates.append((dates[i], None, pub_field, label))
-            else:
-                pub_field, label = details_list[0]
-                coded_dates.append((date1, date2, pub_field, label))
-        return coded_dates
+        default = ('publication', '')
+
+        d2_type = None
+        if dtype in pubtype_map_atomic.keys():
+            d2_type = 'atomic'
+        else:
+            this_is_serial = self.marc_record.leader[7] in 'is'
+            d2_is_serial_range = this_is_serial and dtype in 'cdu'
+            d2_is_nonserial_range = not this_is_serial and dtype in 'ikmq'
+            d2_is_046_range = dtype.startswith('046')
+            if d2_is_serial_range or d2_is_nonserial_range or d2_is_046_range:
+                d2_type = 'range'
+
+        if d2_type == 'range':
+            ds1, ds2, dn1, dn2 = self._normalize_coded_date_range(date1, date2)
+            if ds1 is not None or ds2 is not None:
+                pub_field, label = pubtype_map_single_range.get(dtype, default)
+                return [(ds1, ds2, dn1, dn2, pub_field, label)]
+
+        vals = [self._normalize_coded_date(date1)]
+        if d2_type == 'atomic':
+            vals.append(self._normalize_coded_date(date2))
+            return [
+                (vals[i][0], None, vals[i][1], vals[i][2], deets[0], deets[1])
+                for i, deets in enumerate(pubtype_map_atomic[dtype])
+                if vals[i][0] is not None
+            ]
+
+        dstr, dnum1, dnum2 = vals[0]
+        if dstr is not None:
+            pub_field, label = pubtype_map_single_range.get(dtype, default)
+            return [(dstr, None, dnum1, dnum2, pub_field, label)]
+
+        return []
 
     def _format_years_for_display(self, year1, year2=None, the=False):
         """
@@ -2979,9 +3059,13 @@ class ToDiscoverPipeline(object):
         if disp_y1 is None:
             return ''
 
+        if disp_y1 == '9999':
+            return 'present year'
+
+        if disp_y1 == '?' and disp_y2 in (None, '?'):
+            return 'dates unknown'
+
         if disp_y2 is None:
-            if disp_y1 == '?':
-                return 'dates unknown'
             return disp_y1
 
         if disp_y2 == '9999':
@@ -2990,50 +3074,34 @@ class ToDiscoverPipeline(object):
         if disp_y1.endswith('century') and disp_y2.endswith('century'):
             disp_y1 = disp_y1.replace(' century', '')
 
+        if disp_y1 != '?':
+            # This is like: (19uu, 1935) => "20th century (to 1935)"
+            if int(year1.replace('u', '9')) >= int(year2.replace('u', '9')):
+                return '{} (to {})'.format(disp_y1, disp_y2)
+
         return '{} to {}'.format(disp_y1, disp_y2)
 
-    def _make_pub_limit_years(self, described_years):
-        """
-        Given a *set* of `described_years`, each formatted as in the
-        MARC 008, return a tuple of lists--one for the publication year
-        facet, one for the publication decade facet, and one for
-        searchable publication dates.
-        """
-        def _year_to_decade_facet(year):
-            return '{0}0-{0}9'.format(year[:-1])
+    def _expand_years(self, coded_dates, described_years):
+        def do_expand(dstr1, dstr2, dnum1, dnum2):
+            dstrs, years = [], []
+            for dstr in [dstr1, dstr2]:
+                if dstr and dstr not in ('uuuu', '9999'):
+                    dstrs.append(dstr)
+            if (dnum1, dnum2) == (-1, -1):
+                return [], []
+            years = range(dnum1, dnum2 + 1)
+            return dstrs, years
 
-        def _year_to_decade_label(year):
-            return self._format_years_for_display('{}u'.format(year[:-1]))
+        for dstr1, dstr2, dnum1, dnum2, _, _ in coded_dates:
+            yield do_expand(dstr1, dstr2, dnum1, dnum2)
 
-        def _century_to_decade_facet(formatted_year):
-            # formatted_year would be like '19uu' for 20th century
-            return '{0}{1}0-{0}{1}9'.format(formatted_year[:-2], i)
-
-        facet_years, facet_decades = set(), set()
-        search_pdates = set()
-        this_year = self.this_year
-        for year in list(described_years):
-            if 'u' not in year:
-                facet_years.add(year)
-                facet_decades.add(_year_to_decade_facet(year))
-                search_pdates.add(_year_to_decade_label(year))
-                search_pdates.add(self._format_years_for_display(year))
-            elif re.search(r'^\d+u$', year):
-                for i in range(0, 10):
-                    add_year = '{}{}'.format(year[:-1], i)
-                    if int(add_year) <= this_year:
-                        facet_years.add(add_year)
-                        search_pdates.add(add_year)
-                facet_decades.add(_year_to_decade_facet(year))
-                search_pdates.add(self._format_years_for_display(year))
-            elif re.search(r'^\d+uu$', year):
-                for i in range(0, 10):
-                    add_decade = '{}{}u'.format(year[:-2], i)
-                    if int(add_decade[:-1]) <= this_year / 10:
-                        facet_decades.add(_year_to_decade_facet(add_decade))
-                        search_pdates.add(_year_to_decade_label(add_decade))
-                search_pdates.add(self._format_years_for_display(year))
-        return (list(facet_years), list(facet_decades), list(search_pdates))
+        for d1, d2 in set(described_years):
+            fake_dtype = 's'
+            if d2 is not None:
+                fake_dtype = 'd' if self.marc_record.leader[7] in 'is' else 'm'
+            for entry in self.interpret_coded_date(fake_dtype, d1, d2):
+                dstr1, dstr2, dnum1, dnum2, _, _ = entry
+                yield do_expand(dstr1, dstr2, dnum1, dnum2)
 
     def get_pub_info(self):
         """
@@ -3046,29 +3114,30 @@ class ToDiscoverPipeline(object):
                 return [pub_stripped]
             return []
 
-        pub_info, described_years, places, publishers = {}, set(), set(), set()
+        pub_info, described_years, places, publishers = {}, [], [] , []
         publication_date_notes = []
         for f26x in self.marc_fieldgroups.get('publication', []):
-            years = pull_from_subfields(f26x, 'cg', p.extract_years)
-            described_years |= set(years)
+            years = pull_from_subfields(
+                f26x, 'cg', lambda v: p.extract_years(v, self.year_upper_limit))
+            described_years.extend(years)
             for stype, stext in self._extract_pub_statements_from_26x(f26x):
                 pub_info[stype] = pub_info.get(stype, [])
                 pub_info[stype].append(stext)
 
             for place in pull_from_subfields(f26x, 'ae', _strip_unknown_pub):
                 place = p.strip_ends(place)
-                places.add(p.strip_outer_parentheses(place, True))
+                places.append(p.strip_outer_parentheses(place, True))
 
             for pub in pull_from_subfields(f26x, 'bf', _strip_unknown_pub):
                 pub = p.strip_ends(pub)
-                publishers.add(p.strip_outer_parentheses(pub, True))
+                publishers.append(p.strip_outer_parentheses(pub, True))
 
         for f257 in self.marc_fieldgroups.get('production_country', []):
-            places.update([p.strip_ends(sf) for sf in f257.get_subfields('a')])
+            places.extend([p.strip_ends(sf) for sf in f257.get_subfields('a')])
 
         for f in self.marc_fieldgroups.get('geographic_info', []):
             place = ' '.join([sf for sf in f.get_subfields(*tuple('abcdfgh'))])
-            places.add(place)
+            places.append(place)
 
         for f362 in self.marc_fieldgroups.get('dates_of_publication', []):
             formatted_date = ' '.join(f362.get_subfields('a'))
@@ -3076,8 +3145,8 @@ class ToDiscoverPipeline(object):
             # to falsely extracting volume numbers as years, so we
             # probably should not do that. That's why the next two
             # lines are commented out.
-            # years = p.extract_years(formatted_date)
-            # described_years |= set(years)
+            # years = p.extract_years(formatted_date, self.year_upper_limit)
+            # described_years.extend(years)
             if f362.indicator1 == '0':
                 pub_info['publication'] = pub_info.get('publication', [])
                 pub_info['publication'].append(formatted_date)
@@ -3088,8 +3157,8 @@ class ToDiscoverPipeline(object):
         f008 = self.marc_fieldgroups.get('008', [None])[0]
         if f008 is not None and len(f008.data) >= 15:
             data = f008.data
-            entries = self._interpret_coded_date(data[6], data[7:11],
-                                                 data[11:15])
+            entries = self.interpret_coded_date(data[6], data[7:11],
+                                                data[11:15])
             coded_dates.extend(entries)
 
         for field in self.marc_fieldgroups.get('coded_dates', []):
@@ -3098,7 +3167,7 @@ class ToDiscoverPipeline(object):
                 dtype = (coded_group[0].get_subfields('a') or [''])[0]
                 date1 = (coded_group[0].get_subfields('c') or [''])[0]
                 date2 = (coded_group[0].get_subfields('e') or [''])[0]
-                entries = self._interpret_coded_date(dtype, date1, date2)
+                entries = self.interpret_coded_date(dtype, date1, date2)
                 coded_dates.extend(entries)
 
             other_group = group_subfields(field, 'klop', unique='klop')
@@ -3107,39 +3176,45 @@ class ToDiscoverPipeline(object):
                 _l = (other_group[0].get_subfields('l') or [''])[0]
                 _o = (other_group[0].get_subfields('o') or [''])[0]
                 _p = (other_group[0].get_subfields('p') or [''])[0]
-                coded_dates.extend(self._interpret_coded_date('046kl', _k, _l))
-                coded_dates.extend(self._interpret_coded_date('046op', _o, _p))
+                coded_dates.extend(self.interpret_coded_date('046kl', _k, _l))
+                coded_dates.extend(self.interpret_coded_date('046op', _o, _p))
 
         sort, year_display = '', ''
         for i, row in enumerate(coded_dates):
-            date1, date2, pub_field, label = row
+            dstr1, dstr2, dnum1, dnum2, pub_field, label = row
             if i == 0:
-                sort = date1
-                year_display = self._format_years_for_display(date1, date2)
-            if date1 is not None and date1 not in described_years:
-                display_date = self._format_years_for_display(date1, date2,
+                sort = dstr1
+                year_display = self._format_years_for_display(dstr1, dstr2)
+
+            not_already_described = (dstr1, dstr2) not in described_years
+            if not pub_info.get(pub_field, []) and not_already_described:
+                display_date = self._format_years_for_display(dstr1, dstr2,
                                                               the=True)
                 if display_date != 'dates unknown':
                     new_stext = '{}{}'.format(label, display_date)
-                    pub_info[pub_field] = pub_info.get(pub_field, [])
-                    pub_info[pub_field].append(new_stext)
-                    described_years.add(date1)
+                    pub_info[pub_field] = [new_stext]
 
         if not coded_dates and described_years:
-            sort = sorted([y for y in described_years])[0]
+            sort = sorted([y[0] for y in described_years])[0]
             year_display = self._format_years_for_display(sort)
 
-        yfacet, dfacet, sdates = self._make_pub_limit_years(described_years)
+        facet_dates, search_dates = [], []
+        for ystrs, expanded in self._expand_years(coded_dates, described_years):
+            if expanded:
+                facet_dates.extend(expanded)
+            if ystrs:
+                new_sdates = [self._format_years_for_display(y) for y in ystrs]
+                search_dates.extend(new_sdates)
+        search_dates.extend([str(d) for d in facet_dates])
 
         ret_val = {'{}_display'.format(k): v for k, v in pub_info.items()}
         ret_val.update({
             'publication_sort': sort.replace('u', '-'),
-            'publication_year_facet': yfacet,
-            'publication_decade_facet': dfacet,
+            'publication_year_range_facet': list(set(facet_dates)),
             'publication_year_display': year_display,
-            'publication_places_search': list(places),
-            'publishers_search': list(publishers),
-            'publication_dates_search': list(set(sdates)),
+            'publication_places_search': list(set(places)),
+            'publishers_search': list(set(publishers)),
+            'publication_dates_search': list(set(search_dates)),
             'publication_date_notes': publication_date_notes
         })
         return ret_val
@@ -5144,22 +5219,16 @@ class ToDiscoverPipeline(object):
                     boost = 1
                 return boost
 
-        def find_good_boost(this_year, pub_years, are_decades):
+        def find_good_boost(this_year, pub_years):
             for pub_year in sorted(pub_years, reverse=True):
-                if pub_year and are_decades:
-                    pub_year = '{}5'.format(pub_year[:3])
                 boost = make_pubyear_boost(this_year, pub_year)
                 if boost is not None:
                     return boost
             return None
 
-        pub_years = self.bundle.get('publication_year_facet') or []
-        are_decades = False
-        if not pub_years:
-            pub_years = self.bundle.get('publication_decade_facet') or []
-            are_decades = True
+        pub_years = self.bundle.get('publication_year_range_facet') or []
 
-        boost = find_good_boost(self.this_year, pub_years, are_decades)
+        boost = find_good_boost(self.this_year, pub_years)
         pub_boost = 460 if boost is None else boost
         q_boost = 500 if self.r.bcode1 in ('-', 'd') else 0
         return {'record_boost': str(pub_boost + q_boost)}

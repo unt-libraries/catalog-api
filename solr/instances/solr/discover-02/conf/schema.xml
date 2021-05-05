@@ -155,26 +155,6 @@
         <filter class="solr.LowerCaseFilterFactory" />
       </analyzer>
     </fieldType>
-
-    <fieldType name="reverse_number" class="solr.TextField" sortMissingLast="true" omitNorms="true">
-      <analyzer type="index">
-        <tokenizer class="solr.KeywordTokenizerFactory"/>
-        <filter class="solr.PatternReplaceFilterFactory" pattern="^(\d+\-?\d*)$" replacement="$1!$1"/>
-        <filter class="solr.PatternReplaceFilterFactory" pattern="9(?=.*!)" replacement="a"/>
-        <filter class="solr.PatternReplaceFilterFactory" pattern="8(?=.*!)" replacement="b"/>
-        <filter class="solr.PatternReplaceFilterFactory" pattern="7(?=.*!)" replacement="c"/>
-        <filter class="solr.PatternReplaceFilterFactory" pattern="6(?=.*!)" replacement="d"/>
-        <filter class="solr.PatternReplaceFilterFactory" pattern="5(?=.*!)" replacement="e"/>
-        <filter class="solr.PatternReplaceFilterFactory" pattern="4(?=.*!)" replacement="f"/>
-        <filter class="solr.PatternReplaceFilterFactory" pattern="3(?=.*!)" replacement="g"/>
-        <filter class="solr.PatternReplaceFilterFactory" pattern="2(?=.*!)" replacement="h"/>
-        <filter class="solr.PatternReplaceFilterFactory" pattern="1(?=.*!)" replacement="i"/>
-        <filter class="solr.PatternReplaceFilterFactory" pattern="0(?=.*!)" replacement="j"/>
-      </analyzer>
-    <analyzer type="query">
-        <tokenizer class="solr.KeywordTokenizerFactory"/>
-    </analyzer>
-    </fieldType>
   </types>
 
   <fields>
@@ -260,10 +240,7 @@
     <field name="title_sort" type="string" indexed="true" stored="false" multiValued="false"/>
 
     <!-- FACET FIELDS ===================================================================================== -->
-    <field name="publication_decade_facet" type="reverse_number" indexed="true" stored="false" multiValued="true"/>
-    <field name="publication_year_facet" type="reverse_number" indexed="true" stored="false" multiValued="true"/>
     <field name="publication_year_range_facet" type="sint" indexed="true" stored="true" multiValued="true"/>
-    <copyField source="publication_year_facet" dest="publication_year_range_facet"/>
     <field name="access_facet" type="string" indexed="true" stored="false" multiValued="true"/>
     <field name="building_facet" type="string" indexed="true" stored="false" multiValued="true"/>
     <field name="shelf_facet" type="string" indexed="true" stored="false" multiValued="true"/>

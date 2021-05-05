@@ -10,7 +10,7 @@ from utils.test_helpers import solr_test_profiles as tp
 
 
 SOLR_TYPES = tp.SOLR_TYPES
-SOLR_TYPES['reverse_number'] = {'pytype': unicode, 'emtype': 'string'}
+SOLR_TYPES['sint'] = {'pytype': int, 'emtype': 'int'}
 SOLR_TYPES['cn_norm'] = {'pytype': unicode, 'emtype': 'string'}
 SOLR_TYPES['heading_term_text'] = {'pytype': unicode, 'emtype': 'string'}
 SOLR_TYPES['heading_term_text_stem'] = {'pytype': unicode, 'emtype': 'string'}
@@ -29,12 +29,12 @@ DISCOVER_FIELDS = (
     'other_standard_numbers_display', 'other_control_numbers_display',
     'publication_year_display', 'creation_display', 'publication_display',
     'distribution_display', 'manufacture_display', 'copyright_display',
-    'publication_sort', 'publication_decade_facet', 'publication_year_facet',
-    'access_facet', 'building_facet', 'shelf_facet', 'collection_facet',
-    'resource_type_facet', 'media_type_facet', 'metadata_facets_search',
-    'games_ages_facet', 'games_duration_facet', 'games_players_facet',
-    'call_numbers_search', 'sudocs_search', 'standard_numbers_search',
-    'control_numbers_search', 'publication_places_search', 'publishers_search',
+    'publication_sort', 'publication_year_range_facet', 'access_facet',
+    'building_facet', 'shelf_facet', 'collection_facet', 'resource_type_facet',
+    'media_type_facet', 'metadata_facets_search', 'games_ages_facet',
+    'games_duration_facet', 'games_players_facet', 'call_numbers_search',
+    'sudocs_search', 'standard_numbers_search', 'control_numbers_search',
+    'publication_places_search', 'publishers_search',
     'publication_dates_search', 'publication_date_notes', 'author_json',
     'contributors_json', 'meetings_json', 'author_sort',
     'author_contributor_facet', 'meeting_facet', 'author_search',
@@ -120,8 +120,8 @@ DISCOVER_GENS = (
     ('games_duration_facet', 'auto'),
     ('games_players_facet', 'auto'),
     ('languages', 'auto'),
-    ('publication_year_facet', GENS(tp.multi(GENS.type('int', mn=1000, mx=9999),
-                                             1, 5))),
+    ('publication_year_range_facet',
+        GENS(tp.multi(GENS.type('int', mn=1000, mx=9999), 1, 5))),
     ('isbn_numbers', GENS(tp.chance(tp.multi(tp.isbn_number, 1, 5), 66))),
     ('issn_numbers', GENS(tp.chance(tp.multi(tp.issn_number, 1, 5), 33))),
     ('lccn_number', GENS(tp.chance(GENS.type('int', mn=10000, mx=99999), 80))),
