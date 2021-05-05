@@ -8,6 +8,7 @@ from __future__ import unicode_literals
 import logging
 import re
 import collections
+from datetime import datetime
 
 from utils import toascii
 from sierra.settings.marcdata import PERSON_NOBILIARY_PARTICLES
@@ -414,33 +415,73 @@ def clean(data):
     return cleaned
 
 
-def extract_years(data):
+def extract_years(data, year_limit=None):
     """
-    Extract individual years from a string, such as a publication
-    string, and return them as a tuple.
+    Extract year or year ranges from a string, such as a publication
+    statement, and return them as a tuple of tuples.
 
-    Returned years are 4 digits and formatted like years in the 008:
-    0930 => the year 930
-    193u => 1930s
-    19uu => 20th century
+    Each inner date tuple is two elements: (start_date, end_date) for
+    ranges, or (start_date, None) for individual dates. They are
+    intended to be equivalent to the 008 date1 and date2 and are thus
+    formatted like the 008.
+
+    (0930, None) => the year 930
+    (193u, None) => 1930s
+    (19uu, None) => 20th century
+    (1985, 1986) => 1985-1986
+    (1985, 9999) => 1985-present
+
+    Year interpretation may be overly complex, but I've made an attempt
+    to handle edge cases gracefully, i.e. to pick the most likely
+    interpretation for ambiguous dates, using the current year as a
+    cutoff point. E.g., if this year is 2021:
+        - 202? is interpreted as 202u instead of 0202. Even though the
+          latter is technically correct, the former is more likely what
+          is meant.
+        - 203? is interpreted as 0203 instead of 203u. It's less likely
+          a date more than 5 years in the future would be the intended
+          interpretation, especially since ca. 203 is "correct."
+        - 202- and 203- are interpreted as 202u and 203u, respectively,
+          instead of 0202 to 9999 and 0203 to 9999. It's unlikely that
+          this kind of pattern is intended to be an open-ended range.
+        - 202-203 is interpreted as a range, 0202 to 0203.
+
+    Note that date/range values are not sanity-checked by this
+    function; that should be handled independently.
     """
     dates = []
-    century_re = r'(\d{1,2}st|\d{1,2}nd|\d{1,2}rd|\d{1,2}th)(?=.+centur)'
+    century_re = r'(?:\d{1,2}st|\d{1,2}nd|\d{1,2}rd|\d{1,2}th)(?=.+centur)'
     decade_re = r'\d{2,3}0s'
-    year_re = r'\d---|\d\d--|\d\d\d-|\d{3,4}(?![\ds])'
-    combined_re = r'(?<!\d)({}|{}|{})'.format(century_re, decade_re, year_re)
+    year1_re = (r'(?:\d(?:---|\?\?\?)|\d\d(?:--|\?\?)|\d\d\d(?:-|\?)(?!\d)'
+                r'|\d{3,4}(?![\ds]))')
+    year2_re = r'(?:(-)(?:\s*({})|\s|$))'.format(year1_re)
+
+    args = [century_re, decade_re, year1_re, year2_re]
+    date_re = r'(?<!\d)({}|{}|{})\?*{}?'.format(*args)
 
     data = data.replace('[', '').replace(']', '')
     
-    for date, _ in re.findall(combined_re, data, flags=re.IGNORECASE):
-        if date.lower().endswith('0s'):
-            new_date = '{}u'.format(date[:-2])
-        elif date[-2:].lower() in ('st', 'nd', 'rd', 'th'):
-            century = int(date[:-2]) - 1
-            new_date = '{}uu'.format(century)
-        else:
-            new_date = date.replace('-', 'u')
-        dates.append(new_date.zfill(4))
+    for d1, dash, d2 in re.findall(date_re, data, flags=re.IGNORECASE):
+        new_dates = []
+        for i, date in enumerate((d1, d2)):
+            new_date = None
+            if date.lower().endswith('0s'):
+                new_date = '{}u'.format(date[:-2])
+            elif date[-2:].lower() in ('st', 'nd', 'rd', 'th'):
+                century = int(d1[:-2]) - 1
+                new_date = '{}uu'.format(century)
+            elif date:
+                prefix, punct = date[:-1], date[-1]
+                if prefix.isdigit() and punct == '?':
+                    year_limit = year_limit or datetime.now().year + 5
+                    if int(prefix) > (year_limit / 10):
+                        date = prefix
+                new_date = date.replace('?', '-').replace('-', 'u')
+                new_date = new_date.zfill(4)
+            elif dash and i == 1:
+                new_date = '9999'
+            new_dates.append(new_date)
+        dates.append(tuple(new_dates))
     return tuple(dates)
 
 
