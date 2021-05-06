@@ -445,9 +445,15 @@ def test_clean(data, expected):
 
 
 @pytest.mark.parametrize('data, expected', [
+    ('2', tuple()),
+    ('002', tuple()),
+    ('0002', tuple()),
+    ('2c002.', tuple()),
+    ('05', tuple()),
     ('1980.', (('1980', None),)),
     ('c1980.', (('1980', None),)),
     ('[198-]', (('198u', None),)),
+    ('[199u]-', (('199u', '9999'),)),
     ('[322-]', (('322u', None),)),
     ('198?', (('198u', None),)),
     ('19??', (('19uu', None),)),

@@ -452,8 +452,8 @@ def extract_years(data, year_limit=None):
     dates = []
     century_re = r'(?:\d{1,2}st|\d{1,2}nd|\d{1,2}rd|\d{1,2}th)(?=.+centur)'
     decade_re = r'\d{2,3}0s'
-    year1_re = (r'(?:\d(?:---|\?\?\?)|\d\d(?:--|\?\?)|\d\d\d(?:-|\?)(?!\d)'
-                r'|\d{3,4}(?![\ds]))')
+    year1_re = (r'(?:[1-9](?:---|\?\?\?|uuu)|[1-9]\d(?:--|\?\?|uu)'
+                r'|[1-9]\d\d[\-\?u](?!\d)|[1-9]\d{2,3}(?![\ds]))')
     year2_re = r'(?:(-)(?:\s*({})|\s|$))'.format(year1_re)
 
     args = [century_re, decade_re, year1_re, year2_re]
@@ -471,8 +471,8 @@ def extract_years(data, year_limit=None):
                 century = int(d1[:-2]) - 1
                 new_date = '{}uu'.format(century)
             elif date:
-                prefix, punct = date[:-1], date[-1]
-                if prefix.isdigit() and punct == '?':
+                prefix, unknown = date[:-1], date[-1]
+                if prefix.isdigit() and unknown in ('?', 'u'):
                     year_limit = year_limit or datetime.now().year + 5
                     if int(prefix) > (year_limit / 10):
                         date = prefix
