@@ -2919,7 +2919,7 @@ class ToDiscoverPipeline(object):
         return statements
 
     def _sanitize_date(self, dnum, dstr='', allow_9999=False):
-        if dnum == 0:
+        if dnum < 100:
             return None
         if allow_9999 and dnum == 9999:
             return self.this_year
