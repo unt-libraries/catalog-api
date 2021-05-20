@@ -2,6 +2,7 @@
 sierra2marc.py defines a class (S2MarcBatch) for parsing the Sierra
 models out into MARC21 using Pymarc.
 """
+from __future__ import absolute_import
 import re
 import codecs
 import sys
@@ -11,6 +12,7 @@ from time import time as timestamp
 from django.conf import settings
 
 from utils import helpers
+from six.moves import range
 
 
 class S2MarcError(Exception):
@@ -192,7 +194,7 @@ class S2MarcBatch(object):
         if filepath[-1] != '/':
             filepath = '{}/'.format(filepath)
         try:
-            marcfile = file('{}{}'.format(filepath, filename), 'r')
+            marcfile = open('{}{}'.format(filepath, filename), 'r')
         except IOError:
             pass
         else:
@@ -206,12 +208,12 @@ class S2MarcBatch(object):
                 while file_exists:
                     filename = '{}.mrc'.format(timestamp())
                     try:
-                        file('{}{}'.format(filepath, filename), 'r')
+                        open('{}{}'.format(filepath, filename), 'r')
                     except IOError:
                         file_exists = False
 
         try:
-            marcfile = file('{}{}'.format(filepath, filename), 'w')
+            marcfile = open('{}{}'.format(filepath, filename), 'w')
         except IOError:
             raise
         if existing_records:

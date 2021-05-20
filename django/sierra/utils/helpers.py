@@ -3,10 +3,13 @@ Contains various utility functions and classes for Sierra API project
 code. 
 """
 from __future__ import unicode_literals
+from __future__ import absolute_import
 import operator
 import re
 
 from django.db.models import Q
+import six
+from functools import reduce
 
 
 def reduce_filter_kwargs(filters):
@@ -103,7 +106,7 @@ class NormalizedCallNumber(object):
         process_it = getattr(self, '_process_{}'.format(kind), 
                              self._process_default)
         try:
-            call = process_it(unicode(call))
+            call = process_it(six.text_type(call))
         except CallNumberError:
             raise
 
@@ -290,7 +293,7 @@ class NormalizedCallNumber(object):
         for x in data.split(' '):
             if ((decimals and re.search(r'^\d*\.?\d+$', x))
                 or (not decimals and re.search(r'^\d+$', x))):
-                x = '{:010d}{}'.format(int(float(x)), unicode(float(x)%1)[1:])
+                x = '{:010d}{}'.format(int(float(x)), six.text_type(float(x)%1)[1:])
                 x = re.sub(r'\.0$', '', x)
             parts.append(x)
         return ' '.join(parts)

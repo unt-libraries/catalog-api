@@ -3,6 +3,7 @@ Add URL patterns for Django/DRF for `asm-search-suggestions` and
 `asm-browse-suggestions` resources, for bl-suggest.
 """
 
+from __future__ import absolute_import
 from django.conf.urls import url
 from django.core.urlresolvers import reverse_lazy
 from django.views.generic import RedirectView

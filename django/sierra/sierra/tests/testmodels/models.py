@@ -1,6 +1,7 @@
 """
 Contains models used only for testing purposes.
 """
+from __future__ import absolute_import
 from django.db import models
 
 

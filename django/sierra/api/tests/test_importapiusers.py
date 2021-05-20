@@ -2,6 +2,7 @@
 Tests the 'importapiusers' custom management.py command.
 """
 
+from __future__ import absolute_import
 import pytest
 import csv
 
@@ -10,6 +11,7 @@ from django.core.management.base import CommandError
 from django.utils.six import StringIO
 
 from api.management.commands import importapiusers
+from six.moves import range
 
 
 # FIXTURES AND TEST DATA
@@ -55,7 +57,7 @@ def ubatch_to_csv(batch):
     """
     permkey = 'permissions_dict'
     fields = [k for k in batch[0].keys() if k != permkey]
-    fields.extend(batch[0][permkey].keys())
+    fields.extend(list(batch[0][permkey].keys()))
     return '{}\n{}'.format(','.join(fields), '\n'.join([
         ','.join([str(r.get(f, r[permkey].get(f, None))) for f in fields])
             for r in batch

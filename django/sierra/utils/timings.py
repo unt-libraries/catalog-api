@@ -32,11 +32,15 @@ your tests and then .log_results() to log the results to whatever
 logger you want.
 '''
 
+from __future__ import absolute_import
+from __future__ import print_function
 import logging
 import ast
 from datetime import datetime, time
 
 from rest_framework.test import APIClient
+import six
+from six.moves import range
 
 
 class APIViewTimingTester(object):
@@ -65,35 +69,35 @@ class APIViewTimingTester(object):
 
         logger = self.console_logger
 
-        print 'Starting API View timing test set.'
+        print('Starting API View timing test set.')
         client = APIClient()
         for test in test_params:
             url = '{}{}'.format(url_base, test['url'])
-            print ('Sending {} requests for {}, using data {}.'
-                   ''.format(repeat, url, test['data']))
+            print(('Sending {} requests for {}, using data {}.'
+                   ''.format(repeat, url, test['data'])))
             timings = {}
             print ('First throwaway request...')
             response = client.get(url, test['data'])
             print ('Now the real requests.')
             for i in range(0, repeat):
-                print '{}...'.format(i+1)
+                print('{}...'.format(i+1))
                 response = client.get(url, test['data'])
                 try:
                     raw_timings = ast.literal_eval(response['timings'])
                 except ValueError:
                     raw_timings = response['timings']
-                for key, value in raw_timings.iteritems():
+                for key, value in six.iteritems(raw_timings):
                     timings[key] = timings.get(key, 0) + value
                     if i == repeat - 1:
                         timings[key] = timings.get(key, 0) / repeat
-            print 'Done.'
+            print('Done.')
             self.results.append({
                 'repeat': repeat,
                 'url': url,
                 'data': test['data'],
                 'timings': timings
             })
-        print 'Finished API View timing test set.'
+        print('Finished API View timing test set.')
 
     def log_results(self, logger=None):
         if logger is None:
@@ -103,7 +107,7 @@ class APIViewTimingTester(object):
         for r in self.results:
             logger.info('Test {}, {}, repeat {}'
                         ''.format(r['url'], r['data'], r['repeat']))
-            for key, value in sorted(r['timings'].iteritems()):
+            for key, value in sorted(six.iteritems(r['timings'])):
                 logger.info('{:<30}{:.3f}'.format('{}:'.format(key), value))
             logger.info('')
 

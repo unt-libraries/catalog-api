@@ -4,6 +4,7 @@ lists, uses JSON API conventions for links, and adds some metadata
 about each page.
 '''
 
+from __future__ import absolute_import
 from django.conf import settings
 
 from rest_framework import serializers

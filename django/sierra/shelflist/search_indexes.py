@@ -2,6 +2,7 @@
 This contains additional specifications for the haystack Solr indexes
 for the shelflist app.
 """
+from __future__ import absolute_import
 from haystack import indexes
 
 from base import search_indexes

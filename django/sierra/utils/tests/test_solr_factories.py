@@ -2,12 +2,15 @@
 Contains tests for utils.test_helpers.solr_factories.
 """
 
+from __future__ import absolute_import
 import pytest
 import datetime
 import pytz
 import itertools
 
 from utils.test_helpers import solr_factories as f
+import six
+from six.moves import range
 
 
 # FIXTURES AND TEST DATA
@@ -188,12 +191,12 @@ def test_dataemitter_parameters(emtype, defaults, overrides, vcheck,
 
 
 @pytest.mark.parametrize('choices, repeatable, try_num, exp_num', [
-    (range(0, 10), True, 1000, 1000),
-    (range(0, 10), False, 1000, 10),
-    (range(0, 10000), True, 1000, 1000),
-    (range(0, 10000), False, 1000, 1000),
-    (range(0, 1000), True, 1000, 1000),
-    (range(0, 1000), False, 1000, 1000),
+    (list(range(0, 10)), True, 1000, 1000),
+    (list(range(0, 10)), False, 1000, 10),
+    (list(range(0, 10000)), True, 1000, 1000),
+    (list(range(0, 10000)), False, 1000, 1000),
+    (list(range(0, 1000)), True, 1000, 1000),
+    (list(range(0, 1000)), False, 1000, 1000),
 ])
 def test_solrdatagenfactory_choice(choices, repeatable, try_num, exp_num,
                                    gen_factory):
@@ -212,13 +215,13 @@ def test_solrdatagenfactory_choice(choices, repeatable, try_num, exp_num,
 
 @pytest.mark.parametrize('choices, multi_num, repeatable, try_num, exp_num, '
                          'exp_last_num', [
-    (range(0, 10), 5, True, 1000, 1000, 5),
-    (range(0, 10), 5, False, 1000, 2, 5),
-    (range(0, 10), 6, False, 1000, 2, 4),
-    (range(0, 10000), 5, True, 1000, 1000, 5),
-    (range(0, 10000), 5, False, 1000, 1000, 5),
-    (range(0, 1000), 5, True, 1000, 1000, 5),
-    (range(0, 1000), 5, False, 1000, 200, 5),
+    (list(range(0, 10)), 5, True, 1000, 1000, 5),
+    (list(range(0, 10)), 5, False, 1000, 2, 5),
+    (list(range(0, 10)), 6, False, 1000, 2, 4),
+    (list(range(0, 10000)), 5, True, 1000, 1000, 5),
+    (list(range(0, 10000)), 5, False, 1000, 1000, 5),
+    (list(range(0, 1000)), 5, True, 1000, 1000, 5),
+    (list(range(0, 1000)), 5, False, 1000, 200, 5),
 ])
 def test_solrdatagenfactory_multichoice(choices, multi_num, repeatable,
                                         try_num, exp_num, exp_last_num,
@@ -413,7 +416,7 @@ def test_solrprofile_init_fields_structure(profile):
     assert prof.fields['haystack_id']['name'] == 'haystack_id'
     assert prof.fields['haystack_id']['is_key'] == True
     assert prof.fields['haystack_id']['type'] == 'string'
-    assert prof.fields['haystack_id']['pytype'] == unicode
+    assert prof.fields['haystack_id']['pytype'] == six.text_type
     assert prof.fields['haystack_id']['emtype'] == 'string'
     assert prof.fields['haystack_id']['multi'] == False
     assert prof.fields['haystack_id']['unique'] == True
@@ -519,10 +522,10 @@ def test_solrprofile_init_fields_with_custom_type(schema, profile, solr_types):
     schema['fields'].append({'name': custom_name, 'type': custom_type,
                              'multiValued': False})
     assert custom_type not in solr_types
-    solr_types[custom_type] = {'pytype': unicode, 'emtype': 'string'}
+    solr_types[custom_type] = {'pytype': six.text_type, 'emtype': 'string'}
     prof = profile(my_schema=schema, solr_types=solr_types)
     assert custom_name in prof.fields
-    assert prof.fields[custom_name]['pytype'] == unicode
+    assert prof.fields[custom_name]['pytype'] == six.text_type
     assert prof.fields[custom_name]['emtype'] == 'string'
 
 

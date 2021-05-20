@@ -4,6 +4,7 @@ Exporters module for catalog-api `blacklight` app.
 
 from __future__ import unicode_literals
 
+from __future__ import absolute_import
 from haystack import exceptions
 
 from base import models as sm
@@ -51,7 +52,7 @@ class SameRecSetMultiExporter(CompoundMixin, Exporter):
 
     @property
     def deletion_filter(self):
-        return self.children.values()[0].deletion_filter
+        return list(self.children.values())[0].deletion_filter
 
     def get_deletions(self):
         """
@@ -59,7 +60,7 @@ class SameRecSetMultiExporter(CompoundMixin, Exporter):
         children are the same, then get one set of deletions. Otherwise
         get a separate set for each child (like a BatchExporter).
         """
-        children = self.children.values()
+        children = list(self.children.values())
         if all((c.deletion_filter == self.deletion_filter for c in children)):
             return super(SameRecSetMultiExporter, self).get_deletions()
         return self.get_records_from_children(deletions=True)

@@ -3,6 +3,7 @@ Provides Django queryset functionality on top of Solr search results.
 """
 
 from __future__ import unicode_literals
+from __future__ import absolute_import
 import re
 import copy
 from datetime import datetime
@@ -13,6 +14,7 @@ from django.core.exceptions import ImproperlyConfigured
 from django.conf import settings
 
 import logging
+import six
 # set up logger, for debugging
 logger = logging.getLogger('sierra.custom')
 
@@ -199,12 +201,12 @@ class Queryset(object):
             val = '{}T{}Z'.format(date_str, time_str)
         else:
             val = re.sub(r'([ +\-!(){}\[\]\^"~*?:\\/]|&&|\|\|)', r'\\\1',
-                         unicode(val))
+                         six.text_type(val))
         return val
 
     def _compile_filter_args(self, filter_args):
         fq = []
-        for key, val in filter_args.iteritems():
+        for key, val in six.iteritems(filter_args):
             try:
                 field, filter_type = key.split('__')
             except ValueError:

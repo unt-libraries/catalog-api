@@ -1,6 +1,7 @@
 """
 Contains the `makefixtures` manage.py command. 
 """
+from __future__ import absolute_import
 import ujson
 
 from django.core.management.base import BaseCommand, CommandError

@@ -9,6 +9,7 @@ BibIndex class with the bare minimum attributes to make it a valid
 Haystack SearchIndex class.
 """
 from __future__ import unicode_literals
+from __future__ import absolute_import
 import ujson
 import fnmatch
 
@@ -22,6 +23,8 @@ from . import models as sierra_models
 from utils import helpers
 
 import logging
+import six
+from six.moves import range
 # set up logger, for debugging
 logger = logging.getLogger('sierra.custom')
 
@@ -41,9 +44,9 @@ def cat_fields(data, include=(), exclude=()):
         if data[i] is not None and ((include and i in include) 
                                     or (exclude and i not in exclude)):
             if type(data[i]) is list or type(data[i]) is tuple:
-                values.append(' '.join([unicode(j) for j in data[i]]))
+                values.append(' '.join([six.text_type(j) for j in data[i]]))
             else:
-                values.append(unicode(data[i]))
+                values.append(six.text_type(data[i]))
     return ' '.join(values)
 
 
@@ -277,7 +280,7 @@ class MarcIndex(CustomQuerySetIndex, indexes.Indexable):
                     self.prepared_data[mf_name] = field.data
                 else:
                     data = self.prepared_data.get(mf_name, [])
-                    data.append(unicode(field)[6:])
+                    data.append(six.text_type(field)[6:])
                     self.prepared_data[mf_name] = data
                     sf = field.subfields
                     for s_tag, s_data in [sf[n:n+2] for n in range(0,len(sf),2)]:

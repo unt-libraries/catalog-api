@@ -10,6 +10,7 @@ collected in one place, isolated as much as possible from other code.
 """
 
 from __future__ import unicode_literals
+from __future__ import absolute_import
 import re
 
 from base import ruleset as r

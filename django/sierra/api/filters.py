@@ -1,3 +1,4 @@
+from __future__ import absolute_import
 import re
 import logging
 from datetime import datetime
@@ -13,6 +14,7 @@ from haystack.query import SearchQuerySet
 
 from . import exceptions
 from utils import helpers
+import six
 
 # set up logger, for debugging
 logger = logging.getLogger('sierra.custom')
@@ -256,7 +258,7 @@ class HaystackFilter(BaseFilterBackend):
         """
         param_data = {'data': {}, 'search': '', 'order_by': ''}
         validation_errors = []
-        for orig_p_name, p_val in dict(params).iteritems():
+        for orig_p_name, p_val in six.iteritems(dict(params)):
             p_name = view.get_serializer().restore_field_name(orig_p_name)
 
             if p_name not in self.reserved_params:
@@ -298,13 +300,13 @@ class HaystackFilter(BaseFilterBackend):
 
             elif p_name == settings.REST_FRAMEWORK.get('SEARCHTYPE_PARAM',
                                                        'searchtype'):
-                if p_val[0] in self.searchtypes.keys():
+                if p_val[0] in list(self.searchtypes.keys()):
                     param_data['searchtype'] = p_val[0]
                 else:
                     msg = ('Query filter criteria specified for this resource '
                            'is invalid. The searchtype parameter must be one '
                            'of the following values: {}'.format(
-                                ', '.join(self.searchtypes.keys())))
+                                ', '.join(list(self.searchtypes.keys()))))
                     raise exceptions.BadQuery(detail=msg)
 
             elif p_name == settings.REST_FRAMEWORK.get('ORDER_BY_PARAM', 
@@ -324,8 +326,8 @@ class HaystackFilter(BaseFilterBackend):
         return param_data
 
     def _apply_django_style_filters(self, queryset, params):
-        for p_name, p_val in params.iteritems():
-            for operator, op_vals in p_val.iteritems():
+        for p_name, p_val in six.iteritems(params):
+            for operator, op_vals in six.iteritems(p_val):
                 for op_val in op_vals:
                     negate = False
                     if operator[0] == '-':

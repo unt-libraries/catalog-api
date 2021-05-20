@@ -2,6 +2,7 @@
 Tests for custom fields.
 """
 
+from __future__ import absolute_import
 import re
 import random
 import pytest
@@ -10,7 +11,8 @@ from django.db import connections, models, IntegrityError
 from django.core import serializers
 
 from base import fields
-from vcftestmodels import models as vtm
+from .vcftestmodels import models as vtm
+import six
 
 
 # FIXTURES AND TEST DATA
@@ -153,7 +155,7 @@ def noise_data():
         count = 1
         while count <= n:
             parent_int = random.randint(0,11) or None
-            parent_str = unicode(random.randint(0,11) or None)
+            parent_str = six.text_type(random.randint(0,11) or None)
             yield ('noise{}'.format(count), count, parent_int, parent_str)
             count += 1
     return _noise_data

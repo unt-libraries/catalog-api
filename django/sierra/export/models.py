@@ -2,6 +2,7 @@
 Contains models for the export app. These are mainly just to provide
 some way to track your exports.
 """
+from __future__ import absolute_import
 import importlib
 
 from django.db import models

@@ -3,6 +3,7 @@ Tests the base.ruleset classes and functions.
 """
 
 from __future__ import unicode_literals
+from __future__ import absolute_import
 import pytest
 
 from base import local_rulesets as lr

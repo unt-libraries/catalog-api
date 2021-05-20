@@ -5,6 +5,7 @@ This tests creating users and setting permissions. The APIUsers API
 resource (including authentication) is tested via `test_api.py`.
 """
 
+from __future__ import absolute_import
 import pytest
 
 import ujson

@@ -7,11 +7,14 @@ factories. It *is* circular, and a little indirect, but it means we
 don't have to duplicate those fixtures here to test them.
 """
 
+from __future__ import absolute_import
+from __future__ import print_function
 import pytest
 import importlib
 
 from base import models as bm
 from utils.test_helpers import solr_test_profiles as tp
+from six.moves import range
 
 
 # FIXTURES AND TEST DATA
@@ -129,7 +132,7 @@ def test_model_instance_fixtures(glob_count, model_instance,
     new_loc_instance = model_instance(tmodel, code=loc_code, name=loc_name)
     new_loc_instance_exists = len(tmodel.objects.filter(code=loc_code)) == 1
 
-    print tmodel.objects.all()
+    print(tmodel.objects.all())
 
     assert not loc_instance_exists
     assert not glob_instance_exists

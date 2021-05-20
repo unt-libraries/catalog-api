@@ -1,6 +1,7 @@
 """
 Contains models for api app.
 """
+from __future__ import absolute_import
 import hashlib
 import importlib
 import csv
@@ -110,7 +111,8 @@ class APIUserManager(models.Manager):
                            'APIUser already exists.'.format(username))
                     raise UserExists(msg)
 
-        except IntegrityError as (ie_num, detail):
+        except IntegrityError as xxx_todo_changeme:
+            (ie_num, detail) = xxx_todo_changeme.args
             if ie_num == 1062:
                 detail = ('Existing Django user found, but it may not be '
                           'the correct one. Its details do not match the ones '
@@ -163,7 +165,7 @@ class APIUserManager(models.Manager):
             try:
                 if unknown_fields:
                     msg = 'Unknown fields in record: {}'.format(unknown_fields)
-                    raise(APIUserException(msg))
+                    raise APIUserException
                 try:
                     au = self.get(user__username=username)
                 except ObjectDoesNotExist:
@@ -193,9 +195,9 @@ class APIUserManager(models.Manager):
         def _str_to_bool(string):
             return False if re.match(r'([Ff]|0+$|$)', string) else True
 
-        permission_columns = self.model.permission_defaults.keys()
+        permission_columns = list(self.model.permission_defaults.keys())
         rows = (r for r in table)
-        colnames = rows.next()
+        colnames = next(rows)
         user_records = []
         for row in rows:
             rec = {col: row[i] for i, col in enumerate(colnames)}
@@ -330,7 +332,7 @@ class APIUser(models.Model):
 
         Returns a dictionary of all user permissions after the update.
         """
-        permissions = self.permission_defaults.keys()
+        permissions = list(self.permission_defaults.keys())
         return self.set_permissions_to_value(permissions, value)
 
     @staticmethod

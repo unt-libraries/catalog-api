@@ -2,6 +2,8 @@
 Tests API features applicable to the `shelflist` app.
 """
 
+from __future__ import absolute_import
+from __future__ import print_function
 import pytest
 import ujson
 import jsonpatch
@@ -10,6 +12,8 @@ from datetime import datetime
 from shelflist.exporters import ItemsToSolr
 from shelflist.search_indexes import ShelflistItemIndex
 from shelflist.serializers import ShelflistItemSerializer
+import six
+from six.moves import range
 
 # FIXTURES AND TEST DATA
 # Fixtures used in the below tests can be found in ...
@@ -333,7 +337,7 @@ def compile_params(parameters):
     Compile a tuple of test parameters for pytest.parametrize, from one
     of the above PARAMETERS__* constants.
     """
-    return tuple(p.values()[0] for p in parameters[1:])
+    return tuple(list(p.values())[0] for p in parameters[1:])
 
 
 def compile_ids(parameters):
@@ -341,7 +345,7 @@ def compile_ids(parameters):
     Compile a tuple of test IDs for pytest.parametrize, from one of the
     above PARAMETERS__* constants.
     """
-    return tuple(p.keys()[0] for p in parameters[1:])
+    return tuple(list(p.keys())[0] for p in parameters[1:])
 
 
 # PYTEST FIXTURES
@@ -418,7 +422,7 @@ def derive_updated_resource():
     """
     def _get_new_val(old_val, field_type):
         if field_type == 'str':
-            return unicode('{} TEST').format((old_val or ''))
+            return six.text_type('{} TEST').format((old_val or ''))
         if field_type == 'int':
             return (old_val or 0) + 1
         if field_type == 'bool':
@@ -513,7 +517,7 @@ def test_shelflistitem_resource(api_settings, get_shelflist_urls,
     attribute.
     """
     urls = get_shelflist_urls(shelflist_solr_env.records['shelflistitem'])
-    list_resp = api_client.get(urls.values()[0])
+    list_resp = api_client.get(list(urls.values())[0])
     objects = list_resp.data['_embedded']['shelflistItems']
     ref_obj = pick_reference_object_having_link(objects, 'self')
     detail_resp = api_client.get(ref_obj['_links']['self']['href'])
@@ -543,7 +547,7 @@ def test_shelflistitem_links(resource, linked_resource, link_field,
     """
     if resource == 'shelflistItems':
         urls = get_shelflist_urls(shelflist_solr_env.records['shelflistitem'])
-        url = urls.values()[0]
+        url = list(urls.values())[0]
     else:
         url = '{}{}/'.format(API_ROOT, resource.lower())
     resp = api_client.get(url)
@@ -613,7 +617,7 @@ def test_shelflistitem_view_orderby(order_by, api_settings, shelflist_solr_env,
     order-by criteria is invalid.
     """
     sl_urls = get_shelflist_urls(shelflist_solr_env.records['shelflistitem'])
-    test_url = '{}?orderBy={}'.format(sl_urls.values()[0], order_by)
+    test_url = '{}?orderBy={}'.format(list(sl_urls.values())[0], order_by)
     response = api_client.get(test_url)
     assert response.status_code == 400
     assert 'not a valid field for ordering' in response.data['detail']
@@ -737,9 +741,9 @@ def test_shelflistitem_update_items(method, api_settings,
     assert resp.data['links']['self']['href'].endswith(url)
     assert resp.data['links']['self']['id'] == test_id
 
-    print(before.data)
+    print((before.data))
     print(try_item)
-    print(after.data)
+    print((after.data))
 
     for fname in writable:
         assert after.data[fname] == try_item[fname]
@@ -835,7 +839,7 @@ def test_shelflist_firstitemperlocation_list(test_data, search, expected,
 
     if expected is None:
         for item in rsp_items:
-            assert item['locationCode'] not in test_data_by_location.keys()
+            assert item['locationCode'] not in list(test_data_by_location.keys())
     else:
         for exp_id in expected:
             exp_row = [i[1] for i in test_data if i[0] == exp_id][0]

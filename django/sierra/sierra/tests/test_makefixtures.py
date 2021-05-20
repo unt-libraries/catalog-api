@@ -2,6 +2,7 @@
 Tests the 'makefixtures' custom management.py command.
 """
 
+from __future__ import absolute_import
 import pytest
 import ujson
 
@@ -11,7 +12,7 @@ from django.core.management.base import CommandError
 from django.db.models import Q
 from django.utils.six import StringIO
 
-from testmodels import models as m
+from .testmodels import models as m
 from sierra.management.commands import makefixtures
 
 

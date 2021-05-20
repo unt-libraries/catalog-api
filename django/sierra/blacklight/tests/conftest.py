@@ -2,6 +2,7 @@
 Contains pytest fixtures shared by Catalog API blacklight app
 """
 
+from __future__ import absolute_import
 import pytest
 import pytz
 from datetime import datetime

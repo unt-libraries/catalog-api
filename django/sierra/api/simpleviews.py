@@ -1,4 +1,5 @@
-import urllib
+from __future__ import absolute_import
+import six.moves.urllib.request, six.moves.urllib.parse, six.moves.urllib.error
 from collections import OrderedDict
 import jsonpatch
 import jsonpointer
@@ -163,7 +164,7 @@ class SimpleGetMixin(object):
             prev_offset = offset - limit if offset - limit >= 0 else 0
         if prev_offset is None:
             return None
-        return urllib.unquote(replace_query_param(url, params['offset_qp'],
+        return six.moves.urllib.parse.unquote(replace_query_param(url, params['offset_qp'],
                                                   prev_offset))
 
     def get_next_page_url(self, url, page):
@@ -180,7 +181,7 @@ class SimpleGetMixin(object):
             next_offset = page['offset'] + page['limit']
         if next_offset is None:
             return None
-        return urllib.unquote(replace_query_param(url, params['offset_qp'],
+        return six.moves.urllib.parse.unquote(replace_query_param(url, params['offset_qp'],
                                                   next_offset))
 
     def get_page_data(self, queryset, request):

@@ -2,19 +2,22 @@
 Contains structures needed to make Solr test data for `blacklight` app.
 """
 
+from __future__ import absolute_import
+from __future__ import print_function
 import hashlib
 import base64
 import random
 
 from utils.test_helpers import solr_test_profiles as tp
+import six
 
 
 SOLR_TYPES = tp.SOLR_TYPES
 SOLR_TYPES['sint'] = {'pytype': int, 'emtype': 'int'}
-SOLR_TYPES['cn_norm'] = {'pytype': unicode, 'emtype': 'string'}
-SOLR_TYPES['heading_term_text'] = {'pytype': unicode, 'emtype': 'string'}
-SOLR_TYPES['heading_term_text_stem'] = {'pytype': unicode, 'emtype': 'string'}
-SOLR_TYPES['full_heading_text'] = {'pytype': unicode, 'emtype': 'string'}
+SOLR_TYPES['cn_norm'] = {'pytype': six.text_type, 'emtype': 'string'}
+SOLR_TYPES['heading_term_text'] = {'pytype': six.text_type, 'emtype': 'string'}
+SOLR_TYPES['heading_term_text_stem'] = {'pytype': six.text_type, 'emtype': 'string'}
+SOLR_TYPES['full_heading_text'] = {'pytype': six.text_type, 'emtype': 'string'}
 GLOBAL_UNIQUE_FIELDS = ('code', 'id', 'record_number')
 GENS = tp.GENS
 
@@ -106,7 +109,7 @@ def random_agent(person_weight=8, corp_weight=1, meeting_weight=1):
             rval = tp.person_name_heading_like(record)
         else:
             rval = tp.org_name_like(record)
-        print rval
+        print(rval)
         return rval
     return gen
 

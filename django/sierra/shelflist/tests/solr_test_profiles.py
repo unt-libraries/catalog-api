@@ -2,10 +2,13 @@
 Contains structures needed to make Solr test data for `shelflist` app.
 """
 
+from __future__ import absolute_import
 import random
 
 from utils.test_helpers import solr_factories as sf
 from utils.test_helpers import solr_test_profiles as tp
+import six
+from six.moves import range
 
 
 SOLR_TYPES = tp.SOLR_TYPES
@@ -31,7 +34,7 @@ def flags(record):
         flags = []
         emitter = sf.DataEmitter()
         for _ in range(0, random.randint(0, 3)):
-            flags.append(unicode(emitter.emit('string', mn=5, mx=10)))
+            flags.append(six.text_type(emitter.emit('string', mn=5, mx=10)))
         return flags or None
 
 
@@ -41,10 +44,10 @@ def inventory_notes(record):
     def format_note(date, msg):
         dstr = '{}-{}-{}T{}:{}:{}Z'.format(date.year, date.month, date.day,
                                            date.hour, date.minute, date.second)
-        return unicode('{}|{}').format(dstr, msg)
+        return six.text_type('{}|{}').format(dstr, msg)
 
     def username():
-        return unicode(emitter.emit('string', mn=4, mx=8,
+        return six.text_type(emitter.emit('string', mn=4, mx=8,
                                     alphabet=tp.LETTERS_LOWER))
 
     def status_msg(status):
@@ -52,15 +55,15 @@ def inventory_notes(record):
             action = 'cleared status'
         else:
             action = 'set status to {}'.format(status) 
-        return unicode('@SYSTEMLOG-STATUS|{} {}').format(username(), action)
+        return six.text_type('@SYSTEMLOG-STATUS|{} {}').format(username(), action)
 
     def flag_msg(flag, action):
-        return unicode('@SYSTEMLOG-FLAG|{} {} flag {}').format(username(),
+        return six.text_type('@SYSTEMLOG-FLAG|{} {} flag {}').format(username(),
                                                                action, flag)
 
     def manual_msg():
         msg = emitter.emit('text', mn_words=1, mx_words=5)
-        return unicode('{}|{}').format(username(), msg)
+        return six.text_type('{}|{}').format(username(), msg)
 
     if 'inventory_date' in record:
         notes = []

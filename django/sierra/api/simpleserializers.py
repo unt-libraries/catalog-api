@@ -1,3 +1,4 @@
+from __future__ import absolute_import
 from collections import OrderedDict, Sequence
 
 import django.db.models.query
@@ -5,6 +6,7 @@ import django.db.models.query
 from utils import solr
 
 import logging
+import six
 
 # set up logger, for debugging
 logger = logging.getLogger('sierra.custom')
@@ -104,7 +106,7 @@ class SimpleSerializer(object):
             else:
                 obj_dict = getattr(obj, '__dict__', {})
 
-            for fname, fsettings in self.fields.iteritems():
+            for fname, fsettings in six.iteritems(self.fields):
                 obj_fname = fsettings.get('source', fname)
                 dtype = fsettings.get('type', None)
                 derived = fsettings.get('derived', False)
@@ -133,7 +135,7 @@ class SimpleSerializer(object):
         """
         obj = self.object or {}
 
-        for fname, fsettings in self.fields.iteritems():
+        for fname, fsettings in six.iteritems(self.fields):
             old_val = self.data.get(self.render_field_name(fname))
             new_val = data.get(self.render_field_name(fname))
             writable = fsettings.get('writable', False)
@@ -182,7 +184,7 @@ class SimpleSerializer(object):
             else:
                 old_obj_dict = getattr(old_obj, '__dict__', {})
 
-            for fname, fsettings in self.fields.iteritems():
+            for fname, fsettings in six.iteritems(self.fields):
                 # we only want to populate the field on the object if
                 # it's not a derived field
                 if not fsettings.get('derived', False):
@@ -190,8 +192,8 @@ class SimpleSerializer(object):
                     new_val = data.get(self.render_field_name(fname), None)
                     new_obj_data[obj_fname] = new_val
             
-            populated_fields = new_obj_data.keys()
-            for obj_fname, obj_val in old_obj_dict.iteritems():
+            populated_fields = list(new_obj_data.keys())
+            for obj_fname, obj_val in six.iteritems(old_obj_dict):
                 if obj_fname not in populated_fields:
                     new_obj_data[obj_fname] = obj_val
 

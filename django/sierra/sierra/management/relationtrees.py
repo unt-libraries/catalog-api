@@ -40,7 +40,7 @@ class Bucket(dict):
     def dump(self):
         objects = []
         for c in self.compartments:
-            objects += sorted(self.get(c, {}).values(), key=lambda x: x.pk)
+            objects += sorted(list(self.get(c, {}).values()), key=lambda x: x.pk)
         return objects
 
 

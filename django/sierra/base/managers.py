@@ -1,6 +1,7 @@
 """
 Custom Managers for sierra base app models.
 """
+from __future__ import absolute_import
 from datetime import date, time, datetime
 
 from django.db import models

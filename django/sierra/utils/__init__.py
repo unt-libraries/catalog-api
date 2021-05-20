@@ -1,5 +1,7 @@
+from __future__ import absolute_import
 import importlib
 import collections
+import six
 
 def load_class(class_str):
     '''
@@ -20,7 +22,7 @@ def dict_merge(orig_d, updt_d, list_merge=True):
         updt_d = {'outer_key': {'inner_key': {'a': [1] }}}
         result = {'outer_key': {'inner_key': {'a': [0, 1], 'b': 1 }}}
     '''
-    for k, v in updt_d.iteritems():
+    for k, v in six.iteritems(updt_d):
         if isinstance(v, collections.Mapping):
             temp_d = dict_merge(orig_d.get(k, {}), v, list_merge)
             orig_d[k] = temp_d

@@ -1,4 +1,7 @@
+from __future__ import absolute_import
+from __future__ import print_function
 from datetime import datetime, time
+from six.moves import range
 
 def _get_test_filter_params(date_from, date_to):
     date_from = datetime.combine(date_from, time(0, 0))
@@ -106,12 +109,12 @@ def run_benchmarks(date_from, date_to, model, tests, num_tests=1, reset=True):
         this_test_results = []
         for i in sets:
             this_test_results.append([])
-        print 'Running ' + test['name'] + ' tests...'
+        print('Running ' + test['name'] + ' tests...')
         for count in range(0, num_tests):
             set_num = 0
-            print '     Run ' + str(count + 1)
+            print('     Run ' + str(count + 1))
             for set in sets:
-                print '        Test ' + str(set_num + 1)
+                print('        Test ' + str(set_num + 1))
                 args = test['function'](set)
                 this_test_results[set_num].append(timeit(*args))
                 set_num += 1
@@ -125,19 +128,19 @@ def run_benchmarks(date_from, date_to, model, tests, num_tests=1, reset=True):
 
 def print_results(results):
     for test_name in results.keys():
-        print test_name + ' Test Results ---------------------------------\n'
+        print(test_name + ' Test Results ---------------------------------\n')
         count = 1
         for test_set in results[test_name]:
-            print 'Test Set ' + str(count) + ':'
-            print '    ' + str(int(test_set['return_value'])) + ' records'
-            print '    ' + str(round(test_set['secs'], 2)) + ' seconds\n'
+            print('Test Set ' + str(count) + ':')
+            print('    ' + str(int(test_set['return_value'])) + ' records')
+            print('    ' + str(round(test_set['secs'], 2)) + ' seconds\n')
             count += 1
 
 if __name__ == "__main__":
     from base.models import ItemRecord
     
-    date_from = datetime(2014, 02, 01)
-    date_to = datetime(2014, 02, 05)
+    date_from = datetime(2014, 0o2, 0o1)
+    date_to = datetime(2014, 0o2, 0o5)
     tests = [
         {'name': 'COUNT', 'function': count_test},
         {'name': 'LEN', 'function': len_test},

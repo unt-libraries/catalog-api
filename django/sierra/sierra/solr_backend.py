@@ -14,6 +14,7 @@ values.
 2. Overrides the SolrSearchBackend.clear() method so that the Solr
 index optimization isn't triggered if commit is false.
 """
+from __future__ import absolute_import
 import subprocess
 import os
 import shlex
@@ -28,6 +29,7 @@ from haystack.constants import ID, DJANGO_CT, DJANGO_ID
 from haystack.utils import get_model_ct
 from haystack import connections
 from pysolr import SolrError
+from six.moves import zip
 
 
 def is_sequence(arg):

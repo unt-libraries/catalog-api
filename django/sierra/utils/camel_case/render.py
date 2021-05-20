@@ -1,6 +1,10 @@
 # -*- coding: utf-8 -*-
+from __future__ import absolute_import
 from collections import OrderedDict
 from rest_framework.renderers import JSONRenderer
+import six
+from six.moves import map
+from six.moves import range
 
 def underscoreToCamel(s):
   parts = s.split('_')
@@ -9,11 +13,11 @@ def underscoreToCamel(s):
 def camelize(data):
     if isinstance(data, dict):
         new_dict = OrderedDict()
-        for key, value in data.iteritems():
+        for key, value in six.iteritems(data):
             new_dict[underscoreToCamel(key)] = camelize(value)
         return new_dict
     if isinstance(data, (list, tuple)):
-        data = map(camelize, data)
+        data = list(map(camelize, data))
         return data
     return data
 

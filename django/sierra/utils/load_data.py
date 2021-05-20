@@ -17,6 +17,7 @@ class Migration(migrations.Migration):
 
 """
 
+from __future__ import absolute_import
 from django.core.serializers import base, python
 from django.core.management import call_command
 

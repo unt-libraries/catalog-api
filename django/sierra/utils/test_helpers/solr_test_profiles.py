@@ -2,6 +2,7 @@
 Contains data structures for making Solr test data.
 """
 
+from __future__ import absolute_import
 import itertools
 import random
 import datetime
@@ -12,17 +13,19 @@ import pytest
 
 from utils.test_helpers import solr_factories as sf
 from utils.helpers import NormalizedCallNumber
+import six
+from six.moves import range
 
 
 GLOBAL_UNIQUE_FIELDS = ('django_id', 'code', 'id', 'record_number')
 SOLR_TYPES = {
-  'string': {'pytype': unicode, 'emtype': 'string'},
-  'norm_string': {'pytype': unicode, 'emtype': 'string'},
-  'alphaOnlySort': {'pytype': unicode, 'emtype': 'string'},
-  'text_en': {'pytype': unicode, 'emtype': 'text'},
-  'text': {'pytype': unicode, 'emtype': 'text'},
-  'textNoStem': {'pytype': unicode, 'emtype': 'text'},
-  'stem_text': {'pytype': unicode, 'emtype': 'text'},
+  'string': {'pytype': six.text_type, 'emtype': 'string'},
+  'norm_string': {'pytype': six.text_type, 'emtype': 'string'},
+  'alphaOnlySort': {'pytype': six.text_type, 'emtype': 'string'},
+  'text_en': {'pytype': six.text_type, 'emtype': 'text'},
+  'text': {'pytype': six.text_type, 'emtype': 'text'},
+  'textNoStem': {'pytype': six.text_type, 'emtype': 'text'},
+  'stem_text': {'pytype': six.text_type, 'emtype': 'text'},
   'long': {'pytype': int, 'emtype': 'int'},
   'slong': {'pytype': int, 'emtype': 'int'},
   'int': {'pytype': int, 'emtype': 'int'},
@@ -59,7 +62,7 @@ def join_fields(fnames, sep=' '):
                 if not isinstance(val, (list, tuple, set)):
                     val = [val]
                 values.extend(val)
-        return sep.join([unicode(v) for v in values])
+        return sep.join([six.text_type(v) for v in values])
     return gen
 
 
@@ -117,7 +120,7 @@ def year_like(record):
 
 def year_range_like(record):
     years = [year_like(record), random.choice([year_like(record), ''])]
-    return  '-'.join([unicode(year) for year in sorted(years)])
+    return  '-'.join([six.text_type(year) for year in sorted(years)])
 
 
 def place_like(record):
@@ -172,14 +175,14 @@ def sentence_like(record):
     for choice in (noun_choice, year_choice):
         if choice is not None:
             words.insert(random.randint(0, len(words)),
-                         unicode(choice(record)))
+                         six.text_type(choice(record)))
 
     if wrap_choice is not None:
         start, end = wrap_choice
         wrap_index = random.randint(0, len(words) - 1)
         words[wrap_index] = '{}{}{}'.format(start, words[wrap_index], end)
 
-    punct_pos = random.sample(range(0, len(words) - 1), len(inner_choices))
+    punct_pos = random.sample(list(range(0, len(words) - 1)), len(inner_choices))
     for i, inner_punct in enumerate(inner_choices):
         if inner_punct is not None:
             punct_index = punct_pos[i]
@@ -641,7 +644,7 @@ def pick_main_call_number(record):
         for cn in record.get('{}_numbers'.format(cntype), []):
             cns[cn] = cntype
     if cns:
-        main_cn = random.choice(cns.keys())
+        main_cn = random.choice(list(cns.keys()))
         main_cntype = cns[main_cn].split('_')[0]
         if main_cntype == 'loc':
             main_cntype = 'lc'

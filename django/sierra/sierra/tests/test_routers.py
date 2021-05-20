@@ -7,6 +7,7 @@ pull from the Sierra DB ("sierra"). No tables should be present in both
 databases.
 """
 
+from __future__ import absolute_import
 import pytest
 
 from django.db import connections, DatabaseError

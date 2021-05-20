@@ -7,6 +7,7 @@ inherits from the base Exporter class. Your ExportType.code should
 match the class name that handles that ExportType.
 """
 from __future__ import unicode_literals
+from __future__ import absolute_import
 import logging
 
 from django.conf import settings
@@ -16,6 +17,7 @@ from base import search_indexes as indexes
 from export.exporter import (Exporter, ToSolrExporter, MetadataToSolrExporter,
                              CompoundMixin, AttachedRecordExporter)
 from utils import helpers, redisobjs, solr
+import six
 
 # set up logger, for debugging
 logger = logging.getLogger('sierra.custom')
@@ -257,7 +259,7 @@ class HoldingUpdate(CompoundMixin, Exporter):
 
         h_vals = {}
         #self.log('Info', er_mapping)
-        for er_rec_num, entry in er_mapping.iteritems():
+        for er_rec_num, entry in six.iteritems(er_mapping):
             er_record, holdings = entry['er_record'], entry['holdings']
             # if we've already indexed the eresource this holding is
             # attached to, then we want to pull the record from Solr

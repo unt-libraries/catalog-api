@@ -1,6 +1,7 @@
 """
 Contains the `importapiusers` manage.py command. 
 """
+from __future__ import absolute_import
 import csv
 
 from django.core.management.base import BaseCommand, CommandError
