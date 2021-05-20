@@ -14,6 +14,7 @@ django_sierra
 django_sierra_test
 .cache/
 .pytest_cache/
+.idea/
 
 /pids.txt
 /django/sierra/media/*

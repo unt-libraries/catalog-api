@@ -6,7 +6,7 @@ RUN apt-get update -qq && \
 ARG userid=999
 ARG groupid=999
 
-RUN groupadd --gid $groupid hostgroup && \
+RUN groupadd -o --gid $groupid hostgroup && \
     useradd --no-log-init --uid $userid --gid $groupid appuser
 RUN mkdir -p /project/catalog-api \
              /project/logs \
