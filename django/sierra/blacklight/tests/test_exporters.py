@@ -2,10 +2,13 @@
 Tests the `blacklight.exporters` classes.
 """
 
+from __future__ import absolute_import
 import pytest
 from datetime import datetime
 import pytz
 import random
+import six
+from six.moves import range
 
 # FIXTURES AND TEST DATA
 # Fixtures used in the below tests can be found in
@@ -280,7 +283,7 @@ def test_bibstodsc_export_records(discover_exporter_class, record_sets,
     overlap_recs = records[0:num_existing]
     overlap_rec_pks = [r.pk for r in overlap_recs]
     only_new_recs = records[num_existing:]
-    old_rec_pks = [unicode(pk) for pk in range(99991,99995)]
+    old_rec_pks = [six.text_type(pk) for pk in range(99991,99995)]
     only_old_rec_data = [(pk, {}) for pk in old_rec_pks]
 
     overlap_rec_data = []
@@ -364,7 +367,7 @@ def disabled_test_buildsuggest_export_records(discover_exporter_class,
     authors = {r['heading_display']: r for r in results
                if r['heading_type'] == 'author'}
 
-    assert len(there) == len(rdict.keys())
+    assert len(there) == len(list(rdict.keys()))
 
     for srec in there:
         assert srec['id'] in rdict
@@ -402,7 +405,7 @@ def test_bibstodsc_delete_records(discover_exporter_class, record_sets,
     index = exporter.indexes['Bibs']
 
     found = get_records_from_index(index, records)
-    assert_records_are_indexed(index, records, found.values())
+    assert_records_are_indexed(index, records, list(found.values()))
 
     exporter.delete_records(records)
     exporter.commit_indexes()
@@ -462,7 +465,7 @@ def test_attachedtodsc_delete_records(discover_exporter_class, do_commit,
 
     dsc_index = dsc_exporter.indexes['Bibs']
     found = get_records_from_index(dsc_index, records)
-    assert_records_are_indexed(dsc_index, records, found.values())
+    assert_records_are_indexed(dsc_index, records, list(found.values()))
 
     exporter.delete_records(records)
     do_commit(exporter)

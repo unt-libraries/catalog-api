@@ -8,6 +8,7 @@ tests should be run again after every Sierra update and changes to the
 models made as needed.
 """
 
+from __future__ import absolute_import
 import re
 import warnings
 

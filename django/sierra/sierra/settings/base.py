@@ -1,5 +1,6 @@
 # Base Django settings for sierra project.
 
+from __future__ import absolute_import
 import os
 from unipath import Path
 

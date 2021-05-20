@@ -3,6 +3,7 @@ URI definitions for `asm-search-suggestions` and
 `asm-browse-suggestions` REST resources, for bl-suggest.
 """
 
+from __future__ import absolute_import
 from api.uris import Uris
 
 class AsmUris(Uris):

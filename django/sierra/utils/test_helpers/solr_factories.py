@@ -1,6 +1,7 @@
 """
 Contains factories for generating test data for Solr.
 """
+from __future__ import absolute_import
 import ujson
 
 import datetime
@@ -8,6 +9,9 @@ import pytz
 import random
 import fnmatch
 from collections import OrderedDict
+from six import unichr
+import six
+from six.moves import range
 
 
 class DataEmitter(object):
@@ -309,8 +313,8 @@ class SolrProfile(object):
         pass
 
     DEFAULT_SOLR_FIELD_TYPE_MAPPING = {
-        'string': {'pytype': unicode, 'emtype': 'string'},
-        'text_en': {'pytype': unicode, 'emtype': 'text'},
+        'string': {'pytype': six.text_type, 'emtype': 'string'},
+        'text_en': {'pytype': six.text_type, 'emtype': 'text'},
         'long': {'pytype': int, 'emtype': 'int'},
         'int': {'pytype': int, 'emtype': 'int'},
         'date': {'pytype': datetime.datetime, 'emtype': 'date'},

@@ -2,8 +2,11 @@
 Tests classes derived from `export.exporter.Exporter`.
 """
 
+from __future__ import absolute_import
 import pytest
 import datetime
+import six
+from six.moves import range
 
 # FIXTURES AND TEST DATA
 # Fixtures used in the below tests can be found in
@@ -140,7 +143,7 @@ def test_allmdtosolr_export_get_records(batch_exporter_class, record_sets,
     exporter = new_exporter(expclass, 'full_export', 'waiting')
     rsets = exporter.get_records()
 
-    assert len(expected_rsets.keys()) == len(rsets.keys())
+    assert len(list(expected_rsets.keys())) == len(list(rsets.keys()))
     for name, records in rsets.items():
         assert set(records) == set(expected_rsets[name])
 
@@ -225,7 +228,7 @@ def test_basic_tosolr_export_records(et_code, rset_code, rectypes, do_reindex,
     num_existing = records.count() / 2
     overlap_recs = records[0:num_existing]
     only_new = records[num_existing:]
-    old_rec_pks = [unicode(pk) for pk in range(99991,99995)]
+    old_rec_pks = [six.text_type(pk) for pk in range(99991,99995)]
     only_old_rec_data = [(pk, {}) for pk in old_rec_pks]
     data = only_old_rec_data + [(r.pk, {}) for r in overlap_recs]
     for rtype in rectypes:
@@ -593,7 +596,7 @@ def test_compound_ops_and_return_vals(classname, method, children_and_retvals,
     return_vals = getattr(exp, method)([])
     assert return_vals == expected
     for name, child in exp.children.items():
-        if name in expected.keys():
+        if name in list(expected.keys()):
             getattr(child, method).assert_called_with([])
         else:
             getattr(child, method).assert_not_called()

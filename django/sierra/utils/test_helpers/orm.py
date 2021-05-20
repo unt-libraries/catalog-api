@@ -2,6 +2,7 @@
 Contains test helpers for managing ORM test models and such.
 """
 
+from __future__ import absolute_import
 import os
 from collections import OrderedDict
 

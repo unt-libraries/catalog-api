@@ -7,6 +7,7 @@ inherits from the base Exporter class. Your ExportType.code should
 match the class name that handles that ExportType.
 """
 from __future__ import unicode_literals
+from __future__ import absolute_import
 import logging
 import re
 

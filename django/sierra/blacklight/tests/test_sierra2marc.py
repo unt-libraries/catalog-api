@@ -5,12 +5,16 @@ Tests the blacklight.sierra2marc functions.
 """
 
 from __future__ import unicode_literals
+from __future__ import absolute_import
+from __future__ import print_function
 import pytest
 import ujson
 import datetime
 import pytz
 
 from blacklight import sierra2marc as s2m
+from six.moves import range
+from six.moves import zip
 
 
 # FIXTURES AND TEST DATA
@@ -159,7 +163,7 @@ def assert_bundle_matches_expected(assert_json_matches_expected):
         # `expected` should never have keys that are not in `bundle`
         assert len(set(expected.keys()) - set(bundle.keys())) == 0
         for k, v in bundle.items():
-            print('{} => {}'.format(k, v))
+            print(('{} => {}'.format(k, v)))
             if k in expected:
                 if k.endswith('_json'):
                     assert_json_matches_expected(v, expected[k],
@@ -1058,7 +1062,7 @@ def test_personalnamepermutator_getsearchperms(raw_marcfields, expected,
     parsed_name = s2m.PersonalNameParser(field).parse()
     permutator = s2m.PersonalNamePermutator(parsed_name)
     result = permutator.get_search_permutations()
-    print result
+    print(result)
     assert result == expected
 
 
@@ -1777,7 +1781,7 @@ def test_todscpipeline_interpretcodeddate(ldr_07, f008_06, date1, date2,
     pipeline.this_year = 2021
     pipeline.year_upper_limit = 2026
     result = pipeline.interpret_coded_date(f008_06, date1, date2)
-    print(', '.join([ldr_07, f008_06, date1, date2]))
+    print((', '.join([ldr_07, f008_06, date1, date2])))
     print(result)
     print(expected)
     assert len(result) == len(expected)
@@ -4026,7 +4030,7 @@ def test_transcribedtitleparser_parse(tag, subfields, expected,
         indicators = '  '
     field = params_to_fields([(tag, subfields, indicators)])[0]
     parsed = s2m.TranscribedTitleParser(field).parse()
-    print parsed
+    print(parsed)
     assert parsed == expected
 
 
@@ -4761,7 +4765,7 @@ def test_parsenamestring(name_str, expected):
     """
     val = s2m.parse_name_string(name_str)
     for k, v in val.items():
-        print k, v
+        print(k, v)
         if k in expected:
             assert v == expected[k]
         else:
@@ -10885,7 +10889,7 @@ def test_linkingfieldparser_parse(raw_marcfield, expected,
     """
     field = fieldstrings_to_fields([raw_marcfield])[0]
     result = s2m.LinkingFieldParser(field).parse()
-    print result
+    print(result)
     assert result == expected
 
 
@@ -12550,7 +12554,7 @@ def test_editionparser_parse(raw_marcfield, expected, fieldstrings_to_fields):
     """
     field = fieldstrings_to_fields([raw_marcfield])[0]
     result = s2m.EditionParser(field).parse()
-    print result
+    print(result)
     assert result == expected
 
 

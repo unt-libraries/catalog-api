@@ -4,6 +4,8 @@
 Tests the blacklight.parsers functions.
 """
 from __future__ import unicode_literals
+from __future__ import absolute_import
+from __future__ import print_function
 import re
 
 import pytest
@@ -579,7 +581,7 @@ def test_person_name(data, first_indicator, expected):
     """
     exp_forename, exp_surname, exp_family_name = expected
     name = parsers.person_name(data, first_indicator)
-    print name
+    print(name)
     assert name['forename'] == exp_forename
     assert name['surname'] == exp_surname
     assert name['family_name'] == exp_family_name
@@ -632,7 +634,7 @@ def test_person_title(ptitle, expected):
     """
     exp_prefix, exp_particle, exp_full = expected
     ptitle = parsers.person_title(ptitle)
-    print ptitle
+    print(ptitle)
     assert ptitle['prefix'] == exp_prefix
     assert ptitle['particle'] == exp_particle
     assert ptitle['full_title'] == exp_full

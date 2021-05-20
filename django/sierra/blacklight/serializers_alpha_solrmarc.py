@@ -2,6 +2,7 @@
 Contains DRF serializers for alpha-solrmarc bl-suggest resources.
 """
 
+from __future__ import absolute_import
 from collections import OrderedDict
 
 from api.simpleserializers import SimpleSerializer

@@ -18,12 +18,14 @@ relationship. The Sierra tables will never need to do that, anyway:
 foreign keys in Sierra are always implemented as single database
 columns.
 """
+from __future__ import absolute_import
 import re
 
 from django.db import models
 from django.db.models import functions
 from django.utils.functional import cached_property
 from django.core.exceptions import ValidationError
+import six
 
 
 class CompositeColumn(models.expressions.Col):
@@ -79,7 +81,7 @@ class CompositeValueTuple(tuple):
         return self.to_string()
 
     def __unicode__(self):
-        return unicode(self.to_string())
+        return six.text_type(self.to_string())
 
     @classmethod
     def from_raw(cls, value, field):
@@ -93,7 +95,7 @@ class CompositeValueTuple(tuple):
         (or questionably valid) set of values.
         """
         try:
-            cv_tuple = tuple((None if v == '' else unicode(v)
+            cv_tuple = tuple((None if v == '' else six.text_type(v)
                               for v in value.split(field.separator)))
         except AttributeError:
             # Not a string.
@@ -117,8 +119,8 @@ class CompositeValueTuple(tuple):
             separator = re.escape(self.field.separator)
         else:
             separator = self.field.separator
-        strings = [unicode('' if s is None else s) for s in self]
-        return unicode(separator.join(strings))
+        strings = [six.text_type('' if s is None else s) for s in self]
+        return six.text_type(separator.join(strings))
 
     def validate(self):
         """

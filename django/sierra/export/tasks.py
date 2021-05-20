@@ -16,6 +16,8 @@ from celery import Task, shared_task, chord, chain, result
 
 from . import models as export_models
 from utils.redisobjs import RedisObject
+import six
+from six.moves import range
 
 # set up loggers
 logger = logging.getLogger('sierra.custom')
@@ -101,7 +103,7 @@ def optimize():
     logger = logging.getLogger('exporter.file')
     logger.info('Running optimization on all Solr indexes.')
     url_stack = []
-    for index, options in settings.HAYSTACK_CONNECTIONS.iteritems():
+    for index, options in six.iteritems(settings.HAYSTACK_CONNECTIONS):
         if options['URL'] not in url_stack:
             conn = pysolr.Solr(options['URL'], 
                                timeout=options['TIMEOUT'])
@@ -319,7 +321,7 @@ class JobPlan(object):
         return sorted(res)
 
     def get_recordsets_iterable(self, recs):
-        return recs.items() if hasattr(recs, 'items') else [(None, recs)]
+        return list(recs.items()) if hasattr(recs, 'items') else [(None, recs)]
 
     def generate(self, exp):
         if self.registry:
@@ -348,7 +350,7 @@ class JobPlan(object):
                             for op in self.operations}
 
         self._totals = {
-            'batches': len(self.registry.keys()),
+            'batches': len(list(self.registry.keys())),
             'chunks': total_chunks,
             'chunks_by_op': total_chunks_by_op,
             'records': sum(total_recs_by_op.values()),

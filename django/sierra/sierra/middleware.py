@@ -1,3 +1,4 @@
+from __future__ import absolute_import
 from django import http
 from django.utils.http import urlquote
 from django.core import urlresolvers

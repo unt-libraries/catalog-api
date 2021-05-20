@@ -2,6 +2,7 @@
 Contains all shared pytest fixtures and hooks for shelflist app.
 """
 
+from __future__ import absolute_import
 import pytest
 
 from . import solr_test_profiles as tp

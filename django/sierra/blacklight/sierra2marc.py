@@ -5,6 +5,8 @@ Sierra2Marc module for catalog-api `blacklight` app.
 """
 
 from __future__ import unicode_literals
+from __future__ import absolute_import
+from __future__ import print_function
 import pymarc
 import logging
 import re
@@ -18,6 +20,8 @@ from base import models, local_rulesets
 from export.sierra2marc import S2MarcBatch, S2MarcError
 from blacklight import parsers as p
 from utils import helpers, toascii
+import six
+from six.moves import range
 
 
 # These are MARC fields that we are currently not including in public
@@ -502,7 +506,7 @@ class PersonalNameParser(SequentialMarcFieldParser):
         parsed_name = p.person_name(self.main_name, self.field.indicators)
         return {
             'heading': p.strip_ends(heading) or None,
-            'relations': self.relator_terms.keys() or None,
+            'relations': list(self.relator_terms.keys()) or None,
             'forename': parsed_name.get('forename', None),
             'surname': parsed_name.get('surname', None),
             'numeration': self.numeration or None,
@@ -611,7 +615,7 @@ class OrgEventNameParser(SequentialMarcFieldParser):
 
     def compile_results(self):
         ret_val = []
-        relators = self.relator_terms.keys() or None
+        relators = list(self.relator_terms.keys()) or None
         needs_combined = self.parts['org'] and self.parts['event']
         for part_type in ('org', 'event', 'combined'):
             do_it = part_type in ('org', 'event') or needs_combined
@@ -839,7 +843,7 @@ class TranscribedTitleParser(SequentialMarcFieldParser):
         if self.flags['is_valid']:
             prot = p.protect_periods(val)
 
-            isbd = r''.join(self.analyzer.isbd_punct_mapping.keys())
+            isbd = r''.join(list(self.analyzer.isbd_punct_mapping.keys()))
             switchp = r'"\'~\.,\)\]\}}'
             is_245bc = self.flags['is_245b'] or self.flags['is_subfield_c']
             if is_245bc or self.field.tag == '490':
@@ -1102,7 +1106,7 @@ class PreferredTitleParser(SequentialMarcFieldParser):
 
     def compile_results(self):
         ret_val = {
-            'relations': self.relator_terms.keys() or None,
+            'relations': list(self.relator_terms.keys()) or None,
             'nonfiling_chars': self.nonfiling_chars,
             'materials_specified': self.materials_specified,
             'display_constants': self.display_constants,
@@ -1171,7 +1175,7 @@ class EditionParser(SequentialMarcFieldParser):
                     sors.append(', '.join(sor_chunks[1:]))
                     lock_sor = True
 
-            for i, pair in enumerate(itertools.izip_longest(values, sors)):
+            for i, pair in enumerate(itertools.zip_longest(values, sors)):
                 value, sor = pair
                 entry = {}
                 if value:
@@ -1411,8 +1415,8 @@ class LanguageParser(SequentialMarcFieldParser):
 
     def compile_results(self):
         return {
-            'languages': self.languages.keys(),
-            'categorized': {k: v.keys() for k, v in self.categorized.items()}
+            'languages': list(self.languages.keys()),
+            'categorized': {k: list(v.keys()) for k, v in self.categorized.items()}
         }
 
 
@@ -1890,7 +1894,7 @@ class PersonalNamePermutator(object):
                                 needs_suffix = False
             if needs_suffix:
                 suffixes[t] = None
-        return prefixes.keys(), suffixes.keys()
+        return list(prefixes.keys()), list(suffixes.keys())
 
     def is_initial(self, token):
         """
@@ -2997,7 +3001,7 @@ class ToDiscoverPipeline(object):
         default = ('publication', '')
 
         d2_type = None
-        if dtype in pubtype_map_atomic.keys():
+        if dtype in list(pubtype_map_atomic.keys()):
             d2_type = 'atomic'
         else:
             this_is_serial = self.marc_record.leader[7] in 'is'
@@ -3046,7 +3050,7 @@ class ToDiscoverPipeline(object):
                 if match.groups()[1] == 'u':
                     year = year.replace('u', '0s')
                 elif match.groups()[1] == 'uu':
-                    century = unicode(int(match.groups()[0] or 0) + 1)
+                    century = six.text_type(int(match.groups()[0] or 0) + 1)
                     if century[-2:] in ('11', '12', '13'):
                         suffix = 'th'
                     else:
@@ -3091,7 +3095,7 @@ class ToDiscoverPipeline(object):
                     dstrs.append(dstr)
             if (dnum1, dnum2) == (-1, -1):
                 return [], []
-            years = range(dnum1, dnum2 + 1)
+            years = list(range(dnum1, dnum2 + 1))
             return dstrs, years
 
         for dstr1, dstr2, dnum1, dnum2, _, _ in coded_dates:
@@ -4304,7 +4308,7 @@ class ToDiscoverPipeline(object):
         for parsed_part in parsed_pm['parts']:
             rendered_clauses = []
             for clause in parsed_part:
-                part_type, instruments = clause.items()[0]
+                part_type, instruments = list(clause.items())[0]
                 conjunction = 'or' if part_type == 'alt' else 'and'
                 prefix = part_type if part_type in ('doubling', 'solo') else ''
                 rendered_insts = [_render_instrument(i) for i in instruments]
@@ -5052,7 +5056,7 @@ class ToDiscoverPipeline(object):
                 for tag, val in f.filter_subfields(relator_subfields):
                     for rel_term in self.utils.compile_relator_terms(tag, val):
                         rel_terms[rel_term] = None
-                relators = rel_terms.keys()
+                relators = list(rel_terms.keys())
 
         sd_parents = [main_term] if main_term else []
         for tag, val in f.filter_subfields(subdivision_subfields):
@@ -5207,9 +5211,9 @@ class ToDiscoverPipeline(object):
                 for lang in langs:
                     categorized[key][lang] = None
 
-        facet = all_languages.keys()
+        facet = list(all_languages.keys())
         if needs_notes:
-            categorized = {k: odict.keys() for k, odict in categorized.items()}
+            categorized = {k: list(odict.keys()) for k, odict in categorized.items()}
             notes = LanguageParser.generate_language_notes_display(categorized)
 
         return {
@@ -5267,7 +5271,7 @@ class ToDiscoverPipeline(object):
                 return not (wt_key in self.work_title_keys.get('series', []))
             elif marc_fgroup == 'linking_774':
                 print(wt_key)
-                print(self.work_title_keys.get('included'))
+                print((self.work_title_keys.get('included')))
                 return not (wt_key in self.work_title_keys.get('included', []))
         return True
 

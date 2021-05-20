@@ -9,6 +9,7 @@ project using the EXPORTER_MODULE_REGISTRY Django setting.
 
 from __future__ import unicode_literals
 
+from __future__ import absolute_import
 import logging
 import sys
 import traceback
@@ -565,14 +566,14 @@ class CompoundMixin(object):
         from multiple lists, returning one sorted, flattened list.
         """
         combined_dupes = sorted([item for l in lists for item in l])
-        return OrderedDict.fromkeys(combined_dupes).keys()
+        return list(OrderedDict.fromkeys(combined_dupes).keys())
 
     def combine_rels_from_children(self, which_rel, which_children=None):
         """
         This is a helper method for combining lists of relations (like
         select_related or prefetch_related) from 1+ children.
         """
-        children = which_children or self.children.values()
+        children = which_children or list(self.children.values())
         rel_lists = [c._config.derive_rel_list(c, which_rel) for c in children]
         return self.combine_lists(*rel_lists)
 
@@ -584,7 +585,7 @@ class CompoundMixin(object):
         child's name to the set of records it returned.
         """
         records = {}
-        for child in which_children or self.children.values():
+        for child in which_children or list(self.children.values()):
             if deletions:
                 records[child._config.name] = child.get_deletions()
             else:
@@ -601,7 +602,7 @@ class CompoundMixin(object):
         otherwise, `records` is sent to each child.
         """
         vals = {}
-        for child in which_children or self.children.values():
+        for child in which_children or list(self.children.values()):
             op = getattr(child, operation)
             if isinstance(records, dict):
                 child_rset = records.get(child._config.name, [])
@@ -631,7 +632,7 @@ class CompoundMixin(object):
         children.
         """
         vals = {}
-        for child in which_children or self.children.values():
+        for child in which_children or list(self.children.values()):
             vals[child._config.name] = child.initialize()
         return vals
 
@@ -641,7 +642,7 @@ class CompoundMixin(object):
         on 1+ children, passing the appropriate vals to each call.
         """
         vals = vals or {}
-        for child in which_children or self.children.values():
+        for child in which_children or list(self.children.values()):
             child_vals = vals.get(child._config.name, None)
             child.final_callback(vals=child_vals, status=status)
 
@@ -734,11 +735,11 @@ class AttachedRecordExporter(CompoundMixin, Exporter):
 
     @property
     def main_child(self):
-        return self.children.items()[0][1]
+        return list(self.children.items())[0][1]
 
     @property
     def attached_children(self):
-        return [c[1] for c in self.children.items()[1:]]
+        return [c[1] for c in list(self.children.items())[1:]]
 
     @property
     def select_related(self):

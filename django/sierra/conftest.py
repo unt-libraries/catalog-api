@@ -2,13 +2,14 @@
 Contains all shared pytest fixtures and hooks
 """
 
+from __future__ import absolute_import
 import pytest
 import importlib
 import redis
 import pysolr
 import pytz
 import hashlib
-import urllib
+import six.moves.urllib.request, six.moves.urllib.parse, six.moves.urllib.error
 import random
 import ujson
 from datetime import datetime
@@ -139,7 +140,7 @@ def setattr_model_instance():
     yield _setattr_model_instance
         
     while cache:
-        key = cache.keys()[-1]
+        key = list(cache.keys())[-1]
         instance, attr, old_value = cache.pop(key)
         _set_and_save(instance, attr, old_value)
 
@@ -486,7 +487,7 @@ def derive_exporter_class(installed_test_class, model_instance, export_type):
 
         try:
             modpath = '.'.join(exptype.path.split('.')[0:-1])
-        except TypeError, ObjectDoesNotExist:
+        except TypeError as ObjectDoesNotExist:
             msg = ('In fixture `derive_exporter_class`, the supplied '
                    'base class name "{}" could not be resolved. It matches '
                    'neither any attribute of the supplied modpath "{}" nor '
@@ -622,7 +623,7 @@ def assert_all_exported_records_are_indexed(assert_records_are_indexed,
     """
     def _assert_all_exported_records_are_indexed(exporter, record_set):
         # Check results in all indexes for the parent test_exporter.
-        test_indexes = getattr(exporter, 'indexes', {}).values()
+        test_indexes = list(getattr(exporter, 'indexes', {}).values())
         for index in test_indexes:
             if exporter.is_active:
                 assert_records_are_indexed(index, record_set)
@@ -632,7 +633,7 @@ def assert_all_exported_records_are_indexed(assert_records_are_indexed,
         if hasattr(exporter, 'main_child'):
             ch_rsets = exporter.derive_recordsets_from_parent(record_set)
             for ch_name, child in exporter.children.items():
-                child_indexes = getattr(child, 'indexes', {}).values()
+                child_indexes = list(getattr(child, 'indexes', {}).values())
                 for index in child_indexes:
                     if child.is_active:
                         assert_records_are_indexed(index, ch_rsets[ch_name])
@@ -652,12 +653,12 @@ def assert_deleted_records_are_not_indexed(assert_records_are_indexed,
     """
     def _assert_deleted_records_are_not_indexed(exporter, record_set):
         # If the parent exporter has indexes, check them.
-        indexes = getattr(exporter, 'indexes', {}).values()
+        indexes = list(getattr(exporter, 'indexes', {}).values())
         ref_exporter = exporter
         # Otherwise, if the parent has a `main_child` that has indexes,
         # then those are the ones to check.
         if not indexes and hasattr(exporter, 'main_child'):
-            indexes = getattr(exporter.main_child, 'indexes', {}).values()
+            indexes = list(getattr(exporter.main_child, 'indexes', {}).values())
             ref_exporter = exporter.main_child
 
         for index in indexes:
@@ -791,7 +792,7 @@ def get_linked_view_and_objects():
                 linked_objs.append(resp.data)
         else:
             try:
-                linked_objs = resp.data['_embedded'].values()[0]
+                linked_objs = list(resp.data['_embedded'].values())[0]
             except KeyError:
                 linked_objs = [resp.data]
         return resp.renderer_context['view'], linked_objs
@@ -833,7 +834,7 @@ def do_filter_search():
     response.
     """
     def _do_filter_search(resource_url, search, client):
-        q = '&'.join(['='.join([urllib.quote_plus(v) for v in pair.split('=')])
+        q = '&'.join(['='.join([six.moves.urllib.parse.quote_plus(v) for v in pair.split('=')])
                       for pair in search.split('&')])
         return client.get('{}?{}'.format(resource_url, q))
     return _do_filter_search
@@ -851,7 +852,7 @@ def get_found_ids():
         serializer = response.renderer_context['view'].get_serializer()
         api_id_field = serializer.render_field_name(solr_id_field)
         max_found = response.data.get('totalCount', max_found)
-        data = response.data.get('_embedded', {'data': []}).values()[0]
+        data = list(response.data.get('_embedded', {'data': []}).values())[0]
         # reality check: FAIL if there's any data returned on a different
         # page of results. If we don't return ALL available data, further
         # assertions will be invalid.

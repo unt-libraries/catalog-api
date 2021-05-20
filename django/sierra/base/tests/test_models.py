@@ -2,6 +2,7 @@
 Tests for custom behavior on base.models (i.e., Sierra models).
 """
 
+from __future__ import absolute_import
 import pytest
 
 from base import models as m

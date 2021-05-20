@@ -2,6 +2,8 @@
 Contains integration tests for the `api` app.
 """
 
+from __future__ import absolute_import
+from __future__ import print_function
 from datetime import datetime
 from pytz import utc
 
@@ -609,9 +611,9 @@ PARAMETERS__FILTER_TESTS__INTENDED = (
                                             tzinfo=utc)}),
             ('TEST2', {'due_date': datetime(2018, 11, 30, 16, 0, 0,
                                             tzinfo=utc)}),
-            ('TEST3', {'due_date': datetime(2018, 12, 01, 10, 0, 0,
+            ('TEST3', {'due_date': datetime(2018, 12, 0o1, 10, 0, 0,
                                             tzinfo=utc)}),
-            ('TEST4', {'due_date': datetime(2018, 12, 02, 12, 0, 0,
+            ('TEST4', {'due_date': datetime(2018, 12, 0o2, 12, 0, 0,
                                             tzinfo=utc)}),
          ), 'dueDate[gt]=2018-11-30T16:00:00Z', ['TEST3', 'TEST4']),
     }, { 'gte date (items/due_date) | field val >= query val':
@@ -620,9 +622,9 @@ PARAMETERS__FILTER_TESTS__INTENDED = (
                                             tzinfo=utc)}),
             ('TEST2', {'due_date': datetime(2018, 11, 30, 16, 0, 0,
                                             tzinfo=utc)}),
-            ('TEST3', {'due_date': datetime(2018, 12, 01, 10, 0, 0,
+            ('TEST3', {'due_date': datetime(2018, 12, 0o1, 10, 0, 0,
                                             tzinfo=utc)}),
-            ('TEST4', {'due_date': datetime(2018, 12, 02, 12, 0, 0,
+            ('TEST4', {'due_date': datetime(2018, 12, 0o2, 12, 0, 0,
                                             tzinfo=utc)}),
          ), 'dueDate[gte]=2018-11-30T16:00:00Z', ['TEST2', 'TEST3', 'TEST4']),
     }, { 'lt date (items/due_date) | field val < query val':
@@ -631,9 +633,9 @@ PARAMETERS__FILTER_TESTS__INTENDED = (
                                             tzinfo=utc)}),
             ('TEST2', {'due_date': datetime(2018, 11, 30, 16, 0, 0,
                                             tzinfo=utc)}),
-            ('TEST3', {'due_date': datetime(2018, 12, 01, 10, 0, 0,
+            ('TEST3', {'due_date': datetime(2018, 12, 0o1, 10, 0, 0,
                                             tzinfo=utc)}),
-            ('TEST4', {'due_date': datetime(2018, 12, 02, 12, 0, 0,
+            ('TEST4', {'due_date': datetime(2018, 12, 0o2, 12, 0, 0,
                                             tzinfo=utc)}),
          ), 'dueDate[lt]=2018-11-30T16:00:00Z', ['TEST1']),
     }, { 'lte date (items/due_date) | field val <= query val':
@@ -642,9 +644,9 @@ PARAMETERS__FILTER_TESTS__INTENDED = (
                                             tzinfo=utc)}),
             ('TEST2', {'due_date': datetime(2018, 11, 30, 16, 0, 0,
                                             tzinfo=utc)}),
-            ('TEST3', {'due_date': datetime(2018, 12, 01, 10, 0, 0,
+            ('TEST3', {'due_date': datetime(2018, 12, 0o1, 10, 0, 0,
                                             tzinfo=utc)}),
-            ('TEST4', {'due_date': datetime(2018, 12, 02, 12, 0, 0,
+            ('TEST4', {'due_date': datetime(2018, 12, 0o2, 12, 0, 0,
                                             tzinfo=utc)}),
          ), 'dueDate[lte]=2018-11-30T16:00:00Z', ['TEST1', 'TEST2']),
     }, { 'gt string (locations/label) | numeric strings':
@@ -764,9 +766,9 @@ PARAMETERS__FILTER_TESTS__INTENDED = (
                                             tzinfo=utc)}),
             ('TEST2', {'due_date': datetime(2018, 11, 30, 16, 0, 0,
                                             tzinfo=utc)}),
-            ('TEST3', {'due_date': datetime(2018, 12, 01, 10, 0, 0,
+            ('TEST3', {'due_date': datetime(2018, 12, 0o1, 10, 0, 0,
                                             tzinfo=utc)}),
-            ('TEST4', {'due_date': datetime(2018, 12, 02, 12, 0, 0,
+            ('TEST4', {'due_date': datetime(2018, 12, 0o2, 12, 0, 0,
                                             tzinfo=utc)}),
          ), 'dueDate[range]=[2018-11-30T16:00:00Z,2018-12-02T12:00:00Z]',
          ['TEST2', 'TEST3', 'TEST4']),
@@ -1891,7 +1893,7 @@ def compile_params(parameters):
     Compile a tuple of test parameters for pytest.parametrize, from one
     of the above PARAMETERS__* constants.
     """
-    return tuple(p.values()[0] for p in parameters[1:])
+    return tuple(list(p.values())[0] for p in parameters[1:])
 
 
 def compile_ids(parameters):
@@ -1899,7 +1901,7 @@ def compile_ids(parameters):
     Compile a tuple of test IDs for pytest.parametrize, from one of the
     above PARAMETERS__* constants.
     """
-    return tuple(p.keys()[0] for p in parameters[1:])
+    return tuple(list(p.keys())[0] for p in parameters[1:])
 
 
 # PYTEST FIXTURES
@@ -2051,7 +2053,7 @@ def test_apiusers_repeated_requests_fail(api_client,
     assert resp_two.status_code == 403
 
 
-@pytest.mark.parametrize('resource', RESOURCE_METADATA.keys())
+@pytest.mark.parametrize('resource', list(RESOURCE_METADATA.keys()))
 def test_standard_resource(resource, api_settings, api_solr_env, api_client,
                            pick_reference_object_having_link,
                            assert_obj_fields_match_serializer):
@@ -2256,7 +2258,7 @@ def test_list_view_orderby(resource, test_data, search, expected, api_settings,
     profile = RESOURCE_METADATA[resource]['profile']
     id_field = RESOURCE_METADATA[resource]['id_field']
     erecs, trecs = assemble_api_test_records(profile, id_field, test_data)
-    print [r.get('call_number_sort', None) for r in trecs]
+    print([r.get('call_number_sort', None) for r in trecs])
     resource_url = '{}{}/'.format(API_ROOT, resource)
     response = do_filter_search(resource_url, search, api_client)
     found_ids = get_found_ids(id_field, response)

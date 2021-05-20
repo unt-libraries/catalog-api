@@ -5,6 +5,7 @@ Tests the sierra.settings.marcdata.subjectmaps functionality.
 """
 
 from __future__ import unicode_literals
+from __future__ import absolute_import
 import pytest
 
 from sierra.settings.marcdata import subjectmaps

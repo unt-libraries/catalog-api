@@ -1,8 +1,10 @@
 # -*- coding: utf-8 -*-
+from __future__ import absolute_import
 from rest_framework.parsers import JSONParser, ParseError, six
 from django.conf import settings
 import re
 import json
+from six.moves import range
 
 first_cap_re = re.compile('(.)([A-Z][a-z]+)')
 all_cap_re = re.compile('([a-z0-9])([A-Z])')

@@ -1,3 +1,4 @@
+from __future__ import absolute_import
 import re
 
 from django.conf import settings
@@ -44,11 +45,11 @@ class Uris(object):
         if pattern is not None:
             for p in pattern:
                 if isinstance(p, dict):
-                    if (template and not p.values()[0]):
-                        uri = '{}{{{}}}'.format(uri, p.keys()[0])
+                    if (template and not list(p.values())[0]):
+                        uri = '{}{{{}}}'.format(uri, list(p.keys())[0])
                     else:
-                        uri = '{}{}'.format(uri, kwargs.get(p.keys()[0],
-                                                            p.values()[0]))
+                        uri = '{}{}'.format(uri, kwargs.get(list(p.keys())[0],
+                                                            list(p.values())[0]))
                 else:
                     uri = '{}{}'.format(uri, p)
 
@@ -69,7 +70,7 @@ class Uris(object):
         if pattern is not None:
             for p in pattern:
                 if isinstance(p, dict):
-                    ret = r'{}{}'.format(ret, kwargs.get(p.keys()[0],
+                    ret = r'{}{}'.format(ret, kwargs.get(list(p.keys())[0],
                                                          r'([0-9A-Za-z]+)'))
                 else:
                     ret = r'{}{}'.format(ret, p)

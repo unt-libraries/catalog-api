@@ -2,10 +2,12 @@
 Tests the relationtrees module used in custom sierra management commands.
 """
 
+from __future__ import absolute_import
 import pytest
 
-from testmodels import models as m
+from .testmodels import models as m
 from sierra.management import relationtrees
+import six
 
 # FIXTURES AND TEST DATA
 
@@ -112,7 +114,7 @@ def assert_all_objset_calls():
         calls = mock.call_args_list
         actual_objsets = []
         for call in calls:
-            for arg in (list(call[0]) + call[1].values()):
+            for arg in (list(call[0]) + list(call[1].values())):
                 try:
                     arg[0]._meta
                 except Exception:
@@ -168,7 +170,7 @@ def tree(make_tree, request):
 
 @pytest.fixture
 def all_trees(make_tree):
-    return {k: make_tree(*v) for k, v in TREE_PARAMS.iteritems()}
+    return {k: make_tree(*v) for k, v in six.iteritems(TREE_PARAMS)}
 
 
 # TESTS
@@ -686,7 +688,7 @@ def test_harvest_picks_trees_into_bucket_using_qset(all_trees, mocker):
     }
     for tree in all_trees.values():
         mocker.patch.object(tree, 'pick', return_value=bucket)
-    relationtrees.harvest(all_trees.values(), into=bucket, tree_qsets=qsets)
+    relationtrees.harvest(list(all_trees.values()), into=bucket, tree_qsets=qsets)
     for tree in all_trees.values():
         tree.pick.assert_called_once_with(into=bucket,
                                           qset=qsets.get(tree, None))

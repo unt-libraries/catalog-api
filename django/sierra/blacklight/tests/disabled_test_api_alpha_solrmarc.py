@@ -2,6 +2,7 @@
 Tests API features applicable to the `blacklight` app, alpha-solrmarc.
 """
 
+from __future__ import absolute_import
 import pytest
 import ujson
 import jsonpatch
@@ -299,7 +300,7 @@ def compile_params(parameters):
     Compile a tuple of test parameters for pytest.parametrize, from one
     of the above PARAMETERS__* constants.
     """
-    return tuple(p.values()[0] for p in parameters[1:])
+    return tuple(list(p.values())[0] for p in parameters[1:])
 
 
 def compile_ids(parameters):
@@ -307,7 +308,7 @@ def compile_ids(parameters):
     Compile a tuple of test IDs for pytest.parametrize, from one of the
     above PARAMETERS__* constants.
     """
-    return tuple(p.keys()[0] for p in parameters[1:])
+    return tuple(list(p.keys())[0] for p in parameters[1:])
 
 
 # PYTEST FIXTURES

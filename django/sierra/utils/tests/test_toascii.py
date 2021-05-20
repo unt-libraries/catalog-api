@@ -5,6 +5,7 @@ Tests the utils.toascii module.
 """
 
 from __future__ import unicode_literals
+from __future__ import absolute_import
 import pytest
 
 from utils import toascii
