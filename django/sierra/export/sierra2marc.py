@@ -38,7 +38,7 @@ class S2MarcBatch(object):
     } 
 
     def __init__(self, records):
-        if (hasattr(records, '__iter__')):
+        if (hasattr(records, '__iter__') and not isinstance(records, str)):
             self.records = records
         else:
             self.records = [records]
