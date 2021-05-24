@@ -162,7 +162,7 @@ class HaystackFilter(BaseFilterBackend):
         type_norm = getattr(self, '_type_normalize_{}'.format(field_type),
                             None)
         if type_norm is not None:
-            if hasattr(p_val, '__iter__'):
+            if hasattr(p_val, '__iter__') and not isinstance(p_val, str):
                 new_p_val = []
                 for val in p_val:
                     p_name, operator, val = type_norm(orig_p_name, p_name,
@@ -174,7 +174,7 @@ class HaystackFilter(BaseFilterBackend):
                                                     operator, p_val)
         norm = getattr(self, '_normalize_{}'.format(p_name), None)
         if norm is not None:
-            if hasattr(p_val, '__iter__'):
+            if hasattr(p_val, '__iter__') and not isinstance(p_val, str):
                 new_p_val = []
                 for val in p_val:
                     p_name, operator, val = norm(orig_p_name, p_name, operator,
