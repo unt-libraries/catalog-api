@@ -119,7 +119,8 @@ def year_like(record):
 
 
 def year_range_like(record):
-    years = [year_like(record), random.choice([year_like(record), ''])]
+    years = [six.text_type(year_like(record)),
+             random.choice([six.text_type(year_like(record)), ''])]
     return  '-'.join([six.text_type(year) for year in sorted(years)])
 
 
