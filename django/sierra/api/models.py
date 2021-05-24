@@ -348,7 +348,7 @@ class APIUser(models.Model):
             raise APIUserException('Provided hash_type argument must be one '
                                    'of: {}'.format(', '.join(valid_hashes)))
 
-        hasher = getattr(hashlib, hash_type)(secret)
+        hasher = getattr(hashlib, hash_type)(secret.encode())
         return hasher.hexdigest()
 
     class Meta:
