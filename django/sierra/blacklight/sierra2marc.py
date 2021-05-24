@@ -10,7 +10,12 @@ from __future__ import print_function
 import pymarc
 import logging
 import re
-import itertools
+try:
+    # Python 3
+    from itertools import zip_longest
+except ImportError:
+    # Python 2
+    from itertools import izip_longest as zip_longest
 import ujson
 from datetime import datetime
 from collections import OrderedDict
@@ -1175,7 +1180,7 @@ class EditionParser(SequentialMarcFieldParser):
                     sors.append(', '.join(sor_chunks[1:]))
                     lock_sor = True
 
-            for i, pair in enumerate(itertools.zip_longest(values, sors)):
+            for i, pair in enumerate(zip_longest(values, sors)):
                 value, sor = pair
                 entry = {}
                 if value:
