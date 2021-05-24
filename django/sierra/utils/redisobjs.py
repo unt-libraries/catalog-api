@@ -49,18 +49,18 @@ class RedisObject(object):
         return data
 
     def get(self):
-        datatype = self.get_datatype()
+        datatype = self.get_datatype().decode('utf-8')
         try:
             if datatype == 'zset':
-                return [json.loads(i) for i in self.conn.zrange(self.key, 0, -1)]
+                return [json.loads(i.decode('utf-8')) for i in self.conn.zrange(self.key, 0, -1)]
             if datatype == 'hash':
-                return {k: json.loads(v) for k, v in six.iteritems(self.conn.hgetall(self.key))}
+                return {k: json.loads(v.decode('utf-8')) for k, v in six.iteritems(self.conn.hgetall(self.key))}
             if datatype == 'string':
-                return json.loads(self.conn.get(self.key))
+                return json.loads(self.conn.get(self.key).decode('utf-8'))
             if datatype == 'list':
-                return [json.loads(i) for i in self.conn.lrange(self.key, 0, -1)]
+                return [json.loads(i.decode('utf-8')) for i in self.conn.lrange(self.key, 0, -1)]
             if datatype == 'set':
-                return [json.loads(i) for i in self.conn.smembers(self.key)]
+                return [json.loads(i.decode('utf-8')) for i in self.conn.smembers(self.key)]
         except TypeError:
             return None
 

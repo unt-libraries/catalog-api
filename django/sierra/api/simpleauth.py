@@ -38,8 +38,9 @@ class SimpleSignatureAuthentication(authentication.BaseAuthentication):
             secret = api_user.secret
             user = api_user.user
 
-            hasher = hashlib.sha256('{}{}{}{}'.format(username, secret, 
-                                                      timestamp, body))
+            hasher = hashlib.sha256('{}{}{}{}'.format(username, secret,
+                                                      timestamp,
+                                                      body).encode('utf-8'))
             server_signature = hasher.hexdigest()
 
             if server_signature != client_signature:
