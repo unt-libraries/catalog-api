@@ -86,6 +86,7 @@ import re
 
 from django.db import models
 from django.conf import settings
+from django.utils.encoding import python_2_unicode_compatible
 
 from . import fields
 from .managers import RecordManager
@@ -560,10 +561,14 @@ class RecordRange(ReadOnlyModel):
         db_table = 'record_range'
 
 
+@python_2_unicode_compatible
 class RecordType(ModelWithAttachedName):
     id = models.IntegerField(primary_key=True)
     code = models.CharField(max_length=1, unique=True, blank=True)
     tag = models.CharField(max_length=1, unique=True, blank=True)
+
+    def __str__(self):
+        return "%s" % self.code
 
     class Meta(ModelWithAttachedName.Meta):
         db_table = 'record_type'
