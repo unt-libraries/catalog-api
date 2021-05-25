@@ -12,6 +12,12 @@ import logging
 import re
 try:
     # Python 3
+    from re import ASCII
+except ImportError:
+    # Python 2
+    ASCII = 0
+try:
+    # Python 3
     from itertools import zip_longest
 except ImportError:
     # Python 2
@@ -2191,7 +2197,7 @@ def generate_facet_key(value, nonfiling_chars=0, space_char=r'-'):
         if last_nfchar_is_nonword and len(value) > nonfiling_chars:
             key = key[nonfiling_chars:]
     key = toascii.map_from_unicode(key)
-    key = re.sub(r'\W+', space_char, key).strip(space_char)
+    key = re.sub(r'\W+', space_char, key, flags=ASCII).strip(space_char)
     return key or '~'
 
 
