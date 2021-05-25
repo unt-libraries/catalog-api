@@ -109,7 +109,7 @@ class AppModelsEnvironment(object):
         """
         Destroy all registered test models created via this factory.
         """
-        for name in self.models.keys():
+        for name in list(self.models.keys()):
             self.delete(name)
 
     def migrate(self):
