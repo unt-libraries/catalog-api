@@ -92,16 +92,15 @@ ITEM_RULES = {
                 'xts',
                 # These are still temporarily disabled due to COVID-19
                 # policies. Simply remove these to re-enable them.
-                'w4m', 'w4mau', 'w4mft', 'w4mov', 'xdmic', 'xdmp',
+                'xdmic', 'xdmp',
             )
         }, multi=False)),
         ('item_status_id', r.reverse_mapping({
             False: tuple('efijmnopwyz')
         }, multi=False)),
         ('itype_id', r.reverse_mapping({
-            False: (7, 20, 29, 69, 74, 112)
+            False: (20, 29, 69, 74, 112)
         }, multi=False)),
-        (('itype_id', 'location_id'), {(7,'xmus'): True})
     ], default=True),
 
     # `is_requestable_through_aeon` is True if an item is available to

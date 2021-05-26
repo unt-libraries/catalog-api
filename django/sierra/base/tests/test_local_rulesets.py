@@ -168,7 +168,7 @@ def test_itemrules_incollections(loc_code, expected, item_rules, mocker):
 @pytest.mark.parametrize('loc_code, itype_id, item_status_id, expected', [
     ('czm', 1, '-', True),
     ('czmrf', 1, '-', False),
-    ('x', 7, '-', False),
+    ('x', 7, '-', True),
     ('x', 20, '-', False),
     ('x', 29, '-', False),
     ('x', 69, '-', False),
@@ -195,11 +195,11 @@ def test_itemrules_incollections(loc_code, expected, item_rules, mocker):
     ('w4mrx', 1, '-', False),
     ('w4spe', 1, '-', False),
     ('kmats', 1, '-', False),
-    # Temporary for COVID-19
-    ('w4m', 1, '-', False),
-    ('w4mau', 1, '-', False),
-    ('w4mft', 1, '-', False),
-    ('w4mov', 1, '-', False),
+    ('w4m', 1, '-', True),
+    ('w4mau', 1, '-', True),
+    ('w4mau', 7, '-', True),
+    ('w4mft', 1, '-', True),
+    ('w4mov', 1, '-', True),
 ])
 def test_itemrules_isrequestablethroughcatalog(loc_code, itype_id,
                                                item_status_id, expected,
