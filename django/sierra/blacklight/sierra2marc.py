@@ -4240,7 +4240,6 @@ class ToDiscoverPipeline(object):
                 val_stack = []
                 for val in f.get_subfields(*tuple('abcde')):
                     val_key = generate_facet_key(val)
-                    print(val_key)
                     if not any([val_key in k for k in title_test_keys]):
                         val_stack.append(val)
                 if val_stack:
@@ -5266,8 +5265,6 @@ class ToDiscoverPipeline(object):
             if marc_fgroup == 'linking_760_762':
                 return not (wt_key in self.work_title_keys.get('series', []))
             elif marc_fgroup == 'linking_774':
-                print(wt_key)
-                print(self.work_title_keys.get('included'))
                 return not (wt_key in self.work_title_keys.get('included', []))
         return True
 
@@ -5358,7 +5355,6 @@ class ToDiscoverPipeline(object):
 
         for f in self.marc_fieldgroups.get('edition', []):
             compiled = self.compile_edition(EditionParser(f).parse())
-            print(compiled)
             if compiled['display']:
                 ed_display.append(compiled['display'])
             if compiled['responsibility']:
