@@ -1,4 +1,4 @@
-FROM python:2.7.16-stretch
+FROM python:3.5.10-stretch
 
 RUN apt-get update -qq && \
     apt-get install -y libpq-dev python-dev mariadb-client netcat openjdk-8-jre
