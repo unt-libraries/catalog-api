@@ -559,7 +559,7 @@ def test_relationtree_pick_calls_prepareqset(qset, exp_qset, mocker,
     tree = relationtrees.RelationTree(m.ReferenceNode, [])
     mocker.patch.object(tree, 'prepare_qset')
     bucket = tree.pick(qset=qset)
-    tree.prepare_qset.assert_called_once()
+    assert tree.prepare_qset.call_count == 1
     assert_all_objset_calls(tree.prepare_qset, [exp_qset])
 
 
