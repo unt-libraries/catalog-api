@@ -152,7 +152,7 @@ class EResourcesToSolr(ToSolrExporter):
             ehl_obj.conn.delete(ehl_obj.key)
 
         if deletions:
-            for hrnum, ernum in reverse_holdings.items():
+            for hrnum, ernum in list(reverse_holdings.items()):
                 if ernum in deletions:
                     del(reverse_holdings[hrnum])
 

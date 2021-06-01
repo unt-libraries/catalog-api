@@ -713,7 +713,7 @@ def simple_sig_auth_credentials():
     the custom api.simpleauth.SimpleSignatureAuthentication mechanism
     authenticates.
     """
-    def _simple_sig_auth_credentials(api_user, request_body=b''):
+    def _simple_sig_auth_credentials(api_user, request_body=''):
         since_1970 = (datetime.now() - datetime(1970, 1, 1))
         timestamp = str(int(since_1970.total_seconds() * 1000))
         hasher = hashlib.sha256('{}{}{}{}'.format(api_user.user.username,

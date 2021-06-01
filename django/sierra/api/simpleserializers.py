@@ -171,7 +171,7 @@ class SimpleSerializer(object):
         added from the Solr doc before it's written back to Solr so
         that no data is lost.
         """
-        if not hasattr(data, 'iteritems'):
+        if not hasattr(data, 'iteritems') and not hasattr(data, 'items'):
             self._errors.append('Input must be a single object.')
             data = None
         else:

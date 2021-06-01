@@ -1,6 +1,7 @@
 from __future__ import absolute_import
 import hashlib
 
+import six
 from rest_framework import authentication
 from rest_framework import exceptions
 
@@ -20,7 +21,7 @@ class SimpleSignatureAuthentication(authentication.BaseAuthentication):
         timestamp = request.META.get('HTTP_X_TIMESTAMP', None)
         client_signature = request.META.get('HTTP_AUTHORIZATION', 'Basic ')
         client_signature = client_signature.split('Basic ')[1]
-        body = request.body
+        body = six.ensure_str(request.body)
 
         if username and timestamp and client_signature:
             try:
