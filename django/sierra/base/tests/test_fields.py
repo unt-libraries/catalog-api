@@ -581,43 +581,49 @@ def test_vcfield_other_lookups_work(modelname, name, number, parent_int,
     assert re.search(where_pattern, where)
 
 
-@pytest.mark.parametrize('modelname, data', [
+@pytest.mark.parametrize('modelname, data, expected', [
     ('VCFNameNumber', [ ('aaa', 1, 1, '1'), ('aaa', 3, 1, '1'),
-                        ('aaa', 2, 1, '1') ]),
+                        ('aaa', 2, 1, '1') ], None),
     ('VCFNameNumber', [ ('aab', 1, 1, '1'), ('aaa', 1, 1, '1'),
-                        ('aac', 1, 1, '1') ]),
+                        ('aac', 1, 1, '1') ], None),
     ('VCFNonPK', [ ('aaa', 1, 1, '1'), ('aaa', 3, 1, '1'),
-                   ('aaa', 2, 1, '1') ]),
+                   ('aaa', 2, 1, '1') ], None),
     ('VCFNonPK', [ ('aab', 1, 1, '1'), ('aaa', 1, 1, '1'),
-                   ('aac', 1, 1, '1') ]),
+                   ('aac', 1, 1, '1') ], None),
     ('VCFHyphenSep', [ ('aaa', 1, 1, '1'), ('aaa', 3, 1, '1'),
-                       ('aaa', 2, 1, '1') ]),
+                       ('aaa', 2, 1, '1') ], None),
     ('VCFHyphenSep', [ ('aab', 1, 1, '1'), ('aaa', 1, 1, '1'),
-                       ('aac', 1, 1, '1') ]),
+                       ('aac', 1, 1, '1') ], None),
     ('VCFParentInt', [ ('aaa', 1, 1, '1'), ('aaa', 1, 3, '1'),
-                       ('aaa', 1, 2, '1') ]),
+                       ('aaa', 1, 2, '1') ], None),
     ('VCFParentInt', [ ('aaa', 1, 1, '1'), ('aaa', 1, 3, '1'),
-                       ('aaa', 1, None, '1') ]),
+                       ('aaa', 1, None, '1') ], [(u'aaa', 1, None), (u'aaa', 1, 1), (u'aaa', 1, 3)]),
     ('VCFParentIntID', [ ('aaa', 1, 1, '1'), ('aaa', 1, 3, '1'),
-                         ('aaa', 1, 2, '1') ]),
+                         ('aaa', 1, 2, '1') ], None),
     ('VCFParentIntID', [ ('aaa', 1, 1, '1'), ('aaa', 1, 3, '1'),
-                         ('aaa', 1, None, '1') ]),
+                         (u'aaa', 1, None, u'1') ], [(u'aaa', 1, None), (u'aaa', 1, 1), (u'aaa', 1, 3)]),
     ('VCFParentStr', [ ('aaa', 1, 1, '3'), ('aaa', 1, 1, '1'),
-                       ('aaa', 1, 1, '2') ]),
+                       ('aaa', 1, 1, '2') ], None),
     ('VCFParentStr', [ ('aaa', 1, 1, '3'), ('aaa', 1, 1, '1'),
-                       ('aaa', 1, 1, None) ]),
+                       ('aaa', 1, 1, None) ], [(u'aaa', 1, None), (u'aaa', 1, u'1'), (u'aaa', 1, u'3')]),
 ])
-def test_vcfield_orderby_works(modelname, data, testmodels, make_instance):
+def test_vcfield_orderby_works(modelname, data, expected, testmodels, make_instance):
     """
     Using a VirtualCompField with the `order_by` obj manager method
     should return a QuerySet with instances in the appropriate order:
     ascending or descending, in the same order the VCField values
     would fall if sorted.
+
+    Python 3 can't compare None with other types, so some expected values are
+    provided.
     """
     tmodel = testmodels[modelname]
     instances = [make_instance(modelname, *f) for f in data]
-    asc_expected = sorted([m.vcf for m in tmodel.objects.all()])
-    desc_expected = sorted([m.vcf for m in tmodel.objects.all()], reverse=True)
+    asc_expected = expected or sorted([m.vcf for m in tmodel.objects.all()])
+    if expected:
+        desc_expected = list(reversed(expected))
+    else:
+        desc_expected = sorted([m.vcf for m in tmodel.objects.all()], reverse=True)
     asc_qset = tmodel.objects.order_by('vcf')
     desc_qset = tmodel.objects.order_by('-vcf')
     assert [m.vcf for m in asc_qset] == asc_expected
