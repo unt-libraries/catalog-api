@@ -2192,6 +2192,7 @@ def format_volume(volume):
 
 def generate_facet_key(value, nonfiling_chars=0, space_char=r'-'):
     key = value.lower()
+    nonfiling_chars = int(nonfiling_chars)
     if nonfiling_chars and len(key) > nonfiling_chars:
         last_nfchar_is_nonword = not key[nonfiling_chars - 1].isalnum()
         if last_nfchar_is_nonword and len(value) > nonfiling_chars:
@@ -2977,7 +2978,7 @@ class ToDiscoverPipeline(object):
         lowest, highest = low1 or high1, high2 or low2
         dnum1 = low2 if lowest == -1 else lowest
         dnum2 = high1 if highest == -1 else highest
-        if dnum1 > dnum2:
+        if (dnum1 and dnum2) and dnum1 > dnum2:
             dnum2 = dnum1
             dstr2 = None
         
@@ -4305,7 +4306,7 @@ class ToDiscoverPipeline(object):
             return item_sep.join(render_stack)
 
         def _render_totals(parsed_pm):
-            render_stack, nums = [], {}
+            render_stack, nums = [], OrderedDict()
             nums['performer'] = parsed_pm['total_performers']
             nums['ensemble'] = parsed_pm['total_ensembles']
             for entity_type, num in nums.items():
@@ -5448,7 +5449,7 @@ class DiscoverS2MarcBatch(S2MarcBatch):
     def order_varfields(self, varfields):
         groups = []
         vfgroup_ordernum, last_vftag = 0, None
-        for vf in sorted(varfields, key=lambda vf: vf.marc_tag):
+        for vf in sorted(varfields, key=lambda vf: vf.marc_tag or ''):
             if vf.marc_tag:
                 if last_vftag and last_vftag != vf.varfield_type_code:
                     vfgroup_ordernum += 1
