@@ -95,6 +95,7 @@ import six
 from six.moves import range
 
 
+@python_2_unicode_compatible
 class ReadOnlyModel(models.Model):
     """
     Basic abstract base model to disable the save and delete methods
@@ -118,7 +119,7 @@ class ReadOnlyModel(models.Model):
             raise NotImplementedError('Deleting not allowed.')
         super(ReadOnlyModel, self).delete(*args, **kwargs)
 
-    def __unicode__(self):
+    def __str__(self):
         if hasattr(self, 'code'):
             return six.text_type(str(self.code))
         elif hasattr(self, 'record_metadata'):
