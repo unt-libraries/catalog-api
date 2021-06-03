@@ -7,7 +7,10 @@ import importlib
 
 from django.db import models
 from django.contrib.auth.models import User
+from django.utils.encoding import python_2_unicode_compatible
 
+
+@python_2_unicode_compatible
 class ExportType(models.Model):
     """
     Describes 'Type' of export: Bib Records (as MARC), etc.
@@ -18,7 +21,7 @@ class ExportType(models.Model):
     description = models.TextField()
     order = models.IntegerField()
 
-    def __unicode__(self):
+    def __str__(self):
         return self.label
 
     def get_exporter_class(self):
@@ -28,6 +31,7 @@ class ExportType(models.Model):
         return getattr(mod, exporter)
 
 
+@python_2_unicode_compatible
 class ExportFilter(models.Model):
     """
     Describes the filter used to limit what entities were exported:
@@ -38,10 +42,11 @@ class ExportFilter(models.Model):
     order = models.IntegerField()
     description = models.TextField()
 
-    def __unicode__(self):
+    def __str__(self):
         return self.label
 
 
+@python_2_unicode_compatible
 class Status(models.Model):
     """
     Used by ExportInstance to describe the status or state of the job.
@@ -50,12 +55,14 @@ class Status(models.Model):
     label = models.CharField(max_length=255)
     description = models.TextField()
     
-    def __unicode__(self):
+    def __str__(self):
         return self.label
 
     class Meta:
         verbose_name_plural = 'statuses'
 
+
+@python_2_unicode_compatible
 class ExportInstance(models.Model):
     """
     Instances of exports that have actually been run, including date
@@ -70,7 +77,7 @@ class ExportInstance(models.Model):
     errors = models.IntegerField(default=0)
     warnings = models.IntegerField(default=0)
     
-    def __unicode__(self):
+    def __str__(self):
         return u'{} - {} - {}'.format(self.timestamp,
                                       self.export_type,
                                       self.status)
