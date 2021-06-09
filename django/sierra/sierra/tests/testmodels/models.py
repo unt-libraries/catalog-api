@@ -11,19 +11,19 @@ class EndNode(models.Model):
 
 class SelfReferentialNode(models.Model):
     name = models.CharField(max_length=255)
-    end = models.ForeignKey(EndNode, null=True)
-    parent = models.ForeignKey('self', null=True)
+    end = models.ForeignKey(EndNode, on_delete=models.CASCADE, null=True)
+    parent = models.ForeignKey('self', on_delete=models.CASCADE, null=True)
 
 
 class ManyToManyNode(models.Model):
     name = models.CharField(max_length=255)
-    end = models.ForeignKey(EndNode)
+    end = models.ForeignKey(EndNode, on_delete=models.CASCADE)
 
 
 class ThroughNode(models.Model):
     name = models.CharField(max_length=255)
-    ref = models.ForeignKey('ReferenceNode')
-    m2m = models.ForeignKey(ManyToManyNode)
+    ref = models.ForeignKey('ReferenceNode', on_delete=models.CASCADE)
+    m2m = models.ForeignKey(ManyToManyNode, on_delete=models.CASCADE)
 
 class OneToOneNode(models.Model):
     name = models.CharField(max_length=255)
@@ -31,7 +31,8 @@ class OneToOneNode(models.Model):
 
 class ReferenceNode(models.Model):
     name = models.CharField(max_length=255)
-    srn = models.ForeignKey(SelfReferentialNode)
-    end = models.ForeignKey(EndNode)
-    one = models.OneToOneField(OneToOneNode, null=True)
+    srn = models.ForeignKey(SelfReferentialNode, on_delete=models.CASCADE)
+    end = models.ForeignKey(EndNode, on_delete=models.CASCADE)
+    one = models.OneToOneField(OneToOneNode, on_delete=models.CASCADE,
+                               null=True)
     m2m = models.ManyToManyField(ManyToManyNode, through=ThroughNode)

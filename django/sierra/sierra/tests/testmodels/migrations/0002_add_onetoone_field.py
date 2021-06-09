@@ -22,6 +22,7 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='referencenode',
             name='one',
-            field=models.OneToOneField(null=True, to='testmodels.OneToOneNode'),
+            field=models.OneToOneField(on_delete=models.CASCADE,
+                                       null=True, to='testmodels.OneToOneNode'),
         ),
     ]

@@ -26,7 +26,7 @@ class Migration(migrations.Migration):
             fields=[
                 ('id', models.AutoField(verbose_name='ID', serialize=False, auto_created=True, primary_key=True)),
                 ('name', models.CharField(max_length=255)),
-                ('end', models.ForeignKey(to='testmodels.EndNode')),
+                ('end', models.ForeignKey(on_delete=models.CASCADE, to='testmodels.EndNode')),
             ],
             options={
             },
@@ -37,7 +37,7 @@ class Migration(migrations.Migration):
             fields=[
                 ('id', models.AutoField(verbose_name='ID', serialize=False, auto_created=True, primary_key=True)),
                 ('name', models.CharField(max_length=255)),
-                ('end', models.ForeignKey(to='testmodels.EndNode')),
+                ('end', models.ForeignKey(on_delete=models.CASCADE, to='testmodels.EndNode')),
             ],
             options={
             },
@@ -48,8 +48,8 @@ class Migration(migrations.Migration):
             fields=[
                 ('id', models.AutoField(verbose_name='ID', serialize=False, auto_created=True, primary_key=True)),
                 ('name', models.CharField(max_length=255)),
-                ('end', models.ForeignKey(to='testmodels.EndNode', null=True)),
-                ('parent', models.ForeignKey(to='testmodels.SelfReferentialNode', null=True)),
+                ('end', models.ForeignKey(on_delete=models.CASCADE, to='testmodels.EndNode', null=True)),
+                ('parent', models.ForeignKey(on_delete=models.CASCADE, to='testmodels.SelfReferentialNode', null=True)),
             ],
             options={
             },
@@ -60,8 +60,8 @@ class Migration(migrations.Migration):
             fields=[
                 ('id', models.AutoField(verbose_name='ID', serialize=False, auto_created=True, primary_key=True)),
                 ('name', models.CharField(max_length=255)),
-                ('m2m', models.ForeignKey(to='testmodels.ManyToManyNode')),
-                ('ref', models.ForeignKey(to='testmodels.ReferenceNode')),
+                ('m2m', models.ForeignKey(on_delete=models.CASCADE, to='testmodels.ManyToManyNode')),
+                ('ref', models.ForeignKey(on_delete=models.CASCADE, to='testmodels.ReferenceNode')),
             ],
             options={
             },
@@ -76,7 +76,7 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='referencenode',
             name='srn',
-            field=models.ForeignKey(to='testmodels.SelfReferentialNode'),
+            field=models.ForeignKey(on_delete=models.CASCADE, to='testmodels.SelfReferentialNode'),
             preserve_default=True,
         ),
     ]
