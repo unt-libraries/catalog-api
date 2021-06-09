@@ -68,11 +68,11 @@ class ExportInstance(models.Model):
     Instances of exports that have actually been run, including date
     and user that ran them.
     """
-    user = models.ForeignKey(User)
-    export_type = models.ForeignKey(ExportType)
-    export_filter = models.ForeignKey(ExportFilter)
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    export_type = models.ForeignKey(ExportType, on_delete=models.CASCADE)
+    export_filter = models.ForeignKey(ExportFilter, on_delete=models.CASCADE)
     filter_params = models.CharField(max_length=255)
-    status = models.ForeignKey(Status)
+    status = models.ForeignKey(Status, on_delete=models.CASCADE)
     timestamp = models.DateTimeField()
     errors = models.IntegerField(default=0)
     warnings = models.IntegerField(default=0)

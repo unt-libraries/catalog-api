@@ -161,6 +161,7 @@ class MainRecordTypeModel(ReadOnlyModel):
     class Meta(object):
         abstract = True
 
+
 class ModelWithAttachedName(ReadOnlyModel):
     """
     A very common pattern with `property` and `type` models is to have
@@ -201,7 +202,7 @@ class ModelWithAttachedName(ReadOnlyModel):
 
 class ControlField(ReadOnlyModel):
     id = models.BigIntegerField(primary_key=True)
-    record = models.ForeignKey('RecordMetadata')
+    record = models.ForeignKey('RecordMetadata', on_delete=models.CASCADE)
     varfield_type_code = models.CharField(max_length=1, blank=True)
     control_num = models.IntegerField(null=True, blank=True)
     p00 = models.CharField(max_length=1, blank=True)
@@ -267,6 +268,7 @@ class FixfldType(ModelWithAttachedName):
     code = models.CharField(max_length=3, blank=True)
     display_order = models.IntegerField(null=True, blank=True)
     record_type = models.ForeignKey('RecordType',
+                                    on_delete=models.CASCADE,
                                     db_column='record_type_code',
                                     db_constraint=False,
                                     to_field='code',
@@ -292,8 +294,10 @@ class FixfldTypeName(ReadOnlyModel):
                                   partfield_names=['fixfldtype',
                                                    'iii_language'])
     fixfldtype = models.ForeignKey(FixfldType,
+                                   on_delete=models.CASCADE,
                                    db_column='fixfld_property_id')
-    iii_language = models.ForeignKey('IiiLanguage', null=True, blank=True)
+    iii_language = models.ForeignKey('IiiLanguage', on_delete=models.CASCADE,
+                                     null=True, blank=True)
     name = models.CharField(max_length=255, blank=True)
 
     class Meta(ReadOnlyModel.Meta):
@@ -304,7 +308,8 @@ class FixfldTypeName(ReadOnlyModel):
 # NOT III record type (bib, authority, item, etc.)
 class LeaderField(ReadOnlyModel):
     id = models.BigIntegerField(primary_key=True)
-    record = models.ForeignKey('RecordMetadata', null=True, blank=True)
+    record = models.ForeignKey('RecordMetadata', on_delete=models.CASCADE,
+                               null=True, blank=True)
     record_status_code = models.CharField(max_length=1, blank=True)
     record_type_code = models.CharField(max_length=1, blank=True)
     bib_level_code = models.CharField(max_length=1, blank=True)
@@ -320,7 +325,7 @@ class LeaderField(ReadOnlyModel):
 
 class MarclabelType(ModelWithAttachedName):
     id = models.BigIntegerField(primary_key=True)
-    record_type = models.ForeignKey('RecordType',
+    record_type = models.ForeignKey('RecordType', on_delete=models.CASCADE,
                                     db_column='record_type_code',
                                     db_constraint=False,
                                     to_field='code',
@@ -335,7 +340,7 @@ class MarclabelType(ModelWithAttachedName):
 
 
 class MarclabelTypeMyuser(ReadOnlyModel):
-    record_type = models.ForeignKey('RecordType',
+    record_type = models.ForeignKey('RecordType', on_delete=models.CASCADE,
                                     db_column='record_type_code',
                                     to_field='code',
                                     db_constraint=False,
@@ -354,8 +359,9 @@ class MarclabelTypeName(ReadOnlyModel):
     key = fields.VirtualCompField(primary_key=True,
                                   partfield_names=['marclabel_type',
                                                    'iii_language'])
-    marclabel_type = models.ForeignKey(MarclabelType)
-    iii_language = models.ForeignKey('IiiLanguage', null=True, blank=True)
+    marclabel_type = models.ForeignKey(MarclabelType, on_delete=models.CASCADE)
+    iii_language = models.ForeignKey('IiiLanguage', on_delete=models.CASCADE,
+                                     null=True, blank=True)
     name = models.CharField(max_length=255, blank=True)
 
     class Meta(ReadOnlyModel.Meta):
@@ -366,7 +372,8 @@ class MarclabelTypeName(ReadOnlyModel):
 # subject to change ... " etc.
 class PhraseEntry(ReadOnlyModel):
     id = models.BigIntegerField(primary_key=True)
-    record = models.ForeignKey('RecordMetadata', null=True, blank=True)
+    record = models.ForeignKey('RecordMetadata', on_delete=models.CASCADE,
+                               null=True, blank=True)
     index_tag = models.CharField(max_length=20, blank=True)
     varfield_type_code = models.CharField(max_length=1, blank=True)
     occurrence = models.IntegerField(null=True, blank=True)
@@ -380,6 +387,7 @@ class PhraseEntry(ReadOnlyModel):
     phrase_rule_subfield_list = models.CharField(max_length=50, blank=True)
     original_content = models.CharField(max_length=1000, blank=True)
     parent_record = models.ForeignKey('RecordMetadata',
+                                      on_delete=models.CASCADE,
                                       related_name='+',
                                       null=True,
                                       blank=True)
@@ -395,7 +403,7 @@ class PhraseEntry(ReadOnlyModel):
 # code doesn't correspond with anything in the phrase_type table.
 class PhraseRule(ReadOnlyModel):
     id = models.BigIntegerField(primary_key=True)
-    record_type = models.ForeignKey('RecordType',
+    record_type = models.ForeignKey('RecordType', on_delete=models.CASCADE,
                                     db_column='record_type_code',
                                     db_constraint=False,
                                     to_field='code',
@@ -416,7 +424,7 @@ class PhraseRule(ReadOnlyModel):
 
 class PhraseType(ModelWithAttachedName):
     id = models.BigIntegerField(primary_key=True)
-    record_type = models.ForeignKey('RecordType',
+    record_type = models.ForeignKey('RecordType', on_delete=models.CASCADE,
                                     db_column='record_type_code',
                                     db_constraint=False,
                                     to_field='code',
@@ -433,8 +441,9 @@ class PhraseTypeName(ReadOnlyModel):
     key = fields.VirtualCompField(primary_key=True,
                                   partfield_names=['phrase_type',
                                                    'iii_language'])
-    phrase_type = models.ForeignKey(PhraseType)
-    iii_language = models.ForeignKey('IiiLanguage', null=True, blank=True)
+    phrase_type = models.ForeignKey(PhraseType, on_delete=models.CASCADE)
+    iii_language = models.ForeignKey('IiiLanguage', on_delete=models.CASCADE,
+                                     null=True, blank=True)
     name = models.CharField(max_length=255, blank=True)
     plural_name = models.CharField(max_length=255, blank=True)
 
@@ -445,7 +454,7 @@ class PhraseTypeName(ReadOnlyModel):
 # We don't use agencies. Enable 'agency,' below, if you do.
 class RecordMetadata(ReadOnlyModel):
     id = models.BigIntegerField(primary_key=True)
-    record_type = models.ForeignKey('RecordType',
+    record_type = models.ForeignKey('RecordType', on_delete=models.CASCADE,
                                     db_column='record_type_code',
                                     db_constraint=False,
                                     to_field='code',
@@ -455,7 +464,7 @@ class RecordMetadata(ReadOnlyModel):
     creation_date_gmt = models.DateTimeField(null=True, blank=True)
     deletion_date_gmt = models.DateField(null=True, blank=True)
     campus_code = models.CharField(max_length=5, blank=True)
-    # agency = models.ForeignKey('AgencyProperty',
+    # agency = models.ForeignKey('AgencyProperty', on_delete=models.CASCADE,
     #                             db_column='agency_code_num',
     #                             db_constraint=False,
     #                             to_field='code_num',
@@ -539,13 +548,14 @@ class RecordMetadata(ReadOnlyModel):
 
 class RecordRange(ReadOnlyModel):
     id = models.BigIntegerField(primary_key=True)
-    record_type = models.ForeignKey('RecordType',
+    record_type = models.ForeignKey('RecordType', on_delete=models.CASCADE,
                                     db_column='record_type_code',
                                     db_constraint=False,
                                     to_field='code',
                                     null=True,
                                     blank=True)
     accounting_unit = models.ForeignKey('AccountingUnit',
+                                        on_delete=models.CASCADE,
                                         db_column='accounting_unit_code_num',
                                         to_field='code_num',
                                         db_constraint=False,
@@ -588,9 +598,10 @@ class RecordTypeName(ReadOnlyModel):
     key = fields.VirtualCompField(primary_key=True,
                                   partfield_names=['record_type',
                                                    'iii_language'])
-    record_type = models.ForeignKey(RecordType)
+    record_type = models.ForeignKey(RecordType, on_delete=models.CASCADE)
     name = models.CharField(max_length=255, blank=True)
-    iii_language = models.ForeignKey('IiiLanguage', null=True, blank=True)
+    iii_language = models.ForeignKey('IiiLanguage', on_delete=models.CASCADE,
+                                     null=True, blank=True)
 
     class Meta(ReadOnlyModel.Meta):
         db_table = 'record_type_name'
@@ -600,8 +611,10 @@ class Subfield(ReadOnlyModel):
     key = fields.VirtualCompField(primary_key=True,
                                   partfield_names=['varfield', 'tag',
                                                    'occ_num'])
-    record = models.ForeignKey(RecordMetadata, null=True, blank=True)
-    varfield = models.ForeignKey('Varfield', null=True, blank=True)
+    record = models.ForeignKey(RecordMetadata, on_delete=models.CASCADE,
+                               null=True, blank=True)
+    varfield = models.ForeignKey('Varfield', on_delete=models.CASCADE,
+                                 null=True, blank=True)
     field_type_code = models.CharField(max_length=1, blank=True)
     marc_tag = models.CharField(max_length=3, null=True, blank=True)
     marc_ind1 = models.CharField(max_length=1, blank=True)
@@ -616,13 +629,15 @@ class Subfield(ReadOnlyModel):
 
 
 # class SubfieldView(ReadOnlyModel):
-#     record = models.ForeignKey(RecordMetadata, null=True, blank=True)
-#     record_type = models.ForeignKey(RecordType,
+#     record = models.ForeignKey(RecordMetadata, on_delete=models.CASCADE,
+#                                null=True, blank=True)
+#     record_type = models.ForeignKey(RecordType, on_delete=models.CASCADE,
 #                                     db_column='record_type_code',
 #                                     db_constraint=False,
 #                                     to_field='code')
 #     record_num = models.IntegerField(null=True, blank=True)
-#     varfield = models.ForeignKey('Varfield', null=True, blank=True)
+#     varfield = models.ForeignKey('Varfield', on_delete=models.CASCADE,
+#                                  null=True, blank=True)
 #     varfield_type_code = models.CharField(max_length=1, blank=True)
 #     marc_tag = models.CharField(max_length=3, blank=True)
 #     marc_ind1 = models.CharField(max_length=1, blank=True)
@@ -637,7 +652,8 @@ class Subfield(ReadOnlyModel):
 
 class Varfield(ReadOnlyModel):
     id = models.BigIntegerField(primary_key=True)
-    record = models.ForeignKey(RecordMetadata, null=True, blank=True)
+    record = models.ForeignKey(RecordMetadata, on_delete=models.CASCADE,
+                               null=True, blank=True)
     varfield_type_code = models.CharField(max_length=1, blank=True)
     marc_tag = models.CharField(max_length=3, null=True, blank=True)
     marc_ind1 = models.CharField(max_length=1, blank=True)
@@ -681,7 +697,7 @@ class Varfield(ReadOnlyModel):
 
 class VarfieldType(ModelWithAttachedName):
     id = models.BigIntegerField(primary_key=True)
-    record_type = models.ForeignKey(RecordType,
+    record_type = models.ForeignKey(RecordType, on_delete=models.CASCADE,
                                     db_column='record_type_code',
                                     db_constraint=False,
                                     to_field='code',
@@ -700,8 +716,9 @@ class VarfieldTypeName(ReadOnlyModel):
     key = fields.VirtualCompField(primary_key=True,
                                   partfield_names=['varfield_type',
                                                    'iii_language'])
-    varfield_type = models.ForeignKey(VarfieldType)
-    iii_language = models.ForeignKey('IiiLanguage', null=True, blank=True)
+    varfield_type = models.ForeignKey(VarfieldType, on_delete=models.CASCADE)
+    iii_language = models.ForeignKey('IiiLanguage', on_delete=models.CASCADE,
+                                     null=True, blank=True)
     short_name = models.CharField(max_length=20, blank=True)
     name = models.CharField(max_length=255, blank=True)
 
@@ -711,8 +728,9 @@ class VarfieldTypeName(ReadOnlyModel):
 
 # class VarfieldView(ReadOnlyModel):
 #     id = models.BigIntegerField(primary_key=True)
-#     record = models.ForeignKey(RecordMetadata, null=True, blank=True)
-#     record_type = models.ForeignKey(RecordType,
+#     record = models.ForeignKey(RecordMetadata, on_delete=models.CASCADE,
+#                                null=True, blank=True)
+#     record_type = models.ForeignKey(RecordType, on_delete=models.CASCADE,
 #                                     db_column='record_type_code',
 #                                     db_constraint=False,
 #                                     to_field='code',
@@ -734,6 +752,7 @@ class VarfieldTypeName(ReadOnlyModel):
 class AuthorityRecord(MainRecordTypeModel):
     id = models.BigIntegerField(primary_key=True)
     record_metadata = models.ForeignKey(RecordMetadata,
+                                        on_delete=models.CASCADE,
                                         db_column='record_id',
                                         null=True,
                                         blank=True)
@@ -749,7 +768,7 @@ class AuthorityRecord(MainRecordTypeModel):
 
 # class AuthorityView(ReadOnlyModel):
 #     id = models.BigIntegerField(primary_key=True)
-#     record_type = models.ForeignKey(RecordType,
+#     record_type = models.ForeignKey(RecordType, on_delete=models.CASCADE,
 #                                     db_column='record_type_code',
 #                                     db_constraint=False
 #                                     to_field='code',
@@ -772,16 +791,19 @@ class Catmaint(ReadOnlyModel):
     condition_code_num = models.IntegerField(null=True, blank=True)
     index_tag = models.CharField(max_length=1, blank=True)
     index_entry = models.TextField(blank=True)
-    record_metadata = models.ForeignKey(RecordMetadata, null=True, blank=True)
+    record_metadata = models.ForeignKey(RecordMetadata,
+                                        on_delete=models.CASCADE,
+                                        null=True, blank=True)
     statistics_group_code_num = models.IntegerField(null=True, blank=True)
     process_gmt = models.DateTimeField(null=True, blank=True)
     program_code = models.CharField(max_length=255, blank=True)
     iii_user_name = models.CharField(max_length=255, blank=True)
     one_xx_entry = models.TextField(blank=True)
     authority_record = models.ForeignKey(AuthorityRecord,
-                                      db_column='authority_record_metadata_id',
-                                      null=True,
-                                      blank=True)
+                                         on_delete=models.CASCADE,
+                                         db_column='authority_record_metadata_id',
+                                         null=True,
+                                         blank=True)
     old_field = models.TextField(blank=True)
     new_240_field = models.TextField(blank=True)
     field = models.TextField(blank=True)
@@ -791,7 +813,8 @@ class Catmaint(ReadOnlyModel):
     correct_heading = models.TextField(blank=True)
     author = models.TextField(blank=True)
     title = models.TextField(blank=True)
-    phrase_entry = models.ForeignKey(PhraseEntry, null=True, blank=True)
+    phrase_entry = models.ForeignKey(PhraseEntry, on_delete=models.CASCADE,
+                                     null=True, blank=True)
 
     class Meta(ReadOnlyModel.Meta):
         db_table = 'catmaint'
@@ -800,6 +823,7 @@ class Catmaint(ReadOnlyModel):
 class UserDefinedAcode1Myuser(ReadOnlyModel):
     code = models.CharField(max_length=255, primary_key=True)
     user_defined_category = models.ForeignKey('UserDefinedCategory',
+                                              on_delete=models.CASCADE,
                                               null=True,
                                               blank=True)
     display_order = models.IntegerField(null=True, blank=True)
@@ -812,6 +836,7 @@ class UserDefinedAcode1Myuser(ReadOnlyModel):
 class UserDefinedAcode2Myuser(ReadOnlyModel):
     code = models.CharField(max_length=255, primary_key=True)
     user_defined_category = models.ForeignKey('UserDefinedCategory',
+                                              on_delete=models.CASCADE,
                                               null=True,
                                               blank=True)
     display_order = models.IntegerField(null=True, blank=True)
@@ -845,8 +870,10 @@ class BibLevelPropertyName(ReadOnlyModel):
     key = fields.VirtualCompField(primary_key=True,
                                   partfield_names=['bib_level_property',
                                                    'iii_language'])
-    bib_level_property = models.ForeignKey(BibLevelProperty)
-    iii_language = models.ForeignKey('IiiLanguage', null=True, blank=True)
+    bib_level_property = models.ForeignKey(BibLevelProperty,
+                                           on_delete=models.CASCADE)
+    iii_language = models.ForeignKey('IiiLanguage', on_delete=models.CASCADE,
+                                     null=True, blank=True)
     name = models.CharField(max_length=255, blank=True)
 
     class Meta(ReadOnlyModel.Meta):
@@ -856,6 +883,7 @@ class BibLevelPropertyName(ReadOnlyModel):
 class BibRecord(MainRecordTypeModel):
     id = models.BigIntegerField(primary_key=True)
     record_metadata = models.ForeignKey(RecordMetadata,
+                                        on_delete=models.CASCADE,
                                         db_column='record_id',
                                         null=True,
                                         blank=True)
@@ -874,7 +902,7 @@ class BibRecord(MainRecordTypeModel):
     locations = models.ManyToManyField('Location',
                                        through='BibRecordLocation',
                                        blank=True)
-    language = models.ForeignKey('LanguageProperty',
+    language = models.ForeignKey('LanguageProperty', on_delete=models.CASCADE,
                                  db_column='language_code',
                                  db_constraint=False,
                                  to_field='code',
@@ -883,7 +911,7 @@ class BibRecord(MainRecordTypeModel):
     bcode1 = models.CharField(max_length=1, blank=True)
     bcode2 = models.CharField(max_length=1, blank=True)
     bcode3 = models.CharField(max_length=1, blank=True)
-    country = models.ForeignKey('CountryProperty',
+    country = models.ForeignKey('CountryProperty', on_delete=models.CASCADE,
                                 db_column='country_code',
                                 db_constraint=False,
                                 to_field='code',
@@ -933,7 +961,8 @@ class BibRecord(MainRecordTypeModel):
 
 class BibRecordCallNumberPrefix(ReadOnlyModel):
     id = models.BigIntegerField(primary_key=True)
-    bib_record = models.ForeignKey(BibRecord, null=True, blank=True)
+    bib_record = models.ForeignKey(BibRecord, on_delete=models.CASCADE,
+                                   null=True, blank=True)
     call_number_prefix = models.CharField(max_length=10, blank=True)
 
     class Meta(ReadOnlyModel.Meta):
@@ -942,9 +971,10 @@ class BibRecordCallNumberPrefix(ReadOnlyModel):
 
 class BibRecordLocation(ReadOnlyModel):
     id = models.BigIntegerField(primary_key=True)
-    bib_record = models.ForeignKey(BibRecord, null=True, blank=True)
+    bib_record = models.ForeignKey(BibRecord, on_delete=models.CASCADE,
+                                   null=True, blank=True)
     copies = models.IntegerField(null=True, blank=True)
-    location = models.ForeignKey('Location',
+    location = models.ForeignKey('Location', on_delete=models.CASCADE,
                                  db_column='location_code',
                                  db_constraint=False,
                                  to_field='code',
@@ -958,15 +988,16 @@ class BibRecordLocation(ReadOnlyModel):
 
 class BibRecordProperty(ReadOnlyModel):
     id = models.IntegerField(primary_key=True)
-    bib_record = models.ForeignKey(BibRecord, null=True, blank=True)
+    bib_record = models.ForeignKey(BibRecord, on_delete=models.CASCADE,
+                                   null=True, blank=True)
     best_title = models.CharField(max_length=1000, blank=True)
-    bib_level = models.ForeignKey(BibLevelProperty,
+    bib_level = models.ForeignKey(BibLevelProperty, on_delete=models.CASCADE,
                                   db_column='bib_level_code',
                                   db_constraint=False,
                                   to_field='code',
                                   null=True,
                                   blank=True)
-    material = models.ForeignKey('MaterialProperty',
+    material = models.ForeignKey('MaterialProperty', on_delete=models.CASCADE,
                                  db_column='material_code',
                                  db_constraint=False,
                                  to_field='code',
@@ -983,14 +1014,14 @@ class BibRecordProperty(ReadOnlyModel):
 
 # class BibView(ReadOnlyModel):
 #     id = models.BigIntegerField(primary_key=True)
-#     record_type = models.ForeignKey(RecordType,
+#     record_type = models.ForeignKey(RecordType, on_delete=models.CASCADE,
 #                                     db_column='record_type_code',
 #                                     db_constraint=False,
 #                                     to_field='code',
 #                                     null=True,
 #                                     blank=True)
 #     record_num = models.IntegerField(null=True, blank=True)
-#     language = models.ForeignKey('LanguageProperty',
+#     language = models.ForeignKey('LanguageProperty', on_delete=models.CASCADE,
 #                                  db_column='language_code',
 #                                  db_constraint=False,
 #                                  to_field='code',
@@ -999,7 +1030,7 @@ class BibRecordProperty(ReadOnlyModel):
 #     bcode1 = models.CharField(max_length=1, blank=True)
 #     bcode2 = models.CharField(max_length=1, blank=True)
 #     bcode3 = models.CharField(max_length=1, blank=True)
-#     country = models.ForeignKey('CountryProperty',
+#     country = models.ForeignKey('CountryProperty', on_delete=models.CASCADE,
 #                                 db_column='country_code',
 #                                 db_constraint=False,
 #                                 to_field='code',
@@ -1021,8 +1052,10 @@ class BibRecordProperty(ReadOnlyModel):
 
 class CourseRecordBibRecordLink(ReadOnlyModel):
     id = models.BigIntegerField(primary_key=True)
-    course_record = models.ForeignKey('CourseRecord', null=True, blank=True)
-    bib_record = models.ForeignKey(BibRecord, null=True, blank=True)
+    course_record = models.ForeignKey('CourseRecord', on_delete=models.CASCADE,
+                                      null=True, blank=True)
+    bib_record = models.ForeignKey(BibRecord, on_delete=models.CASCADE,
+                                   null=True, blank=True)
     status_change_date = models.DateTimeField(null=True, blank=True)
     status_code = models.CharField(max_length=5, blank=True)
     bibs_display_order = models.IntegerField(null=True, blank=True)
@@ -1041,9 +1074,12 @@ class MaterialProperty(ModelWithAttachedName):
     display_order = models.IntegerField(null=True, blank=True)
     is_public = models.NullBooleanField(null=True, blank=True)
     material_property_category = models.ForeignKey('MaterialPropertyCategory',
+                                                   on_delete=models.CASCADE,
                                                    null=True,
                                                    blank=True)
-    physical_format = models.ForeignKey('PhysicalFormat', null=True, blank=True)
+    physical_format = models.ForeignKey('PhysicalFormat',
+                                        on_delete=models.CASCADE,
+                                        null=True, blank=True)
 
     class Meta(ModelWithAttachedName.Meta):
         db_table = 'material_property'
@@ -1070,11 +1106,13 @@ class MaterialPropertyCategoryMyuser(ReadOnlyModel):
 
 class MaterialPropertyCategoryName(ReadOnlyModel):
     key = fields.VirtualCompField(primary_key=True,
-                                partfield_names=['material_property_category',
-                                                 'iii_language'])
-    material_property_category = models.ForeignKey(MaterialPropertyCategory)
+                                  partfield_names=['material_property_category',
+                                                   'iii_language'])
+    material_property_category = models.ForeignKey(MaterialPropertyCategory,
+                                                   on_delete=models.CASCADE)
     name = models.CharField(max_length=255, blank=True)
-    iii_language = models.ForeignKey('IiiLanguage', null=True, blank=True)
+    iii_language = models.ForeignKey('IiiLanguage', on_delete=models.CASCADE,
+                                     null=True, blank=True)
 
     class Meta(ReadOnlyModel.Meta):
         db_table = 'material_property_category_name'
@@ -1085,9 +1123,12 @@ class MaterialPropertyMyuser(ReadOnlyModel):
     display_order = models.IntegerField(null=True, blank=True)
     is_public = models.NullBooleanField(null=True, blank=True)
     material_property_category = models.ForeignKey(MaterialPropertyCategory,
+                                                   on_delete=models.CASCADE,
                                                    null=True,
                                                    blank=True)
-    physical_format = models.ForeignKey('PhysicalFormat', null=True, blank=True)
+    physical_format = models.ForeignKey('PhysicalFormat',
+                                        on_delete=models.CASCADE,
+                                        null=True, blank=True)
     name = models.CharField(max_length=255, blank=True)
 
     class Meta(ReadOnlyModel.Meta):
@@ -1098,8 +1139,10 @@ class MaterialPropertyName(ReadOnlyModel):
     key = fields.VirtualCompField(primary_key=True,
                                   partfield_names=['material_property',
                                                    'iii_language'])
-    material_property = models.ForeignKey(MaterialProperty)
-    iii_language = models.ForeignKey('IiiLanguage', null=True, blank=True)
+    material_property = models.ForeignKey(MaterialProperty,
+                                          on_delete=models.CASCADE)
+    iii_language = models.ForeignKey('IiiLanguage', on_delete=models.CASCADE,
+                                     null=True, blank=True)
     name = models.CharField(max_length=255, blank=True)
     facet_text = models.CharField(max_length=500, null=True, blank=True)
 
@@ -1110,6 +1153,7 @@ class MaterialPropertyName(ReadOnlyModel):
 class UserDefinedBcode1Myuser(ReadOnlyModel):
     code = models.CharField(max_length=255, primary_key=True)
     user_defined_category = models.ForeignKey('UserDefinedCategory',
+                                              on_delete=models.CASCADE,
                                               null=True,
                                               blank=True)
     display_order = models.IntegerField(null=True, blank=True)
@@ -1122,6 +1166,7 @@ class UserDefinedBcode1Myuser(ReadOnlyModel):
 class UserDefinedBcode2Myuser(ReadOnlyModel):
     code = models.CharField(max_length=255, primary_key=True)
     user_defined_category = models.ForeignKey('UserDefinedCategory',
+                                              on_delete=models.CASCADE,
                                               null=True,
                                               blank=True)
     display_order = models.IntegerField(null=True, blank=True)
@@ -1134,6 +1179,7 @@ class UserDefinedBcode2Myuser(ReadOnlyModel):
 class UserDefinedBcode3Myuser(ReadOnlyModel):
     code = models.CharField(max_length=255, primary_key=True)
     user_defined_category = models.ForeignKey('UserDefinedCategory',
+                                              on_delete=models.CASCADE,
                                               null=True,
                                               blank=True)
     display_order = models.IntegerField(null=True, blank=True)
@@ -1148,6 +1194,7 @@ class UserDefinedBcode3Myuser(ReadOnlyModel):
 class ContactRecord(MainRecordTypeModel):
     id = models.BigIntegerField(primary_key=True)
     record_metadata = models.ForeignKey(RecordMetadata,
+                                        on_delete=models.CASCADE,
                                         db_column='record_id',
                                         null=True,
                                         blank=True)
@@ -1169,10 +1216,11 @@ class ContactRecordAddressType(ReadOnlyModel):
 # class ContactView(ReadOnlyModel):
 #     id = models.BigIntegerField(primary_key=True)
 #     record_metadata = models.ForeignKey(RecordMetadata,
+#                                         on_delete=models.CASCADE,
 #                                         db_column='record_id',
 #                                         null=True,
 #                                         blank=True)
-#     record_type = models.ForeignKey(RecordType,
+#     record_type = models.ForeignKey(RecordType, on_delete=models.CASCADE,
 #                                     db_column='record_type_code',
 #                                     db_constraint=False,
 #                                     to_field='code',
@@ -1191,6 +1239,7 @@ class ContactRecordAddressType(ReadOnlyModel):
 class CourseRecord(MainRecordTypeModel):
     id = models.BigIntegerField(primary_key=True)
     record_metadata = models.ForeignKey(RecordMetadata,
+                                        on_delete=models.CASCADE,
                                         db_column='record_id',
                                         null=True,
                                         blank=True)
@@ -1202,7 +1251,7 @@ class CourseRecord(MainRecordTypeModel):
                                           blank=True)
     begin_date = models.DateTimeField(null=True, blank=True)
     end_date = models.DateTimeField(null=True, blank=True)
-    location = models.ForeignKey('Location',
+    location = models.ForeignKey('Location', on_delete=models.CASCADE,
                                  db_column='location_code',
                                  db_constraint=False,
                                  to_field='code',
@@ -1219,14 +1268,14 @@ class CourseRecord(MainRecordTypeModel):
 
 # class CourseView(ReadOnlyModel):
 #     id = models.BigIntegerField(primary_key=True)
-#     record_type = models.ForeignKey(RecordType,
+#     record_type = models.ForeignKey(RecordType, on_delete=models.CASCADE,
 #                                     db_column='record_type_code',
 #                                     db_constraint=False,
 #                                     to_field='code')
 #     record_num = models.IntegerField(null=True, blank=True)
 #     begin_date = models.DateTimeField(null=True, blank=True)
 #     end_date = models.DateTimeField(null=True, blank=True)
-#     location = models.ForeignKey('Location',
+#     location = models.ForeignKey('Location', on_delete=models.CASCADE,
 #                                  db_column='location_code',
 #                                  to_field='code',
 #                                  null=True,
@@ -1242,6 +1291,7 @@ class CourseRecord(MainRecordTypeModel):
 class UserDefinedCcode1Myuser(ReadOnlyModel):
     code = models.CharField(max_length=255, primary_key=True)
     user_defined_category = models.ForeignKey('UserDefinedCategory',
+                                              on_delete=models.CASCADE,
                                               null=True,
                                               blank=True)
     display_order = models.IntegerField(null=True, blank=True)
@@ -1254,6 +1304,7 @@ class UserDefinedCcode1Myuser(ReadOnlyModel):
 class UserDefinedCcode2Myuser(ReadOnlyModel):
     code = models.CharField(max_length=255, primary_key=True)
     user_defined_category = models.ForeignKey('UserDefinedCategory',
+                                              on_delete=models.CASCADE,
                                               null=True,
                                               blank=True)
     display_order = models.IntegerField(null=True, blank=True)
@@ -1266,6 +1317,7 @@ class UserDefinedCcode2Myuser(ReadOnlyModel):
 class UserDefinedCcode3Myuser(ReadOnlyModel):
     code = models.CharField(max_length=255, primary_key=True)
     user_defined_category = models.ForeignKey('UserDefinedCategory',
+                                              on_delete=models.CASCADE,
                                               null=True,
                                               blank=True)
     display_order = models.IntegerField(null=True, blank=True)
@@ -1279,8 +1331,11 @@ class UserDefinedCcode3Myuser(ReadOnlyModel):
 
 class BibRecordHoldingRecordLink(ReadOnlyModel):
     id = models.BigIntegerField(primary_key=True)
-    bib_record = models.ForeignKey(BibRecord, null=True, blank=True)
-    holding_record = models.ForeignKey('HoldingRecord', null=True, blank=True)
+    bib_record = models.ForeignKey(BibRecord, on_delete=models.CASCADE,
+                                   null=True, blank=True)
+    holding_record = models.ForeignKey('HoldingRecord',
+                                       on_delete=models.CASCADE,
+                                       null=True, blank=True)
     holdings_display_order = models.IntegerField(null=True, blank=True)
 
     class Meta(ReadOnlyModel.Meta):
@@ -1290,6 +1345,7 @@ class BibRecordHoldingRecordLink(ReadOnlyModel):
 class HoldingRecord(MainRecordTypeModel):
     id = models.BigIntegerField(primary_key=True)
     record_metadata = models.ForeignKey(RecordMetadata,
+                                        on_delete=models.CASCADE,
                                         db_column='record_id',
                                         null=True,
                                         blank=True)
@@ -1302,6 +1358,7 @@ class HoldingRecord(MainRecordTypeModel):
     is_inherit_loc = models.NullBooleanField(null=True, blank=True)
     allocation_rule_code = models.CharField(max_length=1, null=True, blank=True)
     accounting_unit = models.ForeignKey('AccountingUnit',
+                                        on_delete=models.CASCADE,
                                         db_column='accounting_unit_code_num',
                                         db_constraint=False,
                                         to_field='code_num',
@@ -1314,11 +1371,12 @@ class HoldingRecord(MainRecordTypeModel):
     receiving_location_code = models.CharField(max_length=255, null=True,
                                                blank=True)
     # receiving_location = models.ForeignKey('ReceivingLocationProperty',
+    #                                        on_delete=models.CASCADE,
     #                                        db_column='receiving_location_code',
     #                                        to_field='code',
     #                                        null=True,
     #                                        blank=True)
-    vendor_record = models.ForeignKey('VendorRecord',
+    vendor_record = models.ForeignKey('VendorRecord', on_delete=models.CASCADE,
                                       db_column='vendor_code',
                                       db_constraint=False,
                                       to_field='code',
@@ -1347,6 +1405,7 @@ class HoldingRecordAddressType(ReadOnlyModel):
 class HoldingRecordBox(ReadOnlyModel):
     id = models.BigIntegerField(primary_key=True)
     holding_record_cardlink = models.ForeignKey('HoldingRecordCardlink',
+                                                on_delete=models.CASCADE,
                                                 null=True,
                                                 blank=True)
     item_records = models.ManyToManyField('ItemRecord',
@@ -1386,9 +1445,10 @@ class HoldingRecordBox(ReadOnlyModel):
 class HoldingRecordBoxItem(ReadOnlyModel):
     id = models.BigIntegerField(primary_key=True)
     holding_record_box = models.ForeignKey(HoldingRecordBox,
+                                           on_delete=models.CASCADE,
                                            null=True,
                                            blank=True)
-    item_record = models.ForeignKey('ItemRecord',
+    item_record = models.ForeignKey('ItemRecord', on_delete=models.CASCADE,
                                     db_column='item_record_metadata_id',
                                     null=True,
                                     blank=True)
@@ -1399,11 +1459,12 @@ class HoldingRecordBoxItem(ReadOnlyModel):
 
 class HoldingRecordCard(ReadOnlyModel):
     id = models.BigIntegerField(primary_key=True)
-    holding_record = models.ForeignKey(HoldingRecord, null=True, blank=True)
+    holding_record = models.ForeignKey(HoldingRecord, on_delete=models.CASCADE,
+                                       null=True, blank=True)
     status_code = models.CharField(max_length=1, blank=True)
     display_format_code = models.CharField(max_length=1, blank=True)
     is_suppress_opac_display = models.NullBooleanField(null=True, blank=True)
-    order_record = models.ForeignKey('OrderRecord',
+    order_record = models.ForeignKey('OrderRecord', on_delete=models.CASCADE,
                                      db_column='order_record_metadata_id',
                                      null=True,
                                      blank=True)
@@ -1421,6 +1482,7 @@ class HoldingRecordCard(ReadOnlyModel):
 class HoldingRecordCardlink(ReadOnlyModel):
     id = models.BigIntegerField(primary_key=True)
     holding_record_card = models.ForeignKey(HoldingRecordCard,
+                                            on_delete=models.CASCADE,
                                             null=True,
                                             blank=True)
     card_type_code = models.CharField(max_length=1, blank=True)
@@ -1478,7 +1540,8 @@ class HoldingRecordCardlink(ReadOnlyModel):
 
 class HoldingRecordErmHolding(ReadOnlyModel):
     id = models.BigIntegerField(primary_key=True)
-    holding_record = models.ForeignKey(HoldingRecord, null=True, blank=True)
+    holding_record = models.ForeignKey(HoldingRecord, on_delete=models.CASCADE,
+                                       null=True, blank=True)
     varfield_type_code = models.CharField(max_length=1, blank=True)
     marc_tag = models.CharField(max_length=3, blank=True)
     marc_ind1 = models.CharField(max_length=1, blank=True)
@@ -1492,8 +1555,10 @@ class HoldingRecordErmHolding(ReadOnlyModel):
 
 class HoldingRecordItemRecordLink(ReadOnlyModel):
     id = models.BigIntegerField(primary_key=True)
-    holding_record = models.ForeignKey(HoldingRecord, null=True, blank=True)
-    item_record = models.ForeignKey('ItemRecord', null=True, blank=True)
+    holding_record = models.ForeignKey(HoldingRecord, on_delete=models.CASCADE,
+                                       null=True, blank=True)
+    item_record = models.ForeignKey('ItemRecord', on_delete=models.CASCADE,
+                                    null=True, blank=True)
     items_display_order = models.IntegerField(null=True, blank=True)
 
     class Meta(ReadOnlyModel.Meta):
@@ -1502,9 +1567,10 @@ class HoldingRecordItemRecordLink(ReadOnlyModel):
 
 class HoldingRecordLocation(ReadOnlyModel):
     id = models.BigIntegerField(primary_key=True)
-    holding_record = models.ForeignKey(HoldingRecord, null=True, blank=True)
+    holding_record = models.ForeignKey(HoldingRecord, on_delete=models.CASCADE,
+                                       null=True, blank=True)
     copies = models.IntegerField(null=True, blank=True)
-    location = models.ForeignKey('Location',
+    location = models.ForeignKey('Location', on_delete=models.CASCADE,
                                  db_column='location_code',
                                  db_constraint=False,
                                  to_field='code',
@@ -1518,12 +1584,13 @@ class HoldingRecordLocation(ReadOnlyModel):
 
 class HoldingRecordRouting(ReadOnlyModel):
     id = models.BigIntegerField(primary_key=True)
-    holding_record = models.ForeignKey(HoldingRecord, null=True, blank=True)
+    holding_record = models.ForeignKey(HoldingRecord, on_delete=models.CASCADE,
+                                       null=True, blank=True)
     copy_num = models.IntegerField(null=True, blank=True)
     display_order = models.IntegerField(null=True, blank=True)
     is_patron_routing = models.NullBooleanField(null=True, blank=True)
     priority_num = models.IntegerField(null=True, blank=True)
-    patron_record = models.ForeignKey('PatronRecord',
+    patron_record = models.ForeignKey('PatronRecord', on_delete=models.CASCADE,
                                       db_column='patron_record_metadata_id',
                                       null=True,
                                       blank=True)
@@ -1537,13 +1604,14 @@ class HoldingRecordRouting(ReadOnlyModel):
 
 # class HoldingView(ReadOnlyModel):
 #     id = models.BigIntegerField(primary_key=True)
-#     record_type = models.ForeignKey(RecordType,
+#     record_type = models.ForeignKey(RecordType, on_delete=models.CASCADE,
 #                                     db_column='record_type_code',
 #                                     to_field='code')
 #     record_num = models.IntegerField(null=True, blank=True)
 #     is_inherit_loc = models.NullBooleanField(null=True, blank=True)
 #     allocation_rule_code = models.CharField(max_length=1, blank=True)
 #     accounting_unit = models.ForeignKey('AccountingUnit',
+#                                         on_delete=models.CASCADE,
 #                                         db_column='accounting_unit_code_num',
 #                                         to_field='code_num',
 #                                         blank=True,
@@ -1563,8 +1631,11 @@ class HoldingRecordRouting(ReadOnlyModel):
 
 class ResourceRecordHoldingRecordRelatedLink(ReadOnlyModel):
     id = models.BigIntegerField(primary_key=True)
-    resource_record = models.ForeignKey('ResourceRecord', null=True, blank=True)
-    holding_record = models.ForeignKey(HoldingRecord, null=True, blank=True)
+    resource_record = models.ForeignKey('ResourceRecord',
+                                        on_delete=models.CASCADE,
+                                        null=True, blank=True)
+    holding_record = models.ForeignKey(HoldingRecord, on_delete=models.CASCADE,
+                                       null=True, blank=True)
     resources_display_order = models.IntegerField(null=True, blank=True)
 
     class Meta(ReadOnlyModel.Meta):
@@ -1576,6 +1647,7 @@ class ResourceRecordHoldingRecordRelatedLink(ReadOnlyModel):
 class UserDefinedScode1Myuser(ReadOnlyModel):
     code = models.CharField(max_length=255, primary_key=True)
     user_defined_category = models.ForeignKey('UserDefinedCategory',
+                                              on_delete=models.CASCADE,
                                               null=True,
                                               blank=True)
     display_order = models.IntegerField(null=True, blank=True)
@@ -1588,6 +1660,7 @@ class UserDefinedScode1Myuser(ReadOnlyModel):
 class UserDefinedScode2Myuser(ReadOnlyModel):
     code = models.CharField(max_length=255, primary_key=True)
     user_defined_category = models.ForeignKey('UserDefinedCategory',
+                                              on_delete=models.CASCADE,
                                               null=True,
                                               blank=True)
     display_order = models.IntegerField(null=True, blank=True)
@@ -1600,6 +1673,7 @@ class UserDefinedScode2Myuser(ReadOnlyModel):
 class UserDefinedScode3Myuser(ReadOnlyModel):
     code = models.CharField(max_length=255, primary_key=True)
     user_defined_category = models.ForeignKey('UserDefinedCategory',
+                                              on_delete=models.CASCADE,
                                               null=True,
                                               blank=True)
     display_order = models.IntegerField(null=True, blank=True)
@@ -1612,6 +1686,7 @@ class UserDefinedScode3Myuser(ReadOnlyModel):
 class UserDefinedScode4Myuser(ReadOnlyModel):
     code = models.CharField(max_length=255, primary_key=True)
     user_defined_category = models.ForeignKey('UserDefinedCategory',
+                                              on_delete=models.CASCADE,
                                               null=True,
                                               blank=True)
     display_order = models.IntegerField(null=True, blank=True)
@@ -1626,6 +1701,7 @@ class UserDefinedScode4Myuser(ReadOnlyModel):
 class ForeignCurrency(ReadOnlyModel):
     id = models.BigIntegerField(primary_key=True)
     accounting_unit = models.ForeignKey('AccountingUnit',
+                                        on_delete=models.CASCADE,
                                         db_column='accounting_code_num',
                                         db_constraint=False,
                                         to_field='code_num',
@@ -1646,10 +1722,12 @@ class ForeignCurrency(ReadOnlyModel):
 class InvoiceRecord(MainRecordTypeModel):
     id = models.BigIntegerField(primary_key=True)
     record_metadata = models.ForeignKey(RecordMetadata,
+                                        on_delete=models.CASCADE,
                                         db_column='record_id',
                                         null=True,
                                         blank=True)
     accounting_unit = models.ForeignKey('AccountingUnit',
+                                        on_delete=models.CASCADE,
                                         db_column='accounting_unit_code_num',
                                         db_constraint=False,
                                         to_field='code_num',
@@ -1671,7 +1749,7 @@ class InvoiceRecord(MainRecordTypeModel):
                                                          max_digits=30,
                                                          decimal_places=6,
                                                          blank=True)
-    tax_fund = models.ForeignKey('Fund',
+    tax_fund = models.ForeignKey('Fund', on_delete=models.CASCADE,
                                  db_column='tax_fund_code',
                                  db_constraint=False,
                                  related_name='tax_invoicerecord_set',
@@ -1699,7 +1777,7 @@ class InvoiceRecord(MainRecordTypeModel):
                                         max_digits=30,
                                         decimal_places=6,
                                         blank=True)
-    use_tax_fund = models.ForeignKey('Fund',
+    use_tax_fund = models.ForeignKey('Fund', on_delete=models.CASCADE,
                                      db_column='use_tax_fund_code',
                                      db_constraint=False,
                                      to_field='fund_code',
@@ -1720,8 +1798,9 @@ class InvoiceRecord(MainRecordTypeModel):
 
 class InvoiceRecordLine(ReadOnlyModel):
     id = models.BigIntegerField(primary_key=True)
-    invoice_record = models.ForeignKey(InvoiceRecord, null=True, blank=True)
-    order_record = models.ForeignKey('OrderRecord',
+    invoice_record = models.ForeignKey(InvoiceRecord, on_delete=models.CASCADE,
+                                       null=True, blank=True)
+    order_record = models.ForeignKey('OrderRecord', on_delete=models.CASCADE,
                                      db_column='order_record_metadata_id',
                                      null=True,
                                      blank=True)
@@ -1751,7 +1830,7 @@ class InvoiceRecordLine(ReadOnlyModel):
                                          max_digits=30,
                                          decimal_places=6,
                                          blank=True)
-    vendor_record = models.ForeignKey('VendorRecord',
+    vendor_record = models.ForeignKey('VendorRecord', on_delete=models.CASCADE,
                                       db_column='vendor_code',
                                       db_constraint=False,
                                       to_field='code',
@@ -1764,6 +1843,7 @@ class InvoiceRecordLine(ReadOnlyModel):
     line_cnt = models.IntegerField(null=True, blank=True)
     invoice_record_vendor_summary = models.ForeignKey(
         'InvoiceRecordVendorSummary',
+        on_delete=models.CASCADE,
         null=True,
         blank=True)
     is_use_tax = models.NullBooleanField(null=True, blank=True)
@@ -1774,8 +1854,9 @@ class InvoiceRecordLine(ReadOnlyModel):
 
 class InvoiceRecordVendorSummary(ReadOnlyModel):
     id = models.BigIntegerField(primary_key=True)
-    invoice_record = models.ForeignKey(InvoiceRecord, null=True, blank=True)
-    vendor_record = models.ForeignKey('VendorRecord',
+    invoice_record = models.ForeignKey(InvoiceRecord, on_delete=models.CASCADE,
+                                       null=True, blank=True)
+    vendor_record = models.ForeignKey('VendorRecord', on_delete=models.CASCADE,
                                       db_column='vendor_code',
                                       db_constraint=False,
                                       to_field='code',
@@ -1792,11 +1873,12 @@ class InvoiceRecordVendorSummary(ReadOnlyModel):
 
 # class InvoiceView(ReadOnlyModel):
 #     id = models.BigIntegerField(primary_key=True)
-#     record_type = models.ForeignKey(RecordType,
+#     record_type = models.ForeignKey(RecordType, on_delete=models.CASCADE,
 #                                     db_column='record_type_code',
 #                                     to_field='code')
 #     record_num = models.IntegerField(null=True, blank=True)
 #     accounting_unit = models.ForeignKey('AccountingUnit',
+#                                         on_delete=models.CASCADE,
 #                                         db_column='accounting_unit_code_num',
 #                                         to_field='code_num',
 #                                         blank=True,
@@ -1817,7 +1899,7 @@ class InvoiceRecordVendorSummary(ReadOnlyModel):
 #                                                          max_digits=30,
 #                                                          decimal_places=6,
 #                                                          blank=True)
-#     tax_fund = models.ForeignKey('Fund',
+#     tax_fund = models.ForeignKey('Fund', on_delete=models.CASCADE,
 #                                  db_column='tax_fund_code',
 #                                  to_field='fund_code',
 #                                  null=True,
@@ -1843,7 +1925,7 @@ class InvoiceRecordVendorSummary(ReadOnlyModel):
 #                                         max_digits=30,
 #                                         decimal_places=6,
 #                                         blank=True)
-#     use_tax_fund = models.ForeignKey('Fund',
+#     use_tax_fund = models.ForeignKey('Fund', on_delete=models.CASCADE,
 #                                      db_column='use_tax_fund_code',
 #                                      to_field='fund_code',
 #                                      null=True,
@@ -1863,6 +1945,7 @@ class InvoiceRecordVendorSummary(ReadOnlyModel):
 class UserDefinedNcode1Myuser(ReadOnlyModel):
     code = models.CharField(max_length=255, primary_key=True)
     user_defined_category = models.ForeignKey('UserDefinedCategory',
+                                              on_delete=models.CASCADE,
                                               null=True,
                                               blank=True)
     display_order = models.IntegerField(null=True, blank=True)
@@ -1875,6 +1958,7 @@ class UserDefinedNcode1Myuser(ReadOnlyModel):
 class UserDefinedNcode2Myuser(ReadOnlyModel):
     code = models.CharField(max_length=255, primary_key=True)
     user_defined_category = models.ForeignKey('UserDefinedCategory',
+                                              on_delete=models.CASCADE,
                                               null=True,
                                               blank=True)
     display_order = models.IntegerField(null=True, blank=True)
@@ -1887,6 +1971,7 @@ class UserDefinedNcode2Myuser(ReadOnlyModel):
 class UserDefinedNcode3Myuser(ReadOnlyModel):
     code = models.CharField(max_length=255, primary_key=True)
     user_defined_category = models.ForeignKey('UserDefinedCategory',
+                                              on_delete=models.CASCADE,
                                               null=True,
                                               blank=True)
     display_order = models.IntegerField(null=True, blank=True)
@@ -1901,7 +1986,8 @@ class UserDefinedNcode3Myuser(ReadOnlyModel):
 class BibRecordItemRecordLink(ReadOnlyModel):
     id = models.BigIntegerField(primary_key=True)
     bib_record = models.ForeignKey(BibRecord, null=True, blank=True)
-    item_record = models.ForeignKey('ItemRecord', null=True, blank=True)
+    item_record = models.ForeignKey('ItemRecord', on_delete=models.CASCADE,
+                                    null=True, blank=True)
     items_display_order = models.IntegerField(null=True, blank=True)
     bibs_display_order = models.IntegerField(null=True, blank=True)
 
@@ -1911,8 +1997,10 @@ class BibRecordItemRecordLink(ReadOnlyModel):
 
 class CourseRecordItemRecordLink(ReadOnlyModel):
     id = models.BigIntegerField(primary_key=True)
-    course_record = models.ForeignKey(CourseRecord, null=True, blank=True)
-    item_record = models.ForeignKey('ItemRecord', null=True, blank=True)
+    course_record = models.ForeignKey(CourseRecord, on_delete=models.CASCADE,
+                                      null=True, blank=True)
+    item_record = models.ForeignKey('ItemRecord', on_delete=models.CASCADE,
+                                    null=True, blank=True)
     status_change_date = models.DateTimeField(null=True, blank=True)
     status_code = models.CharField(max_length=5, blank=True)
     items_display_order = models.IntegerField(null=True, blank=True)
@@ -1925,6 +2013,7 @@ class CourseRecordItemRecordLink(ReadOnlyModel):
 class ItemRecord(MainRecordTypeModel):
     id = models.BigIntegerField(primary_key=True)
     record_metadata = models.ForeignKey(RecordMetadata,
+                                        on_delete=models.CASCADE,
                                         db_column='record_id',
                                         null=True,
                                         blank=True)
@@ -1936,24 +2025,25 @@ class ItemRecord(MainRecordTypeModel):
                                             blank=True)
     icode1 = models.IntegerField(null=True, blank=True)
     icode2 = models.CharField(max_length=1, blank=True)
-    itype = models.ForeignKey('ItypeProperty',
+    itype = models.ForeignKey('ItypeProperty', on_delete=models.CASCADE,
                               db_column='itype_code_num',
                               db_constraint=False,
                               to_field='code_num',
                               null=True,
                               blank=True)
-    location = models.ForeignKey('Location',
+    location = models.ForeignKey('Location', on_delete=models.CASCADE,
                                  db_column='location_code',
                                  db_constraint=False,
                                  to_field='code',
                                  null=True,
                                  blank=True)
-    # agency = models.ForeignKey('AgencyProperty',
+    # agency = models.ForeignKey('AgencyProperty', on_delete=models.CASCADE,
     #                            db_column='agency_code_num',
     #                            to_field='code_num',
     #                            null=True,
     #                            blank=True)
     item_status = models.ForeignKey('ItemStatusProperty',
+                                    on_delete=models.CASCADE,
                                     db_column='item_status_code',
                                     db_constraint=False,
                                     to_field='code',
@@ -1973,6 +2063,7 @@ class ItemRecord(MainRecordTypeModel):
     is_bib_hold = models.NullBooleanField(null=True, blank=True)
     copy_num = models.IntegerField(null=True, blank=True)
     checkout_statistic_group = models.ForeignKey('StatisticGroup',
+                                                 on_delete=models.CASCADE,
                                                  db_column='checkout_statistic_group_code_num',
                                                  db_constraint=False,
                                                  to_field='code_num',
@@ -1980,11 +2071,13 @@ class ItemRecord(MainRecordTypeModel):
                                                  null=True,
                                                  blank=True)
     last_patron_record = models.ForeignKey('PatronRecord',
+                                           on_delete=models.CASCADE,
                                            db_column='last_patron_record_metadata_id',
                                            null=True,
                                            blank=True)
     inventory_gmt = models.DateTimeField(null=True, blank=True)
     checkin_statistics_group = models.ForeignKey('StatisticGroup',
+                                                 on_delete=models.CASCADE,
                                                  null=True,
                                                  db_column='checkin_statistics_group_code_num',
                                                  db_constraint=False,
@@ -2000,14 +2093,14 @@ class ItemRecord(MainRecordTypeModel):
     virtual_type_code = models.CharField(max_length=1, null=True, blank=True)
     virtual_item_central_code_num = models.IntegerField(null=True, blank=True)
     holdings_code = models.CharField(max_length=1, blank=True)
-    save_itype = models.ForeignKey('ItypeProperty',
+    save_itype = models.ForeignKey('ItypeProperty', on_delete=models.CASCADE,
                                    db_column='save_itype_code_num',
                                    db_constraint=False,
                                    to_field='code_num',
                                    related_name='save_itemrecord_set',
                                    null=True,
                                    blank=True)
-    save_location = models.ForeignKey('Location',
+    save_location = models.ForeignKey('Location', on_delete=models.CASCADE,
                                       db_column='save_location_code',
                                       db_constraint=False,
                                       to_field='code',
@@ -2015,7 +2108,7 @@ class ItemRecord(MainRecordTypeModel):
                                       null=True,
                                       blank=True)
     save_checkout_total = models.IntegerField(null=True, blank=True)
-    old_location = models.ForeignKey('Location',
+    old_location = models.ForeignKey('Location', on_delete=models.CASCADE,
                                      db_column='old_location_code',
                                      db_constraint=False,
                                      to_field='code',
@@ -2076,15 +2169,16 @@ class ItemRecord(MainRecordTypeModel):
         with "SHELVED BY TITLE," returns True, else returns False.
         """
         probably_shelved_by_title = (
-            self.itype.code_num == 5 and (not cn_string
-                or re.search(r'^[A-Za-z]{,2}$', cn_string))
-            or (cn_string and
-                re.search(r'^periodical', cn_string, re.IGNORECASE)))
+                self.itype.code_num == 5 and (not cn_string
+                                              or re.search(r'^[A-Za-z]{,2}$',
+                                                           cn_string))
+                or (cn_string and
+                    re.search(r'^periodical', cn_string, re.IGNORECASE)))
 
         if not probably_shelved_by_title:
             item_vfs = self.record_metadata.varfield_set.all()
             for cn in helpers.get_varfield_vals(item_vfs, 'c', many=True,
-                    content_method='display_field_content'):
+                                                content_method='display_field_content'):
                 if cn.strip().upper() == 'SHELVED BY TITLE':
                     probably_shelved_by_title = True
                     break
@@ -2112,7 +2206,7 @@ class ItemRecord(MainRecordTypeModel):
         item_cn_tuples = self.get_call_numbers()
         try:
             bib_cn_tuples = (self.bibrecorditemrecordlink_set.all()[0]
-                                 .bib_record.get_call_numbers())
+                             .bib_record.get_call_numbers())
         except IndexError:
             bib_cn_tuples = []
 
@@ -2137,7 +2231,8 @@ class ItemRecord(MainRecordTypeModel):
 
 class ItemRecordProperty(ReadOnlyModel):
     id = models.BigIntegerField(primary_key=True)
-    item_record = models.ForeignKey(ItemRecord, null=True, blank=True)
+    item_record = models.ForeignKey(ItemRecord, on_delete=models.CASCADE,
+                                    null=True, blank=True)
     call_number = models.CharField(max_length=1000, blank=True)
     call_number_norm = models.CharField(max_length=1000, blank=True)
     barcode = models.CharField(max_length=1000, blank=True)
@@ -2168,8 +2263,10 @@ class ItemStatusPropertyName(ReadOnlyModel):
     key = fields.VirtualCompField(primary_key=True,
                                   partfield_names=['item_status_property',
                                                    'iii_language'])
-    item_status_property = models.ForeignKey(ItemStatusProperty)
-    iii_language = models.ForeignKey('IiiLanguage', null=True, blank=True)
+    item_status_property = models.ForeignKey(ItemStatusProperty,
+                                             on_delete=models.CASCADE)
+    iii_language = models.ForeignKey('IiiLanguage', on_delete=models.CASCADE,
+                                     null=True, blank=True)
     name = models.CharField(max_length=255, blank=True)
 
     class Meta(ReadOnlyModel.Meta):
@@ -2178,29 +2275,30 @@ class ItemStatusPropertyName(ReadOnlyModel):
 
 # class ItemView(ReadOnlyModel):
 #     id = models.BigIntegerField(primary_key=True)
-#     record_type = models.ForeignKey(RecordType,
+#     record_type = models.ForeignKey(RecordType, on_delete=models.CASCADE,
 #                                     db_column='record_type_code',
 #                                     to_field='code')
 #     record_num = models.IntegerField(null=True, blank=True)
 #     barcode = models.CharField(max_length=1000, blank=True)
 #     icode1 = models.IntegerField(null=True, blank=True)
 #     icode2 = models.CharField(max_length=1, blank=True)
-#     itype = models.ForeignKey('ItypeProperty',
+#     itype = models.ForeignKey('ItypeProperty', on_delete=models.CASCADE,
 #                               db_column='itype_code_num',
 #                               to_field='code_num',
 #                               null=True,
 #                               blank=True)
-#     location = models.ForeignKey('Location',
+#     location = models.ForeignKey('Location', on_delete=models.CASCADE,
 #                                  db_column='location_code',
 #                                  to_field='code',
 #                                  null=True,
 #                                  blank=True)
-#     agency = models.ForeignKey('AgencyProperty',
+#     agency = models.ForeignKey('AgencyProperty', on_delete=models.CASCADE,
 #                                db_column='agency_code_num',
 #                                to_field='code_num',
 #                                null=True,
 #                                blank=True)
 #     item_status = models.ForeignKey('ItemStatusProperty',
+#                                     on_delete=models.CASCADE,
 #                                     db_column='item_status_code',
 #                                     to_field='code',
 #                                     null=True,
@@ -2219,16 +2317,19 @@ class ItemStatusPropertyName(ReadOnlyModel):
 #     is_bib_hold = models.NullBooleanField(null=True, blank=True)
 #     copy_num = models.IntegerField(null=True, blank=True)
 #     checkout_statistic_group = models.ForeignKey('StatisticGroup',
+#                                                  on_delete=models.CASCADE,
 #                                                  db_column='checkout_statistic_group_code_num',
 #                                                  to_field='code_num',
 #                                                  null=True,
 #                                                  blank=True)
 #     last_patron_record = models.ForeignKey('PatronRecord',
+#                                            on_delete=models.CASCADE,
 #                                            db_column='last_patron_record_metadata_id',
 #                                            null=True,
 #                                            blank=True)
 #     inventory_gmt = models.DateTimeField(null=True, blank=True)
 #     checkin_statistic_group = models.ForeignKey('StatisticGroup',
+#                                                 on_delete=models.CASCADE,
 #                                                 db_column='checkin_statistic_group_code_num',
 #                                                 to_field='code_num',
 #                                                 null=True,
@@ -2242,18 +2343,18 @@ class ItemStatusPropertyName(ReadOnlyModel):
 #     virtual_type_code = models.CharField(max_length=1, blank=True)
 #     virtual_item_central_code_num = models.IntegerField(null=True, blank=True)
 #     holdings_code = models.CharField(max_length=1, blank=True)
-#     save_itype = models.ForeignKey('ItypeProperty',
+#     save_itype = models.ForeignKey('ItypeProperty', on_delete=models.CASCADE,
 #                                    db_column='save_itype_code_num',
 #                                    to_field='code_num',
 #                                    null=True,
 #                                    blank=True)
-#     save_location = models.ForeignKey('Location',
+#     save_location = models.ForeignKey('Location', on_delete=models.CASCADE,
 #                                       db_column='save_location_code',
 #                                       to_field='code',
 #                                       null=True,
 #                                       blank=True)
 #     save_checkout_total = models.IntegerField(null=True, blank=True)
-#     old_location = models.ForeignKey('Location',
+#     old_location = models.ForeignKey('Location', on_delete=models.CASCADE,
 #                                      db_column='old_location_code',
 #                                      to_field='code',
 #                                      null=True,
@@ -2270,11 +2371,17 @@ class ItypeProperty(ModelWithAttachedName):
     code_num = models.IntegerField(null=True, unique=True, blank=True)
     display_order = models.IntegerField(null=True, blank=True)
     itype_property_category = models.ForeignKey('ItypePropertyCategory',
+                                                on_delete=models.CASCADE,
                                                 null=True,
                                                 blank=True)
-    physical_format = models.ForeignKey('PhysicalFormat', null=True, blank=True)
-    target_audience = models.ForeignKey('TargetAudience', null=True, blank=True)
-    collection = models.ForeignKey('Collection', null=True, blank=True)
+    physical_format = models.ForeignKey('PhysicalFormat',
+                                        on_delete=models.CASCADE,
+                                        null=True, blank=True)
+    target_audience = models.ForeignKey('TargetAudience',
+                                        on_delete=models.CASCADE,
+                                        null=True, blank=True)
+    collection = models.ForeignKey('Collection', on_delete=models.CASCADE,
+                                   null=True, blank=True)
 
     class Meta(ModelWithAttachedName.Meta):
         db_table = 'itype_property'
@@ -2293,10 +2400,15 @@ class ItypePropertyCategoryMyuser(ReadOnlyModel):
     code = models.IntegerField(primary_key=True)
     display_order = models.IntegerField(null=True, blank=True)
     itype_property_category = models.ForeignKey(ItypePropertyCategory,
+                                                on_delete=models.CASCADE,
                                                 null=True,
                                                 blank=True)
-    physical_format = models.ForeignKey('PhysicalFormat', null=True, blank=True)
-    target_audience = models.ForeignKey('TargetAudience', null=True, blank=True)
+    physical_format = models.ForeignKey('PhysicalFormat',
+                                        on_delete=models.CASCADE,
+                                        null=True, blank=True)
+    target_audience = models.ForeignKey('TargetAudience',
+                                        on_delete=models.CASCADE,
+                                        null=True, blank=True)
     name = models.CharField(max_length=255, null=True, blank=True)
 
     class Meta(ReadOnlyModel.Meta):
@@ -2307,9 +2419,11 @@ class ItypePropertyCategoryName(ReadOnlyModel):
     key = fields.VirtualCompField(primary_key=True,
                                   partfield_names=['itype_property_category',
                                                    'iii_language'])
-    itype_property_category = models.ForeignKey(ItypePropertyCategory)
+    itype_property_category = models.ForeignKey(ItypePropertyCategory,
+                                                on_delete=models.CASCADE)
     name = models.CharField(max_length=255, blank=True)
-    iii_language = models.ForeignKey('IiiLanguage', null=True, blank=True)
+    iii_language = models.ForeignKey('IiiLanguage', on_delete=models.CASCADE,
+                                     null=True, blank=True)
 
     class Meta(ReadOnlyModel.Meta):
         db_table = 'itype_property_category_name'
@@ -2319,10 +2433,15 @@ class ItypePropertyMyuser(ReadOnlyModel):
     code = models.IntegerField(primary_key=True)
     display_order = models.IntegerField(null=True, blank=True)
     itype_property_category = models.ForeignKey(ItypePropertyCategory,
+                                                on_delete=models.CASCADE,
                                                 null=True,
                                                 blank=True)
-    physical_format = models.ForeignKey('PhysicalFormat', null=True, blank=True)
-    target_audience = models.ForeignKey('TargetAudience', null=True, blank=True)
+    physical_format = models.ForeignKey('PhysicalFormat',
+                                        on_delete=models.CASCADE,
+                                        null=True, blank=True)
+    target_audience = models.ForeignKey('TargetAudience',
+                                        on_delete=models.CASCADE,
+                                        null=True, blank=True)
     name = models.CharField(max_length=255, blank=True)
 
     class Meta(ReadOnlyModel.Meta):
@@ -2333,8 +2452,9 @@ class ItypePropertyName(ReadOnlyModel):
     key = fields.VirtualCompField(primary_key=True,
                                   partfield_names=['itype_property',
                                                    'iii_language'])
-    itype_property = models.ForeignKey(ItypeProperty)
-    iii_language = models.ForeignKey('IiiLanguage', null=True, blank=True)
+    itype_property = models.ForeignKey(ItypeProperty, on_delete=models.CASCADE)
+    iii_language = models.ForeignKey('IiiLanguage', on_delete=models.CASCADE,
+                                     null=True, blank=True)
     name = models.CharField(max_length=255, blank=True)
 
     class Meta(ReadOnlyModel.Meta):
@@ -2346,7 +2466,8 @@ class StatisticGroup(ModelWithAttachedName):
     id = models.IntegerField(primary_key=True)
     code_num = models.IntegerField(unique=True, null=True, blank=True)
     location_code = models.CharField(max_length=5, blank=True)
-    # location = models.ForeignKey('Location',
+
+    # location = models.ForeignKey('Location', on_delete=models.CASCADE,
     #                              db_column='location_code',
     #                              to_field='code',
     #                              null=True,
@@ -2360,7 +2481,7 @@ class StatisticGroup(ModelWithAttachedName):
 class StatisticGroupMyuser(ReadOnlyModel):
     code = models.IntegerField(primary_key=True)
     location_code = models.CharField(max_length=5, blank=True)
-    # location = models.ForeignKey('Location',
+    # location = models.ForeignKey('Location', on_delete=models.CASCADE,
     #                              db_column='location_code',
     #                              to_field='code',
     #                              null=True,
@@ -2375,8 +2496,10 @@ class StatisticGroupName(ReadOnlyModel):
     key = fields.VirtualCompField(primary_key=True,
                                   partfield_names=['statistic_group',
                                                    'iii_language'])
-    statistic_group = models.ForeignKey(StatisticGroup)
-    iii_language = models.ForeignKey('IiiLanguage', null=True, blank=True)
+    statistic_group = models.ForeignKey(StatisticGroup,
+                                        on_delete=models.CASCADE)
+    iii_language = models.ForeignKey('IiiLanguage', on_delete=models.CASCADE,
+                                     null=True, blank=True)
     name = models.CharField(max_length=255, blank=True)
 
     class Meta(ReadOnlyModel.Meta):
@@ -2385,7 +2508,8 @@ class StatisticGroupName(ReadOnlyModel):
 
 class TransitBoxRecord(ReadOnlyModel):
     id = models.BigIntegerField(primary_key=True)
-    record = models.ForeignKey(RecordMetadata, null=True, blank=True)
+    record = models.ForeignKey(RecordMetadata, on_delete=models.CASCADE,
+                               null=True, blank=True)
     barcode = models.CharField(max_length=255, unique=True, blank=True)
     description = models.CharField(max_length=256, blank=True)
 
@@ -2396,19 +2520,21 @@ class TransitBoxRecord(ReadOnlyModel):
 class TransitBoxRecordItemRecord(ReadOnlyModel):
     id = models.BigIntegerField(primary_key=True)
     transit_box_record = models.ForeignKey(TransitBoxRecord,
+                                           on_delete=models.CASCADE,
                                            null=True,
                                            blank=True)
     item_record = models.OneToOneField(ItemRecord,
+                                       on_delete=models.CASCADE,
                                        db_column='item_record_metadata_id',
                                        unique=True,
                                        null=True,
                                        blank=True)
-    from_location = models.ForeignKey('Location',
+    from_location = models.ForeignKey('Location', on_delete=models.CASCADE,
                                       db_column='from_location_id',
                                       related_name='from_transitboxrecorditemrecord_set',
                                       null=True,
                                       blank=True)
-    to_location = models.ForeignKey('Location',
+    to_location = models.ForeignKey('Location', on_delete=models.CASCADE,
                                     db_column='to_location_id',
                                     related_name='to_transitboxrecorditemrecord_set',
                                     null=True,
@@ -2420,9 +2546,11 @@ class TransitBoxRecordItemRecord(ReadOnlyModel):
 
 class TransitBoxStatus(ReadOnlyModel):
     id = models.BigIntegerField(primary_key=True)
-    location = models.ForeignKey('Location', null=True, blank=True)
+    location = models.ForeignKey('Location', on_delete=models.CASCADE,
+                                 null=True, blank=True)
     arrival_timestamp = models.DateTimeField(null=True, blank=True)
     transit_box_record = models.ForeignKey(TransitBoxRecord,
+                                           on_delete=models.CASCADE,
                                            null=True,
                                            blank=True)
 
@@ -2433,6 +2561,7 @@ class TransitBoxStatus(ReadOnlyModel):
 class UserDefinedIcode1Myuser(ReadOnlyModel):
     code = models.CharField(max_length=255, primary_key=True)
     user_defined_category = models.ForeignKey('UserDefinedCategory',
+                                              on_delete=models.CASCADE,
                                               null=True,
                                               blank=True)
     display_order = models.IntegerField(null=True, blank=True)
@@ -2445,6 +2574,7 @@ class UserDefinedIcode1Myuser(ReadOnlyModel):
 class UserDefinedIcode2Myuser(ReadOnlyModel):
     code = models.CharField(max_length=255, primary_key=True)
     user_defined_category = models.ForeignKey('UserDefinedCategory',
+                                              on_delete=models.CASCADE,
                                               null=True,
                                               blank=True)
     display_order = models.IntegerField(null=True, blank=True)
@@ -2456,8 +2586,11 @@ class UserDefinedIcode2Myuser(ReadOnlyModel):
 
 class VolumeRecordItemRecordLink(ReadOnlyModel):
     id = models.BigIntegerField(primary_key=True)
-    volume_record = models.ForeignKey('VolumeRecord', null=True, blank=True)
+    volume_record = models.ForeignKey('VolumeRecord',
+                                      on_delete=models.CASCADE,
+                                      null=True, blank=True)
     item_record = models.OneToOneField(ItemRecord,
+                                       on_delete=models.CASCADE,
                                        unique=True,
                                        null=True,
                                        blank=True)
@@ -2473,10 +2606,12 @@ class VolumeRecordItemRecordLink(ReadOnlyModel):
 class LicenseRecord(MainRecordTypeModel):
     id = models.BigIntegerField(primary_key=True)
     record_metadata = models.ForeignKey(RecordMetadata,
+                                        on_delete=models.CASCADE,
                                         db_column='record_id',
                                         null=True,
                                         blank=True)
     accounting_unit = models.ForeignKey('AccountingUnit',
+                                        on_delete=models.CASCADE,
                                         db_column='accounting_unit_code_num',
                                         db_constraint=False,
                                         to_field='code_num',
@@ -2511,12 +2646,12 @@ class LicenseRecord(MainRecordTypeModel):
     cancellation_notice = models.IntegerField(null=True, blank=True)
     is_suppressed = models.NullBooleanField(null=True, blank=True)
     ldate4 = models.DateTimeField(null=True, blank=True)
-    # language = models.ForeignKey('LanguageProperty',
+    # language = models.ForeignKey('LanguageProperty', on_delete=models.CASCADE,
     #                              db_column='language_code',
     #                              to_field='code',
     #                              null=True,
     #                              blank=True)
-    # country = models.ForeignKey('CountryProperty',
+    # country = models.ForeignKey('CountryProperty', on_delete=models.CASCADE,
     #                             db_column='country_code',
     #                             to_field='code',
     #                             null=True,
@@ -2529,11 +2664,12 @@ class LicenseRecord(MainRecordTypeModel):
 
 # class LicenseView(ReadOnlyModel):
 #     id = models.BigIntegerField(primary_key=True)
-#     record_type = models.ForeignKey(RecordType,
+#     record_type = models.ForeignKey(RecordType, on_delete=models.CASCADE,
 #                                     db_column='record_type_code',
 #                                     to_field='code')
 #     record_num = models.IntegerField(null=True, blank=True)
 #     accounting_unit = models.ForeignKey('AccountingUnit',
+#                                         on_delete=models.CASCADE,
 #                                         db_column='accounting_unit_code_num',
 #                                         to_field='code_num',
 #                                         blank=True,
@@ -2572,8 +2708,12 @@ class LicenseRecord(MainRecordTypeModel):
 
 class ResourceRecordLicenseRecordLink(ReadOnlyModel):
     id = models.BigIntegerField(primary_key=True)
-    resource_record = models.ForeignKey('ResourceRecord', null=True, blank=True)
-    license_record = models.ForeignKey(LicenseRecord, null=True, blank=True)
+    resource_record = models.ForeignKey('ResourceRecord',
+                                        on_delete=models.CASCADE,
+                                        null=True, blank=True)
+    license_record = models.ForeignKey(LicenseRecord,
+                                       on_delete=models.CASCADE,
+                                       null=True, blank=True)
     licenses_display_order = models.IntegerField(null=True, blank=True)
     resources_display_order = models.IntegerField(null=True, blank=True)
 
@@ -2584,6 +2724,7 @@ class ResourceRecordLicenseRecordLink(ReadOnlyModel):
 class UserDefinedLcode1Myuser(ReadOnlyModel):
     code = models.CharField(max_length=255, primary_key=True)
     user_defined_category = models.ForeignKey('UserDefinedCategory',
+                                              on_delete=models.CASCADE,
                                               null=True,
                                               blank=True)
     display_order = models.IntegerField(null=True, blank=True)
@@ -2596,6 +2737,7 @@ class UserDefinedLcode1Myuser(ReadOnlyModel):
 class UserDefinedLcode2Myuser(ReadOnlyModel):
     code = models.CharField(max_length=255, primary_key=True)
     user_defined_category = models.ForeignKey('UserDefinedCategory',
+                                              on_delete=models.CASCADE,
                                               null=True,
                                               blank=True)
     display_order = models.IntegerField(null=True, blank=True)
@@ -2608,6 +2750,7 @@ class UserDefinedLcode2Myuser(ReadOnlyModel):
 class UserDefinedLcode3Myuser(ReadOnlyModel):
     code = models.CharField(max_length=255, primary_key=True)
     user_defined_category = models.ForeignKey('UserDefinedCategory',
+                                              on_delete=models.CASCADE,
                                               null=True,
                                               blank=True)
     display_order = models.IntegerField(null=True, blank=True)
@@ -2641,8 +2784,11 @@ class AcqTypePropertyName(ReadOnlyModel):
     key = fields.VirtualCompField(primary_key=True,
                                   partfield_names=['acq_type_property',
                                                    'iii_language'])
-    acq_type_property = models.ForeignKey(AcqTypeProperty)
-    iii_language = models.ForeignKey('IiiLanguage', null=True, blank=True)
+    acq_type_property = models.ForeignKey(AcqTypeProperty,
+                                          on_delete=models.CASCADE)
+    iii_language = models.ForeignKey('IiiLanguage',
+                                     on_delete=models.CASCADE,
+                                     null=True, blank=True)
     name = models.CharField(max_length=255, blank=True)
 
     class Meta(ReadOnlyModel.Meta):
@@ -2651,8 +2797,11 @@ class AcqTypePropertyName(ReadOnlyModel):
 
 class BibRecordOrderRecordLink(ReadOnlyModel):
     id = models.BigIntegerField(primary_key=True)
-    bib_record = models.ForeignKey(BibRecord, null=True, blank=True)
+    bib_record = models.ForeignKey(BibRecord,
+                                   on_delete=models.CASCADE,
+                                   null=True, blank=True)
     order_record = models.OneToOneField('OrderRecord',
+                                        on_delete=models.CASCADE,
                                         unique=True,
                                         null=True,
                                         blank=True)
@@ -2682,10 +2831,12 @@ class BillingLocationPropertyMyuser(ReadOnlyModel):
 
 class BillingLocationPropertyName(ReadOnlyModel):
     key = fields.VirtualCompField(primary_key=True,
-                                 partfield_names=['billing_location_property',
-                                                  'iii_language'])
-    billing_location_property = models.ForeignKey(BillingLocationProperty)
-    iii_language = models.ForeignKey('IiiLanguage', null=True, blank=True)
+                                  partfield_names=['billing_location_property',
+                                                   'iii_language'])
+    billing_location_property = models.ForeignKey(BillingLocationProperty,
+                                                  on_delete=models.CASCADE)
+    iii_language = models.ForeignKey('IiiLanguage', on_delete=models.CASCADE,
+                                     null=True, blank=True)
     name = models.CharField(max_length=255, blank=True)
 
     class Meta(ReadOnlyModel.Meta):
@@ -2714,8 +2865,10 @@ class ClaimActionPropertyName(ReadOnlyModel):
     key = fields.VirtualCompField(primary_key=True,
                                   partfield_names=['claim_action_property',
                                                    'iii_language'])
-    claim_action_property = models.ForeignKey(ClaimActionProperty)
-    iii_language = models.ForeignKey('IiiLanguage', null=True, blank=True)
+    claim_action_property = models.ForeignKey(ClaimActionProperty,
+                                              on_delete=models.CASCADE)
+    iii_language = models.ForeignKey('IiiLanguage', on_delete=models.CASCADE,
+                                     null=True, blank=True)
     name = models.CharField(max_length=255, blank=True)
 
     class Meta(ReadOnlyModel.Meta):
@@ -2744,8 +2897,9 @@ class FormPropertyName(ReadOnlyModel):
     key = fields.VirtualCompField(primary_key=True,
                                   partfield_names=['form_property',
                                                    'iii_language'])
-    form_property = models.ForeignKey(FormProperty)
-    iii_language = models.ForeignKey('IiiLanguage', null=True, blank=True)
+    form_property = models.ForeignKey(FormProperty, on_delete=models.CASCADE)
+    iii_language = models.ForeignKey('IiiLanguage', on_delete=models.CASCADE,
+                                     null=True, blank=True)
     name = models.CharField(max_length=255, blank=True)
 
     class Meta(ReadOnlyModel.Meta):
@@ -2774,8 +2928,10 @@ class OrderNotePropertyName(ReadOnlyModel):
     key = fields.VirtualCompField(primary_key=True,
                                   partfield_names=['order_note_property',
                                                    'iii_language'])
-    order_note_property = models.ForeignKey(OrderNoteProperty)
-    iii_language = models.ForeignKey('IiiLanguage', null=True, blank=True)
+    order_note_property = models.ForeignKey(OrderNoteProperty,
+                                            on_delete=models.CASCADE)
+    iii_language = models.ForeignKey('IiiLanguage', on_delete=models.CASCADE,
+                                     null=True, blank=True)
     name = models.CharField(max_length=255, blank=True)
 
     class Meta(ReadOnlyModel.Meta):
@@ -2785,16 +2941,18 @@ class OrderNotePropertyName(ReadOnlyModel):
 class OrderRecord(MainRecordTypeModel):
     id = models.BigIntegerField(primary_key=True)
     record_metadata = models.ForeignKey(RecordMetadata,
+                                        on_delete=models.CASCADE,
                                         db_column='record_id',
                                         null=True,
                                         blank=True)
     accounting_unit = models.ForeignKey('AccountingUnit',
+                                        on_delete=models.CASCADE,
                                         db_column='accounting_unit_code_num',
                                         db_constraint=False,
                                         to_field='code_num',
                                         blank=True,
                                         null=True)
-    acq_type = models.ForeignKey(AcqTypeProperty,
+    acq_type = models.ForeignKey(AcqTypeProperty, on_delete=models.CASCADE,
                                  db_column='acq_type_code',
                                  db_constraint=False,
                                  to_field='code',
@@ -2802,6 +2960,7 @@ class OrderRecord(MainRecordTypeModel):
                                  blank=True)
     catalog_date_gmt = models.DateTimeField(null=True, blank=True)
     claim_action = models.ForeignKey(ClaimActionProperty,
+                                     on_delete=models.CASCADE,
                                      db_column='claim_action_code',
                                      db_constraint=False,
                                      to_field='code',
@@ -2815,26 +2974,28 @@ class OrderRecord(MainRecordTypeModel):
                                           max_digits=30,
                                           decimal_places=6,
                                           blank=True)
-    form = models.ForeignKey(FormProperty,
+    form = models.ForeignKey(FormProperty, on_delete=models.CASCADE,
                              db_column='form_code',
                              db_constraint=False,
                              to_field='code',
                              null=True,
                              blank=True)
     order_date_gmt = models.DateTimeField(null=True, blank=True)
-    order_note = models.ForeignKey(OrderNoteProperty,
+    order_note = models.ForeignKey(OrderNoteProperty, on_delete=models.CASCADE,
                                    db_column='order_note_code',
                                    db_constraint=False,
                                    to_field='code',
                                    null=True,
                                    blank=True)
     order_type = models.ForeignKey('OrderTypeProperty',
+                                   on_delete=models.CASCADE,
                                    db_column='order_type_code',
                                    db_constraint=False,
                                    to_field='code',
                                    null=True,
                                    blank=True)
     receiving_action = models.ForeignKey('ReceivingActionProperty',
+                                         on_delete=models.CASCADE,
                                          db_column='receiving_action_code',
                                          db_constraint=False,
                                          to_field='code',
@@ -2844,43 +3005,47 @@ class OrderRecord(MainRecordTypeModel):
     receiving_location_code = models.CharField(max_length=255, null=True,
                                                blank=True)
     billing_location_code = models.CharField(max_length=255, null=True,
-                                               blank=True)
+                                             blank=True)
     # receiving_location = models.ForeignKey('ReceivingLocationProperty',
+    #                                        on_delete=models.CASCADE,
     #                                        db_column='receiving_location_code',
     #                                        to_field='code',
     #                                        null=True,
     #                                        blank=True)
     # billing_location = models.ForeignKey(BillingLocationProperty,
+    #                                      on_delete=models.CASCADE,
     #                                      db_column='billing_location_code',
     #                                      to_field='code',
     #                                      null=True,
     #                                      blank=True)
     order_status = models.ForeignKey('OrderStatusProperty',
+                                     on_delete=models.CASCADE,
                                      db_column='order_status_code',
                                      db_constraint=False,
                                      to_field='code',
                                      null=True,
                                      blank=True)
     temporary_location = models.ForeignKey('TempLocationProperty',
+                                           on_delete=models.CASCADE,
                                            db_column='temporary_location_code',
                                            db_constraint=False,
                                            to_field='code',
                                            null=True,
                                            blank=True)
-    vendor_record = models.ForeignKey('VendorRecord',
+    vendor_record = models.ForeignKey('VendorRecord', on_delete=models.CASCADE,
                                       db_column='vendor_record_code',
                                       db_constraint=False,
                                       to_field='code',
                                       null=True,
                                       blank=True)
-    language = models.ForeignKey('LanguageProperty',
+    language = models.ForeignKey('LanguageProperty', on_delete=models.CASCADE,
                                  db_column='language_code',
                                  db_constraint=False,
                                  to_field='code',
                                  null=True,
                                  blank=True)
     blanket_purchase_order_num = models.CharField(max_length=10000, blank=True)
-    country = models.ForeignKey('CountryProperty',
+    country = models.ForeignKey('CountryProperty', on_delete=models.CASCADE,
                                 db_column='country_code',
                                 db_constraint=False,
                                 to_field='code',
@@ -2922,11 +3087,12 @@ class OrderRecordAddressType(ReadOnlyModel):
 
 class OrderRecordCmf(ReadOnlyModel):
     id = models.BigIntegerField(primary_key=True)
-    order_record = models.ForeignKey(OrderRecord, null=True, blank=True)
+    order_record = models.ForeignKey(OrderRecord, on_delete=models.CASCADE,
+                                     null=True, blank=True)
     display_order = models.IntegerField(null=True, blank=True)
     fund_code = models.CharField(max_length=20, blank=True)
     copies = models.IntegerField(null=True, blank=True)
-    location = models.ForeignKey('Location',
+    location = models.ForeignKey('Location', on_delete=models.CASCADE,
                                  db_column='location_code',
                                  db_constraint=False,
                                  to_field='code',
@@ -2939,7 +3105,8 @@ class OrderRecordCmf(ReadOnlyModel):
 
 class OrderRecordEdifactResponse(ReadOnlyModel):
     id = models.BigIntegerField(primary_key=True)
-    order_record = models.ForeignKey(OrderRecord, null=True, blank=True)
+    order_record = models.ForeignKey(OrderRecord, on_delete=models.CASCADE,
+                                     null=True, blank=True)
     code = models.CharField(max_length=20, blank=True)
     message = models.CharField(max_length=512, blank=True)
     event_date_gmt = models.DateTimeField(null=True, blank=True)
@@ -2950,7 +3117,8 @@ class OrderRecordEdifactResponse(ReadOnlyModel):
 
 class OrderRecordPaid(ReadOnlyModel):
     id = models.BigIntegerField(primary_key=True)
-    order_record = models.ForeignKey(OrderRecord, null=True, blank=True)
+    order_record = models.ForeignKey(OrderRecord, on_delete=models.CASCADE,
+                                     null=True, blank=True)
     display_order = models.IntegerField(null=True, blank=True)
     paid_date_gmt = models.DateTimeField(null=True, blank=True)
     paid_amount = models.DecimalField(null=True,
@@ -2976,14 +3144,15 @@ class OrderRecordPaid(ReadOnlyModel):
 
 class OrderRecordReceived(ReadOnlyModel):
     id = models.BigIntegerField(primary_key=True)
-    order_record = models.ForeignKey(OrderRecord, null=True, blank=True)
-    location = models.ForeignKey('Location',
+    order_record = models.ForeignKey(OrderRecord, on_delete=models.CASCADE,
+                                     null=True, blank=True)
+    location = models.ForeignKey('Location', on_delete=models.CASCADE,
                                  db_column='location_code',
                                  db_constraint=False,
                                  to_field='code',
                                  null=True,
                                  blank=True)
-    fund = models.ForeignKey('Fund',
+    fund = models.ForeignKey('Fund', on_delete=models.CASCADE,
                              db_column='fund_code',
                              db_constraint=False,
                              to_field='fund_code',
@@ -2991,7 +3160,7 @@ class OrderRecordReceived(ReadOnlyModel):
                              blank=True)
     copy_num = models.IntegerField(null=True, blank=True)
     volume_num = models.IntegerField(null=True, blank=True)
-    item_record = models.ForeignKey(ItemRecord,
+    item_record = models.ForeignKey(ItemRecord, on_delete=models.CASCADE,
                                     db_column='item_record_metadata_id',
                                     null=True,
                                     blank=True)
@@ -3024,8 +3193,10 @@ class OrderStatusPropertyName(ReadOnlyModel):
     key = fields.VirtualCompField(primary_key=True,
                                   partfield_names=['order_status_property',
                                                    'iii_language'])
-    order_status_property = models.ForeignKey(OrderStatusProperty)
-    iii_language = models.ForeignKey('IiiLanguage', null=True, blank=True)
+    order_status_property = models.ForeignKey(OrderStatusProperty,
+                                              on_delete=models.CASCADE)
+    iii_language = models.ForeignKey('IiiLanguage', on_delete=models.CASCADE,
+                                     null=True, blank=True)
     name = models.CharField(max_length=255, blank=True)
 
     class Meta(ReadOnlyModel.Meta):
@@ -3054,8 +3225,10 @@ class OrderTypePropertyName(ReadOnlyModel):
     key = fields.VirtualCompField(primary_key=True,
                                   partfield_names=['order_type_property',
                                                    'iii_language'])
-    order_type_property = models.ForeignKey(OrderTypeProperty)
-    iii_language = models.ForeignKey('IiiLanguage', null=True, blank=True)
+    order_type_property = models.ForeignKey(OrderTypeProperty,
+                                            on_delete=models.CASCADE)
+    iii_language = models.ForeignKey('IiiLanguage', on_delete=models.CASCADE,
+                                     null=True, blank=True)
     name = models.CharField(max_length=255, blank=True)
 
     class Meta(ReadOnlyModel.Meta):
@@ -3064,26 +3237,29 @@ class OrderTypePropertyName(ReadOnlyModel):
 
 # class OrderView(ReadOnlyModel):
 #     id = models.BigIntegerField(primary_key=True)
-#     record_type = models.ForeignKey(RecordType,
+#     record_type = models.ForeignKey(RecordType, on_delete=models.CASCADE,
 #                                     db_column='record_type_code',
 #                                     to_field='code')
 #     record_num = models.IntegerField(null=True, blank=True)
 #     record_metadata = models.ForeignKey(RecordMetadata,
+#                                         on_delete=models.CASCADE,
 #                                         db_column='record_id',
 #                                         null=True,
 #                                         blank=True)
 #     accounting_unit = models.ForeignKey('AccountingUnit',
+#                                         on_delete=models.CASCADE,
 #                                         db_column='accounting_unit_code_num',
 #                                         to_field='code_num',
 #                                         blank=True,
 #                                         null=True)
-#     acq_type = models.ForeignKey(AcqTypeProperty,
+#     acq_type = models.ForeignKey(AcqTypeProperty, on_delete=models.CASCADE,
 #                                  db_column='acq_type_code',
 #                                  to_field='code',
 #                                  null=True,
 #                                  blank=True)
 #     catalog_date_gmt = models.DateTimeField(null=True, blank=True)
 #     claim_action = models.ForeignKey(ClaimActionProperty,
+#                                      on_delete=models.CASCADE,
 #                                      db_column='claim_action_code',
 #                                      to_field='code',
 #                                      null=True,
@@ -3096,61 +3272,69 @@ class OrderTypePropertyName(ReadOnlyModel):
 #                                           max_digits=30,
 #                                           decimal_places=6,
 #                                           blank=True)
-#     form = models.ForeignKey(FormProperty,
+#     form = models.ForeignKey(FormProperty, on_delete=models.CASCADE,
 #                              db_column='form_code',
 #                              to_field='code',
 #                              null=True,
 #                              blank=True)
 #     order_date_gmt = models.DateTimeField(null=True, blank=True)
 #     order_note = models.ForeignKey(OrderNoteProperty,
+#                                    on_delete=models.CASCADE,
 #                                    db_column='order_note_code',
 #                                    to_field='code',
 #                                    null=True,
 #                                    blank=True)
 #     order_type = models.ForeignKey('OrderTypeProperty',
+#                                    on_delete=models.CASCADE,
 #                                    db_column='order_type_code',
 #                                    to_field='code',
 #                                    null=True,
 #                                    blank=True)
 #     receiving_action = models.ForeignKey('ReceivingActionProperty',
+#                                          on_delete=models.CASCADE,
 #                                          db_column='receiving_action_code',
 #                                          to_field='code',
 #                                          null=True,
 #                                          blank=True)
 #     received_date_gmt = models.DateTimeField(null=True, blank=True)
 #     receiving_location = models.ForeignKey('ReceivingLocationProperty',
+#                                            on_delete=models.CASCADE,
 #                                            db_column='receiving_location_code',
 #                                            to_field='code',
 #                                            null=True,
 #                                            blank=True)
 #     billing_location = models.ForeignKey(BillingLocationProperty,
+#                                          on_delete=models.CASCADE,
 #                                          db_column='billing_location_code',
 #                                          to_field='code',
 #                                          null=True,
 #                                          blank=True)
 #     order_status = models.ForeignKey('OrderStatusProperty',
+#                                      on_delete=models.CASCADE,
 #                                      db_column='order_status_code',
 #                                      to_field='code',
 #                                      null=True,
 #                                      blank=True)
 #     temporary_location = models.ForeignKey('TempLocationProperty',
+#                                            on_delete=models.CASCADE,
 #                                            db_column='temporary_location_code',
 #                                            to_field='code',
 #                                            null=True,
 #                                            blank=True)
 #     vendor_record = models.ForeignKey('VendorRecord',
+#                                       on_delete=models.CASCADE,
 #                                       db_column='vendor_record_code',
 #                                       to_field='code',
 #                                       null=True,
 #                                       blank=True)
-#     language = models.ForeignKey('LanguageProperty',
+#     language = models.ForeignKey('LanguageProperty', on_delete=models.CASCADE,
 #                                  db_column='language_code',
 #                                  to_field='code',
 #                                  null=True,
 #                                  blank=True)
 #     blanket_purchase_order_num = models.CharField(max_length=10000,
 #                                                   blank=True)
-#     country = models.ForeignKey('CountryProperty',
+#     country = models.ForeignKey('CountryProperty', on_delete=models.CASCADE,
 #                                 db_column='country_code',
 #                                 to_field='code',
 #                                 null=True,
@@ -3200,10 +3384,12 @@ class ReceivingActionPropertyMyuser(ReadOnlyModel):
 
 class ReceivingActionPropertyName(ReadOnlyModel):
     key = fields.VirtualCompField(primary_key=True,
-                                 partfield_names=['receiving_action_property',
-                                                  'iii_language'])
-    receiving_action_property = models.ForeignKey(ReceivingActionProperty)
-    iii_language = models.ForeignKey('IiiLanguage', null=True, blank=True)
+                                  partfield_names=['receiving_action_property',
+                                                   'iii_language'])
+    receiving_action_property = models.ForeignKey(ReceivingActionProperty,
+                                                  on_delete=models.CASCADE)
+    iii_language = models.ForeignKey('IiiLanguage', on_delete=models.CASCADE,
+                                     null=True, blank=True)
     name = models.CharField(max_length=255, blank=True)
 
     class Meta(ReadOnlyModel.Meta):
@@ -3212,6 +3398,7 @@ class ReceivingActionPropertyName(ReadOnlyModel):
 
 class RecordLock(ReadOnlyModel):
     id = models.OneToOneField('RecordMetadata',
+                              on_delete=models.CASCADE,
                               primary_key=True,
                               db_column='id')
 
@@ -3221,8 +3408,11 @@ class RecordLock(ReadOnlyModel):
 
 class ResourceRecordOrderRecordLink(ReadOnlyModel):
     id = models.BigIntegerField(primary_key=True)
-    resource_record = models.ForeignKey('ResourceRecord', null=True, blank=True)
-    order_record = models.ForeignKey(OrderRecord, null=True, blank=True)
+    resource_record = models.ForeignKey('ResourceRecord',
+                                        on_delete=models.CASCADE,
+                                        null=True, blank=True)
+    order_record = models.ForeignKey(OrderRecord, on_delete=models.CASCADE,
+                                     null=True, blank=True)
     orders_display_order = models.IntegerField(null=True, blank=True)
     resources_display_order = models.IntegerField(null=True, blank=True)
 
@@ -3232,8 +3422,11 @@ class ResourceRecordOrderRecordLink(ReadOnlyModel):
 
 class ResourceRecordOrderRecordRelatedLink(ReadOnlyModel):
     id = models.BigIntegerField(primary_key=True)
-    resource_record = models.ForeignKey('ResourceRecord', null=True, blank=True)
-    order_record = models.ForeignKey(OrderRecord, null=True, blank=True)
+    resource_record = models.ForeignKey('ResourceRecord',
+                                        on_delete=models.CASCADE,
+                                        null=True, blank=True)
+    order_record = models.ForeignKey(OrderRecord, on_delete=models.CASCADE,
+                                     null=True, blank=True)
     resources_display_order = models.IntegerField(null=True, blank=True)
 
     class Meta(ReadOnlyModel.Meta):
@@ -3264,8 +3457,10 @@ class TempLocationPropertyName(ReadOnlyModel):
     key = fields.VirtualCompField(primary_key=True,
                                   partfield_names=['temp_location_property',
                                                    'iii_language'])
-    temp_location_property = models.ForeignKey(TempLocationProperty)
-    iii_language = models.ForeignKey('IiiLanguage', null=True, blank=True)
+    temp_location_property = models.ForeignKey(TempLocationProperty,
+                                               on_delete=models.CASCADE)
+    iii_language = models.ForeignKey('IiiLanguage', on_delete=models.CASCADE,
+                                     null=True, blank=True)
     name = models.CharField(max_length=255, blank=True)
 
     class Meta(ReadOnlyModel.Meta):
@@ -3275,6 +3470,7 @@ class TempLocationPropertyName(ReadOnlyModel):
 class UserDefinedOcode1Myuser(ReadOnlyModel):
     code = models.CharField(max_length=255, primary_key=True)
     user_defined_category = models.ForeignKey('UserDefinedCategory',
+                                              on_delete=models.CASCADE,
                                               null=True,
                                               blank=True)
     display_order = models.IntegerField(null=True, blank=True)
@@ -3287,6 +3483,7 @@ class UserDefinedOcode1Myuser(ReadOnlyModel):
 class UserDefinedOcode2Myuser(ReadOnlyModel):
     code = models.CharField(max_length=255, primary_key=True)
     user_defined_category = models.ForeignKey('UserDefinedCategory',
+                                              on_delete=models.CASCADE,
                                               null=True,
                                               blank=True)
     display_order = models.IntegerField(null=True, blank=True)
@@ -3299,6 +3496,7 @@ class UserDefinedOcode2Myuser(ReadOnlyModel):
 class UserDefinedOcode3Myuser(ReadOnlyModel):
     code = models.CharField(max_length=255, primary_key=True)
     user_defined_category = models.ForeignKey('UserDefinedCategory',
+                                              on_delete=models.CASCADE,
                                               null=True,
                                               blank=True)
     display_order = models.IntegerField(null=True, blank=True)
@@ -3311,6 +3509,7 @@ class UserDefinedOcode3Myuser(ReadOnlyModel):
 class UserDefinedOcode4Myuser(ReadOnlyModel):
     code = models.CharField(max_length=255, primary_key=True)
     user_defined_category = models.ForeignKey('UserDefinedCategory',
+                                              on_delete=models.CASCADE,
                                               null=True,
                                               blank=True)
     display_order = models.IntegerField(null=True, blank=True)
@@ -3364,8 +3563,9 @@ class FirmPropertyName(ReadOnlyModel):
     key = fields.VirtualCompField(primary_key=True,
                                   partfield_names=['firm_property',
                                                    'iii_language'])
-    firm_property = models.ForeignKey(FirmProperty)
-    iii_language = models.ForeignKey('IiiLanguage', null=True, blank=True)
+    firm_property = models.ForeignKey(FirmProperty, on_delete=models.CASCADE)
+    iii_language = models.ForeignKey('IiiLanguage', on_delete=models.CASCADE,
+                                     null=True, blank=True)
     name = models.CharField(max_length=255, blank=True)
 
     class Meta(ReadOnlyModel.Meta):
@@ -3404,10 +3604,10 @@ class IiiLanguageName(ReadOnlyModel):
     key = fields.VirtualCompField(primary_key=True,
                                   partfield_names=['iii_language',
                                                    'name_iii_language'])
-    iii_language = models.ForeignKey(IiiLanguage,
+    iii_language = models.ForeignKey(IiiLanguage, on_delete=models.CASCADE,
                                      related_name='iiilanguagename_set')
     description = models.CharField(max_length=255, blank=True)
-    name_iii_language = models.ForeignKey(IiiLanguage,
+    name_iii_language = models.ForeignKey(IiiLanguage, on_delete=models.CASCADE,
                                           related_name='nameiiilanguage_set')
 
     class Meta(ReadOnlyModel.Meta):
@@ -3436,8 +3636,10 @@ class MblockPropertyName(ReadOnlyModel):
     key = fields.VirtualCompField(primary_key=True,
                                   partfield_names=['mblock_property',
                                                    'iii_language'])
-    mblock_property = models.ForeignKey(MblockProperty)
-    iii_language = models.ForeignKey(IiiLanguage, null=True, blank=True)
+    mblock_property = models.ForeignKey(MblockProperty,
+                                        on_delete=models.CASCADE)
+    iii_language = models.ForeignKey(IiiLanguage, on_delete=models.CASCADE,
+                                     null=True, blank=True)
     name = models.CharField(max_length=255, blank=True)
 
     class Meta(ReadOnlyModel.Meta):
@@ -3464,10 +3666,13 @@ class NotificationMediumPropertyMyuser(ReadOnlyModel):
 
 class NotificationMediumPropertyName(ReadOnlyModel):
     key = fields.VirtualCompField(primary_key=True,
-                              partfield_names=['notification_medium_property',
-                                               'iii_language'])
-    notification_medium_property = models.ForeignKey(NotificationMediumProperty)
-    iii_language = models.ForeignKey(IiiLanguage, null=True, blank=True)
+                                  partfield_names=[
+                                      'notification_medium_property',
+                                      'iii_language'])
+    notification_medium_property = models.ForeignKey(NotificationMediumProperty,
+                                                     on_delete=models.CASCADE)
+    iii_language = models.ForeignKey(IiiLanguage, on_delete=models.CASCADE,
+                                     null=True, blank=True)
     name = models.CharField(max_length=255, blank=True)
 
     class Meta(ReadOnlyModel.Meta):
@@ -3479,9 +3684,10 @@ class NotificationMediumPropertyName(ReadOnlyModel):
 class PatronRecord(MainRecordTypeModel):
     id = models.BigIntegerField(primary_key=True)
     record_metadata = models.ForeignKey(RecordMetadata,
+                                        on_delete=models.CASCADE,
                                         db_column='record_id',
                                         null=True, blank=True)
-    ptype = models.ForeignKey('PtypeProperty',
+    ptype = models.ForeignKey('PtypeProperty', on_delete=models.CASCADE,
                               db_column='ptype_code',
                               db_constraint=False,
                               to_field='value',
@@ -3494,24 +3700,25 @@ class PatronRecord(MainRecordTypeModel):
     pcode3 = models.SmallIntegerField(null=True, blank=True)
     pcode4 = models.IntegerField(null=True, blank=True)
     birth_date_gmt = models.DateField(null=True, blank=True)
-    mblock = models.ForeignKey('MblockProperty',
+    mblock = models.ForeignKey('MblockProperty', on_delete=models.CASCADE,
                                db_column='mblock_code',
                                db_constraint=False,
                                to_field='code',
                                null=True,
                                blank=True)
-    # firm = models.ForeignKey('FirmProperty',
+    # firm = models.ForeignKey('FirmProperty', on_delete=models.CASCADE,
     #                          db_column='firm_code',
     #                          to_field='code',
     #                          null=True,
     #                          blank=True)
     block_until_date_gmt = models.DateTimeField(null=True, blank=True)
     # patron_agency = models.ForeignKey('AgencyProperty',
+    #                                   on_delete=models.CASCADE,
     #                                   db_column='patron_agency_code_num',
     #                                   to_field='code_num',
     #                                   null=True,
     #                                   blank=True)
-    # iii_language = models.ForeignKey(IiiLanguage,
+    # iii_language = models.ForeignKey(IiiLanguage, on_delete=models.CASCADE,
     #                                  db_column='iii_language_pref_code',
     #                                  to_field='code',
     #                                  null=True,
@@ -3538,6 +3745,7 @@ class PatronRecord(MainRecordTypeModel):
     itemd_count = models.IntegerField(null=True, blank=True)
     activity_gmt = models.DateTimeField(null=True, blank=True)
     notification_medium = models.ForeignKey(NotificationMediumProperty,
+                                            on_delete=models.CASCADE,
                                             db_column='notification_medium_code',
                                             db_constraint=False,
                                             to_field='code',
@@ -3555,8 +3763,10 @@ class PatronRecord(MainRecordTypeModel):
 
 class PatronRecordAddress(ReadOnlyModel):
     id = models.BigIntegerField(primary_key=True)
-    patron_record = models.ForeignKey(PatronRecord, null=True, blank=True)
+    patron_record = models.ForeignKey(PatronRecord, on_delete=models.CASCADE,
+                                      null=True, blank=True)
     patron_record_address_type = models.ForeignKey('PatronRecordAddressType',
+                                                   on_delete=models.CASCADE,
                                                    null=True,
                                                    blank=True)
     display_order = models.IntegerField(null=True, blank=True)
@@ -3583,7 +3793,8 @@ class PatronRecordAddressType(ReadOnlyModel):
 
 class PatronRecordFullname(ReadOnlyModel):
     id = models.BigIntegerField(primary_key=True)
-    patron_record = models.ForeignKey(PatronRecord, null=True, blank=True)
+    patron_record = models.ForeignKey(PatronRecord, on_delete=models.CASCADE,
+                                      null=True, blank=True)
     display_order = models.IntegerField(null=True, blank=True)
     prefix = models.CharField(max_length=50, blank=True)
     first_name = models.CharField(max_length=500, blank=True)
@@ -3597,8 +3808,10 @@ class PatronRecordFullname(ReadOnlyModel):
 
 class PatronRecordPhone(ReadOnlyModel):
     id = models.BigIntegerField(primary_key=True)
-    patron_record = models.ForeignKey(PatronRecord, null=True, blank=True)
+    patron_record = models.ForeignKey(PatronRecord, on_delete=models.CASCADE,
+                                      null=True, blank=True)
     patron_record_phone_type = models.ForeignKey('PatronRecordPhoneType',
+                                                 on_delete=models.CASCADE,
                                                  null=True,
                                                  blank=True)
     display_order = models.IntegerField(null=True, blank=True)
@@ -3618,12 +3831,12 @@ class PatronRecordPhoneType(ReadOnlyModel):
 
 # class PatronView(ReadOnlyModel):
 #     id = models.BigIntegerField(primary_key=True)
-#     record_type = models.ForeignKey(RecordType,
+#     record_type = models.ForeignKey(RecordType, on_delete=models.CASCADE,
 #                                     db_column='record_type_code',
 #                                     to_field='code')
 #     record_num = models.IntegerField(null=True, blank=True)
 #     barcode = models.CharField(max_length=512, blank=True)
-#     ptype = models.ForeignKey('PtypeProperty',
+#     ptype = models.ForeignKey('PtypeProperty', on_delete=models.CASCADE,
 #                               db_column='ptype_code',
 #                               to_field='value',
 #                               null=True,
@@ -3635,23 +3848,24 @@ class PatronRecordPhoneType(ReadOnlyModel):
 #     pcode3 = models.SmallIntegerField(null=True, blank=True)
 #     pcode4 = models.IntegerField(null=True, blank=True)
 #     birth_date_gmt = models.DateField(null=True, blank=True)
-#     mblock = models.ForeignKey('MblockProperty',
+#     mblock = models.ForeignKey('MblockProperty', on_delete=models.CASCADE,
 #                                db_column='mblock_code',
 #                                to_field='code',
 #                                null=True,
 #                                blank=True)
-#     firm = models.ForeignKey('FirmProperty',
+#     firm = models.ForeignKey('FirmProperty', on_delete=models.CASCADE,
 #                              db_column='firm_code',
 #                              to_field='code',
 #                              null=True,
 #                              blank=True)
 #     block_until_date_gmt = models.DateTimeField(null=True, blank=True)
 #     patron_agency = models.ForeignKey('AgencyProperty',
+#                                       on_delete=models.CASCADE,
 #                                       db_column='patron_agency_code_num',
 #                                       to_field='code_num',
 #                                       null=True,
 #                                       blank=True)
-#     iii_language = models.ForeignKey(IiiLanguage,
+#     iii_language = models.ForeignKey(IiiLanguage, on_delete=models.CASCADE,
 #                                      db_column='iii_language_pref_code',
 #                                      to_field='code',
 #                                      null=True,
@@ -3678,6 +3892,7 @@ class PatronRecordPhoneType(ReadOnlyModel):
 #     itemd_count = models.IntegerField(null=True, blank=True)
 #     activity_gmt = models.DateTimeField(null=True, blank=True)
 #     notification_medium = models.ForeignKey(NotificationMediumProperty,
+#                                             on_delete=models.CASCADE,
 #                                             db_column='notification_medium_code',
 #                                             to_field='code',
 #                                             null=True,
@@ -3695,13 +3910,14 @@ class PatronRecordPhoneType(ReadOnlyModel):
 # If you use agencies, enable ptype_agency.
 class Pblock(ReadOnlyModel):
     id = models.IntegerField(primary_key=True)
-    ptype = models.ForeignKey('PtypeProperty',
+    ptype = models.ForeignKey('PtypeProperty', on_delete=models.CASCADE,
                               db_column='ptype_code_num',
                               db_constraint=False,
                               to_field='value',
                               null=True,
                               blank=True)
     # ptype_agency = models.ForeignKey('AgencyProperty',
+    #                                  on_delete=models.CASCADE,
     #                                  db_column='ptype_agency_code_num',
     #                                  to_field='code_num',
     #                                  null=True,
@@ -3737,6 +3953,7 @@ class PtypeProperty(ModelWithAttachedName):
                                                                   blank=True)
     is_comment_auto_approved = models.NullBooleanField(null=True, blank=True)
     ptype_property_category = models.ForeignKey('PtypePropertyCategory',
+                                                on_delete=models.CASCADE,
                                                 db_column='ptype_category_id',
                                                 null=True,
                                                 blank=True)
@@ -3771,9 +3988,11 @@ class PtypePropertyCategoryName(ReadOnlyModel):
                                   partfield_names=['ptype_property_category',
                                                    'iii_language'])
     ptype_property_category = models.ForeignKey(PtypePropertyCategory,
+                                                on_delete=models.CASCADE,
                                                 db_column='ptype_category_id')
     name = models.CharField(max_length=255, blank=True)
-    iii_language = models.ForeignKey(IiiLanguage, null=True, blank=True)
+    iii_language = models.ForeignKey(IiiLanguage, on_delete=models.CASCADE,
+                                     null=True, blank=True)
 
     class Meta(ReadOnlyModel.Meta):
         db_table = 'ptype_property_category_name'
@@ -3787,6 +4006,7 @@ class PtypePropertyMyuser(ReadOnlyModel):
                                                                   blank=True)
     is_comment_auto_approved = models.NullBooleanField(null=True, blank=True)
     ptype_property_category = models.ForeignKey(PtypePropertyCategory,
+                                                on_delete=models.CASCADE,
                                                 db_column='ptype_category_id',
                                                 null=True,
                                                 blank=True)
@@ -3800,10 +4020,11 @@ class PtypePropertyName(ReadOnlyModel):
     key = fields.VirtualCompField(primary_key=True,
                                   partfield_names=['ptype_property',
                                                    'iii_language'])
-    ptype_property = models.ForeignKey(PtypeProperty,
+    ptype_property = models.ForeignKey(PtypeProperty, on_delete=models.CASCADE,
                                        db_column='ptype_id')
     description = models.CharField(max_length=255, blank=True)
-    iii_language = models.ForeignKey(IiiLanguage, null=True, blank=True)
+    iii_language = models.ForeignKey(IiiLanguage, on_delete=models.CASCADE,
+                                     null=True, blank=True)
 
     class Meta(ReadOnlyModel.Meta):
         db_table = 'ptype_property_name'
@@ -3812,6 +4033,7 @@ class PtypePropertyName(ReadOnlyModel):
 class UserDefinedPcode1Myuser(ReadOnlyModel):
     code = models.CharField(max_length=255, primary_key=True)
     user_defined_category = models.ForeignKey('UserDefinedCategory',
+                                              on_delete=models.CASCADE,
                                               null=True,
                                               blank=True)
     display_order = models.IntegerField(null=True, blank=True)
@@ -3824,6 +4046,7 @@ class UserDefinedPcode1Myuser(ReadOnlyModel):
 class UserDefinedPcode2Myuser(ReadOnlyModel):
     code = models.CharField(max_length=255, primary_key=True)
     user_defined_category = models.ForeignKey('UserDefinedCategory',
+                                              on_delete=models.CASCADE,
                                               null=True,
                                               blank=True)
     display_order = models.IntegerField(null=True, blank=True)
@@ -3836,6 +4059,7 @@ class UserDefinedPcode2Myuser(ReadOnlyModel):
 class UserDefinedPcode3Myuser(ReadOnlyModel):
     code = models.CharField(max_length=255, primary_key=True)
     user_defined_category = models.ForeignKey('UserDefinedCategory',
+                                              on_delete=models.CASCADE,
                                               null=True,
                                               blank=True)
     display_order = models.IntegerField(null=True, blank=True)
@@ -3848,6 +4072,7 @@ class UserDefinedPcode3Myuser(ReadOnlyModel):
 class UserDefinedPcode4Myuser(ReadOnlyModel):
     code = models.CharField(max_length=255, primary_key=True)
     user_defined_category = models.ForeignKey('UserDefinedCategory',
+                                              on_delete=models.CASCADE,
                                               null=True,
                                               blank=True)
     display_order = models.IntegerField(null=True, blank=True)
@@ -3881,8 +4106,9 @@ class GtypePropertyName(ReadOnlyModel):
     key = fields.VirtualCompField(primary_key=True,
                                   partfield_names=['gtype_property',
                                                    'iii_language'])
-    gtype_property = models.ForeignKey(GtypeProperty)
-    iii_language = models.ForeignKey(IiiLanguage, null=True, blank=True)
+    gtype_property = models.ForeignKey(GtypeProperty, on_delete=models.CASCADE)
+    iii_language = models.ForeignKey(IiiLanguage, on_delete=models.CASCADE,
+                                     null=True, blank=True)
     name = models.CharField(max_length=255, blank=True)
 
     class Meta(ReadOnlyModel.Meta):
@@ -3892,6 +4118,7 @@ class GtypePropertyName(ReadOnlyModel):
 class ProgramRecord(MainRecordTypeModel):
     id = models.BigIntegerField(primary_key=True)
     record_metadata = models.ForeignKey(RecordMetadata,
+                                        on_delete=models.CASCADE,
                                         db_column='record_id',
                                         null=True,
                                         blank=True)
@@ -3912,7 +4139,7 @@ class ProgramRecord(MainRecordTypeModel):
     min_alert_days_to_start = models.IntegerField(null=True, blank=True)
     max_alert_seats_open = models.IntegerField(null=True, blank=True)
     reg_per_patron = models.IntegerField(null=True, blank=True)
-    program_type = models.ForeignKey('GtypeProperty',
+    program_type = models.ForeignKey('GtypeProperty', on_delete=models.CASCADE,
                                      db_column='program_type_code',
                                      db_constraint=False,
                                      to_field='code_num',
@@ -3931,8 +4158,9 @@ class ProgramRecord(MainRecordTypeModel):
 
 class ProgramRecordLocation(ReadOnlyModel):
     id = models.BigIntegerField(primary_key=True)
-    program_record = models.ForeignKey(ProgramRecord, null=True, blank=True)
-    location = models.ForeignKey('Location',
+    program_record = models.ForeignKey(ProgramRecord, on_delete=models.CASCADE,
+                                       null=True, blank=True)
+    location = models.ForeignKey('Location', on_delete=models.CASCADE,
                                  db_column='location_code',
                                  db_constraint=False,
                                  to_field='code',
@@ -3946,7 +4174,7 @@ class ProgramRecordLocation(ReadOnlyModel):
 
 # class ProgramView(ReadOnlyModel):
 #     id = models.BigIntegerField(primary_key=True)
-#     record_type = models.ForeignKey(RecordType,
+#     record_type = models.ForeignKey(RecordType, on_delete=models.CASCADE,
 #                                     db_column='record_type_code',
 #                                     to_field='code')
 #     record_num = models.IntegerField(null=True, blank=True)
@@ -3965,6 +4193,7 @@ class ProgramRecordLocation(ReadOnlyModel):
 #     max_alert_seats_open = models.IntegerField(null=True, blank=True)
 #     reg_per_patron = models.IntegerField(null=True, blank=True)
 #     program_type = models.ForeignKey('GtypeProperty',
+#                                      on_delete=models.CASCADE,
 #                                      db_column='program_type_code',
 #                                      to_field='code_num',
 #                                      null=True,
@@ -3983,6 +4212,7 @@ class ProgramRecordLocation(ReadOnlyModel):
 class UserDefinedGcode1Myuser(ReadOnlyModel):
     code = models.CharField(max_length=255, primary_key=True)
     user_defined_category = models.ForeignKey('UserDefinedCategory',
+                                              on_delete=models.CASCADE,
                                               null=True,
                                               blank=True)
     display_order = models.IntegerField(null=True, blank=True)
@@ -3995,6 +4225,7 @@ class UserDefinedGcode1Myuser(ReadOnlyModel):
 class UserDefinedGcode2Myuser(ReadOnlyModel):
     code = models.CharField(max_length=255, primary_key=True)
     user_defined_category = models.ForeignKey('UserDefinedCategory',
+                                              on_delete=models.CASCADE,
                                               null=True,
                                               blank=True)
     display_order = models.IntegerField(null=True, blank=True)
@@ -4007,6 +4238,7 @@ class UserDefinedGcode2Myuser(ReadOnlyModel):
 class UserDefinedGcode3Myuser(ReadOnlyModel):
     code = models.CharField(max_length=255, primary_key=True)
     user_defined_category = models.ForeignKey('UserDefinedCategory',
+                                              on_delete=models.CASCADE,
                                               null=True,
                                               blank=True)
     display_order = models.IntegerField(null=True, blank=True)
@@ -4024,6 +4256,7 @@ class UserDefinedGcode3Myuser(ReadOnlyModel):
 class ResourceRecord(MainRecordTypeModel):
     id = models.BigIntegerField(primary_key=True)
     record_metadata = models.ForeignKey(RecordMetadata,
+                                        on_delete=models.CASCADE,
                                         db_column='record_id',
                                         null=True,
                                         blank=True)
@@ -4056,23 +4289,23 @@ class ResourceRecord(MainRecordTypeModel):
     activation_gmt = models.DateTimeField(null=True, blank=True)
     edate5_gmt = models.DateTimeField(null=True, blank=True)
     edate6_gmt = models.DateTimeField(null=True, blank=True)
-    # language = models.ForeignKey('LanguageProperty',
+    # language = models.ForeignKey('LanguageProperty', on_delete=models.CASCADE,
     #                              db_column='language_code',
     #                              to_field='code',
     #                              null=True,
     #                              blank=True)
-    # country = models.ForeignKey('CountryProperty',
+    # country = models.ForeignKey('CountryProperty', on_delete=models.CASCADE,
     #                             db_column='country_code',
     #                             to_field='code',
     #                             null=True,
     #                             blank=True)
-    access_provider = models.ForeignKey(ContactRecord,
+    access_provider = models.ForeignKey(ContactRecord, on_delete=models.CASCADE,
                                         db_column='access_provider_code',
                                         db_constraint=False,
                                         to_field='code',
                                         null=True,
                                         blank=True)
-    # location = models.ForeignKey('Location',
+    # location = models.ForeignKey('Location', on_delete=models.CASCADE,
     #                              db_column='location_code',
     #                              to_field='code',
     #                              null=True,
@@ -4134,7 +4367,7 @@ class ResourceRecord(MainRecordTypeModel):
 
 # class ResourceView(ReadOnlyModel):
 #     id = models.BigIntegerField(primary_key=True)
-#     record_type = models.ForeignKey(RecordType,
+#     record_type = models.ForeignKey(RecordType, on_delete=models.CASCADE,
 #                                     db_column='record_type_code',
 #                                     to_field='code')
 #     record_num = models.IntegerField(null=True, blank=True)
@@ -4174,22 +4407,23 @@ class ResourceRecord(MainRecordTypeModel):
 #     activation_gmt = models.DateTimeField(null=True, blank=True)
 #     edate5_gmt = models.DateTimeField(null=True, blank=True)
 #     edate6_gmt = models.DateTimeField(null=True, blank=True)
-#     language = models.ForeignKey('LanguageProperty',
+#     language = models.ForeignKey('LanguageProperty', on_delete=models.CASCADE,
 #                                  db_column='language_code',
 #                                  to_field='code',
 #                                  null=True,
 #                                  blank=True)
-#     country = models.ForeignKey('CountryProperty',
+#     country = models.ForeignKey('CountryProperty', on_delete=models.CASCADE,
 #                                 db_column='country_code',
 #                                 to_field='code',
 #                                 null=True,
 #                                 blank=True)
 #     access_provider = models.ForeignKey(ContactRecord,
+#                                         on_delete=models.CASCADE,
 #                                         db_column='access_provider_code',
 #                                         to_field='code',
 #                                         null=True,
 #                                         blank=True)
-#     location = models.ForeignKey('Location',
+#     location = models.ForeignKey('Location', on_delete=models.CASCADE,
 #                                  db_column='location_code',
 #                                  to_field='code',
 #                                  null=True,
@@ -4208,6 +4442,7 @@ class ResourceRecord(MainRecordTypeModel):
 class UserDefinedEcode1Myuser(ReadOnlyModel):
     code = models.CharField(max_length=255, primary_key=True)
     user_defined_category = models.ForeignKey('UserDefinedCategory',
+                                              on_delete=models.CASCADE,
                                               null=True,
                                               blank=True)
     display_order = models.IntegerField(null=True, blank=True)
@@ -4220,6 +4455,7 @@ class UserDefinedEcode1Myuser(ReadOnlyModel):
 class UserDefinedEcode2Myuser(ReadOnlyModel):
     code = models.CharField(max_length=255, primary_key=True)
     user_defined_category = models.ForeignKey('UserDefinedCategory',
+                                              on_delete=models.CASCADE,
                                               null=True,
                                               blank=True)
     display_order = models.IntegerField(null=True, blank=True)
@@ -4232,6 +4468,7 @@ class UserDefinedEcode2Myuser(ReadOnlyModel):
 class UserDefinedEcode3Myuser(ReadOnlyModel):
     code = models.CharField(max_length=255, primary_key=True)
     user_defined_category = models.ForeignKey('UserDefinedCategory',
+                                              on_delete=models.CASCADE,
                                               null=True,
                                               blank=True)
     display_order = models.IntegerField(null=True, blank=True)
@@ -4244,6 +4481,7 @@ class UserDefinedEcode3Myuser(ReadOnlyModel):
 class UserDefinedEcode4Myuser(ReadOnlyModel):
     code = models.CharField(max_length=255, primary_key=True)
     user_defined_category = models.ForeignKey('UserDefinedCategory',
+                                              on_delete=models.CASCADE,
                                               null=True,
                                               blank=True)
     display_order = models.IntegerField(null=True, blank=True)
@@ -4258,20 +4496,22 @@ class UserDefinedEcode4Myuser(ReadOnlyModel):
 class SectionRecord(MainRecordTypeModel):
     id = models.BigIntegerField(primary_key=True)
     record_metadata = models.ForeignKey(RecordMetadata,
+                                        on_delete=models.CASCADE,
                                         db_column='record_id',
                                         null=True,
                                         blank=True)
     registered_patrons = models.ManyToManyField(PatronRecord,
                                                 through='SectionRegistrationSeat',
                                                 blank=True)
-    location = models.ForeignKey('Location',
+    location = models.ForeignKey('Location', on_delete=models.CASCADE,
                                  db_column='location_code',
                                  db_constraint=False,
                                  to_field='code',
                                  null=True,
                                  blank=True)
     status_code = models.CharField(max_length=1, blank=True)
-    program_record = models.ForeignKey(ProgramRecord, null=True, blank=True)
+    program_record = models.ForeignKey(ProgramRecord, on_delete=models.CASCADE,
+                                       null=True, blank=True)
     section_display_order = models.IntegerField(null=True, blank=True)
     min_seats = models.IntegerField(null=True, blank=True)
     max_seats = models.IntegerField(null=True, blank=True)
@@ -4293,7 +4533,8 @@ class SectionRecord(MainRecordTypeModel):
 
 class SectionRecordSession(ReadOnlyModel):
     id = models.BigIntegerField(primary_key=True)
-    section_record = models.ForeignKey(SectionRecord, null=True, blank=True)
+    section_record = models.ForeignKey(SectionRecord, on_delete=models.CASCADE,
+                                       null=True, blank=True)
     start_date = models.DateTimeField(null=True, blank=True)
     duration_minutes = models.IntegerField(null=True, blank=True)
     session_display_order = models.IntegerField(null=True, blank=True)
@@ -4305,12 +4546,15 @@ class SectionRecordSession(ReadOnlyModel):
 
 class SectionRegistrationSeat(ReadOnlyModel):
     id = models.BigIntegerField(primary_key=True)
-    section_record = models.ForeignKey(SectionRecord, null=True, blank=True)
-    patron_record = models.ForeignKey(PatronRecord, null=True, blank=True)
+    section_record = models.ForeignKey(SectionRecord, on_delete=models.CASCADE,
+                                       null=True, blank=True)
+    patron_record = models.ForeignKey(PatronRecord, on_delete=models.CASCADE,
+                                      null=True, blank=True)
     reg_date_gmt = models.DateTimeField(null=True, blank=True)
     is_registered = models.NullBooleanField(null=True, blank=True)
     seat_note = models.CharField(max_length=255, blank=True)
-    payment = models.ForeignKey('Payment', null=True, blank=True)
+    payment = models.ForeignKey('Payment', on_delete=models.CASCADE,
+                                null=True, blank=True)
     reg_date = models.CharField(max_length=14, blank=True)
 
     class Meta(ReadOnlyModel.Meta):
@@ -4319,7 +4563,7 @@ class SectionRegistrationSeat(ReadOnlyModel):
 
 # class SectionView(ReadOnlyModel):
 #     id = models.BigIntegerField(primary_key=True)
-#     record_type = models.ForeignKey(RecordType,
+#     record_type = models.ForeignKey(RecordType, on_delete=models.CASCADE,
 #                                     db_column='record_type_code',
 #                                     to_field='code')
 #     record_num = models.IntegerField(null=True, blank=True)
@@ -4327,7 +4571,7 @@ class SectionRegistrationSeat(ReadOnlyModel):
 #                                             through='SectionRegistrationSeat',
 #                                             null=True,
 #                                             blank=True)
-#     location = models.ForeignKey('Location',
+#     location = models.ForeignKey('Location', on_delete=models.CASCADE,
 #                                  db_column='location_code',
 #                                  to_field='code',
 #                                  null=True,
@@ -4355,12 +4599,15 @@ class SectionRegistrationSeat(ReadOnlyModel):
 class SessionAttendance(ReadOnlyModel):
     id = models.BigIntegerField(primary_key=True)
     section_record_session = models.ForeignKey(SectionRecordSession,
+                                               on_delete=models.CASCADE,
                                                null=True,
                                                blank=True)
     section_registration_seat = models.ForeignKey(SectionRegistrationSeat,
+                                                  on_delete=models.CASCADE,
                                                   null=True,
                                                   blank=True)
-    patron_record = models.ForeignKey(PatronRecord, null=True, blank=True)
+    patron_record = models.ForeignKey(PatronRecord, on_delete=models.CASCADE,
+                                      null=True, blank=True)
     total_attended = models.IntegerField(null=True, blank=True)
 
     class Meta(ReadOnlyModel.Meta):
@@ -4370,6 +4617,7 @@ class SessionAttendance(ReadOnlyModel):
 class UserDefinedZcode1Myuser(ReadOnlyModel):
     code = models.CharField(max_length=255, primary_key=True)
     user_defined_category = models.ForeignKey('UserDefinedCategory',
+                                              on_delete=models.CASCADE,
                                               null=True,
                                               blank=True)
     display_order = models.IntegerField(null=True, blank=True)
@@ -4382,6 +4630,7 @@ class UserDefinedZcode1Myuser(ReadOnlyModel):
 class UserDefinedZcode2Myuser(ReadOnlyModel):
     code = models.CharField(max_length=255, primary_key=True)
     user_defined_category = models.ForeignKey('UserDefinedCategory',
+                                              on_delete=models.CASCADE,
                                               null=True,
                                               blank=True)
     display_order = models.IntegerField(null=True, blank=True)
@@ -4394,6 +4643,7 @@ class UserDefinedZcode2Myuser(ReadOnlyModel):
 class UserDefinedZcode3Myuser(ReadOnlyModel):
     code = models.CharField(max_length=255, primary_key=True)
     user_defined_category = models.ForeignKey('UserDefinedCategory',
+                                              on_delete=models.CASCADE,
                                               null=True,
                                               blank=True)
     display_order = models.IntegerField(null=True, blank=True)
@@ -4408,6 +4658,7 @@ class UserDefinedZcode3Myuser(ReadOnlyModel):
 class UserDefinedVcode1Myuser(ReadOnlyModel):
     code = models.CharField(max_length=255, primary_key=True)
     user_defined_category = models.ForeignKey('UserDefinedCategory',
+                                              on_delete=models.CASCADE,
                                               null=True,
                                               blank=True)
     display_order = models.IntegerField(null=True, blank=True)
@@ -4420,6 +4671,7 @@ class UserDefinedVcode1Myuser(ReadOnlyModel):
 class UserDefinedVcode2Myuser(ReadOnlyModel):
     code = models.CharField(max_length=255, primary_key=True)
     user_defined_category = models.ForeignKey('UserDefinedCategory',
+                                              on_delete=models.CASCADE,
                                               null=True,
                                               blank=True)
     display_order = models.IntegerField(null=True, blank=True)
@@ -4432,6 +4684,7 @@ class UserDefinedVcode2Myuser(ReadOnlyModel):
 class UserDefinedVcode3Myuser(ReadOnlyModel):
     code = models.CharField(max_length=255, primary_key=True)
     user_defined_category = models.ForeignKey('UserDefinedCategory',
+                                              on_delete=models.CASCADE,
                                               null=True,
                                               blank=True)
     display_order = models.IntegerField(null=True, blank=True)
@@ -4445,10 +4698,12 @@ class UserDefinedVcode3Myuser(ReadOnlyModel):
 class VendorRecord(MainRecordTypeModel):
     id = models.BigIntegerField(primary_key=True)
     record_metadata = models.ForeignKey(RecordMetadata,
+                                        on_delete=models.CASCADE,
                                         db_column='record_id',
                                         null=True,
                                         blank=True)
     accounting_unit = models.ForeignKey('AccountingUnit',
+                                        on_delete=models.CASCADE,
                                         db_column='accounting_unit_code_num',
                                         db_constraint=False,
                                         to_field='code_num',
@@ -4485,7 +4740,7 @@ class VendorRecord(MainRecordTypeModel):
     average_weeks = models.IntegerField(null=True, blank=True)
     discount = models.IntegerField(null=True, blank=True)
     vendor_message_code = models.CharField(max_length=3, blank=True)
-    # language = models.ForeignKey('LanguageProperty',
+    # language = models.ForeignKey('LanguageProperty', on_delete=models.CASCADE,
     #                              db_column='language_code',
     #                              to_field='code',
     #                              null=True,
@@ -4499,8 +4754,11 @@ class VendorRecord(MainRecordTypeModel):
 
 class VendorRecordAddress(ReadOnlyModel):
     id = models.BigIntegerField(primary_key=True)
-    vendor_record = models.ForeignKey(VendorRecord, null=True, blank=True)
+    vendor_record = models.ForeignKey(VendorRecord,
+                                      on_delete=models.CASCADE,
+                                      null=True, blank=True)
     vendor_record_address_type = models.ForeignKey('VendorRecordAddressType',
+                                                   on_delete=models.CASCADE,
                                                    null=True,
                                                    blank=True)
     display_order = models.IntegerField(null=True, blank=True)
@@ -4527,7 +4785,7 @@ class VendorRecordAddressType(ReadOnlyModel):
 
 # class VendorView(ReadOnlyModel):
 #     id = models.BigIntegerField(primary_key=True)
-#     record_type = models.ForeignKey(RecordType,
+#     record_type = models.ForeignKey(RecordType, on_delete=models.CASCADE,
 #                                     db_column='record_type_code',
 #                                     to_field='code')
 #     record_num = models.IntegerField(null=True, blank=True)
@@ -4563,7 +4821,7 @@ class VendorRecordAddressType(ReadOnlyModel):
 #     average_weeks = models.IntegerField(null=True, blank=True)
 #     discount = models.IntegerField(null=True, blank=True)
 #     vendor_message_code = models.CharField(max_length=3, blank=True)
-#     language = models.ForeignKey('LanguageProperty',
+#     language = models.ForeignKey('LanguageProperty', on_delete=models.CASCADE,
 #                                  db_column='language_code',
 #                                  to_field='code',
 #                                  null=True,
@@ -4579,8 +4837,10 @@ class VendorRecordAddressType(ReadOnlyModel):
 
 class BibRecordVolumeRecordLink(ReadOnlyModel):
     id = models.BigIntegerField(primary_key=True)
-    bib_record = models.ForeignKey(BibRecord, null=True, blank=True)
+    bib_record = models.ForeignKey(BibRecord, on_delete=models.CASCADE,
+                                   null=True, blank=True)
     volume_record = models.OneToOneField('VolumeRecord',
+                                         on_delete=models.CASCADE,
                                          unique=True,
                                          null=True,
                                          blank=True)
@@ -4593,6 +4853,7 @@ class BibRecordVolumeRecordLink(ReadOnlyModel):
 class VolumeRecord(MainRecordTypeModel):
     id = models.BigIntegerField(primary_key=True)
     record_metadata = models.ForeignKey(RecordMetadata,
+                                        on_delete=models.CASCADE,
                                         db_column='record_id',
                                         null=True,
                                         blank=True)
@@ -4605,7 +4866,7 @@ class VolumeRecord(MainRecordTypeModel):
 
 # class VolumeView(ReadOnlyModel):
 #     id = models.BigIntegerField(primary_key=True)
-#     record_type = models.ForeignKey(RecordType,
+#     record_type = models.ForeignKey(RecordType, on_delete=models.CASCADE,
 #                                     db_column='record_type_code',
 #                                     to_field='code')
 #     record_num = models.IntegerField(null=True, blank=True)
@@ -4620,8 +4881,11 @@ class VolumeRecord(MainRecordTypeModel):
 
 class AccountingTransaction(ReadOnlyModel):
     id = models.IntegerField(primary_key=True)
-    accounting_unit = models.ForeignKey('AccountingUnit', null=True, blank=True)
-    fund_master = models.ForeignKey('FundMaster', null=True, blank=True)
+    accounting_unit = models.ForeignKey('AccountingUnit',
+                                        on_delete=models.CASCADE,
+                                        null=True, blank=True)
+    fund_master = models.ForeignKey('FundMaster', on_delete=models.CASCADE,
+                                    null=True, blank=True)
     voucher_num = models.IntegerField(null=True, blank=True)
     voucher_seq_num = models.IntegerField(null=True, blank=True)
     posted_date = models.DateTimeField(null=True, blank=True)
@@ -4641,6 +4905,7 @@ class AccountingTransaction(ReadOnlyModel):
 class AccountingTransactionIllExpenditure(ReadOnlyModel):
     id = models.IntegerField(primary_key=True)
     accounting_transaction = models.ForeignKey(AccountingTransaction,
+                                               on_delete=models.CASCADE,
                                                null=True,
                                                blank=True)
 
@@ -4651,22 +4916,23 @@ class AccountingTransactionIllExpenditure(ReadOnlyModel):
 class AccountingTransactionInvoiceEncumbrance(ReadOnlyModel):
     id = models.IntegerField(primary_key=True)
     accounting_transaction = models.ForeignKey(AccountingTransaction,
+                                               on_delete=models.CASCADE,
                                                null=True,
                                                blank=True)
-    invoice_record = models.ForeignKey(InvoiceRecord,
+    invoice_record = models.ForeignKey(InvoiceRecord, on_delete=models.CASCADE,
                                        db_column='invoice_record_metadata_id',
                                        null=True,
                                        blank=True)
     invoice_date = models.DateTimeField(null=True, blank=True)
-    order_record = models.ForeignKey(OrderRecord,
+    order_record = models.ForeignKey(OrderRecord, on_delete=models.CASCADE,
                                      db_column='order_record_metadata_id',
                                      null=True,
                                      blank=True)
-    bib_record = models.ForeignKey(BibRecord,
+    bib_record = models.ForeignKey(BibRecord, on_delete=models.CASCADE,
                                    db_column='bib_record_metadata_id',
                                    null=True,
                                    blank=True)
-    location = models.ForeignKey('Location',
+    location = models.ForeignKey('Location', on_delete=models.CASCADE,
                                  db_column='location_code',
                                  db_constraint=False,
                                  to_field='code',
@@ -4682,7 +4948,7 @@ class AccountingTransactionInvoiceEncumbrance(ReadOnlyModel):
     subscription_from_date = models.DateTimeField(null=True, blank=True)
     subscription_to_date = models.DateTimeField(null=True, blank=True)
     invoice_record_line_item_num = models.IntegerField(null=True, blank=True)
-    vendor_record = models.ForeignKey(VendorRecord,
+    vendor_record = models.ForeignKey(VendorRecord, on_delete=models.CASCADE,
                                       db_column='vendor_record_metadata_id',
                                       null=True,
                                       blank=True)
@@ -4696,28 +4962,29 @@ class AccountingTransactionInvoiceEncumbrance(ReadOnlyModel):
 class AccountingTransactionInvoiceExpenditure(ReadOnlyModel):
     id = models.IntegerField(primary_key=True)
     accounting_transaction = models.ForeignKey(AccountingTransaction,
+                                               on_delete=models.CASCADE,
                                                null=True,
                                                blank=True)
-    invoice_record = models.ForeignKey(InvoiceRecord,
+    invoice_record = models.ForeignKey(InvoiceRecord, on_delete=models.CASCADE,
                                        db_column='invoice_record_metadata_id',
                                        null=True,
                                        blank=True)
     invoice_date = models.DateTimeField(null=True, blank=True)
-    order_record = models.ForeignKey(OrderRecord,
+    order_record = models.ForeignKey(OrderRecord, on_delete=models.CASCADE,
                                      db_column='order_record_metadata_id',
                                      null=True,
                                      blank=True)
-    bib_record = models.ForeignKey(BibRecord,
+    bib_record = models.ForeignKey(BibRecord, on_delete=models.CASCADE,
                                    db_column='bib_record_metadata_id',
                                    null=True,
                                    blank=True)
-    subfund = models.ForeignKey('FundSummarySubfund',
+    subfund = models.ForeignKey('FundSummarySubfund', on_delete=models.CASCADE,
                                 db_column='subfund_code',
                                 db_constraint=False,
                                 to_field='code',
                                 null=True,
                                 blank=True)
-    location = models.ForeignKey('Location',
+    location = models.ForeignKey('Location', on_delete=models.CASCADE,
                                  db_column='location_code',
                                  db_constraint=False,
                                  to_field='code',
@@ -4749,7 +5016,7 @@ class AccountingTransactionInvoiceExpenditure(ReadOnlyModel):
     subscription_from_date = models.DateTimeField(null=True, blank=True)
     subscription_to_date = models.DateTimeField(null=True, blank=True)
     invoice_record_line_item_num = models.IntegerField(null=True, blank=True)
-    vendor_record = models.ForeignKey(VendorRecord,
+    vendor_record = models.ForeignKey(VendorRecord, on_delete=models.CASCADE,
                                       db_column='vendor_record_metadata_id',
                                       null=True, blank=True)
 
@@ -4761,7 +5028,9 @@ class AccountingTransactionInvoiceExpenditure(ReadOnlyModel):
 
 class AccountingTransactionManualAppropriation(ReadOnlyModel):
     id = models.IntegerField(primary_key=True)
-    accounting_transaction = models.ForeignKey(AccountingTransaction, null=True,
+    accounting_transaction = models.ForeignKey(AccountingTransaction,
+                                               on_delete=models.CASCADE,
+                                               null=True,
                                                blank=True)
 
     class Meta(ReadOnlyModel.Meta):
@@ -4772,7 +5041,9 @@ class AccountingTransactionManualAppropriation(ReadOnlyModel):
 
 class AccountingTransactionManualEncumbrance(ReadOnlyModel):
     id = models.IntegerField(primary_key=True)
-    accounting_transaction = models.ForeignKey(AccountingTransaction, null=True,
+    accounting_transaction = models.ForeignKey(AccountingTransaction,
+                                               on_delete=models.CASCADE,
+                                               null=True,
                                                blank=True)
 
     class Meta(ReadOnlyModel.Meta):
@@ -4783,7 +5054,9 @@ class AccountingTransactionManualEncumbrance(ReadOnlyModel):
 
 class AccountingTransactionManualExpenditure(ReadOnlyModel):
     id = models.IntegerField(primary_key=True)
-    accounting_transaction = models.ForeignKey(AccountingTransaction, null=True,
+    accounting_transaction = models.ForeignKey(AccountingTransaction,
+                                               on_delete=models.CASCADE,
+                                               null=True,
                                                blank=True)
 
     class Meta(ReadOnlyModel.Meta):
@@ -4794,15 +5067,18 @@ class AccountingTransactionManualExpenditure(ReadOnlyModel):
 
 class AccountingTransactionOrderCancellation(ReadOnlyModel):
     id = models.IntegerField(primary_key=True)
-    accounting_transaction = models.ForeignKey(AccountingTransaction, null=True,
+    accounting_transaction = models.ForeignKey(AccountingTransaction,
+                                               on_delete=models.CASCADE,
+                                               null=True,
                                                blank=True)
-    order_record = models.ForeignKey(OrderRecord,
+    order_record = models.ForeignKey(OrderRecord, on_delete=models.CASCADE,
                                      db_column='order_record_metadata_id',
                                      null=True, blank=True)
-    bib_record = models.ForeignKey(BibRecord,
+    bib_record = models.ForeignKey(BibRecord, on_delete=models.CASCADE,
                                    db_column='bib_record_metadata_id',
                                    null=True, blank=True)
-    location = models.ForeignKey('Location', db_column='location_code',
+    location = models.ForeignKey('Location', on_delete=models.CASCADE,
+                                 db_column='location_code',
                                  to_field='code', null=True, blank=True)
     copies = models.IntegerField(null=True, blank=True)
     foreign_currency_code = models.CharField(max_length=20, blank=True)
@@ -4810,7 +5086,7 @@ class AccountingTransactionOrderCancellation(ReadOnlyModel):
                                                decimal_places=6, blank=True)
     subscription_from_date = models.DateTimeField(null=True, blank=True)
     subscription_to_date = models.DateTimeField(null=True, blank=True)
-    vendor_record = models.ForeignKey(VendorRecord,
+    vendor_record = models.ForeignKey(VendorRecord, on_delete=models.CASCADE,
                                       db_column='vendor_record_metadata_id',
                                       null=True, blank=True)
 
@@ -4822,15 +5098,18 @@ class AccountingTransactionOrderCancellation(ReadOnlyModel):
 
 class AccountingTransactionOrderEncumbrance(ReadOnlyModel):
     id = models.IntegerField(primary_key=True)
-    accounting_transaction = models.ForeignKey(AccountingTransaction, null=True,
+    accounting_transaction = models.ForeignKey(AccountingTransaction,
+                                               on_delete=models.CASCADE,
+                                               null=True,
                                                blank=True)
-    order_record = models.ForeignKey(OrderRecord,
+    order_record = models.ForeignKey(OrderRecord, on_delete=models.CASCADE,
                                      db_column='order_record_metadata_id',
                                      null=True, blank=True)
-    bib_record = models.ForeignKey(BibRecord,
+    bib_record = models.ForeignKey(BibRecord, on_delete=models.CASCADE,
                                    db_column='bib_record_metadata_id',
                                    null=True, blank=True)
-    location = models.ForeignKey('Location', db_column='location_code',
+    location = models.ForeignKey('Location', on_delete=models.CASCADE,
+                                 db_column='location_code',
                                  to_field='code', null=True, blank=True)
     copies = models.IntegerField(null=True, blank=True)
     foreign_currency_code = models.CharField(max_length=20, blank=True)
@@ -4838,7 +5117,7 @@ class AccountingTransactionOrderEncumbrance(ReadOnlyModel):
                                                decimal_places=6, blank=True)
     subscription_from_date = models.DateTimeField(null=True, blank=True)
     subscription_to_date = models.DateTimeField(null=True, blank=True)
-    vendor_record = models.ForeignKey(VendorRecord,
+    vendor_record = models.ForeignKey(VendorRecord, on_delete=models.CASCADE,
                                       db_column='vendor_record_metadata_id',
                                       null=True, blank=True)
 
@@ -4850,7 +5129,9 @@ class AccountingTransactionOrderEncumbrance(ReadOnlyModel):
 
 class FundMaster(ReadOnlyModel):
     id = models.IntegerField(primary_key=True)
-    accounting_unit = models.ForeignKey('AccountingUnit', null=True, blank=True)
+    accounting_unit = models.ForeignKey('AccountingUnit',
+                                        on_delete=models.CASCADE,
+                                        null=True, blank=True)
     code_num = models.IntegerField(null=True, blank=True)
     code = models.CharField(max_length=255, blank=True)
 
@@ -4860,9 +5141,12 @@ class FundMaster(ReadOnlyModel):
 
 class FundProperty(ModelWithAttachedName):
     id = models.IntegerField(primary_key=True)
-    fund_master = models.ForeignKey(FundMaster, null=True, blank=True)
-    fund_type = models.ForeignKey('FundType', null=True, blank=True)
+    fund_master = models.ForeignKey(FundMaster, on_delete=models.CASCADE,
+                                    null=True, blank=True)
+    fund_type = models.ForeignKey('FundType', on_delete=models.CASCADE,
+                                  null=True, blank=True)
     external_fund_property = models.ForeignKey('ExternalFundProperty',
+                                               on_delete=models.CASCADE,
                                                null=True, blank=True)
     warning_percent = models.IntegerField(null=True, blank=True)
     discount_percent = models.IntegerField(null=True, blank=True)
@@ -4877,7 +5161,8 @@ class FundProperty(ModelWithAttachedName):
 
 class FundSummary(ReadOnlyModel):
     id = models.IntegerField(primary_key=True)
-    fund_property = models.OneToOneField(FundProperty, unique=True, null=True,
+    fund_property = models.OneToOneField(FundProperty, on_delete=models.CASCADE,
+                                         unique=True, null=True,
                                          blank=True)
     appropriation = models.IntegerField(null=True, blank=True)
     expenditure = models.IntegerField(null=True, blank=True)
@@ -4901,14 +5186,17 @@ class FundType(ReadOnlyModel):
 
 class Booking(ReadOnlyModel):
     id = models.BigIntegerField(primary_key=True)
-    item_record = models.ForeignKey(ItemRecord, null=True, blank=True)
-    patron_record = models.ForeignKey(PatronRecord, null=True, blank=True)
+    item_record = models.ForeignKey(ItemRecord, on_delete=models.CASCADE,
+                                    null=True, blank=True)
+    patron_record = models.ForeignKey(PatronRecord, on_delete=models.CASCADE,
+                                      null=True, blank=True)
     created_gmt = models.DateTimeField(null=True, blank=True)
     start_gmt = models.DateTimeField(null=True, blank=True)
     end_gmt = models.DateTimeField(null=True, blank=True)
     type_code = models.CharField(max_length=1, blank=True)
     prep_period = models.IntegerField(null=True, blank=True)
-    location = models.ForeignKey('Location', db_column='location_code',
+    location = models.ForeignKey('Location', on_delete=models.CASCADE,
+                                 db_column='location_code',
                                  to_field='code', null=True, blank=True)
     delivery_code = models.SmallIntegerField(null=True, blank=True)
     location_note = models.CharField(max_length=19, blank=True)
@@ -4921,8 +5209,10 @@ class Booking(ReadOnlyModel):
 
 class Checkout(ReadOnlyModel):
     id = models.BigIntegerField(primary_key=True)
-    patron_record = models.ForeignKey('PatronRecord', null=True, blank=True)
-    item_record = models.OneToOneField('ItemRecord', unique=True, null=True,
+    patron_record = models.ForeignKey('PatronRecord', on_delete=models.CASCADE,
+                                      null=True, blank=True)
+    item_record = models.OneToOneField('ItemRecord', on_delete=models.CASCADE,
+                                       unique=True, null=True,
                                        blank=True)
     items_display_order = models.IntegerField(null=True, blank=True)
     due_gmt = models.DateTimeField(null=True, blank=True)
@@ -4932,7 +5222,8 @@ class Checkout(ReadOnlyModel):
     overdue_count = models.IntegerField(null=True, blank=True)
     overdue_gmt = models.DateTimeField(null=True, blank=True)
     recall_gmt = models.DateTimeField(null=True, blank=True)
-    ptype = models.ForeignKey(PtypeProperty, db_column='ptype',
+    ptype = models.ForeignKey(PtypeProperty, on_delete=models.CASCADE,
+                              db_column='ptype',
                               to_field='value', null=True, blank=True)
 
     class Meta(ReadOnlyModel.Meta):
@@ -4971,8 +5262,10 @@ class ColagencyCriteria(ReadOnlyModel):
 
 class ColagencyCriteriaHomeLibraries(ReadOnlyModel):
     id = models.BigIntegerField(primary_key=True)
-    colagency = models.ForeignKey(ColagencyCriteria, null=True, blank=True)
-    home_library = models.ForeignKey('Location', db_column='home_library',
+    colagency = models.ForeignKey(ColagencyCriteria, on_delete=models.CASCADE,
+                                  null=True, blank=True)
+    home_library = models.ForeignKey('Location', on_delete=models.CASCADE,
+                                     db_column='home_library',
                                      to_field='code', null=True, blank=True)
 
     class Meta(ReadOnlyModel.Meta):
@@ -4981,8 +5274,10 @@ class ColagencyCriteriaHomeLibraries(ReadOnlyModel):
 
 class ColagencyCriteriaPtypes(ReadOnlyModel):
     id = models.BigIntegerField(primary_key=True)
-    colagency = models.ForeignKey(ColagencyCriteria, null=True, blank=True)
-    ptype = models.ForeignKey(PtypeProperty, db_column='ptype',
+    colagency = models.ForeignKey(ColagencyCriteria, on_delete=models.CASCADE,
+                                  null=True, blank=True)
+    ptype = models.ForeignKey(PtypeProperty, on_delete=models.CASCADE,
+                              db_column='ptype',
                               to_field='value', null=True, blank=True)
 
     class Meta(ReadOnlyModel.Meta):
@@ -4991,13 +5286,13 @@ class ColagencyCriteriaPtypes(ReadOnlyModel):
 
 class ColagencyPatron(ReadOnlyModel):
     id = models.BigIntegerField(primary_key=True)
-    patron_record = models.OneToOneField(PatronRecord,
+    patron_record = models.OneToOneField(PatronRecord, on_delete=models.CASCADE,
                                          db_column='patron_record_metadata_id',
                                          unique=True, null=True, blank=True)
     status = models.CharField(max_length=15, blank=True)
     time_removed_gmt = models.DateTimeField(null=True, blank=True)
     time_report_last_run_gmt = models.DateTimeField(null=True, blank=True)
-    colagency = models.ForeignKey(ColagencyCriteria,
+    colagency = models.ForeignKey(ColagencyCriteria, on_delete=models.CASCADE,
                                   db_column='colagency_criteria_metadata_id',
                                   null=True, blank=True)
 
@@ -5007,7 +5302,8 @@ class ColagencyPatron(ReadOnlyModel):
 
 class Fine(ReadOnlyModel):
     id = models.BigIntegerField(primary_key=True)
-    patron_record = models.ForeignKey(PatronRecord, null=True, blank=True)
+    patron_record = models.ForeignKey(PatronRecord, on_delete=models.CASCADE,
+                                      null=True, blank=True)
     assessed_gmt = models.DateTimeField(null=True, blank=True)
     invoice_num = models.IntegerField(null=True, blank=True)
     item_charge_amt = models.DecimalField(null=True, max_digits=30,
@@ -5017,7 +5313,7 @@ class Fine(ReadOnlyModel):
     billing_fee_amt = models.DecimalField(null=True, max_digits=30,
                                           decimal_places=6, blank=True)
     charge_code = models.CharField(max_length=1, blank=True)
-    charge_location = models.ForeignKey('Location',
+    charge_location = models.ForeignKey('Location', on_delete=models.CASCADE,
                                         db_column='charge_location_code',
                                         db_constraint=False,
                                         to_field='code', null=True, blank=True)
@@ -5029,7 +5325,7 @@ class Fine(ReadOnlyModel):
     created_code = models.CharField(max_length=1, blank=True)
     is_print_bill = models.NullBooleanField(null=True, blank=True)
     description = models.CharField(max_length=100, blank=True)
-    item_record = models.ForeignKey(ItemRecord,
+    item_record = models.ForeignKey(ItemRecord, on_delete=models.CASCADE,
                                     db_column='item_record_metadata_id',
                                     null=True, blank=True)
     checkout_gmt = models.DateTimeField(null=True, blank=True)
@@ -5038,6 +5334,7 @@ class Fine(ReadOnlyModel):
     loanrule_code_num = models.IntegerField(null=True, blank=True)
     title = models.CharField(max_length=82, blank=True)
     original_patron_record = models.ForeignKey(PatronRecord,
+                                               on_delete=models.CASCADE,
                                                related_name='original_fine_set',
                                                db_column='original_patron_record_metadata_id',
                                                null=True, blank=True)
@@ -5052,7 +5349,7 @@ class Fine(ReadOnlyModel):
 class FinesPaid(ReadOnlyModel):
     id = models.BigIntegerField(primary_key=True)
     fine_assessed_date_gmt = models.DateTimeField(null=True, blank=True)
-    patron_record = models.ForeignKey(PatronRecord,
+    patron_record = models.ForeignKey(PatronRecord, on_delete=models.CASCADE,
                                       db_column='patron_record_metadata_id',
                                       null=True, blank=True)
     item_charge_amt = models.DecimalField(null=True, max_digits=30,
@@ -5062,7 +5359,7 @@ class FinesPaid(ReadOnlyModel):
     billing_fee_amt = models.DecimalField(null=True, max_digits=30,
                                           decimal_places=6, blank=True)
     charge_type_code = models.CharField(max_length=1, blank=True)
-    charge_location = models.ForeignKey('Location',
+    charge_location = models.ForeignKey('Location', on_delete=models.CASCADE,
                                         db_column='charge_location_code',
                                         db_constraint=False,
                                         to_field='code', null=True, blank=True)
@@ -5073,7 +5370,7 @@ class FinesPaid(ReadOnlyModel):
     iii_user_name = models.CharField(max_length=255, blank=True)
     fine_creation_mode_code = models.CharField(max_length=1, blank=True)
     print_bill_code = models.CharField(max_length=1, blank=True)
-    item_record = models.ForeignKey(ItemRecord,
+    item_record = models.ForeignKey(ItemRecord, on_delete=models.CASCADE,
                                     db_column='item_record_metadata_id',
                                     null=True, blank=True)
     checked_out_date_gmt = models.DateTimeField(null=True, blank=True)
@@ -5096,17 +5393,20 @@ class FinesPaid(ReadOnlyModel):
 
 class Hold(ReadOnlyModel):
     id = models.BigIntegerField(primary_key=True)
-    patron_record = models.ForeignKey(PatronRecord, null=True, blank=True)
-    record = models.ForeignKey(RecordMetadata, null=True, blank=True)
+    patron_record = models.ForeignKey(PatronRecord, on_delete=models.CASCADE,
+                                      null=True, blank=True)
+    record = models.ForeignKey(RecordMetadata, on_delete=models.CASCADE,
+                               null=True, blank=True)
     placed_gmt = models.DateTimeField(null=True, blank=True)
     is_frozen = models.NullBooleanField(null=True, blank=True)
     delay_days = models.IntegerField(null=True, blank=True)
-    location = models.ForeignKey('Location', db_column='location_code',
+    location = models.ForeignKey('Location', on_delete=models.CASCADE,
+                                 db_column='location_code',
                                  to_field='code', null=True, blank=True)
     expires_gmt = models.DateTimeField(null=True, blank=True)
     status = models.CharField(max_length=1, blank=True)
     is_ir = models.NullBooleanField(null=True, blank=True)
-    pickup_location = models.ForeignKey('Location',
+    pickup_location = models.ForeignKey('Location', on_delete=models.CASCADE,
                                         db_column='pickup_location_code',
                                         db_constraint=False,
                                         to_field='code',
@@ -5114,7 +5414,7 @@ class Hold(ReadOnlyModel):
                                         null=True, blank=True)
     is_ill = models.NullBooleanField(null=True, blank=True)
     note = models.CharField(max_length=128, blank=True)
-    ir_pickup_location = models.ForeignKey('Location',
+    ir_pickup_location = models.ForeignKey('Location', on_delete=models.CASCADE,
                                            db_column='ir_pickup_location_code',
                                            db_constraint=False,
                                            to_field='code',
@@ -5132,10 +5432,10 @@ class Hold(ReadOnlyModel):
 
 class ItemCircHistory(ReadOnlyModel):
     id = models.BigIntegerField(primary_key=True)
-    item_record = models.ForeignKey(ItemRecord,
+    item_record = models.ForeignKey(ItemRecord, on_delete=models.CASCADE,
                                     db_column='item_record_metadata_id',
                                     null=True, blank=True)
-    patron_record = models.ForeignKey(PatronRecord,
+    patron_record = models.ForeignKey(PatronRecord, on_delete=models.CASCADE,
                                       db_column='patron_record_metadata_id',
                                       null=True, blank=True)
     checkout_gmt = models.DateTimeField(null=True, blank=True)
@@ -5147,7 +5447,7 @@ class ItemCircHistory(ReadOnlyModel):
 
 class PatronsToExclude(ReadOnlyModel):
     id = models.BigIntegerField(primary_key=True)
-    patron_record = models.OneToOneField(PatronRecord,
+    patron_record = models.OneToOneField(PatronRecord, on_delete=models.CASCADE,
                                          db_column='patron_record_metadata_id',
                                          unique=True, null=True, blank=True)
     time_added_to_table_gmt = models.DateTimeField(null=True, blank=True)
@@ -5163,7 +5463,7 @@ class Payment(ReadOnlyModel):
                                    blank=True)
     pmt_type_code = models.CharField(max_length=20, blank=True)
     pmt_note = models.CharField(max_length=255, blank=True)
-    patron_record = models.ForeignKey(PatronRecord,
+    patron_record = models.ForeignKey(PatronRecord, on_delete=models.CASCADE,
                                       db_column='patron_record_metadata_id',
                                       null=True, blank=True)
 
@@ -5173,13 +5473,13 @@ class Payment(ReadOnlyModel):
 
 class ReadingHistory(ReadOnlyModel):
     id = models.BigIntegerField(primary_key=True)
-    bib_record = models.ForeignKey(BibRecord,
+    bib_record = models.ForeignKey(BibRecord, on_delete=models.CASCADE,
                                    db_column='bib_record_metadata_id',
                                    null=True, blank=True)
-    item_record = models.ForeignKey(ItemRecord,
+    item_record = models.ForeignKey(ItemRecord, on_delete=models.CASCADE,
                                     db_column='item_record_metadata_id',
                                     null=True, blank=True)
-    patron_record = models.ForeignKey(PatronRecord,
+    patron_record = models.ForeignKey(PatronRecord, on_delete=models.CASCADE,
                                       db_column='patron_record_metadata_id',
                                       null=True, blank=True)
     checkout_gmt = models.DateTimeField(null=True, blank=True)
@@ -5190,19 +5490,22 @@ class ReadingHistory(ReadOnlyModel):
 
 class Request(ReadOnlyModel):
     id = models.BigIntegerField(primary_key=True)
-    patron_record = models.ForeignKey(PatronRecord, null=True, blank=True)
-    item_record = models.ForeignKey(ItemRecord, null=True, blank=True)
+    patron_record = models.ForeignKey(PatronRecord, on_delete=models.CASCADE,
+                                      null=True, blank=True)
+    item_record = models.ForeignKey(ItemRecord, on_delete=models.CASCADE,
+                                    null=True, blank=True)
     items_display_order = models.IntegerField(null=True, blank=True)
     ptype = models.SmallIntegerField(null=True, blank=True)
     patrons_display_order = models.IntegerField(null=True, blank=True)
     request_gmt = models.DateTimeField(null=True, blank=True)
     pickup_anywhere_location = models.ForeignKey('Location',
+                                                 on_delete=models.CASCADE,
                                                  db_column='pickup_anywhere_location_code',
                                                  db_constraint=False,
                                                  to_field='code',
                                                  related_name='pickupanywhere_request_set',
                                                  null=True, blank=True)
-    central_location = models.ForeignKey('Location',
+    central_location = models.ForeignKey('Location', on_delete=models.CASCADE,
                                          db_column='central_location_code',
                                          db_constraint=False,
                                          to_field='code',
@@ -5210,6 +5513,7 @@ class Request(ReadOnlyModel):
                                          null=True, blank=True)
     transaction_num = models.IntegerField(null=True, blank=True)
     remote_patron_record = models.ForeignKey(PatronRecord,
+                                             on_delete=models.CASCADE,
                                              db_column='remote_patron_record_key',
                                              related_name='remote_request_set',
                                              null=True, blank=True)
@@ -5221,7 +5525,7 @@ class Request(ReadOnlyModel):
 
 class ReturnedBilledItem(ReadOnlyModel):
     id = models.BigIntegerField(primary_key=True)
-    patron_record = models.ForeignKey(PatronRecord,
+    patron_record = models.ForeignKey(PatronRecord, on_delete=models.CASCADE,
                                       db_column='patron_record_metadata_id',
                                       null=True, blank=True)
     item_cost_amt = models.DecimalField(null=True, max_digits=30,
@@ -5237,7 +5541,8 @@ class TitlePagingReport(ReadOnlyModel):
     id = models.BigIntegerField(primary_key=True)
     prepared_date_gmt = models.DateTimeField(null=True, blank=True)
     location_type = models.IntegerField(null=True, blank=True)
-    location = models.ForeignKey('Location', db_column='location_code',
+    location = models.ForeignKey('Location', on_delete=models.CASCADE,
+                                 db_column='location_code',
                                  to_field='code', null=True, blank=True)
     location_group_code_num = models.IntegerField(null=True, blank=True)
     longname = models.CharField(max_length=200, blank=True)
@@ -5248,9 +5553,12 @@ class TitlePagingReport(ReadOnlyModel):
 
 class TitlePagingReportEntry(ReadOnlyModel):
     id = models.BigIntegerField(primary_key=True)
-    title_paging_report = models.ForeignKey(TitlePagingReport, null=True,
+    title_paging_report = models.ForeignKey(TitlePagingReport,
+                                            on_delete=models.CASCADE, null=True,
                                             blank=True)
-    record_metadata = models.ForeignKey(RecordMetadata, null=True, blank=True)
+    record_metadata = models.ForeignKey(RecordMetadata,
+                                        on_delete=models.CASCADE,
+                                        null=True, blank=True)
     display_order = models.IntegerField(null=True, blank=True)
     title = models.CharField(max_length=200, blank=True)
     call_number = models.CharField(max_length=200, blank=True)
@@ -5263,8 +5571,11 @@ class TitlePagingReportEntry(ReadOnlyModel):
 class TitlePagingReportEntryItem(ReadOnlyModel):
     id = models.BigIntegerField(primary_key=True)
     title_paging_report_entry = models.ForeignKey(TitlePagingReportEntry,
+                                                  on_delete=models.CASCADE,
                                                   null=True, blank=True)
-    record_metadata = models.ForeignKey(RecordMetadata, null=True, blank=True)
+    record_metadata = models.ForeignKey(RecordMetadata,
+                                        on_delete=models.CASCADE,
+                                        null=True, blank=True)
     scanned_date_gmt = models.DateTimeField(null=True, blank=True)
 
     class Meta(ReadOnlyModel.Meta):
@@ -5274,8 +5585,11 @@ class TitlePagingReportEntryItem(ReadOnlyModel):
 class TitlePagingReportEntryPatron(ReadOnlyModel):
     id = models.BigIntegerField(primary_key=True)
     title_paging_report_entry = models.ForeignKey(TitlePagingReportEntry,
+                                                  on_delete=models.CASCADE,
                                                   null=True, blank=True)
-    record_metadata = models.ForeignKey(RecordMetadata, null=True, blank=True)
+    record_metadata = models.ForeignKey(RecordMetadata,
+                                        on_delete=models.CASCADE,
+                                        null=True, blank=True)
 
     class Meta(ReadOnlyModel.Meta):
         db_table = 'title_paging_report_entry_patron'
@@ -5305,8 +5619,9 @@ class B2MCategoryName(ReadOnlyModel):
     key = fields.VirtualCompField(primary_key=True,
                                   partfield_names=['b2m_category',
                                                    'iii_language'])
-    b2m_category = models.ForeignKey(B2MCategory)
-    iii_language = models.ForeignKey(IiiLanguage, null=True, blank=True)
+    b2m_category = models.ForeignKey(B2MCategory, on_delete=models.CASCADE)
+    iii_language = models.ForeignKey(IiiLanguage, on_delete=models.CASCADE,
+                                     null=True, blank=True)
     name = models.CharField(max_length=60, blank=True)
 
     class Meta(ReadOnlyModel.Meta):
@@ -5328,7 +5643,9 @@ class M2BmapCategory(ReadOnlyModel):
 
 class M2BmapEntry(ReadOnlyModel):
     id = models.IntegerField(primary_key=True)
-    m2bmap_category = models.ForeignKey(M2BmapCategory, null=True, blank=True)
+    m2bmap_category = models.ForeignKey(M2BmapCategory,
+                                        on_delete=models.CASCADE,
+                                        null=True, blank=True)
     display_order = models.IntegerField(null=True, blank=True)
     comparison = models.CharField(max_length=200, blank=True)
     replacement = models.CharField(max_length=200, blank=True)
@@ -5350,10 +5667,12 @@ class MarcExportFormat(ReadOnlyModel):
 class MarcPreference(ReadOnlyModel):
     id = models.BigIntegerField(primary_key=True)
     iii_user_name = models.CharField(max_length=255, blank=True)
-    diacritic_category = models.ForeignKey('DiacriticCategory', null=True,
+    diacritic_category = models.ForeignKey('DiacriticCategory',
+                                           on_delete=models.CASCADE, null=True,
                                            blank=True)
     marc_export_format_id = models.BigIntegerField(null=True, blank=True)
-    b2m_category = models.ForeignKey(B2MCategory, null=True,
+    b2m_category = models.ForeignKey(B2MCategory, on_delete=models.CASCADE,
+                                     null=True,
                                      db_column='b2m_category_code',
                                      db_constraint=False,
                                      to_field='code', blank=True)
@@ -5390,7 +5709,8 @@ class CollectionMyuser(ReadOnlyModel):
 
 class EadHierarchy(ReadOnlyModel):
     id = models.BigIntegerField(primary_key=True)
-    bib_record = models.OneToOneField(BibRecord, unique=True, null=True,
+    bib_record = models.OneToOneField(BibRecord, on_delete=models.CASCADE,
+                                      unique=True, null=True,
                                       blank=True)
     entry = models.CharField(max_length=255, unique=True, blank=True)
 
@@ -5420,8 +5740,11 @@ class PhysicalFormatMyuser(ReadOnlyModel):
 class PhysicalFormatName(ReadOnlyModel):
     id = models.IntegerField(primary_key=True)
     name = models.CharField(max_length=255, blank=True)
-    iii_language = models.ForeignKey(IiiLanguage, null=True, blank=True)
-    physical_format = models.ForeignKey(PhysicalFormat, null=True, blank=True)
+    iii_language = models.ForeignKey(IiiLanguage, on_delete=models.CASCADE,
+                                     null=True, blank=True)
+    physical_format = models.ForeignKey(PhysicalFormat,
+                                        on_delete=models.CASCADE,
+                                        null=True, blank=True)
 
     class Meta(ReadOnlyModel.Meta):
         db_table = 'physical_format_name'
@@ -5430,7 +5753,8 @@ class PhysicalFormatName(ReadOnlyModel):
 class ScatCategory(ModelWithAttachedName):
     id = models.BigIntegerField(primary_key=True)
     code_num = models.IntegerField(null=True, blank=True)
-    scat_section = models.ForeignKey('ScatSection', null=True, blank=True)
+    scat_section = models.ForeignKey('ScatSection', on_delete=models.CASCADE,
+                                     null=True, blank=True)
 
     class Meta(ModelWithAttachedName.Meta):
         db_table = 'scat_category'
@@ -5447,9 +5771,10 @@ class ScatCategoryMyuser(ReadOnlyModel):
 
 class ScatCategoryName(ReadOnlyModel):
     id = models.BigIntegerField(primary_key=True)
-    scat_category = models.ForeignKey(ScatCategory, null=True, blank=True)
+    scat_category = models.ForeignKey(ScatCategory, on_delete=models.CASCADE,
+                                      null=True, blank=True)
     name = models.CharField(max_length=255, blank=True)
-    iii_language = models.ForeignKey('IiiLanguage',
+    iii_language = models.ForeignKey('IiiLanguage', on_delete=models.CASCADE,
                                      db_column='iii_language_code',
                                      db_constraint=False,
                                      to_field='code', null=True, blank=True)
@@ -5465,7 +5790,8 @@ class ScatRange(ReadOnlyModel):
     end_letter_str = models.CharField(max_length=20, blank=True)
     start_num_str = models.CharField(max_length=10, blank=True)
     end_num_str = models.CharField(max_length=10, blank=True)
-    scat_category = models.ForeignKey(ScatCategory, null=True, blank=True)
+    scat_category = models.ForeignKey(ScatCategory, on_delete=models.CASCADE,
+                                      null=True, blank=True)
     free_text_type = models.CharField(max_length=1, blank=True)
 
     class Meta(ReadOnlyModel.Meta):
@@ -5492,9 +5818,11 @@ class ScatSectionMyuser(ReadOnlyModel):
 
 class ScatSectionName(ReadOnlyModel):
     id = models.BigIntegerField(primary_key=True)
-    scat_section = models.ForeignKey(ScatSection, null=True, blank=True)
+    scat_section = models.ForeignKey(ScatSection, on_delete=models.CASCADE,
+                                     null=True, blank=True)
     name = models.CharField(max_length=255, blank=True)
-    iii_language = models.ForeignKey(IiiLanguage, db_column='iii_language_code',
+    iii_language = models.ForeignKey(IiiLanguage, on_delete=models.CASCADE,
+                                     db_column='iii_language_code',
                                      to_field='code', null=True, blank=True)
 
     class Meta(ReadOnlyModel.Meta):
@@ -5523,8 +5851,11 @@ class TargetAudienceMyuser(ReadOnlyModel):
 class TargetAudienceName(ReadOnlyModel):
     id = models.IntegerField(primary_key=True)
     name = models.CharField(max_length=255, blank=True)
-    iii_language = models.ForeignKey(IiiLanguage, null=True, blank=True)
-    target_audience = models.ForeignKey(TargetAudience, null=True, blank=True)
+    iii_language = models.ForeignKey(IiiLanguage, on_delete=models.CASCADE,
+                                     null=True, blank=True)
+    target_audience = models.ForeignKey(TargetAudience,
+                                        on_delete=models.CASCADE,
+                                        null=True, blank=True)
 
     class Meta(ReadOnlyModel.Meta):
         db_table = 'target_audience_name'
@@ -5541,7 +5872,8 @@ class AccountingUnit(ModelWithAttachedName):
 
 
 class AccountingUnitMyuser(ReadOnlyModel):
-    code = models.OneToOneField(AccountingUnit, db_column='code',
+    code = models.OneToOneField(AccountingUnit, on_delete=models.CASCADE,
+                                db_column='code',
                                 to_field='code_num', primary_key=True)
     name = models.CharField(max_length=20, blank=True)
 
@@ -5551,8 +5883,11 @@ class AccountingUnitMyuser(ReadOnlyModel):
 
 class AccountingUnitName(ReadOnlyModel):
     id = models.BigIntegerField(primary_key=True)
-    iii_language = models.ForeignKey(IiiLanguage, null=True, blank=True)
-    accounting_unit = models.ForeignKey(AccountingUnit, null=True, blank=True)
+    iii_language = models.ForeignKey(IiiLanguage, on_delete=models.CASCADE,
+                                     null=True, blank=True)
+    accounting_unit = models.ForeignKey(AccountingUnit,
+                                        on_delete=models.CASCADE,
+                                        null=True, blank=True)
     name = models.CharField(max_length=20, blank=True)
 
     class Meta(ReadOnlyModel.Meta):
@@ -5561,7 +5896,9 @@ class AccountingUnitName(ReadOnlyModel):
 
 class ExternalFundProperty(ModelWithAttachedName):
     id = models.IntegerField(primary_key=True)
-    accounting_unit = models.ForeignKey(AccountingUnit, null=True, blank=True)
+    accounting_unit = models.ForeignKey(AccountingUnit,
+                                        on_delete=models.CASCADE,
+                                        null=True, blank=True)
     code_num = models.IntegerField(null=True, blank=True)
 
     class Meta(ModelWithAttachedName.Meta):
@@ -5570,7 +5907,9 @@ class ExternalFundProperty(ModelWithAttachedName):
 
 class ExternalFundPropertyMyuser(ReadOnlyModel):
     code = models.IntegerField(primary_key=True)
-    accounting_unit = models.ForeignKey(AccountingUnit, null=True, blank=True)
+    accounting_unit = models.ForeignKey(AccountingUnit,
+                                        on_delete=models.CASCADE,
+                                        null=True, blank=True)
     name = models.CharField(max_length=255, blank=True)
 
     class Meta(ReadOnlyModel.Meta):
@@ -5581,8 +5920,10 @@ class ExternalFundPropertyName(ReadOnlyModel):
     key = fields.VirtualCompField(primary_key=True,
                                   partfield_names=['external_fund_property',
                                                    'iii_language'])
-    external_fund_property = models.ForeignKey(ExternalFundProperty)
-    iii_language = models.ForeignKey(IiiLanguage, null=True, blank=True)
+    external_fund_property = models.ForeignKey(ExternalFundProperty,
+                                               on_delete=models.CASCADE)
+    iii_language = models.ForeignKey(IiiLanguage, on_delete=models.CASCADE,
+                                     null=True, blank=True)
     name = models.CharField(max_length=255, blank=True)
 
     class Meta(ReadOnlyModel.Meta):
@@ -5590,10 +5931,13 @@ class ExternalFundPropertyName(ReadOnlyModel):
 
 
 class Fund(ReadOnlyModel):
-    accounting_unit = models.ForeignKey(AccountingUnit, db_column='acct_unit',
+    accounting_unit = models.ForeignKey(AccountingUnit,
+                                        on_delete=models.CASCADE,
+                                        db_column='acct_unit',
                                         to_field='code_num', null=True,
                                         blank=True)
-    fund_type = models.ForeignKey(FundType, db_column='fund_type',
+    fund_type = models.ForeignKey(FundType, on_delete=models.CASCADE,
+                                  db_column='fund_type',
                                   to_field='code', null=True, blank=True)
     fund_code = models.CharField(max_length=255, primary_key=True)
     external_fund = models.IntegerField(null=True, blank=True)
@@ -5610,12 +5954,16 @@ class Fund(ReadOnlyModel):
 
 
 class FundMyuser(ReadOnlyModel):
-    accounting_unit = models.ForeignKey(AccountingUnit, db_column='acct_unit',
+    accounting_unit = models.ForeignKey(AccountingUnit,
+                                        on_delete=models.CASCADE,
+                                        db_column='acct_unit',
                                         to_field='code_num', null=True,
                                         blank=True)
-    fund_type = models.ForeignKey(FundType, db_column='fund_type',
+    fund_type = models.ForeignKey(FundType, on_delete=models.CASCADE,
+                                  db_column='fund_type',
                                   to_field='code', null=True, blank=True)
-    fund_master = models.OneToOneField(FundMaster, primary_key=True)
+    fund_master = models.OneToOneField(FundMaster, on_delete=models.CASCADE,
+                                       primary_key=True)
     fund_code = models.CharField(max_length=255, blank=True)
     external_fund_code_num = models.IntegerField(null=True, blank=True)
     appropriation = models.IntegerField(null=True, blank=True)
@@ -5637,8 +5985,9 @@ class FundPropertyName(ReadOnlyModel):
     key = fields.VirtualCompField(primary_key=True,
                                   partfield_names=['fund_property',
                                                    'iii_language'])
-    fund_property = models.ForeignKey(FundProperty)
-    iii_language = models.ForeignKey('IiiLanguage', null=True, blank=True)
+    fund_property = models.ForeignKey(FundProperty, on_delete=models.CASCADE)
+    iii_language = models.ForeignKey('IiiLanguage', on_delete=models.CASCADE,
+                                     null=True, blank=True)
     name = models.CharField(max_length=255, blank=True)
     note1 = models.CharField(max_length=255, blank=True)
     note2 = models.CharField(max_length=255, blank=True)
@@ -5648,7 +5997,8 @@ class FundPropertyName(ReadOnlyModel):
 
 
 class FundSummarySubfund(ReadOnlyModel):
-    fund_summary = models.ForeignKey(FundSummary, null=True, blank=True)
+    fund_summary = models.ForeignKey(FundSummary, on_delete=models.CASCADE,
+                                     null=True, blank=True)
     code = models.CharField(max_length=255, primary_key=True)
     value = models.IntegerField(null=True, blank=True)
 
@@ -5660,8 +6010,10 @@ class FundTypeSummary(ReadOnlyModel):
     key = fields.VirtualCompField(primary_key=True,
                                   partfield_names=['accounting_unit',
                                                    'fund_type'])
-    accounting_unit = models.ForeignKey(AccountingUnit, null=True, blank=True)
-    fund_type = models.ForeignKey(FundType)
+    accounting_unit = models.ForeignKey(AccountingUnit,
+                                        on_delete=models.CASCADE,
+                                        null=True, blank=True)
+    fund_type = models.ForeignKey(FundType, on_delete=models.CASCADE)
     last_lien_num = models.IntegerField(null=True, blank=True)
     last_voucher_num = models.IntegerField(null=True, blank=True)
 
@@ -5674,6 +6026,7 @@ class FundTypeSummary(ReadOnlyModel):
 class AgencyPropertyLocationGroup(ReadOnlyModel):
     id = models.IntegerField(primary_key=True)
     agency_property_code_num = models.ForeignKey('AgencyProperty',
+                                                 on_delete=models.CASCADE,
                                                  db_column='agency_property_code_num',
                                                  db_constraint=False,
                                                  to_field='code_num', null=True,
@@ -5699,7 +6052,8 @@ class Branch(ModelWithAttachedName):
 
 class BranchChange(ReadOnlyModel):
     id = models.BigIntegerField(primary_key=True)
-    branch = models.ForeignKey(Branch, null=True, db_column='branch_code_num',
+    branch = models.ForeignKey(Branch, on_delete=models.CASCADE,
+                               null=True, db_column='branch_code_num',
                                to_field='code_num', blank=True)
     description = models.CharField(max_length=1000, blank=True)
 
@@ -5723,9 +6077,10 @@ class BranchMyuser(ReadOnlyModel):
 class BranchName(ReadOnlyModel):
     key = fields.VirtualCompField(primary_key=True,
                                   partfield_names=['branch', 'iii_language'])
-    branch = models.ForeignKey(Branch)
+    branch = models.ForeignKey(Branch, on_delete=models.CASCADE)
     name = models.CharField(max_length=255, blank=True)
-    iii_language = models.ForeignKey(IiiLanguage, null=True, blank=True)
+    iii_language = models.ForeignKey(IiiLanguage, on_delete=models.CASCADE,
+                                     null=True, blank=True)
 
     class Meta(ReadOnlyModel.Meta):
         db_table = 'branch_name'
@@ -5734,9 +6089,10 @@ class BranchName(ReadOnlyModel):
 class Location(ModelWithAttachedName):
     id = models.IntegerField(primary_key=True)
     code = models.CharField(max_length=5, unique=True, blank=True)
-    branch = models.ForeignKey(Branch, null=True, db_column='branch_code_num',
+    branch = models.ForeignKey(Branch, on_delete=models.CASCADE,
+                               null=True, db_column='branch_code_num',
                                to_field='code_num', blank=True)
-    parent_location = models.ForeignKey('self',
+    parent_location = models.ForeignKey('self', on_delete=models.CASCADE,
                                         db_column='parent_location_code',
                                         db_constraint=False,
                                         to_field='code', null=True, blank=True)
@@ -5757,11 +6113,13 @@ class LocationChange(ReadOnlyModel):
 
 
 class LocationMyuser(ReadOnlyModel):
-    location = models.OneToOneField(Location, db_column='code', to_field='code',
+    location = models.OneToOneField(Location, on_delete=models.CASCADE,
+                                    db_column='code', to_field='code',
                                     primary_key=True)
-    branch = models.ForeignKey(Branch, null=True, db_column='branch_code_num',
+    branch = models.ForeignKey(Branch, on_delete=models.CASCADE,
+                               null=True, db_column='branch_code_num',
                                to_field='code_num', blank=True)
-    parent_location = models.ForeignKey('Location',
+    parent_location = models.ForeignKey('Location', on_delete=models.CASCADE,
                                         db_column='parent_location_code',
                                         db_constraint=False,
                                         to_field='code', related_name='+',
@@ -5777,9 +6135,10 @@ class LocationName(ReadOnlyModel):
     key = fields.VirtualCompField(primary_key=True,
                                   partfield_names=['location',
                                                    'iii_language'])
-    location = models.ForeignKey(Location)
+    location = models.ForeignKey(Location, on_delete=models.CASCADE)
     name = models.CharField(max_length=255, blank=True)
-    iii_language = models.ForeignKey(IiiLanguage, null=True, blank=True)
+    iii_language = models.ForeignKey(IiiLanguage, on_delete=models.CASCADE,
+                                     null=True, blank=True)
 
     class Meta(ReadOnlyModel.Meta):
         db_table = 'location_name'
@@ -5811,9 +6170,11 @@ class LocationPropertyTypeMyuser(ReadOnlyModel):
 
 class LocationPropertyTypeName(ReadOnlyModel):
     id = models.IntegerField(primary_key=True)
-    location_property_type = models.ForeignKey(LocationPropertyType, null=True,
-                                               blank=True)
-    iii_language = models.ForeignKey(IiiLanguage, null=True, blank=True)
+    location_property_type = models.ForeignKey(LocationPropertyType,
+                                               on_delete=models.CASCADE,
+                                               null=True, blank=True)
+    iii_language = models.ForeignKey(IiiLanguage, on_delete=models.CASCADE,
+                                     null=True, blank=True)
     name = models.CharField(max_length=255, blank=True)
 
     class Meta(ReadOnlyModel.Meta):
@@ -5822,9 +6183,11 @@ class LocationPropertyTypeName(ReadOnlyModel):
 
 class LocationPropertyValue(ReadOnlyModel):
     id = models.IntegerField(primary_key=True)
-    location_property_type = models.ForeignKey(LocationPropertyType, null=True,
-                                               blank=True)
-    location = models.ForeignKey(Location, null=True, blank=True)
+    location_property_type = models.ForeignKey(LocationPropertyType,
+                                               on_delete=models.CASCADE,
+                                               null=True, blank=True)
+    location = models.ForeignKey(Location, on_delete=models.CASCADE,
+                                 null=True, blank=True)
     value = models.CharField(max_length=1024, blank=True)
 
     class Meta(ReadOnlyModel.Meta):
@@ -5855,8 +6218,10 @@ class AgencyPropertyName(ReadOnlyModel):
     key = fields.VirtualCompField(primary_key=True,
                                   partfield_names=['agency_property',
                                                    'iii_language'])
-    agency_property = models.ForeignKey(AgencyProperty)
-    iii_language = models.ForeignKey(IiiLanguage, null=True, blank=True)
+    agency_property = models.ForeignKey(AgencyProperty,
+                                        on_delete=models.CASCADE)
+    iii_language = models.ForeignKey(IiiLanguage, on_delete=models.CASCADE,
+                                     null=True, blank=True)
     name = models.CharField(max_length=255, blank=True)
 
     class Meta(ReadOnlyModel.Meta):
@@ -5885,8 +6250,10 @@ class CountryPropertyName(ReadOnlyModel):
     key = fields.VirtualCompField(primary_key=True,
                                   partfield_names=['country_property',
                                                    'iii_language'])
-    country_property = models.ForeignKey(CountryProperty)
-    iii_language = models.ForeignKey(IiiLanguage, null=True, blank=True)
+    country_property = models.ForeignKey(CountryProperty,
+                                         on_delete=models.CASCADE)
+    iii_language = models.ForeignKey(IiiLanguage, on_delete=models.CASCADE,
+                                     null=True, blank=True)
     name = models.CharField(max_length=255, blank=True)
 
     class Meta(ReadOnlyModel.Meta):
@@ -5919,8 +6286,10 @@ class LanguagePropertyName(ReadOnlyModel):
     key = fields.VirtualCompField(primary_key=True,
                                   partfield_names=['language_property',
                                                    'iii_language'])
-    language_property = models.ForeignKey(LanguageProperty)
-    iii_language = models.ForeignKey(IiiLanguage, null=True, blank=True)
+    language_property = models.ForeignKey(LanguageProperty,
+                                          on_delete=models.CASCADE)
+    iii_language = models.ForeignKey(IiiLanguage, on_delete=models.CASCADE,
+                                     null=True, blank=True)
     name = models.CharField(max_length=255, blank=True)
 
     class Meta(ReadOnlyModel.Meta):
@@ -5949,10 +6318,13 @@ class ReceivingLocationPropertyMyuser(ReadOnlyModel):
 
 class ReceivingLocationPropertyName(ReadOnlyModel):
     key = fields.VirtualCompField(primary_key=True,
-                               partfield_names=['receiving_location_property',
-                                                'iii_language'])
-    receiving_location_property = models.ForeignKey(ReceivingLocationProperty)
-    iii_language = models.ForeignKey(IiiLanguage, null=True, blank=True)
+                                  partfield_names=[
+                                      'receiving_location_property',
+                                      'iii_language'])
+    receiving_location_property = models.ForeignKey(ReceivingLocationProperty,
+                                                    on_delete=models.CASCADE)
+    iii_language = models.ForeignKey(IiiLanguage, on_delete=models.CASCADE,
+                                     null=True, blank=True)
     name = models.CharField(max_length=255, blank=True)
 
     class Meta(ReadOnlyModel.Meta):
@@ -5969,8 +6341,9 @@ class UserDefinedCategory(ReadOnlyModel):
 
 class UserDefinedProperty(ModelWithAttachedName):
     id = models.IntegerField(primary_key=True)
-    user_defined_category = models.ForeignKey(UserDefinedCategory, null=True,
-                                              blank=True)
+    user_defined_category = models.ForeignKey(UserDefinedCategory,
+                                              on_delete=models.CASCADE,
+                                              null=True, blank=True)
     code = models.CharField(max_length=255, blank=True)
     display_order = models.IntegerField(null=True, blank=True)
 
@@ -5980,8 +6353,9 @@ class UserDefinedProperty(ModelWithAttachedName):
 
 class UserDefinedPropertyMyuser(ReadOnlyModel):
     code = models.CharField(max_length=255, primary_key=True)
-    user_defined_category = models.ForeignKey('UserDefinedCategory', null=True,
-                                              blank=True)
+    user_defined_category = models.ForeignKey('UserDefinedCategory',
+                                              on_delete=models.CASCADE,
+                                              null=True, blank=True)
     display_order = models.IntegerField(null=True, blank=True)
     name = models.CharField(max_length=255, blank=True)
 
@@ -5993,8 +6367,10 @@ class UserDefinedPropertyName(ReadOnlyModel):
     key = fields.VirtualCompField(primary_key=True,
                                   partfield_names=['user_defined_property',
                                                    'iii_language'])
-    user_defined_property = models.ForeignKey(UserDefinedProperty)
-    iii_language = models.ForeignKey(IiiLanguage, null=True, blank=True)
+    user_defined_property = models.ForeignKey(UserDefinedProperty,
+                                              on_delete=models.CASCADE)
+    iii_language = models.ForeignKey(IiiLanguage, on_delete=models.CASCADE,
+                                     null=True, blank=True)
     name = models.CharField(max_length=255, blank=True)
 
     class Meta(ReadOnlyModel.Meta):
@@ -6048,7 +6424,8 @@ class DiacriticMapping(ReadOnlyModel):
     description = models.CharField(max_length=255, blank=True)
     mapped_string = models.CharField(max_length=255, blank=True)
     is_preferred = models.NullBooleanField(null=True, blank=True)
-    diacritic_category = models.ForeignKey(DiacriticCategory, null=True,
+    diacritic_category = models.ForeignKey(DiacriticCategory,
+                                           on_delete=models.CASCADE, null=True,
                                            blank=True)
     width = models.IntegerField(null=True, blank=True)
     display_order = models.IntegerField(null=True, blank=True)
@@ -6094,7 +6471,8 @@ class OaiCrosswalk(ReadOnlyModel):
 
 class OaiCrosswalkField(ReadOnlyModel):
     id = models.BigIntegerField(primary_key=True)
-    oai_crosswalk = models.ForeignKey(OaiCrosswalk, null=True, blank=True)
+    oai_crosswalk = models.ForeignKey(OaiCrosswalk, on_delete=models.CASCADE,
+                                      null=True, blank=True)
     element_name = models.CharField(max_length=100, blank=True)
     varfield_type_code = models.CharField(max_length=1, blank=True)
     marc_tag = models.CharField(max_length=3, blank=True)
@@ -6110,7 +6488,8 @@ class OaiCrosswalkField(ReadOnlyModel):
 
 class RequestRule(ReadOnlyModel):
     id = models.BigIntegerField(primary_key=True)
-    record_type = models.ForeignKey(RecordType, db_column='record_type_code',
+    record_type = models.ForeignKey(RecordType, on_delete=models.CASCADE,
+                                    db_column='record_type_code',
                                     to_field='code')
     query = models.TextField(blank=True)
     sql_query = models.TextField(blank=True)
@@ -6121,9 +6500,11 @@ class RequestRule(ReadOnlyModel):
 
 class RequestRuleComment(ReadOnlyModel):
     id = models.IntegerField(primary_key=True)
-    request_rule = models.ForeignKey(RequestRule, null=True, blank=True)
+    request_rule = models.ForeignKey(RequestRule, on_delete=models.CASCADE,
+                                     null=True, blank=True)
     comment = models.TextField(blank=True)
-    iii_language = models.ForeignKey(IiiLanguage, null=True, blank=True)
+    iii_language = models.ForeignKey(IiiLanguage, on_delete=models.CASCADE,
+                                     null=True, blank=True)
 
     class Meta(ReadOnlyModel.Meta):
         db_table = 'request_rule_comment'
@@ -6172,11 +6553,11 @@ class Wamreport(ReadOnlyModel):
     dest_port = models.IntegerField(null=True, blank=True)
     dest_code = models.CharField(max_length=8, blank=True)
     response_category_code_num = models.IntegerField(null=True, blank=True)
-    patron_record = models.ForeignKey(PatronRecord,
+    patron_record = models.ForeignKey(PatronRecord, on_delete=models.CASCADE,
                                       db_column='patron_record_metadata_id',
                                       null=True,
                                       blank=True)
-    ptype = models.ForeignKey(PtypeProperty,
+    ptype = models.ForeignKey(PtypeProperty, on_delete=models.CASCADE,
                               db_column='ptype_code_num',
                               db_constraint=False,
                               to_field='value',
@@ -6197,7 +6578,7 @@ class ZipCodeInfo(ReadOnlyModel):
     zip_code = models.CharField(max_length=32, blank=True)
     latitude = models.CharField(max_length=32, blank=True)
     longitude = models.CharField(max_length=32, blank=True)
-    country = models.ForeignKey(CountryProperty,
+    country = models.ForeignKey(CountryProperty, on_delete=models.CASCADE,
                                 db_column='country_code',
                                 db_constraint=False,
                                 to_field='code',
@@ -6216,7 +6597,7 @@ class BoolInfo(ReadOnlyModel):
     name = models.CharField(max_length=512, blank=True)
     max = models.IntegerField(null=True, blank=True)
     count = models.IntegerField(null=True, blank=True)
-    record_type = models.ForeignKey(RecordType,
+    record_type = models.ForeignKey(RecordType, on_delete=models.CASCADE,
                                     db_column='record_type_code',
                                     db_constraint=False,
                                     to_field='code',
@@ -6245,11 +6626,12 @@ class BoolInfo(ReadOnlyModel):
 # BoolSet appears to store lists of records in non-empty review files.
 class BoolSet(ReadOnlyModel):
     id = models.BigIntegerField(primary_key=True)
-    record = models.ForeignKey(RecordMetadata,
+    record = models.ForeignKey(RecordMetadata, on_delete=models.CASCADE,
                                db_column='record_metadata_id',
                                null=True,
                                blank=True)
-    bool_info = models.ForeignKey(BoolInfo, null=True, blank=True)
+    bool_info = models.ForeignKey(BoolInfo, on_delete=models.CASCADE,
+                                  null=True, blank=True)
     display_order = models.IntegerField(null=True, blank=True)
     field_key = models.CharField(max_length=255, blank=True)
     occ_num = models.IntegerField(null=True, blank=True)
@@ -6272,7 +6654,7 @@ class CircTrans(ReadOnlyModel):
     stat_group_code_num = models.IntegerField(null=True, blank=True)
     due_date_gmt = models.DateTimeField(null=True, blank=True)
     count_type_code_num = models.IntegerField(null=True, blank=True)
-    itype = models.ForeignKey(ItypeProperty,
+    itype = models.ForeignKey(ItypeProperty, on_delete=models.CASCADE,
                               db_column='itype_code_num',
                               db_constraint=False,
                               to_field='code_num',
@@ -6280,18 +6662,19 @@ class CircTrans(ReadOnlyModel):
                               blank=True)
     icode1 = models.IntegerField(null=True, blank=True)
     icode2 = models.CharField(max_length=10, blank=True)
-    item_location = models.ForeignKey('Location',
+    item_location = models.ForeignKey('Location', on_delete=models.CASCADE,
                                       db_column='item_location_code',
                                       db_constraint=False,
                                       to_field='code',
                                       null=True,
                                       blank=True)
     # item_agency = models.ForeignKey('AgencyProperty',
+    #                                 on_delete=models.CASCADE,
     #                                 db_column='item_agency_code_num',
     #                                 to_field='code_num',
     #                                 null=True,
     #                                 blank=True)
-    ptype = models.ForeignKey(PtypeProperty,
+    ptype = models.ForeignKey(PtypeProperty, on_delete=models.CASCADE,
                               db_column='ptype_code',
                               db_constraint=False,
                               to_field='value',
@@ -6302,7 +6685,12 @@ class CircTrans(ReadOnlyModel):
     pcode3 = models.IntegerField(null=True, blank=True)
     pcode4 = models.IntegerField(null=True, blank=True)
     patron_home_library_code = models.CharField(max_length=5, blank=True)
-    # patron_agency = models.ForeignKey('AgencyProperty', db_column='patron_agency_code_num', to_field='code_num', null=True, blank=True)
+
+    # patron_agency = models.ForeignKey('AgencyProperty',
+    #                                   on_delete=models.CASCADE,
+    #                                   db_column='patron_agency_code_num',
+    #                                   to_field='code_num',
+    #                                   null=True, blank=True)
 
     class Meta(ReadOnlyModel.Meta):
         db_table = 'circ_trans'
@@ -6322,7 +6710,8 @@ class Function(ReadOnlyModel):
     id = models.IntegerField(primary_key=True)
     display_order = models.IntegerField(null=True, blank=True)
     code = models.CharField(max_length=255, unique=True, blank=True)
-    function_category = models.ForeignKey('FunctionCategory', null=True,
+    function_category = models.ForeignKey('FunctionCategory',
+                                          on_delete=models.CASCADE, null=True,
                                           blank=True)
 
     class Meta(ReadOnlyModel.Meta):
@@ -6343,7 +6732,8 @@ class FunctionCategory(ReadOnlyModel):
 class IiiRole(ModelWithAttachedName):
     id = models.IntegerField(primary_key=True)
     code = models.CharField(max_length=255, unique=True, blank=True)
-    iii_role_category = models.ForeignKey('IiiRoleCategory', null=True,
+    iii_role_category = models.ForeignKey('IiiRoleCategory',
+                                          on_delete=models.CASCADE, null=True,
                                           blank=True)
     is_disabled_during_read_only_access = models.NullBooleanField(null=True,
                                                                   blank=True)
@@ -6364,8 +6754,10 @@ class IiiRoleCategoryName(ReadOnlyModel):
     key = fields.VirtualCompField(primary_key=True,
                                   partfield_names=['iii_role_category',
                                                    'iii_language'])
-    iii_language = models.ForeignKey(IiiLanguage, null=True, blank=True)
-    iii_role_category = models.ForeignKey(IiiRoleCategory)
+    iii_language = models.ForeignKey(IiiLanguage, on_delete=models.CASCADE,
+                                     null=True, blank=True)
+    iii_role_category = models.ForeignKey(IiiRoleCategory,
+                                          on_delete=models.CASCADE)
     name = models.CharField(max_length=255, blank=True)
 
     class Meta(ReadOnlyModel.Meta):
@@ -6376,9 +6768,11 @@ class IiiRoleName(ReadOnlyModel):
     key = fields.VirtualCompField(primary_key=True,
                                   partfield_names=['iii_role',
                                                    'iii_language'])
-    iii_role = models.ForeignKey(IiiRole, null=True, blank=True,
+    iii_role = models.ForeignKey(IiiRole, on_delete=models.CASCADE,
+                                 null=True, blank=True,
                                  db_constraint=False)
-    iii_language = models.ForeignKey(IiiLanguage, null=True, blank=True)
+    iii_language = models.ForeignKey(IiiLanguage, on_delete=models.CASCADE,
+                                     null=True, blank=True)
     name = models.CharField(max_length=255, blank=True)
 
     class Meta(ReadOnlyModel.Meta):
@@ -6401,19 +6795,26 @@ class IiiUser(ReadOnlyModel):
     name = models.CharField(max_length=255, unique=True, blank=True)
     location_group_port_number = models.IntegerField(null=True, blank=True)
     iii_user_group_code = models.CharField(max_length=255, blank=True)
-    # iii_user_group = models.ForeignKey('IiiUserGroup', db_column='iii_user_group_code', to_field='code', null=True, blank=True)
+    # iii_user_group = models.ForeignKey('IiiUserGroup',
+    #                                    on_delete=models.CASCADE,
+    #                                    db_column='iii_user_group_code',
+    #                                    to_field='code', null=True, blank=True)
     full_name = models.CharField(max_length=255, blank=True)
-    iii_language = models.ForeignKey(IiiLanguage, null=True, blank=True)
+    iii_language = models.ForeignKey(IiiLanguage, on_delete=models.CASCADE,
+                                     null=True, blank=True)
     accounting_unit = models.ForeignKey(AccountingUnit,
+                                        on_delete=models.CASCADE,
                                         db_column='account_unit',
                                         to_field='code_num', null=True,
                                         blank=True)
     statistic_group = models.ForeignKey(StatisticGroup,
+                                        on_delete=models.CASCADE,
                                         db_column='statistic_group_code_num',
                                         db_constraint=False,
                                         to_field='code_num', null=True,
                                         blank=True)
     system_option_group = models.ForeignKey('SystemOptionGroup',
+                                            on_delete=models.CASCADE,
                                             db_column='system_option_group_code_num',
                                             db_constraint=False,
                                             to_field='code_num', null=True,
@@ -6435,8 +6836,10 @@ class IiiUser(ReadOnlyModel):
 # Apparently links III users and funds? Our iii_user_fund_master table is empty.
 class IiiUserFundMaster(ReadOnlyModel):
     id = models.IntegerField(primary_key=True)
-    iii_user = models.ForeignKey(IiiUser, null=True, blank=True)
-    fund_master = models.ForeignKey(FundMaster, null=True, blank=True)
+    iii_user = models.ForeignKey(IiiUser, on_delete=models.CASCADE,
+                                 null=True, blank=True)
+    fund_master = models.ForeignKey(FundMaster, on_delete=models.CASCADE,
+                                    null=True, blank=True)
 
     class Meta(ReadOnlyModel.Meta):
         db_table = 'iii_user_fund_master'
@@ -6457,8 +6860,10 @@ class IiiUserGroup(ReadOnlyModel):
 class IiiUserIiiRole(ReadOnlyModel):
     key = fields.VirtualCompField(primary_key=True,
                                   partfield_names=['iii_user', 'iii_role'])
-    iii_user = models.ForeignKey(IiiUser, null=True, blank=True)
-    iii_role = models.ForeignKey(IiiRole, null=True, blank=True)
+    iii_user = models.ForeignKey(IiiUser, on_delete=models.CASCADE,
+                                 null=True, blank=True)
+    iii_role = models.ForeignKey(IiiRole, on_delete=models.CASCADE,
+                                 null=True, blank=True)
 
     class Meta(ReadOnlyModel.Meta):
         db_table = 'iii_user_iii_role'
@@ -6467,8 +6872,10 @@ class IiiUserIiiRole(ReadOnlyModel):
 # Links IiiUsers and IiiLocations.
 class IiiUserLocation(ReadOnlyModel):
     id = models.IntegerField(primary_key=True)
-    iii_user = models.ForeignKey(IiiUser, null=True, blank=True)
-    location = models.ForeignKey(Location, db_column='location_code',
+    iii_user = models.ForeignKey(IiiUser, on_delete=models.CASCADE,
+                                 null=True, blank=True)
+    location = models.ForeignKey(Location, on_delete=models.CASCADE,
+                                 db_column='location_code',
                                  to_field='code', null=True, blank=True)
 
     class Meta(ReadOnlyModel.Meta):
@@ -6478,9 +6885,11 @@ class IiiUserLocation(ReadOnlyModel):
 # Links IiiUsers and Workflows.
 class IiiUserWorkflow(ReadOnlyModel):
     id = models.IntegerField(primary_key=True)
-    iii_user = models.ForeignKey(IiiUser, null=True, blank=True, 
+    iii_user = models.ForeignKey(IiiUser, on_delete=models.CASCADE,
+                                 null=True, blank=True,
                                  db_column='iii_user_id')
-    workflow = models.ForeignKey('Workflow', null=True, blank=True)
+    workflow = models.ForeignKey('Workflow', on_delete=models.CASCADE,
+                                 null=True, blank=True)
     display_order = models.IntegerField(null=True, blank=True)
 
     class Meta(ReadOnlyModel.Meta):
@@ -6501,8 +6910,10 @@ class SystemOptionGroupName(ReadOnlyModel):
     key = fields.VirtualCompField(primary_key=True,
                                   partfield_names=['system_option_group',
                                                    'iii_language'])
-    system_option_group = models.ForeignKey(SystemOptionGroup)
-    iii_language = models.ForeignKey(IiiLanguage, null=True, blank=True)
+    system_option_group = models.ForeignKey(SystemOptionGroup,
+                                            on_delete=models.CASCADE)
+    iii_language = models.ForeignKey(IiiLanguage, on_delete=models.CASCADE,
+                                     null=True, blank=True)
     name = models.CharField(max_length=255, blank=True)
 
     class Meta(ReadOnlyModel.Meta):
@@ -6517,7 +6928,7 @@ class Workflow(ModelWithAttachedName):
     functions = models.ManyToManyField(Function, through='WorkflowFunction',
                                        blank=True)
 
-    _name_attname='menu_name'
+    _name_attname = 'menu_name'
 
     class Meta(ModelWithAttachedName.Meta):
         db_table = 'workflow'
@@ -6526,8 +6937,10 @@ class Workflow(ModelWithAttachedName):
 # Links workflows to functions.
 class WorkflowFunction(ReadOnlyModel):
     id = models.IntegerField(primary_key=True)
-    workflow = models.ForeignKey(Workflow, null=True, blank=True)
-    function = models.ForeignKey(Function, null=True, blank=True)
+    workflow = models.ForeignKey(Workflow, on_delete=models.CASCADE,
+                                 null=True, blank=True)
+    function = models.ForeignKey(Function, on_delete=models.CASCADE,
+                                 null=True, blank=True)
     display_order = models.IntegerField(null=True, blank=True)
 
     class Meta(ReadOnlyModel.Meta):
@@ -6539,8 +6952,9 @@ class WorkflowName(ReadOnlyModel):
     key = fields.VirtualCompField(primary_key=True,
                                   partfield_names=['workflow',
                                                    'iii_language'])
-    workflow = models.ForeignKey(Workflow)
-    iii_language = models.ForeignKey(IiiLanguage, null=True, blank=True)
+    workflow = models.ForeignKey(Workflow, on_delete=models.CASCADE)
+    iii_language = models.ForeignKey(IiiLanguage, on_delete=models.CASCADE,
+                                     null=True, blank=True)
     menu_name = models.CharField(max_length=255, blank=True)
 
     class Meta(ReadOnlyModel.Meta):

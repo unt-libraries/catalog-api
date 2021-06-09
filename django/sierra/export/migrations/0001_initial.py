@@ -33,7 +33,7 @@ class Migration(migrations.Migration):
                 ('timestamp', models.DateTimeField()),
                 ('errors', models.IntegerField(default=0)),
                 ('warnings', models.IntegerField(default=0)),
-                ('export_filter', models.ForeignKey(to='export.ExportFilter')),
+                ('export_filter', models.ForeignKey(on_delete=models.CASCADE, to='export.ExportFilter')),
             ],
             options={
             },
@@ -68,19 +68,19 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='exportinstance',
             name='export_type',
-            field=models.ForeignKey(to='export.ExportType'),
+            field=models.ForeignKey(on_delete=models.CASCADE, to='export.ExportType'),
             preserve_default=True,
         ),
         migrations.AddField(
             model_name='exportinstance',
             name='status',
-            field=models.ForeignKey(to='export.Status'),
+            field=models.ForeignKey(on_delete=models.CASCADE, to='export.Status'),
             preserve_default=True,
         ),
         migrations.AddField(
             model_name='exportinstance',
             name='user',
-            field=models.ForeignKey(to=settings.AUTH_USER_MODEL),
+            field=models.ForeignKey(on_delete=models.CASCADE, to=settings.AUTH_USER_MODEL),
             preserve_default=True,
         ),
     ]

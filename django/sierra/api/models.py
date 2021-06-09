@@ -213,7 +213,7 @@ class APIUser(models.Model):
     """
     Provides fields/features for secrets and permissions.
     """
-    user = models.OneToOneField(User)
+    user = models.OneToOneField(User, on_delete=models.CASCADE)
     secret = models.CharField(max_length=128)
     permissions = models.TextField(default='{}')
     permission_defaults = get_permission_defaults_from_apps()
