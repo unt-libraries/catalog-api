@@ -574,7 +574,7 @@ def test_vcfield_other_lookups_work(modelname, name, number, parent_int,
     where = qset.query.sql_with_params()[0].split(' WHERE ')[1]
     vcf_cols = [pf.column for pf in tmodel._meta.get_field('vcf').partfields]
     partfield_pattern = r'\W.*\W'.join(vcf_cols)
-    where_pattern = r'^CONCAT\(.*\W{}\W'.format(partfield_pattern)
+    where_pattern = r'^CONCAT(_WS)?\(.*\W{}\W'.format(partfield_pattern)
     assert len(tmodel.objects.all()) == 6
     assert test_inst in [r for r in qset]
     assert test_inst not in [r for r in exclude_qset]
