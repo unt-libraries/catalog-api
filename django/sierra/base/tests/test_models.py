@@ -44,7 +44,7 @@ def test_modelattachedname_getname(prop_model, model_instance, settings):
     eng, spi = (m.IiiLanguage.objects.get(code=l) for l in ('eng', 'spi'))
     name_model = getattr(m, '{}Name'.format(prop_model._meta.object_name))
     name_accessor = '{}name_set'.format(prop_model._meta.model_name)
-    prop_attname = getattr(prop_model, name_accessor).related.field.name
+    prop_attname = getattr(prop_model, name_accessor).rel.field.name
     name_attname = prop_model._name_attname
     lang_attname = prop_model._language_attname
     test_property = model_instance(prop_model, pk='999999')
