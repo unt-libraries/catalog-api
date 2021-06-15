@@ -64,6 +64,9 @@ DATABASES = {
     'sierra': {
         'ENGINE': 'django.db.backends.postgresql_psycopg2',
         'NAME': 'iii',
+        'OPTIONS': {
+            'options': '-c search_path=sierra_view',
+        },
         'USER': get_env_variable('SIERRA_DB_USER'),
         'PASSWORD': get_env_variable('SIERRA_DB_PASSWORD'),
         'HOST': get_env_variable('SIERRA_DB_HOST'),
