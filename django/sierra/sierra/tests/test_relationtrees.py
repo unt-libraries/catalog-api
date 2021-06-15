@@ -40,6 +40,8 @@ RELATION_PARAMS = {
     'OneToOneNode to ReferenceNode': (m.OneToOneNode, 'referencenode'),
     'SelfReferentialNode to SelfReferentialNode':
         (m.SelfReferentialNode, 'parent'),
+    'Reverse SelfRN to SelfRN':
+        (m.SelfReferentialNode, 'selfreferentialnode_set'),
     'SelfReferentialNode to ReferenceNode':
         (m.SelfReferentialNode, 'referencenode_set'),
     'SelfReferentialNode to EndNode': (m.SelfReferentialNode, 'end'),
@@ -282,7 +284,11 @@ def test_relation_init_raises_error_on_invalid_data(make_bad_relation):
     ('ReferenceNode to ManyToManyNode', True, True, True),
     ('OneToOneNode to ReferenceNode', False, False, False),
     ('EndNode to ReferenceNode', False, True, False),
-    ('ManyToManyNode to ReferenceNode', True, True, False)
+    ('ManyToManyNode to ReferenceNode', True, True, False),
+    ('ReferenceNode to ThroughNode', False, True, False),
+    ('ThroughNode to ManyToManyNode', False, False, True),
+    ('SelfReferentialNode to SelfReferentialNode', False, False, True),
+    ('Reverse SelfRN to SelfRN', False, True, False),
 ], ids=[
     'direct 1-1',
     'direct foreign-key',
@@ -290,6 +296,10 @@ def test_relation_init_raises_error_on_invalid_data(make_bad_relation):
     'indirect 1-1',
     'indirect 1-many',
     'indirect m2m',
+    'to throughnode (indirect 1-many)',
+    'from throughnode (direct foreign-key)',
+    'self-referential (direct foreign-key)',
+    'reverse self-referential (indirect 1-many)',
 ], indirect=['relation'])
 def test_relation_isattrs_return_right_bools(relation, m2m, multi, direct):
     """
@@ -308,7 +318,11 @@ def test_relation_isattrs_return_right_bools(relation, m2m, multi, direct):
     ('ReferenceNode to ManyToManyNode', m.ManyToManyNode),
     ('OneToOneNode to ReferenceNode', m.ReferenceNode),
     ('EndNode to ReferenceNode', m.ReferenceNode),
-    ('ManyToManyNode to ReferenceNode', m.ReferenceNode)
+    ('ManyToManyNode to ReferenceNode', m.ReferenceNode),
+    ('ReferenceNode to ThroughNode', m.ThroughNode),
+    ('ThroughNode to ManyToManyNode', m.ManyToManyNode),
+    ('SelfReferentialNode to SelfReferentialNode', m.SelfReferentialNode),
+    ('Reverse SelfRN to SelfRN', m.SelfReferentialNode),
 ], ids=[
     'direct 1-1',
     'direct foreign-key',
@@ -316,6 +330,10 @@ def test_relation_isattrs_return_right_bools(relation, m2m, multi, direct):
     'indirect 1-1',
     'indirect 1-many',
     'indirect m2m',
+    'to throughnode (indirect 1-many)',
+    'from throughnode (direct foreign-key)',
+    'self-referential (direct foreign-key)',
+    'reverse self-referential (indirect 1-many)',
 ], indirect=['relation'])
 def test_relation_targetmodel_has_right_model(relation, target):
     """

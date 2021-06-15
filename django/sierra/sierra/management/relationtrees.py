@@ -88,11 +88,10 @@ class Relation(object):
         except AttributeError:
             msg = '{} not found on {}'.format(fieldname, model_name)
             raise BadRelation(msg)
-
-        self._describe(accessor)
+        
         self.model = model
+        self._describe(accessor)
         self.fieldname = fieldname
-        self.target_model = self._get_target_model(accessor)
 
     def __repr__(self):
         mname = '.'.join([self.model._meta.app_label,
@@ -105,14 +104,62 @@ class Relation(object):
                                                    target_mname)
         
     def _describe(self, acc):
-        self.is_direct = True if hasattr(acc, 'field') else False
-        self.is_multi = True if hasattr(acc, 'related_manager_cls') else False
-        field = acc.field if self.is_direct else acc.related.field
-        self.through = getattr(field.remote_field, 'through', None)
-        self.is_m2m = False if self.through is None else True
+        """
+        Set some basic attributes about this relationship by inspecting
+        the relationship descriptor (or accessor, `acc`).
 
-    def _get_target_model(self, acc):
-        return acc.field.remote_field.model if self.is_direct else acc.rel.related_model
+        - `is_direct` -- Basically, True if this is a forward
+          relationship, False if it is a reverse relationship. For M2M
+          fields, it will be True if acc.reverse is False.
+
+        - `is_multi` -- True if the other end of the relationship is
+          "many." Basically, if `is_multi` is True, then you use a
+          related objects manager to access the model instances at the
+          other end of the relationship. (ReverseManyToOne or
+          ManyToMany).
+
+        - `through` -- If this is a many-to-many relationship, then
+          `through` is intermediary ("through") model through which the
+          m2m relationship occurs. Default is None.
+
+        - `is_m2m` -- True if this is a many-to-many relationship.
+
+        - `target_model` -- The model at the other end of the
+          relationship.
+        """
+        try:
+            rel_field = acc.field
+        except AttributeError:
+            # ReverseOneToOneDescriptor is the only kind lacking a
+            # direct `field` attribute; its equivalent is 
+            # `related.field`.
+            rel_field = acc.related.field
+
+        try:
+            acc.related_manager_cls
+        except AttributeError:
+            self.is_multi = False
+        else:
+            self.is_multi = True
+
+        if rel_field.many_to_many:
+            self.through = rel_field.remote_field.through
+            self.is_m2m = True
+            self.is_direct = not acc.reverse
+        else:
+            self.through = None
+            self.is_m2m = False
+            self.is_direct = type(acc).__name__.startswith('Forward')
+
+        if rel_field.model == self.model:
+            self.target_model = rel_field.related_model
+        elif rel_field.related_model == self.model:
+            self.target_model = rel_field.model
+        else:
+            msg = ('Something went wrong. For model {} and relation {}, the '
+                   'model is not accessible via `field.model` or `field.'
+                   'related_model`.').format(self.model, acc)
+            raise BadRelation(msg)
 
     def get_as_through_relations(self):
         meta = self.model._meta
