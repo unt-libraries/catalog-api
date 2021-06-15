@@ -215,7 +215,7 @@ function migrate_default_db_test {
 function migrate_sierra_db_test {
   local volume_is_ready=$1
   if [[ $volume_is_ready ]]; then
-    docker-compose run --rm manage-test migrate --database=sierra
+    docker-compose run --rm manage-test migrate --run-syncdb --database=sierra
     echo "Installing sierra-db-test fixtures..."
     docker-compose run --rm manage-test loaddata --app=base --database=sierra $(find $SIERRA_FIXTURE_PATH/*.json -exec basename {} .json \; | tr '\n' ' ')
   else
