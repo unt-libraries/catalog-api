@@ -108,11 +108,11 @@ class Relation(object):
         self.is_direct = True if hasattr(acc, 'field') else False
         self.is_multi = True if hasattr(acc, 'related_manager_cls') else False
         field = acc.field if self.is_direct else acc.related.field
-        self.through = getattr(field.rel, 'through', None)
+        self.through = getattr(field.remote_field, 'through', None)
         self.is_m2m = False if self.through is None else True
 
     def _get_target_model(self, acc):
-        return acc.field.rel.to if self.is_direct else acc.related.related_model
+        return acc.field.remote_field.model if self.is_direct else acc.rel.related_model
 
     def get_as_through_relations(self):
         meta = self.model._meta
@@ -127,7 +127,7 @@ class Relation(object):
             msg = ('Models {} and {} have no `through` relation with each '
                    'other.'.format(self.model, self.target_model))
             raise BadRelation(msg)
-        through_model = getattr(self.model, through_name).related.related_model
+        through_model = getattr(self.model, through_name).rel.related_model
         rel_fs = [f for f in through_model._meta.get_fields() if f.related_model]
 
         try:
@@ -295,13 +295,12 @@ def trace_branches(model, orig_model=None, brfields=None, cache=None):
     """
     tracing, orig_model = [], orig_model or model
     meta = model._meta
-    relfields = [f for f in meta.fields if f.rel] + [f for f in meta.many_to_many]
-
+    relfields = [f for f in meta.fields if f.remote_field] + [f for f in meta.many_to_many]
     for field in relfields:
         cache = cache or []
         field_id = '{}.{}'.format(meta.model_name, field.name)
         if field_id not in cache:
-            next_model = field.rel.to
+            next_model = field.remote_field.model
             branchcache = cache + [field_id]
             next_brfields = (brfields or []) + [field.name]
             tracing += trace_branches(next_model, orig_model,

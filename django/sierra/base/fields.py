@@ -119,8 +119,8 @@ class CompositeValueTuple(tuple):
             separator = re.escape(self.field.separator)
         else:
             separator = self.field.separator
-        strings = [six.text_type('' if s is None else s) for s in self]
-        return six.text_type(separator.join(strings))
+        strings = [str('' if s is None else s) for s in self]
+        return str(separator.join(strings))
 
     def validate(self):
         """
@@ -188,7 +188,7 @@ class VirtualCompField(models.Field):
         pf_list = []
         for pf in self.partfield_names:
             try:
-                pf_list.append(self.model._meta.get_field(pf).rel.to._meta.pk)
+                pf_list.append(self.model._meta.get_field(pf).remote_field.model._meta.pk)
             except AttributeError:
                 pf_list.append(self.model._meta.get_field(pf))
         return tuple(pf_list)
