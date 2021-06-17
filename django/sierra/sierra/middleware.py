@@ -1,11 +1,12 @@
 from __future__ import absolute_import
 from django import http
+from django.utils.deprecation import MiddlewareMixin
 from django.utils.http import urlquote
 from django.core import urlresolvers
 from django.conf import settings
 
 
-class AppendOrRemoveSlashMiddleware(object):
+class AppendOrRemoveSlashMiddleware(MiddlewareMixin):
     """Like django's built in APPEND_SLASH functionality, but also works in reverse. Eg
     will remove the slash if a slash-appended url won't resolve, but its non-slashed
     counterpart will.
