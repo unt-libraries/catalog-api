@@ -88,7 +88,7 @@ class Relation(object):
         except AttributeError:
             msg = '{} not found on {}'.format(fieldname, model_name)
             raise BadRelation(msg)
-        
+
         self.model = model
         self._describe(accessor)
         self.fieldname = fieldname
@@ -130,10 +130,17 @@ class Relation(object):
         try:
             rel_field = acc.field
         except AttributeError:
-            # ReverseOneToOneDescriptor is the only kind lacking a
-            # direct `field` attribute; its equivalent is 
-            # `related.field`.
-            rel_field = acc.related.field
+            try:
+                # ReverseOneToOneDescriptor is the only kind lacking a
+                # direct `field` attribute; its equivalent is
+                # `related.field`.
+                rel_field = acc.related.field
+            except AttributeError:
+                msg = (
+                    'Something went wrong. For model {} and relation {}, the '
+                    'related field is not accessible via `acc.field` or '
+                    '`acc.related.field`.').format(self.model, acc)
+                raise BadRelation(msg)
 
         try:
             acc.related_manager_cls
