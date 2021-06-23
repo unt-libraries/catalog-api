@@ -200,6 +200,10 @@ def test_itemrules_incollections(loc_code, expected, item_rules, mocker):
     ('w4mau', 7, '-', True),
     ('w4mft', 1, '-', True),
     ('w4mov', 1, '-', True),
+    ('w1ind', 105, '-', False),
+    ('w1idl', 105, '-', False),
+    ('xdmp', 1, '-', True),
+    ('xdmic', 1, '-', True)
 ])
 def test_itemrules_isrequestablethroughcatalog(loc_code, itype_id,
                                                item_status_id, expected,

@@ -84,15 +84,12 @@ ITEM_RULES = {
                 'sdtov', 'sdvf', 'sdzmr', 'sdzrf', 'sdzrs', 'sdzsd', 'spe',
                 'spec', 'swr', 'szmp', 'szzov', 'szzrf', 'szzrs', 'szzsd',
                 'tamc', 'test', 'twu', 'txsha', 'unt', 'w1grs', 'w1gwt', 'w1ia',
-                'w1ind', 'w1prs', 'w2awt', 'w2lan', 'w3dai', 'w3lab', 'w3mfa',
-                'w3per', 'w433a', 'w4422', 'w4438', 'w4fil', 'w4mai', 'w4mav',
-                'w4mbg', 'w4mfb', 'w4mla', 'w4moc', 'w4mr1', 'w4mr2', 'w4mr3',
-                'w4mrb', 'w4mrf', 'w4mrs', 'w4mrx', 'w4mts', 'w4mwf', 'w4mwr',
-                'w4spe', 'w4srf', 'wgrc', 'wlmic', 'wlper', 'xprsv', 'xspe',
-                'xts',
-                # These are still temporarily disabled due to COVID-19
-                # policies. Simply remove these to re-enable them.
-                'xdmic', 'xdmp',
+                'w1ind', 'w1idl', 'w1prs', 'w2awt', 'w2lan', 'w3dai', 'w3lab',
+                'w3mfa', 'w3per', 'w433a', 'w4422', 'w4438', 'w4fil', 'w4mai',
+                'w4mav', 'w4mbg', 'w4mfb', 'w4mla', 'w4moc', 'w4mr1', 'w4mr2',
+                'w4mr3', 'w4mrb', 'w4mrf', 'w4mrs', 'w4mrx', 'w4mts', 'w4mwf',
+                'w4mwr', 'w4spe', 'w4srf', 'wgrc', 'wlmic', 'wlper', 'xprsv',
+                'xspe', 'xts'
             )
         }, multi=False)),
         ('item_status_id', r.reverse_mapping({
