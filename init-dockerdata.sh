@@ -209,7 +209,7 @@ function migrate_default_db_dev {
 }
 
 function migrate_default_db_test {
-  docker-compose run --rm manage-test migrate --database=default
+  docker-compose run --rm manage-test migrate --run-syncdb --database=default
 }
 
 function migrate_sierra_db_test {
