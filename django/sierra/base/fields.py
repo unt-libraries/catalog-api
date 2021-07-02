@@ -411,17 +411,26 @@ class CompositeExact(models.lookups.Exact):
         value (`self.rhs`), matching each value part with the
         corresponding part field, using the part field to generate the
         needed lookup SQL, and manually compiling the WHERE clause.
-        """ 
+        """
         if self.rhs_is_direct_value():
             sql_list, params_list = [], []
+
+            # As of Django 1.10, format self.rhs string to tuple
+            if isinstance(self.rhs, str):
+                self.rhs = tuple(self.rhs.split('|_|'))
+                self.rhs = tuple(None if x == '' else x for x in self.rhs)
+
             _, rhs_params = self.get_db_prep_lookup(self.rhs, connection)
             assert len(rhs_params) == 1
             part_values = rhs_params[0]
-            for i, part in enumerate(self.lhs.target.partfields):
-                sql, params = self._partfield_as_sql(part, part_values[i],
-                                                     compiler, connection)
-                params_list.extend(params)
-                sql_list.append(sql)
+            try:
+                for i, part in enumerate(self.lhs.target.partfields):
+                    sql, params = self._partfield_as_sql(part, part_values[i],
+                                                         compiler, connection)
+                    params_list.extend(params)
+                    sql_list.append(sql)
+            except (IndexError, TypeError, KeyError) as e:
+                raise ValueError(e)
             return ' AND '.join(sql_list), params_list
         else:
             # if self.rhs isn't a concrete value, we have to fall back
