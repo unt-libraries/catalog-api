@@ -555,7 +555,7 @@ def test_vcfield_nonmatch_exact_lookups(modelname, name, number, parent_int,
                                                       ['aaa', 124])),
     ('VCFParentInt', None, 123, None, '2', 'isnull', False),
     ('VCFParentInt', 'aaa', None, None, '2', 'regex', '^aa'),
-    ('VCFParentStr', 'aaa', 123, 1, '2', 'regex', '^aaa\|_\|12'),
+    ('VCFParentStr', 'aaa', 123, 1, '2', 'regex', r'^aaa|_|12'),
     ('VCFParentStr', 'aaa', 123, 1, '2', 'regex', ['aa.', '12.']),
     ('VCFParentInt', 'aaa', None, None, '2', 'iregex', '^A'),
 ])
@@ -666,7 +666,7 @@ def test_vcfield_serialization(modelname, testmodels, make_instance,
                          testmodels[modelname])
     instances = [make_instance(modelname, *f) for f in noise_data(5)]
     og_objects, json_objects, xml_objects = [], [], []
-    
+
     og_objects = do_for_multiple_models(serial_testmodels, 'all')
     json = serializers.serialize('json', og_objects)
     xml = serializers.serialize('xml', og_objects)
