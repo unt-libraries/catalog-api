@@ -94,9 +94,9 @@ def strip_brackets(data, keep_inner=True, to_keep_re=None,
     to_keep = r'\[({})\]'.format(to_keep_re) if to_keep_re and not keep_inner else '^$'
     brackets = r'[\[\]]' if keep_inner else r'(^|\s*)\[[^\]]*\]'
 
-    brackets_protected = re.sub(to_protect, r'{\1}', data)
+    brackets_protected = re.sub(to_protect, r'{\1}', data) if re.search(to_protect, data) else data
     certain_data_removed = re.sub(to_remove, '', brackets_protected)
-    certain_data_kept = re.sub(to_keep, r'\1', certain_data_removed)
+    certain_data_kept = re.sub(to_keep, r'\1', certain_data_removed) if re.search(to_keep, certain_data_removed) else certain_data_removed
     brackets_removed = re.sub(brackets, '', certain_data_kept)
     protected_brackets_restored = re.sub(r'\{([^\}]*)\}', r'[\1]', brackets_removed)
 
