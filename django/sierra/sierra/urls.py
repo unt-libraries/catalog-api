@@ -21,7 +21,7 @@ urlpatterns = [
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 
 if settings.ADMIN_ACCESS:
-    urlpatterns.append(url(r'^admin/', include(admin.site.urls)))
+    urlpatterns.append(url(r'^admin/', admin.site.urls))
 
 if settings.DEBUG:
     import debug_toolbar
