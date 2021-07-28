@@ -104,11 +104,8 @@ ITEM_RULES = {
     # be requested through Aeon, not the online catalog.
     'is_requestable_through_aeon': r.Ruleset([
         ('location_id', r.reverse_mapping({
-            # These are normally active but are disabled for now due to
-            # COVID-19 policies. Add them back to the below entry to
-            # re-enable them:
-            # 'w4mr1', 'w4mr2', 'w4mr3', 'w4mrb', 'w4mrx', 
-            True: ('w4spe', 'xspe')
+            True: ('w4spe', 'xspe', 'w4mr1', 'w4mr2', 'w4mr3', 'w4mrb',
+                   'w4mrx')
         }, multi=False))
     ], default=False),
 

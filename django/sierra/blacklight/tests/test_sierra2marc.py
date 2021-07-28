@@ -1381,9 +1381,6 @@ def test_todscpipeline_getiteminfo_num_items(items_info, exp_items,
 
 
 @pytest.mark.parametrize('items_info, expected_r', [
-    # Note: tests that are commented out represent "normal" policies;
-    # currently due to COVID-19 a lot of requesting is restricted. We
-    # will update these further as policies change.
     ([({'location_id': 'x'}, {}),
       ({'location_id': 'w3'}, {}),
       ({'location_id': 'w4mau', 'itype_id': 7}, {}),
@@ -1400,11 +1397,11 @@ def test_todscpipeline_getiteminfo_num_items(items_info, exp_items,
      None),
     ([({'location_id': 'w4spe'}, {}),
       ({'location_id': 'xspe'}, {}),
-      # ({'location_id': 'w4mr1'}, {}),
-      # ({'location_id': 'w4mr2'}, {}),
-      # ({'location_id': 'w4mr3'}, {}),
-      # ({'location_id': 'w4mrb'}, {}),
-      # ({'location_id': 'w4mrx'}, {})
+      ({'location_id': 'w4mr1'}, {}),
+      ({'location_id': 'w4mr2'}, {}),
+      ({'location_id': 'w4mr3'}, {}),
+      ({'location_id': 'w4mrb'}, {}),
+      ({'location_id': 'w4mrx'}, {})
      ], 'aeon'),
     ([({'location_id': 'jlf'}, {})],
      'jlf'),
@@ -2478,7 +2475,7 @@ def test_todscpipeline_getpubinfo_pub_search(ldr_07, fparams, expected,
     ),
 
     # sd, xdoc / Remote Storage, bib loc is not x
-    ( (('sd', 'Eagle Commons Library Government Documents'),),
+    ( (('sd', 'Sycamore Library Government Documents'),),
       (('xdoc', 'Government Documents Remote Storage'),),
       tuple(),
       {'access_facet': ['At the Library'],
@@ -2498,9 +2495,16 @@ def test_todscpipeline_getpubinfo_pub_search(ldr_07, fparams, expected,
     ),
 
     # sd, gwww, sdus, rst, xdoc / multiple items at multiple locations
-    ( (('sd', 'Eagle Commons Library Government Documents'),),
+    # NOTE: The library where the Gov Docs collection lives was Eagle
+    # Commons Library but was changed to Sycamore Library 8/2021. To
+    # avoid confusion and to avoid having to update our test fixtures
+    # that still use Eagle Commons, I've changed names of the s*
+    # locations, below. Because of the "s Eagle Commons Library" test
+    # fixture, the building_facet is still "Eagle Commons Library,"
+    # even though the name has changed, in reality. This is fine.
+    ( (('sd', 'X Government Documents'),),
       (('gwww', 'GOVT ONLINE RESOURCES'),
-       ('sdus', 'Eagle Commons Library US Documents'),
+       ('sdus', 'X US Documents'),
        ('rst', 'Discovery Park Library Storage'),
        ('xdoc', 'Government Documents Remote Storage'),),
       tuple(),
@@ -2508,7 +2512,7 @@ def test_todscpipeline_getpubinfo_pub_search(ldr_07, fparams, expected,
        'collection_facet': ['Government Documents', 'Discovery Park Library'],
        'building_facet': ['Eagle Commons Library', 'Discovery Park Library',
                           'Remote Storage'],
-       'shelf_facet': ['Eagle Commons Library US Documents',
+       'shelf_facet': ['X US Documents',
                        'Discovery Park Library Storage']}
     ),
 ], ids=[

@@ -220,21 +220,13 @@ def test_itemrules_isrequestablethroughcatalog(loc_code, itype_id,
 
 
 @pytest.mark.parametrize('loc_code, expected', [
-    # Note: tests that are commented out represent "normal" policies;
-    # currently due to COVID-19 a lot of requesting is restricted. We
-    # will update these further as policies change.
     ('czm', False),
     ('jlf', False),
-    # ('w4mr1', True),
-    ('w4mr1', False),
-    # ('w4mr2', True),
-    ('w4mr2', False),
-    # ('w4mr3', True),
-    ('w4mr3', False),
-    # ('w4mrb', True),
-    ('w4mrb', False),
-    # ('w4mrx', True),
-    ('w4mrx', False),
+    ('w4mr1', True),
+    ('w4mr2', True),
+    ('w4mr3', True),
+    ('w4mrb', True),
+    ('w4mrx', True),
     ('w4spe', True),
     ('xspe', True),
 ])
