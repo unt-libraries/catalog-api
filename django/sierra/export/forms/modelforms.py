@@ -13,7 +13,11 @@ class ExportForm(forms.ModelForm):
     record_range_from = IiiRecordNumField(required=False)
     record_range_to = IiiRecordNumField(required=False)
     location_code = IiiLocationCodesField(required=False)
-    only_null_items = forms.BooleanField(required=False) 
+    which_location = forms.ChoiceField(
+        required=False,
+        choices=[('item', 'Item Locations'), ('bib', 'Bib Locations'),
+                 ('both', 'Both Locations')]
+    )
     export_filter = forms.ModelChoiceField(
             queryset=ExportFilter.objects.order_by('order'), empty_label=None)
     export_type = forms.ModelChoiceField(

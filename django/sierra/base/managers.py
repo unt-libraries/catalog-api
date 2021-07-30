@@ -163,34 +163,25 @@ class RecordManager(CustomFilterManager):
 
     def location(self):
         """
-        Filters records by item location (code).
+        Filters records by location (code).
         """
         options = self.options
-        locations = self.options['location_code']
-        f_prefix, distinct = '', False
+        locs = self.options['location_code']
+        which_location = self.options.get('which_location', 'item')
+        if_prefix, bf_prefix, distinct = '', '', True
         if self.model._meta.object_name == 'RecordMetadata':
-            f_prefix = 'itemrecord__'
+            if_prefix = 'itemrecord__'
+            bf_prefix = 'bibrecord__'
         elif self.model._meta.object_name == 'BibRecord':
-            f_prefix = 'bibrecorditemrecordlink__item_record__'
-            distinct = True
-        filter_ = [{'{}location_id__in'.format(f_prefix): locations}]
+            if_prefix = 'bibrecorditemrecordlink__item_record__'
+        elif self.model._meta.object_name == 'ItemRecord':
+            bf_prefix = 'bibrecorditemrecordlink__bib_record__'
+
+        filter_ = []
+        if which_location in ('both', 'item'):
+            filter_.append({'{}location_id__in'.format(if_prefix): locs})
+        if which_location in ('both', 'bib'):
+            filter_.append({'{}locations__code__in'.format(bf_prefix): locs})
+
         return {'filter': filter_, 'order_by': ['pk'], 'distinct': distinct}
     
-    def bib_location(self):
-        """
-        Filters records by bib location (code).
-        """
-        options = self.options
-        locations = self.options['location_code']
-        only_null_items = self.options.get('only_null_items', False)
-        f_prefix, distinct = '', True
-        if self.model._meta.object_name == 'RecordMetadata':
-            f_prefix = 'bibrecord__'
-            distinct = False
-        elif self.model._meta.object_name == 'ItemRecord':
-            f_prefix = 'bibrecorditemrecordlink__bib_record__'
-        filter_ = {'{}locations__code__in'.format(f_prefix): locations}
-        if only_null_items:
-            filter_['{}item_records__isnull'.format(f_prefix)] = True
-        return {'filter': [filter_], 'order_by': ['pk'], 'distinct': distinct}
-

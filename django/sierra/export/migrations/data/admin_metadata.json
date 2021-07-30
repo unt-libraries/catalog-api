@@ -129,21 +129,12 @@
 },
 {
     "fields": {
-        "description": "Get item records that match a particular location code.",
+        "description": "Get records that match a particular location code.",
         "order": 5,
-        "label": "Filter by (item) location code"
+        "label": "Filter by location code"
     },
     "model": "export.exportfilter",
     "pk": "location"
-},
-{
-    "fields": {
-        "description": "Get records by bib location code.",
-        "order": 6,
-        "label": "Filter by (bib) location code"
-    },
-    "model": "export.exportfilter",
-    "pk": "bib_location"
 },
 {
     "fields": {
