@@ -175,3 +175,22 @@ class RecordManager(CustomFilterManager):
             distinct = True
         filter_ = [{'{}location_id__in'.format(f_prefix): locations}]
         return {'filter': filter_, 'order_by': ['pk'], 'distinct': distinct}
+    
+    def bib_location(self):
+        """
+        Filters records by bib location (code).
+        """
+        options = self.options
+        locations = self.options['location_code']
+        only_null_items = self.options.get('only_null_items', False)
+        f_prefix, distinct = '', False
+        if self.model._meta.object_name == 'RecordMetadata':
+            f_prefix = 'bibrecord__'
+        elif self.model._meta.object_name == 'ItemRecord':
+            f_prefix = 'bibrecorditemrecordlink__bib_record__'
+            distinct = True
+        filter_ = {'{}locations__code__in'.format(f_prefix): locations}
+        if only_null_items:
+            filter_['{}item_records__isnull'.format(f_prefix)] = True
+        return {'filter': [filter_], 'order_by': ['pk'], 'distinct': distinct}
+

@@ -13,6 +13,7 @@ class ExportForm(forms.ModelForm):
     record_range_from = IiiRecordNumField(required=False)
     record_range_to = IiiRecordNumField(required=False)
     location_code = IiiLocationCodesField(required=False)
+    only_null_items = forms.BooleanField(required=False) 
     export_filter = forms.ModelChoiceField(
             queryset=ExportFilter.objects.order_by('order'), empty_label=None)
     export_type = forms.ModelChoiceField(
@@ -59,7 +60,7 @@ class ExportForm(forms.ModelForm):
                             'Record Range "From" field cannot be greater than '
                             'Record Range "To" field.'])
 
-        if filter.pk == 'location':
+        if filter.pk in ('location', 'bib_location'):
             if not data.get('location_code'):
                 self.errors['location_code'] = self.error_class(['Location '
                         'Code field cannot be blank.'])
@@ -80,10 +81,17 @@ class ExportForm(forms.ModelForm):
         elif re.search(r'record_range', data.get('export_filter').pk):
             params = '{} to {}'.format(data.get('record_range_from'),
                                        data.get('record_range_to'))
-        elif data.get('export_filter').pk == 'location':
-            params = ','.join(data.get('location_code', []))
+        else:
+            pk = data.get('export_filter').pk
+            if pk in ('location', 'bib_location'):
+                params = ','.join(data.get('location_code', []))
+            if pk == 'bib_location':
+                params = '{} only_null_items is {}'.format(
+                    params, data['only_null_items']
+                )
         return params
     
     class Meta:
         model = ExportInstance
         fields = ('export_filter', 'export_type')
+

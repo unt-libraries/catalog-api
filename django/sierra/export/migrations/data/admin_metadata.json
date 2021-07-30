@@ -138,6 +138,15 @@
 },
 {
     "fields": {
+        "description": "Get records by bib location code.",
+        "order": 6,
+        "label": "Filter by (bib) location code"
+    },
+    "model": "export.exportfilter",
+    "pk": "bib_location"
+},
+{
+    "fields": {
         "description": "Selects records that have III record numbers that fall within a specified record range.",
         "order": 4,
         "label": "Record Range (by record number)"
