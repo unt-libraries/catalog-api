@@ -183,12 +183,12 @@ class RecordManager(CustomFilterManager):
         options = self.options
         locations = self.options['location_code']
         only_null_items = self.options.get('only_null_items', False)
-        f_prefix, distinct = '', False
+        f_prefix, distinct = '', True
         if self.model._meta.object_name == 'RecordMetadata':
             f_prefix = 'bibrecord__'
+            distinct = False
         elif self.model._meta.object_name == 'ItemRecord':
             f_prefix = 'bibrecorditemrecordlink__bib_record__'
-            distinct = True
         filter_ = {'{}locations__code__in'.format(f_prefix): locations}
         if only_null_items:
             filter_['{}item_records__isnull'.format(f_prefix)] = True
