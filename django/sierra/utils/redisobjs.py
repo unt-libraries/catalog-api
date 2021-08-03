@@ -22,7 +22,7 @@ class RedisObject(object):
         if isinstance(data, (list, tuple)):
             i = 0
             for item in data:
-                pipe.zadd(self.key, i, json.dumps(item))
+                pipe.zadd(self.key, {json.dumps(item): i})
                 i += 1
 
         elif isinstance(data, dict):
@@ -44,7 +44,7 @@ class RedisObject(object):
     def set_value(self, index, data):
         pipe = self.conn.pipeline()
         pipe.zremrangebyscore(self.key, index, index)
-        pipe.zadd(self.key, index, json.dumps(data))
+        pipe.zadd(self.key, {json.dumps(data): index})
         pipe.execute()
         return data
 
