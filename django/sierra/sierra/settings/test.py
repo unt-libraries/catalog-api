@@ -11,6 +11,8 @@ for setting in required:
 DEBUG = True
 TESTING = True
 
+TIME_ZONE = 'America/Chicago'
+
 ALLOWED_HOSTS += (
     'testserver',
 )
