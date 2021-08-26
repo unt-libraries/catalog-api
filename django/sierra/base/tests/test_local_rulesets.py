@@ -32,6 +32,7 @@ def resource_type_determiner():
     ('lawww', True),
     ('lwww', True),
     ('mwww', True),
+    ('pwww', True),
     ('xwww', True),
     ('w1', False),    
     ('xdoc', False),
@@ -39,6 +40,8 @@ def resource_type_determiner():
     ('czm', False),
     ('law', False),
     ('kmats', False),
+    ('w4spc', False),
+    ('xspc', False),
 ])
 def test_itemrules_isonline(loc_code, expected, item_rules, mocker):
     """
@@ -65,6 +68,7 @@ def test_itemrules_isonline(loc_code, expected, item_rules, mocker):
     ('w', True),
     ('w1inf', True),
     ('w4m', True),
+    ('w4spc', True),
     ('unt', False),
     ('ill', False),
     ('czwww', False),
@@ -72,10 +76,12 @@ def test_itemrules_isonline(loc_code, expected, item_rules, mocker):
     ('lawww', False),
     ('lwww', False),
     ('mwww', False),
+    ('pwww', False),
     ('xwww', False),
     ('x', False),
     ('xmus', False),
     ('xdoc', False),
+    ('xspc', False),
 ])
 def test_itemrules_isatpubliclocation(loc_code, expected, item_rules, mocker):
     """
@@ -102,9 +108,11 @@ def test_itemrules_isatpubliclocation(loc_code, expected, item_rules, mocker):
     ('w1inf', 'w'),
     ('w3', 'w'),
     ('w4m', 'w'),
+    ('w4spc', 'w'),
     ('x', 'x'),
     ('xmus', 'x'),
     ('xdoc', 'x'),
+    ('xspc', 'x'),
     ('jlf', 'x'),
     ('spec', None),
     ('xprsv', None),
@@ -116,6 +124,7 @@ def test_itemrules_isatpubliclocation(loc_code, expected, item_rules, mocker):
     ('lawww', None),
     ('lwww', None),
     ('mwww', None),
+    ('pwww', None),
     ('kmats', None),
 ])
 def test_itemrules_buildinglocation(loc_code, expected, item_rules, mocker):
@@ -146,8 +155,11 @@ def test_itemrules_buildinglocation(loc_code, expected, item_rules, mocker):
     ('mwww', ['Music Library']),
     ('w4m', ['Music Library']),
     ('xmus', ['Music Library']),
+    ('pwww', ['Special Collections']),
+    ('w4spc', ['Special Collections']),
     ('w4spe', ['Special Collections']),
     ('xspe', ['Special Collections']),
+    ('xspc', ['Special Collections']),
     ('rmak', ['The Spark (Makerspace)']),
     ('w1mak', ['The Spark (Makerspace)']),
     ('r', ['Discovery Park Library']),
@@ -188,12 +200,17 @@ def test_itemrules_incollections(loc_code, expected, item_rules, mocker):
     ('x', 1, 'y', False),
     ('x', 1, 'z', False),
     ('jlf', 1, '-', False),
+    ('pwww', 1, '-', False),
+    ('pwww', 75, 'w', False),
     ('w4mr1', 1, '-', False),
     ('w4mr2', 1, '-', False),
     ('w4mr3', 1, '-', False),
     ('w4mrb', 1, '-', False),
     ('w4mrx', 1, '-', False),
+    ('w4spc', 1, '-', False),
     ('w4spe', 1, '-', False),
+    ('w4spc', 41, 'o', False),
+    ('w4spe', 41, 'o', False),
     ('kmats', 1, '-', False),
     ('w4m', 1, '-', True),
     ('w4mau', 1, '-', True),
@@ -203,7 +220,11 @@ def test_itemrules_incollections(loc_code, expected, item_rules, mocker):
     ('w1ind', 105, '-', False),
     ('w1idl', 105, '-', False),
     ('xdmp', 1, '-', True),
-    ('xdmic', 1, '-', True)
+    ('xdmic', 1, '-', True),
+    ('xspc', 1, '-', False),
+    ('xspe', 1, '-', False),
+    ('xspc', 41, 'o', False),
+    ('xspe', 41, 'o', False)
 ])
 def test_itemrules_isrequestablethroughcatalog(loc_code, itype_id,
                                                item_status_id, expected,
@@ -222,6 +243,9 @@ def test_itemrules_isrequestablethroughcatalog(loc_code, itype_id,
 @pytest.mark.parametrize('loc_code, expected', [
     ('czm', False),
     ('jlf', False),
+    ('pwww', False),
+    ('w4spc', False),
+    ('xspc', False),
     ('w4mr1', True),
     ('w4mr2', True),
     ('w4mr3', True),
@@ -239,6 +263,27 @@ def test_itemrules_isrequestablethroughaeon(loc_code, expected, item_rules,
     """
     item = mocker.Mock(location_id=loc_code)
     result = item_rules['is_requestable_through_aeon'].evaluate(item)
+    assert result == expected
+
+
+@pytest.mark.parametrize('loc_code, expected', [
+    ('czm', False),
+    ('pwww', False),
+    ('jlf', False),
+    ('w4spe', False),
+    ('xspe', False),
+    ('w4spc', True),
+    ('xspc', True),
+])
+def test_itemrules_isrequestablethroughfindingaid(loc_code, expected,
+                                                  item_rules, mocker):
+    """
+    Our local ITEM_RULES['is_requestable_through_finding_aid'] rule
+    should return True if an item is available to be requested via
+    a finding aid; False if not.
+    """
+    item = mocker.Mock(location_id=loc_code)
+    result = item_rules['is_requestable_through_finding_aid'].evaluate(item)
     assert result == expected
 
 

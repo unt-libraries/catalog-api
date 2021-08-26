@@ -2735,6 +2735,8 @@ class ToDiscoverPipeline(object):
             return 'aeon'
         if item_rules['is_requestable_through_catalog'].evaluate(item):
             return 'catalog'
+        if item_rules['is_requestable_through_finding_aid'].evaluate(item):
+            return 'finding_aid'
         return None
 
     def _sanitize_url(self, url):
