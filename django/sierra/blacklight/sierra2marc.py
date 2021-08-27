@@ -2736,7 +2736,12 @@ class ToDiscoverPipeline(object):
         if item_rules['is_requestable_through_catalog'].evaluate(item):
             return 'catalog'
         if item_rules['is_requestable_through_finding_aid'].evaluate(item):
-            return 'finding_aid'
+            urls_data = []
+            for f856 in self.marc_fieldgroups.get('url', []):
+                search_re = r'\/\/findingaids\.library\.unt\.edu'
+                url = f856.get_subfields('u')
+                if url and re.search(search_re, url[0]):
+                    return 'finding_aid'
         return None
 
     def _sanitize_url(self, url):

@@ -113,6 +113,10 @@ ITEM_RULES = {
     # `is_requestable_via_finding_aid` is True if an item is available
     # to be requested through a finding aid (ultimately through Aeon
     # via the finding aid).
+    # NOTE that you may want to reality-check this value against the
+    # 856 links to make sure that a finding aid exists for an item
+    # before assigning a final value. That is outside the scope of this
+    # rule.
     'is_requestable_through_finding_aid': r.Ruleset([
         ('location_id', r.reverse_mapping({
             True: ('w4spc', 'xspc')

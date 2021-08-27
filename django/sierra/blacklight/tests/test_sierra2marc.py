@@ -1380,13 +1380,15 @@ def test_todscpipeline_getiteminfo_num_items(items_info, exp_items,
         assert val['more_items_json'] is None
 
 
-@pytest.mark.parametrize('items_info, expected_r', [
-    ([({'location_id': 'x'}, {}),
+@pytest.mark.parametrize('f856s, items_info, expected_r', [
+    ([],
+     [({'location_id': 'x'}, {}),
       ({'location_id': 'w3'}, {}),
       ({'location_id': 'w4mau', 'itype_id': 7}, {}),
       ({'location_id': 'xmus', 'itype_id': 7}, {})],
      'catalog'),
-    ([({'location_id': 'czwww'}, {}),
+    ([],
+     [({'location_id': 'czwww'}, {}),
       ({'location_id': 'pwww'}, {}),
       ({'location_id': 'w3', 'item_status_id': 'o'}, {}),
       ({'location_id': 'w3', 'itype_id': 20}, {}),
@@ -1396,7 +1398,8 @@ def test_todscpipeline_getiteminfo_num_items(items_info, exp_items,
       ({'location_id': 'w3', 'itype_id': 112}, {}),
       ],
      None),
-    ([({'location_id': 'w4spe'}, {}),
+    ([],
+     [({'location_id': 'w4spe'}, {}),
       ({'location_id': 'xspe'}, {}),
       ({'location_id': 'w4mr1'}, {}),
       ({'location_id': 'w4mr2'}, {}),
@@ -1404,22 +1407,49 @@ def test_todscpipeline_getiteminfo_num_items(items_info, exp_items,
       ({'location_id': 'w4mrb'}, {}),
       ({'location_id': 'w4mrx'}, {})
      ], 'aeon'),
-    ([({'location_id': 'w4spc'}, {}),
+    ([],
+     [({'location_id': 'w4spc'}, {}),
+      ({'location_id': 'xspc'}, {}),
+     ], None),
+    ([('856', ['u', 'http://example.com', 'y', 'The Resource',
+               'z', 'connect to electronic resource'])],
+     [({'location_id': 'w4spc'}, {}),
+      ({'location_id': 'xspc'}, {}),
+     ], None),
+    ([('856', ['u', 'http://findingaids.library.unt.edu/?p=collections/'
+                    'findingaid&id=897',
+               'z', 'Connect to finding aid'])],
+     [({'location_id': 'w4spc'}, {}),
       ({'location_id': 'xspc'}, {}),
      ], 'finding_aid'),
-    ([({'location_id': 'jlf'}, {})],
+    ([('856', ['u', 'http://example.com', 'y', 'The Resource',
+               'z', 'connect to electronic resource']),
+      ('856', ['u', 'http://findingaids.library.unt.edu/?p=collections/'
+                    'findingaid&id=897',
+               'z', 'Connect to finding aid'])],
+     [({'location_id': 'w4spc'}, {}),
+      ({'location_id': 'xspc'}, {}),
+     ], 'finding_aid'),
+    ([],
+     [({'location_id': 'jlf'}, {})],
      'jlf'),
 ], ids=[
     'items that are requestable through the catalog (Sierra)',
     'items that are not requestable',
     'items that are requestable through Aeon',
-    'items that are requestable through the finding aid',
+    'finding aid items w/o url are not requestable',
+    'finding aid items w/o finding aid url are not requestable',
+    'finding aid items w/link in 1st 856 are requestable via finding aid',
+    'finding aid items w/link in 2nd 856 are requestable via finding aid',
     'items that are at JLF'
 ])
-def test_todscpipeline_getiteminfo_requesting(items_info, expected_r,
+def test_todscpipeline_getiteminfo_requesting(f856s, items_info, expected_r,
                                               bl_sierra_test_record,
                                               todsc_pipeline_class,
                                               update_test_bib_inst,
+                                              bibrecord_to_pymarc,
+                                              params_to_fields,
+                                              add_marc_fields,
                                               assert_json_matches_expected):
     """
     The `items_json` key of the value returned by
@@ -1432,7 +1462,10 @@ def test_todscpipeline_getiteminfo_requesting(items_info, expected_r,
     pipeline = todsc_pipeline_class()
     bib = bl_sierra_test_record('bib_no_items')
     bib = update_test_bib_inst(bib, items=items_info)
-    val = pipeline.do(bib, None, ['item_info'])
+    bibmarc = bibrecord_to_pymarc(bib)
+    bibmarc.remove_fields('856', '962')
+    bibmarc = add_marc_fields(bibmarc, params_to_fields(f856s))
+    val = pipeline.do(bib, bibmarc, ['item_info'])
     exp_items = [{'r': expected_r} for i in range(0, len(items_info))]
     assert_json_matches_expected(val['items_json'], exp_items[0:3],
                                  complete=False)
