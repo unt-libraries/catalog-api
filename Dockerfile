@@ -40,10 +40,12 @@ ENV PYTHONPATH=/project/catalog-api \
     SOLR_PORT=8983 \
     TEST_SOLR_HOST=solr-test \
     TEST_SOLR_PORT=8983 \
-    REDIS_CELERY_HOST=redis-celery \
+    REDIS_CELERY_HOST=redis-celery-dev \
     REDIS_CELERY_PORT=6379 \
     REDIS_APPDATA_HOST=redis-appdata-dev \
     REDIS_APPDATA_PORT=6379 \
+    TEST_REDIS_CELERY_HOST=redis-celery-test \
+    TEST_REDIS_CELERY_PORT=6379 \
     TEST_REDIS_APPDATA_HOST=redis-appdata-test \
     TEST_REDIS_APPDATA_PORT=6379
 

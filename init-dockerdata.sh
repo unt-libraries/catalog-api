@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Set up needed ENV variables.
 set -o allexport
@@ -10,8 +10,8 @@ set +o allexport
 DDPATH=./docker_data
 SIERRA_FIXTURE_PATH=./django/sierra/base/fixtures
 SCRIPTNAME="$(basename "$0")"
-DEV_SERVICES=("default-db-dev" "solr-dev" "redis-celery" "redis-appdata-dev" "app" "celery-worker")
-TEST_SERVICES=("default-db-test" "sierra-db-test" "solr-test" "redis-appdata-test" "test")
+DEV_SERVICES=("default-db-dev" "solr-dev" "redis-celery-dev" "redis-appdata-dev" "app" "celery-worker")
+TEST_SERVICES=("default-db-test" "sierra-db-test" "solr-test" "redis-celery-test" "redis-appdata-test" "celery-worker-test" "test")
 ALL_SERVICES=("${DEV_SERVICES[@]}" "${TEST_SERVICES[@]}")
 
 ### FUNCTIONS ###
@@ -61,7 +61,7 @@ function show_services {
   echo "solr-dev -- dev"
   echo "    Empty instance of Solr for a development environment. No migrations."
   echo ""
-  echo "redis-celery -- dev"
+  echo "redis-celery-dev -- dev"
   echo "    Redis instance behind Celery, used in development. No migrations."
   echo ""
   echo "redis-appdata-dev -- dev"
@@ -87,14 +87,22 @@ function show_services {
   echo "    is set up and migrated."
   echo ""
   echo "solr-test -- tests"
-  echo "    Empty instance of Solr for a test environment. No migrations (yet)."
+  echo "    Empty instance of Solr for a test environment. No migrations."
+  echo ""
+  echo "redis-celery-test -- tests"
+  echo "    Redis instance behind Celery, used in testing. No migrations."
   echo ""
   echo "redis-appdata-test -- tests"
-  echo "    Redis instance that stores some app data in test. No migrations (yet)."
+  echo "    Redis instance that stores some app data in test. No migrations."
   echo ""
   echo "test -- tests"
   echo "    Log and media directories are set up for the test environment. No "
   echo "    migrations."
+  echo ""
+  echo "celery-worker-test -- tests"
+  echo "    The celery-worker service that runs in testing. A log directory is set"
+  echo "    up. No migrations."
+  echo ""
   exit 1
 }
 
@@ -331,9 +339,13 @@ for service in ${user_services[@]}; do
              "$DDPATH/solr_test/discover-02_data"
              "$DDPATH/solr_test/bl-suggest_data")
       ;;
-    redis-celery)
+    redis-celery-dev)
       paths=("$DDPATH/redis_celery/data"
              "$DDPATH/redis_celery/logs")
+      ;;
+    redis-celery-test)
+      paths=("$DDPATH/redis_celery_test/data"
+             "$DDPATH/redis_celery_test/logs")
       ;;
     redis-appdata-dev)
       paths=("$DDPATH/redis_appdata_dev/data"
@@ -349,6 +361,9 @@ for service in ${user_services[@]}; do
       ;;
     celery-worker)
       paths=("$DDPATH/celery_worker/logs")
+      ;;
+    celery-worker-test)
+      paths=("$DDPATH/celery_worker_test/logs")
       ;;
     test)
       paths=("$DDPATH/test/logs"

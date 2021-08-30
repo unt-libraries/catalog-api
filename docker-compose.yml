@@ -89,7 +89,7 @@ services:
     user: ${USERID}:${GROUPID}
     command: java -jar /project/solr/instances/start.jar -Djetty.port=8983
 
-  redis-celery:
+  redis-celery-dev:
     image: redis:3.2
     volumes:
       - ./docker_data/redis_celery/data:/project/data
@@ -97,11 +97,23 @@ services:
     ports:
       - "${REDIS_CELERY_HOST:-127.0.0.1}:${REDIS_CELERY_PORT:-6379}:6379"
     networks:
-      - testing
       - development
     user: ${USERID}:${GROUPID}
     command: redis-server ${REDIS_CELERY_CONF_FILE:---dir /project/data --logfile /project/logs/log.txt --appendonly yes}
 
+  redis-celery-test:
+    image: redis:3.2
+    volumes:
+      - ./docker_data/redis_celery_test/data:/project/data
+      - ./docker_data/redis_celery_test/logs:/project/logs
+    ports:
+      - "${TEST_REDIS_CELERY_HOST:-127.0.0.1}:${TEST_REDIS_CELERY_PORT:-6279}:6379"
+    networks:
+      - testing
+      - development
+    user: ${USERID}:${GROUPID}
+    command: redis-server ${REDIS_CELERY_CONF_FILE:---dir /project/data --logfile /project/logs/log.txt --appendonly no}
+ 
   redis-appdata-dev:
     image: redis:3.2
     volumes:
@@ -142,7 +154,6 @@ services:
       - ./docker_data/app/media:/project/media
     working_dir: /project/catalog-api/django/sierra
     networks:
-      - testing
       - development
     ports:
       - "0.0.0.0:${DJANGO_PORT:-8000}:8000"
@@ -156,15 +167,33 @@ services:
         groupid: ${GROUPID}
     depends_on:
       - default-db-dev
-      - redis-celery
+      - redis-celery-dev
     volumes:
       - .:/project/catalog-api
       - ./docker_data/celery_worker/logs:/project/logs
     working_dir: /project/catalog-api/django/sierra
     networks:
-      - testing
       - development
-    command: wait-for-it.sh -t 30 default-db-dev:3306 -- wait-for-it.sh -t 30 redis-celery:6379 -- celery worker -A sierra -c 4 -l info -f /project/logs/celery-worker.log
+    command: wait-for-it.sh -t 30 default-db-dev:3306 -- wait-for-it.sh -t 30 redis-celery-dev:6379 -- celery worker -A sierra -c 4 -l info -f /project/logs/celery-worker.log
+
+  celery-worker-test:
+    build:
+      context: .
+      args:
+        userid: ${USERID}
+        groupid: ${GROUPID}
+    depends_on:
+      - default-db-test
+      - redis-celery-test
+    volumes:
+      - .:/project/catalog-api
+      - ./docker_data/celery_worker_test/logs:/project/logs
+    environment:
+      - DJANGO_SETTINGS_MODULE=sierra.settings.test
+    working_dir: /project/catalog-api/django/sierra
+    networks:
+      - testing
+    command: wait-for-it.sh -t 30 default-db-test:3306 -- wait-for-it.sh -t 30 redis-celery-test:6379 -- celery worker -A sierra -c 4 -l info -f /project/logs/celery-worker.log
 
   test:
     build:
@@ -177,6 +206,7 @@ services:
       - sierra-db-test
       - solr-test
       - redis-appdata-test
+      - celery-worker-test
     volumes:
       - .:/project/catalog-api
       - ./docker_data/test/logs:/project/logs

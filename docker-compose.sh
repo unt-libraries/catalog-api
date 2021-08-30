@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 #
 # Wraps docker-compose to provide environment variables set via
 # django/sierra/sierra/settings/.env to docker-compose. Simply run this
