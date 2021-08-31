@@ -106,7 +106,7 @@ ITEM_RULES = {
     'is_requestable_through_aeon': r.Ruleset([
         ('location_id', r.reverse_mapping({
             True: ('w4spe', 'xspe', 'w4mr1', 'w4mr2', 'w4mr3', 'w4mrb',
-                   'w4mrx')
+                   'w4mrx', 'w4mbg', 'w4mwf')
         }, multi=False))
     ], default=False),
 
