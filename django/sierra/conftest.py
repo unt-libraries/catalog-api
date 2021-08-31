@@ -410,47 +410,79 @@ def record_sets(sierra_records_by_recnum_range, sierra_full_object_set):
                                                        rm_only=True),
     }
 
+
+def get_export_type(code):
+    return em.ExportType.objects.get(code=code)
+
+
 @pytest.fixture
 def export_type():
-    def _export_type(code):
-        return em.ExportType.objects.get(code=code)
-    return _export_type
+    return get_export_type
+
+
+@pytest.fixture(scope='module')
+def global_export_type():
+    return get_export_type
+
+
+def get_export_filter(code):
+    return em.ExportFilter.objects.get(code=code)
 
 
 @pytest.fixture
 def export_filter():
-    def _export_filter(code):
-        return em.ExportFilter.objects.get(code=code)
-    return _export_filter
+    return get_export_filter
+
+
+@pytest.fixture(scope='module')
+def global_export_filter():
+    return get_export_filter
+
+
+def get_status(code):
+    return em.Status.objects.get(code=code)
 
 
 @pytest.fixture
 def status():
-    def _status(code):
-        return em.Status.objects.get(code=code)
-    return _status
+    return get_status
+
+
+@pytest.fixture(scope='module')
+def global_status():
+    return get_status
+
+
+def make_export_instance(et_code, ef_code, st_code, instance_maker):
+    try:
+        test_user = User.objects.get(username='test')
+    except User.DoesNotExist:
+        test_user = instance_maker(User, 'test', 'test@test.com', 'testpass')
+    return instance_maker(
+        em.ExportInstance,
+        user=test_user,
+        status=get_status(st_code),
+        export_type=get_export_type(et_code),
+        export_filter=get_export_filter(ef_code),
+        errors=0,
+        warnings=0,
+        timestamp=datetime.now(pytz.utc)
+    )
 
 
 @pytest.fixture
-def new_export_instance(export_type, export_filter, status,
-                        model_instance):
+def new_export_instance(model_instance):
     def _new_export_instance(et_code, ef_code, st_code):
-        try:
-            test_user = User.objects.get(username='test')
-        except User.DoesNotExist:
-            test_user = model_instance(User, 'test', 'test@test.com',
-                                            'testpass')
-        return model_instance(
-            em.ExportInstance,
-            user=test_user,
-            status=status(st_code),
-            export_type=export_type(et_code),
-            export_filter=export_filter(ef_code),
-            errors=0,
-            warnings=0,
-            timestamp=datetime.now(pytz.utc)
-        )
+        return make_export_instance(et_code, ef_code, st_code, model_instance)
     return _new_export_instance
+
+
+@pytest.fixture(scope='module')
+def global_new_export_instance(global_model_instance):
+    def _global_new_export_instance(et_code, ef_code, st_code):
+        return make_export_instance(et_code, ef_code, st_code,
+                                    global_model_instance)
+    return _global_new_export_instance
 
 
 @pytest.fixture
