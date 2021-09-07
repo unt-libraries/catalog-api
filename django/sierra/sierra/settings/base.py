@@ -232,11 +232,6 @@ LOGGING = {
             'class': 'logging.StreamHandler',
             'formatter': 'simple'
         },
-        'mail_admins': {
-            'level': 'ERROR',
-            'filters': ['require_debug_false'],
-            'class': 'django.utils.log.AdminEmailHandler'
-        },
         'file': {
             'level': 'ERROR',
             'class': 'logging.FileHandler',
@@ -252,11 +247,6 @@ LOGGING = {
         },
     },
     'loggers': {
-        'django.request': {
-            'handlers': ['mail_admins'],
-            'level': 'ERROR',
-            'propagate': True,
-        },
         'django': {
             'handlers': ['file'],
             'level': 'ERROR',
@@ -452,10 +442,6 @@ for setting, as_str in ((EXPORTER_MAX_RC_CONFIG, 'EXPORTER_MAX_RC_CONFIG'),
             exp_name, max_val = item.split(':')
             setting.update({exp_name: int(max_val)})
 
-# Determines whether the Exporter jobs email site admins when a job
-# generates errors and/or warnings.
-EXPORTER_EMAIL_ON_ERROR = get_env_variable('EXPORTER_EMAIL_ON_ERROR', True)
-EXPORTER_EMAIL_ON_WARNING = get_env_variable('EXPORTER_EMAIL_ON_WARNING', True)
 
 # List of Exporter jobs that should be triggered when an AllMetadata
 # exporter job is run.

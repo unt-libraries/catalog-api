@@ -659,8 +659,7 @@ def do_final_cleanup(vals_list, instance_pk, export_filter, export_type,
     """
     Task that runs after all sub-tasks for an export job are done.
     Does final clean-up steps, such as updating the ExportInstance
-    status, triggering the final callback function on the export job,
-    emailing site admins if there were errors, etc.
+    status, triggering the final callback function on the export job.
     """
     exp = spawn_exporter(instance_pk, export_filter, export_type, options)
     errors = exp.instance.errors
@@ -705,26 +704,3 @@ def do_final_cleanup(vals_list, instance_pk, export_filter, export_type,
     else:
         plan.clear()
     exp.log('Info', _hr_line('='))
-
-    (send_errors, send_warnings) = (None, None)
-    if errors > 0 and settings.EXPORTER_EMAIL_ON_ERROR:
-        subject = '{} Exporter Errors'.format(
-                        exp.instance.export_type.code)
-        send_errors = errors
-    if warnings > 0 and settings.EXPORTER_EMAIL_ON_WARNING:
-        subject = '{} Exporter Warnings'.format(
-                        exp.instance.export_type.code)
-        send_warnings = warnings
-    if send_errors or send_warnings:
-        logfile = settings.LOGGING['handlers']['export_file']['filename']
-        vars = template.Context({
-            'i': exp.instance,
-            'errors': send_errors,
-            'warnings': send_warnings,
-            'logfile': logfile
-        })
-        if send_errors and send_warnings:
-            subject = '{} Exporter Errors and Warnings'.format(
-                            exp.instance.export_type.code)
-        email = template.loader.get_template('export/error_email.txt')
-        mail.mail_admins(subject, email.render(vars))
