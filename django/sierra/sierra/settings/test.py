@@ -56,7 +56,7 @@ redis_celery_url = 'redis://{}:{}/0'.format(REDIS_CELERY_HOST,
                                             REDIS_CELERY_PORT)
 CELERY_BROKER_URL = redis_celery_url
 CELERY_RESULT_BACKEND = redis_celery_url
-CELERY_SEND_EVENTS = True
+CELERY_WORKER_SEND_TASK_EVENTS = True
 
 # Other Redis settings
 REDIS_CONNECTION = {
