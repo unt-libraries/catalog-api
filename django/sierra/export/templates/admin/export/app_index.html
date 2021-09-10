@@ -30,7 +30,7 @@
 <h2>Manage Export Jobs</h2>
 <ul id="manage-exports" class="sierra-export-actions">
     <li><a href="{% url 'admin:export_exportinstance_changelist' %}">View In-Progress or Completed Exports</a></li>
-    <li><a href="{% url 'admin:djcelery_periodictask_changelist' %}">View Scheduled Exports</a></li>
+    <li><a href="{% url 'admin:django_celery_beat_periodictask_changelist' %}">View Scheduled Exports</a></li>
     <li><a href="{% url 'admin:export_exportinstance_add' %}">Trigger New Export</a></li>
 </ul>
 

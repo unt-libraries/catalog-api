@@ -33,7 +33,7 @@ services:
     command: mysqld --wait_timeout=7200
 
   sierra-db-test:
-    image: postgres:9.2
+    image: postgres:9.3
     environment:
       - POSTGRES_USER=${TEST_SIERRA_DB_USER}
       - POSTGRES_PASSWORD=${TEST_SIERRA_DB_PASSWORD}
@@ -113,7 +113,7 @@ services:
       - development
     user: ${USERID}:${GROUPID}
     command: redis-server ${REDIS_CELERY_CONF_FILE:---dir /project/data --logfile /project/logs/log.txt --appendonly no}
- 
+
   redis-appdata-dev:
     image: redis:3.2
     volumes:

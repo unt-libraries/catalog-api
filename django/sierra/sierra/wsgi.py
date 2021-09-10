@@ -18,7 +18,6 @@ import os
 from unipath import Path
 
 import dotenv
-import djcelery
 
 # We defer to a DJANGO_SETTINGS_MODULE already in the environment, or set
 # via a .env settings file. If running multiple sites in the same mod_wsgi
@@ -26,7 +25,6 @@ import djcelery
 # or use os.environ["DJANGO_SETTINGS_MODULE"] = "sierra.settings"
 dotenv.load_dotenv('{}/settings/.env'.format(Path(__file__).ancestor(1)))
 
-djcelery.setup_loader()
 
 # This application object is used by any WSGI server configured to use this
 # file. This includes Django's development server, if the WSGI_APPLICATION

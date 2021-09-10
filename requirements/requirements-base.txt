@@ -1,10 +1,10 @@
-celery==3.1.25
+celery==4.2.1
 Django==1.11.29
-django-celery==3.2.2
+django_celery_beat==1.6.0
 django-cors-headers==2.1.0
 django-extensions==2.0.0
 django-haystack==2.7.0
-django-redis==3.8.0
+django-redis==4.10.0
 djangorestframework==3.6.4
 jsonpatch==1.32
 jsonpointer==2.0
@@ -15,6 +15,6 @@ pymarc==3.1.7
 pysolr==3.7.0
 python-dateutil==2.6.1
 python-dotenv==0.7.1
-redis==2.10.6
+redis==3.2.0
 ujson==1.35
 Unipath==1.1

@@ -25,7 +25,7 @@ INSTALLED_APPS += (
 
 DATABASES = {
     'sierra': {
-        'ENGINE': 'django.db.backends.postgresql_psycopg2',
+        'ENGINE': 'django.db.backends.postgresql',
         'NAME': get_env_variable('TEST_SIERRA_DB_NAME', 'sierra_test'),
         'USER': get_env_variable('TEST_SIERRA_DB_USER'),
         'PASSWORD': get_env_variable('TEST_SIERRA_DB_PASSWORD'),
@@ -54,7 +54,7 @@ REDIS_CELERY_PORT = get_env_variable('TEST_REDIS_CELERY_PORT', '6279')
 REDIS_CELERY_HOST = get_env_variable('TEST_REDIS_CELERY_HOST', '127.0.0.1')
 redis_celery_url = 'redis://{}:{}/0'.format(REDIS_CELERY_HOST,
                                             REDIS_CELERY_PORT)
-BROKER_URL = redis_celery_url
+CELERY_BROKER_URL = redis_celery_url
 CELERY_RESULT_BACKEND = redis_celery_url
 CELERY_SEND_EVENTS = True
 

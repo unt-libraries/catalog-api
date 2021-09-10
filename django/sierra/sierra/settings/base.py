@@ -62,7 +62,7 @@ MANAGERS = ADMINS
 
 DATABASES = {
     'sierra': {
-        'ENGINE': 'django.db.backends.postgresql_psycopg2',
+        'ENGINE': 'django.db.backends.postgresql',
         'NAME': 'iii',
         'OPTIONS': {
             'options': '-c search_path=sierra_view',
@@ -197,8 +197,7 @@ INSTALLED_APPS = (
     'rest_framework',
     'haystack',
     'django_extensions',
-    'kombu.transport.django',
-    'djcelery',
+    'django_celery_beat',
     'corsheaders',
     'base',
     'export',
@@ -366,21 +365,22 @@ REDIS_CELERY_PORT = get_env_variable('REDIS_CELERY_PORT', '6379')
 REDIS_CELERY_HOST = get_env_variable('REDIS_CELERY_HOST', '127.0.0.1')
 redis_celery_url = 'redis://{}:{}/0'.format(REDIS_CELERY_HOST,
                                             REDIS_CELERY_PORT)
-BROKER_URL = redis_celery_url
-BROKER_TRANSPORT_OPTIONS = {
+CELERY_BROKER_URL = redis_celery_url
+CELERY_BROKER_TRANSPORT_OPTIONS = {
     'visibility_timeout': 3600,
     'fanout_prefix': True,
     'fanout_patterns': True,
 }
 CELERY_RESULT_BACKEND = redis_celery_url
-CELERYBEAT_SCHEDULER = 'djcelery.schedulers.DatabaseScheduler'
+CELERY_BEAT_SCHEDULER = 'django_celery_beat.schedulers.DatabaseScheduler'
 CELERY_ACCEPT_CONTENT = ['pickle', 'json', 'msgpack', 'yaml']
-CELERY_TASK_RESULT_EXPIRES = 86400
-CELERYD_TASK_TIME_LIMIT = None
-CELERYD_TASK_SOFT_TIME_LIMIT = None
-CELERYD_FORCE_EXECV = True
-CELERYD_MAX_TASKS_PER_CHILD = 2
-CELERY_CHORD_PROPAGATES = True
+CELERY_RESULT_EXPIRES = 86400
+CELERY_TASK_SERIALIZER = 'pickle'
+CELERY_EVENT_SERIALIZER = 'pickle'
+CELERY_RESULT_SERIALIZER = 'pickle'
+CELERY_TASK_TIME_LIMIT = None
+CELERY_TASK_SOFT_TIME_LIMIT = None
+CELERY_WORKER_MAX_TASKS_PER_CHILD = 2
 
 # CORS settings
 CORS_ORIGIN_REGEX_WHITELIST = tuple(

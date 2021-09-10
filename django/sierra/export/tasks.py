@@ -5,7 +5,6 @@ import sys, traceback
 
 import pysolr
 
-from django.core import mail
 from django import template
 from django.conf import settings
 from django.contrib.auth.models import User
@@ -14,6 +13,7 @@ from django.db import connections
 
 from celery import Task, shared_task, chord, chain, result
 
+from sierra.celery import app
 from . import models as export_models
 from utils.redisobjs import RedisObject
 import six
@@ -34,8 +34,8 @@ def needs_database(job_func):
     and after the decorated function runs.
     """
     def _do_close():
-            for conn in connections.all():
-                conn.close_if_unusable_or_obsolete()
+        for conn in connections.all():
+            conn.close_if_unusable_or_obsolete()
 
     def _wrapper(*args, **kwargs):
         _do_close()
@@ -498,6 +498,8 @@ class ExportTask(Task):
                    'failed with error: {}'.format(chunk_id, e))
 
 
+ExportTask = app.register_task(ExportTask())
+
 # Private functions below are just reusable components for tasks
 
 def _hr_line(char='-', len=80):
@@ -518,7 +520,8 @@ def _compile_vals_list_for_batch(prev_batch_task_id):
 
 # EXPORT TASKS
 
-@shared_task(base=ExportTask)
+@app.task(base=ExportTask)
+@shared_task
 @needs_database
 def delegate_batch(vals_list, instance_pk, export_filter, export_type, options,
                    chunk_id=None, batch_num=0, prev_batch_had_errors=False,
@@ -629,7 +632,8 @@ def delegate_batch(vals_list, instance_pk, export_filter, export_type, options,
         do_final_cleanup.s(vals_list, *args).apply_async()
 
 
-@shared_task(base=ExportTask)
+@app.task(base=ExportTask)
+@shared_task
 @needs_database
 def do_export_chunk(cumulative_vals, instance_pk, export_filter, export_type,
                     options, chunk_id=None):
@@ -650,7 +654,8 @@ def do_export_chunk(cumulative_vals, instance_pk, export_filter, export_type,
     return vals
 
 
-@shared_task(base=ExportTask)
+@app.task(base=ExportTask)
+@shared_task
 @needs_database
 def do_final_cleanup(vals_list, instance_pk, export_filter, export_type,
                      options, status='success', chunk_id=None,
