@@ -2569,16 +2569,54 @@ class ToDiscoverPipeline(object):
         self.r = None
         self.marc_record = None
         self.marc_fieldgroups = None
+        self._sierra_location_labels = None
+        self._sorted_items = None
 
     @property
     def sierra_location_labels(self):
-        if not hasattr(self, '_sierra_location_labels'):
+        if self._sierra_location_labels is None:
             self._sierra_location_labels = {}
             pf = 'locationname_set'
             for loc in models.Location.objects.prefetch_related(pf).all():
                 loc_name = loc.locationname_set.all()[0].name
                 self._sierra_location_labels[loc.code] = loc_name
         return self._sierra_location_labels
+
+    @property
+    def sorted_items(self):
+        """
+        Get a list of items, sorted into a good display order.
+
+        Generally we want items to sort in the intended display order,
+        which is set in Sierra and reflected in the database via the
+        bib/item link `items_display_order` integer. However, we've
+        noticed sometimes there are null and duplicate values in the
+        data. This causes two problems. 1) In Py3, null values now raise
+        an error (can't use NoneType in comparisons). 2) Without a
+        fallback sort value that is both reliable and unique, the sort
+        order for duplicate values (including nulls) will be
+        unpredictable.
+
+        This is meant to address these issues. 1) For null values, it
+        defaults to 0, causing these items to display first. 2) It adds
+        the item record number as a secondary sort, so groups of items
+        with the same display_order value sort by record number. All
+        else being equal, record number order is a good default order,
+        because it will put things in the order in which they were
+        created.
+
+        Note that we're sorting in Python rather than using a simple
+        `order_by` call, to avoid unnecessary database access.
+        """
+        if self.r and self._sorted_items is None:
+            self._sorted_items = [l.item_record for l in sorted(
+                self.r.bibrecorditemrecordlink_set.all(),
+                key=lambda l: (
+                    l.items_display_order or 0,
+                    l.item_record.record_metadata.record_num
+                )
+            )]
+        return self._sorted_items
 
     def set_up(self, r=None, marc_record=None, reset_params=True):
         if reset_params:
@@ -2594,6 +2632,7 @@ class ToDiscoverPipeline(object):
                 self.marc_fieldgroups = groups
         if self.r != r:
             self.r = r
+            self._sorted_items = None
 
     def do(self, r, marc_record, fields=None, reset_params=True):
         """
@@ -2681,19 +2720,17 @@ class ToDiscoverPipeline(object):
         """
         r = self.r
         items = []
-        item_links = [l for l in r.bibrecorditemrecordlink_set.all()]
-        for link in sorted(item_links, key=lambda l: l.items_display_order):
-            item = link.item_record
+        for item in self.sorted_items:
             if not item.is_suppressed:
-                item_id, callnum, barcode, notes, rqbility = '', '', '', [], ''
                 callnum, vol = self.calculate_item_display_call_number(r, item)
-                item_id = str(item.record_metadata.record_num)
-                barcode = self.fetch_varfields(item, 'b', only_first=True)
-                notes = self.fetch_varfields(item, 'p')
-                requestability = self.calculate_item_requestability(item)
-
-                items.append({'i': item_id, 'c': callnum, 'v': vol,
-                              'b': barcode, 'n': notes, 'r': requestability})
+                items.append({
+                    'i': str(item.record_metadata.record_num),
+                    'b': self.fetch_varfields(item, 'b', only_first=True),
+                    'c': callnum,
+                    'v': vol,
+                    'n': self.fetch_varfields(item, 'p'),
+                    'r': self.calculate_item_requestability(item),
+                })
 
         if len(items) == 0:
             bib_locations = r.locations.all()
@@ -4584,9 +4621,7 @@ class ToDiscoverPipeline(object):
 
         call_numbers = self.r.get_call_numbers() or []
 
-        item_links = [l for l in self.r.bibrecorditemrecordlink_set.all()]
-        for link in sorted(item_links, key=lambda l: l.items_display_order):
-            item = link.item_record
+        for item in self.sorted_items:
             if not item.is_suppressed:
                 call_numbers.extend(item.get_call_numbers() or [])
 

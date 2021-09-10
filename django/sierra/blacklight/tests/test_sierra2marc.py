@@ -1478,6 +1478,63 @@ def test_todscpipeline_getiteminfo_requesting(f856s, items_info, expected_r,
                                      complete=False)
 
 
+@pytest.mark.parametrize('items_info, exp_order', [
+    ([(('b', None, ['100']), 1),
+      (('b', None, ['101']), 0),
+      (('b', None, ['102']), 0),
+      (('b', None, ['103']), 3),
+      (('b', None, ['104']), 4)],
+     ['101', '102', '100', '103', '104']),
+    ([(('b', None, ['100']), None),
+      (('b', None, ['101']), 0),
+      (('b', None, ['102']), 1),
+      (('b', None, ['103']), None),
+      (('b', None, ['104']), 4)],
+     ['100', '101', '103', '102', '104']),
+    ([(('b', None, ['100']), None),
+      (('b', None, ['101']), None),
+      (('b', None, ['102']), None),
+      (('b', None, ['103']), None),
+      (('b', None, ['104']), 0)],
+     ['100', '101', '102', '103', '104']),
+    ([(('b', None, ['100']), 1),
+      (('b', None, ['101']), 0),
+      (('b', None, ['102']), 3),
+      (('b', None, ['103']), 2),
+      (('b', None, ['104']), 4)],
+     ['101', '100', '103', '102', '104']),
+])
+def test_todscpipeline_sorteditems(items_info, exp_order, bl_sierra_test_record,
+                                   todsc_pipeline_class, update_test_bib_inst):
+    """
+    When the ToDiscoverPipeline.get_item_info method compiles items
+    from the bib record, it normally will use the `items_display_order`
+    field on the bib->item link to sort the items, to preserve the
+    order items would display in Sierra and the III catalog. However,
+    we have encountered cases where (for some reason) one or more items
+    have a null value (i.e. `None`) for that field. When this happens,
+    it's unlikely the sort order will match what's in Sierra. But, in
+    order to give it a useful fallback, if the display order is null
+    then it will default to 0 and use the item record ID as a secondary
+    sort.
+    """
+    pipeline = todsc_pipeline_class()
+    bib = bl_sierra_test_record('bib_no_items')
+    items_param = [({}, [tup[0]]) for tup in items_info]
+    items_display_order = [tup[1] for tup in items_info]
+    bib = update_test_bib_inst(bib, items=items_param)
+    for i, link in enumerate(bib.bibrecorditemrecordlink_set.all()):
+        link._write_override = True
+        link.items_display_order = items_display_order[i]
+        link.save()
+    pipeline.set_up(bib)
+    bc_results = [
+        i.record_metadata.varfield_set.get(varfield_type_code='b').field_content
+        for i in pipeline.sorted_items
+    ]
+    assert bc_results == exp_order
+
+
 @pytest.mark.parametrize('bib_locations, bib_cn_info, expected', [
     ([('w', 'Willis Library'), ('czm', 'Chilton Media Library')],
      [('c', '090', ['|aTEST BIB CN'])],
