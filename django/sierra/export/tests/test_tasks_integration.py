@@ -168,7 +168,7 @@ def test_export_tasks(exp_type, exp_filter, options, num_expected_chunks,
       has successfully been cleared out.
     """
     monitor = export_and_monitor(exp_type, exp_filter, options, wait_limit)
-    tasks = monitor.state.tasks.values()
+    tasks = list(monitor.state.tasks.values())
     plan = export_tasks.JobPlan(monitor.exp)
 
     # Print the monitor log if test fails:
