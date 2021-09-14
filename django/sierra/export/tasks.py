@@ -478,7 +478,7 @@ class ExportTask(Task):
         else:
             exp.log('Error', msg)
 
-    def on_success(self, vals, task_id, args, kwargs):
+    def on_success(self, retval, task_id, args, kwargs):
         """
         When a task succeeds, the registry for that chunk should be
         cleared from Redis.
@@ -497,8 +497,6 @@ class ExportTask(Task):
             msg = ('During `on_success` for chunk {}, `plan.finish_chunk` '
                    'failed with error: {}'.format(chunk_id, e))
 
-
-ExportTask = app.register_task(ExportTask())
 
 # Private functions below are just reusable components for tasks
 
@@ -520,8 +518,7 @@ def _compile_vals_list_for_batch(prev_batch_task_id):
 
 # EXPORT TASKS
 
-@app.task(base=ExportTask)
-@shared_task
+@shared_task(base=ExportTask)
 @needs_database
 def delegate_batch(vals_list, instance_pk, export_filter, export_type, options,
                    chunk_id=None, batch_num=0, prev_batch_had_errors=False,
@@ -632,8 +629,7 @@ def delegate_batch(vals_list, instance_pk, export_filter, export_type, options,
         do_final_cleanup.s(vals_list, *args).apply_async()
 
 
-@app.task(base=ExportTask)
-@shared_task
+@shared_task(base=ExportTask)
 @needs_database
 def do_export_chunk(cumulative_vals, instance_pk, export_filter, export_type,
                     options, chunk_id=None):
@@ -654,8 +650,7 @@ def do_export_chunk(cumulative_vals, instance_pk, export_filter, export_type,
     return vals
 
 
-@app.task(base=ExportTask)
-@shared_task
+@shared_task(base=ExportTask)
 @needs_database
 def do_final_cleanup(vals_list, instance_pk, export_filter, export_type,
                      options, status='success', chunk_id=None,
