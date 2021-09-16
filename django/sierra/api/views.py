@@ -25,8 +25,12 @@ logger = logging.getLogger('sierra.custom')
 
 @api_view(('GET',))
 def api_root(request):
+    return get_api_root(request)
+
+
+def get_api_root(request):
     utc_offset = tz.get_default_timezone().utcoffset(datetime.now())
-    utc_offset = utc_offset.total_seconds() / (60*60)
+    utc_offset = utc_offset.total_seconds() / (60 * 60)
     links = {
         'self': {
             'href': APIUris.get_uri('api-root', req=request,
@@ -84,7 +88,6 @@ def api_root(request):
     }
 
     return Response(ret_val)
-
 
 class APIUserList(SimpleGetMixin, SimpleView):
     """
