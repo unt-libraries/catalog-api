@@ -1985,7 +1985,8 @@ class UserDefinedNcode3Myuser(ReadOnlyModel):
 
 class BibRecordItemRecordLink(ReadOnlyModel):
     id = models.BigIntegerField(primary_key=True)
-    bib_record = models.ForeignKey(BibRecord, null=True, blank=True)
+    bib_record = models.ForeignKey(BibRecord, on_delete=models.CASCADE,
+                                   null=True, blank=True)
     item_record = models.ForeignKey('ItemRecord', on_delete=models.CASCADE,
                                     null=True, blank=True)
     items_display_order = models.IntegerField(null=True, blank=True)
@@ -5762,7 +5763,8 @@ class ScatCategory(ModelWithAttachedName):
 
 class ScatCategoryMyuser(ReadOnlyModel):
     code = models.IntegerField(primary_key=True)
-    scat_section = models.ForeignKey('ScatSection', null=True, blank=True)
+    scat_section = models.ForeignKey('ScatSection', on_delete=models.CASCADE,
+                                     null=True, blank=True)
     name = models.CharField(max_length=255, blank=True)
 
     class Meta(ReadOnlyModel.Meta):

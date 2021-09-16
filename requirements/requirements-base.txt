@@ -1,11 +1,11 @@
 celery==4.4.7
-Django==1.11.29
+Django==2.0.13
 django_celery_beat==1.6.0
 django-cors-headers==2.1.0
 django-extensions==2.0.0
-django-haystack==2.7.0
+django-haystack==2.8.0
 django-redis==4.11.0
-djangorestframework==3.6.4
+djangorestframework==3.7.7
 jsonpatch==1.32
 jsonpointer==2.0
 modernize==0.7

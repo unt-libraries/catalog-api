@@ -2,7 +2,7 @@ from __future__ import absolute_import
 from django import http
 from django.utils.deprecation import MiddlewareMixin
 from django.utils.http import urlquote
-from django.core import urlresolvers
+from django import urls
 from django.conf import settings
 
 
@@ -70,7 +70,7 @@ def _is_valid_path(path, urlconf=None):
     False otherwise.
     """
     try:
-        urlresolvers.resolve(path, urlconf)
+        urls.resolve(path, urlconf)
         return True
-    except urlresolvers.Resolver404:
+    except urls.Resolver404:
         return False

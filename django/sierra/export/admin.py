@@ -1,7 +1,7 @@
 from __future__ import absolute_import
 from django.contrib import admin
 from django.http import HttpResponseRedirect, HttpResponse
-from django.core.urlresolvers import reverse
+from django.urls import reverse
 from django.shortcuts import get_object_or_404, render
 from django.utils import timezone as tz
 

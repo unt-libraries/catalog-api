@@ -5,7 +5,7 @@ Add URL patterns for Django/DRF for `asm-search-suggestions` and
 
 from __future__ import absolute_import
 from django.conf.urls import url
-from django.core.urlresolvers import reverse_lazy
+from django.urls import reverse_lazy
 from django.views.generic import RedirectView
 
 from rest_framework.urlpatterns import format_suffix_patterns

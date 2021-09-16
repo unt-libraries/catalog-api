@@ -23,7 +23,9 @@ logger = logging.getLogger('sierra.custom')
 
 @api_view(('GET',))
 def api_root(request):
-    resp = api_views.api_root(request)
+    # ._request is a protected member of DRFRequest, but don't know how else to
+    # get what we need here.
+    resp = api_views.api_root(request._request)
     links = resp.data['catalogApi']['_links']
     links['shelflistitems'] = {
         'href': ShelflistAPIUris.get_uri('shelflistitems-list', req=request,
