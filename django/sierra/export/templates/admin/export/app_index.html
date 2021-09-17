@@ -1,6 +1,6 @@
 {% extends "admin/index.html" %}
 {% load i18n %}
-{% load staticfiles %}
+{% load static %}
 
 {% block extrastyle %}{{ block.super }}<link rel="stylesheet" type="text/css" href="{% static 'export/admin_styles.css' %}" />{% endblock %}
 {% if not is_popup %}
