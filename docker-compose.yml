@@ -227,6 +227,7 @@ services:
         groupid: ${GROUPID}
     depends_on:
       - default-db-dev
+      - redis-appdata-dev
     volumes:
       - .:/project/catalog-api
       - ./docker_data/test/logs:/project/logs
