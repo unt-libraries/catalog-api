@@ -1,23 +1,21 @@
 from __future__ import absolute_import
-
-import logging
 import sys, traceback
 
+import logging
 import pysolr
-
 from django import template
 from django.conf import settings
 from django.contrib.auth.models import User
 from django.utils import timezone as tz
 from django.db import connections
-
 from celery import Task, shared_task, chord, chain, result
-
-from sierra.celery import app
-from . import models as export_models
-from utils.redisobjs import RedisObject
-import six
+from six import iteritems
 from six.moves import range
+
+from . import models as export_models
+from sierra.celery import app
+from utils.redisobjs import RedisObject
+
 
 # set up loggers
 logger = logging.getLogger('sierra.custom')
@@ -103,7 +101,7 @@ def optimize():
     logger = logging.getLogger('exporter.file')
     logger.info('Running optimization on all Solr indexes.')
     url_stack = []
-    for index, options in six.iteritems(settings.HAYSTACK_CONNECTIONS):
+    for index, options in iteritems(settings.HAYSTACK_CONNECTIONS):
         if options['URL'] not in url_stack:
             conn = pysolr.Solr(options['URL'], 
                                timeout=options['TIMEOUT'])

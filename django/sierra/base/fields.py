@@ -25,7 +25,7 @@ from django.db import models
 from django.db.models import functions
 from django.utils.functional import cached_property
 from django.core.exceptions import ValidationError
-import six
+from six import text_type
 
 
 class CompositeColumn(models.expressions.Col):
@@ -73,17 +73,16 @@ class CompositeValueTuple(tuple):
     can round-trip the conversion by passing the string to `from_raw`.
     """
 
-    def __new__(cls, values, field):
-        return super(CompositeValueTuple, cls).__new__(cls, tuple(values))
-
-    def __init__(self, values, field):
+    def __new__(cls, values, field=None):
+        self = super(CompositeValueTuple, cls).__new__(cls, tuple(values))
         self.field = field
+        return self
 
     def __str__(self):
         return self.to_string()
 
     def __unicode__(self):
-        return six.text_type(self.to_string())
+        return text_type(self.to_string())
 
     @classmethod
     def from_raw(cls, value, field):
@@ -97,7 +96,7 @@ class CompositeValueTuple(tuple):
         (or questionably valid) set of values.
         """
         try:
-            cv_tuple = tuple((None if v == '' else six.text_type(v)
+            cv_tuple = tuple((None if v == '' else text_type(v)
                               for v in value.split(field.separator)))
         except AttributeError:
             # Not a string.

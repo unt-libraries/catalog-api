@@ -1,6 +1,7 @@
 """
 Contains classes, etc. needed for custom sierra management commands.
 """
+from django.db.models.query_utils import DeferredAttribute
 
 
 class BadRelation(Exception):
@@ -85,6 +86,8 @@ class Relation(object):
         try:
             # db.models.fields.related RelatedObjectsDescriptor object
             accessor = getattr(model, fieldname)
+            if isinstance(accessor, DeferredAttribute):
+                raise AttributeError
         except AttributeError:
             msg = '{} not found on {}'.format(fieldname, model_name)
             raise BadRelation(msg)

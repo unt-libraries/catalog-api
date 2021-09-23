@@ -12,9 +12,9 @@ import ujson
 import datetime
 import pytz
 
+from six.moves import range, zip
+
 from blacklight import sierra2marc as s2m
-from six.moves import range
-from six.moves import zip
 
 
 # FIXTURES AND TEST DATA

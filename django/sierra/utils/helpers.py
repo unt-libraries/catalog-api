@@ -8,7 +8,7 @@ import operator
 import re
 
 from django.db.models import Q
-import six
+from six import text_type
 from functools import reduce
 
 
@@ -106,7 +106,7 @@ class NormalizedCallNumber(object):
         process_it = getattr(self, '_process_{}'.format(kind), 
                              self._process_default)
         try:
-            call = process_it(six.text_type(call))
+            call = process_it(text_type(call))
         except CallNumberError:
             raise
 
@@ -293,7 +293,7 @@ class NormalizedCallNumber(object):
         for x in data.split(' '):
             if ((decimals and re.search(r'^\d*\.?\d+$', x))
                 or (not decimals and re.search(r'^\d+$', x))):
-                x = '{:010d}{}'.format(int(float(x)), six.text_type(float(x)%1)[1:])
+                x = '{:010d}{}'.format(int(float(x)), text_type(float(x)%1)[1:])
                 x = re.sub(r'\.0$', '', x)
             parts.append(x)
         return ' '.join(parts)

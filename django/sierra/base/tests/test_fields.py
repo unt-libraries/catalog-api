@@ -9,10 +9,10 @@ import pytest
 
 from django.db import connections, models, IntegrityError
 from django.core import serializers
+from six import text_type
 
 from base import fields
 from .vcftestmodels import models as vtm
-import six
 
 
 # FIXTURES AND TEST DATA
@@ -155,7 +155,7 @@ def noise_data():
         count = 1
         while count <= n:
             parent_int = random.randint(0,11) or None
-            parent_str = six.text_type(random.randint(0,11) or None)
+            parent_str = text_type(random.randint(0,11) or None)
             yield ('noise{}'.format(count), count, parent_int, parent_str)
             count += 1
     return _noise_data

@@ -27,12 +27,14 @@ from datetime import datetime
 from collections import OrderedDict
 
 from django.conf import settings
+from six import text_type
+from six.moves import range
+
 from base import models, local_rulesets
 from export.sierra2marc import S2MarcBatch, S2MarcError
 from blacklight import parsers as p
 from utils import helpers, toascii
-import six
-from six.moves import range
+
 
 
 # These are MARC fields that we are currently not including in public
@@ -3106,7 +3108,7 @@ class ToDiscoverPipeline(object):
                 if match.groups()[1] == 'u':
                     year = year.replace('u', '0s')
                 elif match.groups()[1] == 'uu':
-                    century = six.text_type(int(match.groups()[0] or 0) + 1)
+                    century = text_type(int(match.groups()[0] or 0) + 1)
                     if century[-2:] in ('11', '12', '13'):
                         suffix = 'th'
                     else:

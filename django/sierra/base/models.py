@@ -86,13 +86,12 @@ import re
 
 from django.db import models
 from django.conf import settings
-from django.utils.encoding import python_2_unicode_compatible
+from six import python_2_unicode_compatible, text_type
+from six.moves import range
 
 from . import fields
 from .managers import RecordManager
 from utils import helpers
-import six
-from six.moves import range
 
 
 @python_2_unicode_compatible
@@ -121,13 +120,13 @@ class ReadOnlyModel(models.Model):
 
     def __str__(self):
         if hasattr(self, 'code'):
-            return six.text_type(str(self.code))
+            return text_type(str(self.code))
         elif hasattr(self, 'record_metadata'):
-            return six.text_type(self.record_metadata.get_iii_recnum())
+            return text_type(self.record_metadata.get_iii_recnum())
         elif hasattr(self, 'record_type') and hasattr(self, 'record_num'):
-            return six.text_type(self.get_iii_recnum())
+            return text_type(self.get_iii_recnum())
         elif hasattr(self, 'marc_tag') and hasattr(self, 'field_content'):
-            return six.text_type('{} {}{}{} {}'.format(
+            return text_type('{} {}{}{} {}'.format(
                 self.varfield_type_code,
                 self.marc_tag,
                 self.marc_ind1,
@@ -135,7 +134,7 @@ class ReadOnlyModel(models.Model):
                 self.field_content
             ))
         elif hasattr(self, 'marc_tag') and hasattr(self, 'content'):
-            return six.text_type('{} {}{}{} {}{}'.format(
+            return text_type('{} {}{}{} {}{}'.format(
                 self.field_type_code,
                 self.marc_tag,
                 self.marc_ind1,
@@ -144,7 +143,7 @@ class ReadOnlyModel(models.Model):
                 self.content
             ))
         else:
-            return six.text_type(str(self.pk))
+            return text_type(str(self.pk))
 
     class Meta(object):
         abstract = True

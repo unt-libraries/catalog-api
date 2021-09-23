@@ -3,14 +3,14 @@ from collections import OrderedDict
 import ujson
 
 from django.conf import settings
+from six import iteritems
+import logging
 
 from utils import solr
 from utils.camel_case import render, parser
 from .uris import APIUris
 from .simpleserializers import SimpleSerializer, SimpleSerializerWithLookups
 
-import logging
-import six
 
 # set up logger, for debugging
 logger = logging.getLogger('sierra.custom')
@@ -33,7 +33,7 @@ class APIUserSerializer(SimpleSerializer):
     def process_permissions(self, value, obj):
         permissions = ujson.decode(obj.apiuser.permissions)
         new_permissions = {}
-        for key, val in six.iteritems(permissions):
+        for key, val in iteritems(permissions):
             new_permissions[self.render_field_name(key)] = val
         return new_permissions
 

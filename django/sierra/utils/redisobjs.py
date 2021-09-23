@@ -2,9 +2,8 @@ from __future__ import absolute_import
 import json
 
 import redis
-
 from django.conf import settings
-import six
+from six import iteritems
 
 
 class RedisObject(object):
@@ -26,7 +25,7 @@ class RedisObject(object):
                 i += 1
 
         elif isinstance(data, dict):
-            for k, v in six.iteritems(data):
+            for k, v in iteritems(data):
                 pipe.hset(self.key, k, json.dumps(v))
 
         else:
@@ -54,7 +53,7 @@ class RedisObject(object):
             if datatype == 'zset':
                 return [json.loads(i) for i in self.conn.zrange(self.key, 0, -1)]
             if datatype == 'hash':
-                return {k: json.loads(v) for k, v in six.iteritems(self.conn.hgetall(self.key))}
+                return {k: json.loads(v) for k, v in iteritems(self.conn.hgetall(self.key))}
             if datatype == 'string':
                 return json.loads(self.conn.get(self.key))
             if datatype == 'list':

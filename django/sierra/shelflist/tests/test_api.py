@@ -9,11 +9,13 @@ import ujson
 import jsonpatch
 from datetime import datetime
 
+from six import text_type
+from six.moves import range
+
 from shelflist.exporters import ItemsToSolr
 from shelflist.search_indexes import ShelflistItemIndex
 from shelflist.serializers import ShelflistItemSerializer
-import six
-from six.moves import range
+
 
 # FIXTURES AND TEST DATA
 # Fixtures used in the below tests can be found in ...
@@ -422,7 +424,7 @@ def derive_updated_resource():
     """
     def _get_new_val(old_val, field_type):
         if field_type == 'str':
-            return six.text_type('{} TEST').format((old_val or ''))
+            return text_type('{} TEST').format((old_val or ''))
         if field_type == 'int':
             return (old_val or 0) + 1
         if field_type == 'bool':

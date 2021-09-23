@@ -1,9 +1,11 @@
 # -*- coding: utf-8 -*-
 from __future__ import absolute_import
-from rest_framework.parsers import JSONParser, ParseError, six
-from django.conf import settings
 import re
 import json
+
+from rest_framework.parsers import JSONParser, ParseError
+from django.conf import settings
+from six import text_type
 from six.moves import range
 
 first_cap_re = re.compile('(.)([A-Z][a-z]+)')
@@ -36,4 +38,4 @@ class CamelCaseJSONParser(JSONParser):
             data = stream.read().decode(encoding)
             return underscoreize(json.loads(data))
         except ValueError as exc:
-            raise ParseError('JSON parse error - %s' % six.text_type(exc))
+            raise ParseError('JSON parse error - %s' % text_type(exc))

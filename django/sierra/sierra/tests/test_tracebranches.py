@@ -5,7 +5,7 @@ import pytest
 
 from django.core.management import call_command
 from django.core.management.base import CommandError
-from django.utils.six import StringIO
+from six import StringIO
 
 from .testmodels import models as m
 from sierra.management.commands import tracebranches

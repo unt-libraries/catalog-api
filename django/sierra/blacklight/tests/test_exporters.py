@@ -7,7 +7,7 @@ import pytest
 from datetime import datetime
 import pytz
 import random
-import six
+from six import text_type
 from six.moves import range
 
 # FIXTURES AND TEST DATA
@@ -283,7 +283,7 @@ def test_bibstodsc_export_records(discover_exporter_class, record_sets,
     overlap_recs = records[0:num_existing]
     overlap_rec_pks = [r.pk for r in overlap_recs]
     only_new_recs = records[num_existing:]
-    old_rec_pks = [six.text_type(pk) for pk in range(99991,99995)]
+    old_rec_pks = [text_type(pk) for pk in range(99991,99995)]
     only_old_rec_data = [(pk, {}) for pk in old_rec_pks]
 
     overlap_rec_data = []

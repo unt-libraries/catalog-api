@@ -39,7 +39,7 @@ import ast
 from datetime import datetime, time
 
 from rest_framework.test import APIClient
-import six
+from six import iteritems
 from six.moves import range
 
 
@@ -86,7 +86,7 @@ class APIViewTimingTester(object):
                     raw_timings = ast.literal_eval(response['timings'])
                 except ValueError:
                     raw_timings = response['timings']
-                for key, value in six.iteritems(raw_timings):
+                for key, value in iteritems(raw_timings):
                     timings[key] = timings.get(key, 0) + value
                     if i == repeat - 1:
                         timings[key] = timings.get(key, 0) / repeat
@@ -107,7 +107,7 @@ class APIViewTimingTester(object):
         for r in self.results:
             logger.info('Test {}, {}, repeat {}'
                         ''.format(r['url'], r['data'], r['repeat']))
-            for key, value in sorted(six.iteritems(r['timings'])):
+            for key, value in sorted(iteritems(r['timings'])):
                 logger.info('{:<30}{:.3f}'.format('{}:'.format(key), value))
             logger.info('')
 

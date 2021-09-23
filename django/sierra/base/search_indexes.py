@@ -14,17 +14,17 @@ import ujson
 import fnmatch
 
 from haystack import indexes, constants, utils, exceptions
-
 from django.conf import settings
 from django.core.exceptions import ObjectDoesNotExist
+import logging
+from six import text_type
+from six.moves import range
 
-from export import sierra2marc as s2m
 from . import models as sierra_models
+from export import sierra2marc as s2m
 from utils import helpers
 
-import logging
-import six
-from six.moves import range
+
 # set up logger, for debugging
 logger = logging.getLogger('sierra.custom')
 
@@ -44,9 +44,9 @@ def cat_fields(data, include=(), exclude=()):
         if data[i] is not None and ((include and i in include) 
                                     or (exclude and i not in exclude)):
             if type(data[i]) is list or type(data[i]) is tuple:
-                values.append(' '.join([six.text_type(j) for j in data[i]]))
+                values.append(' '.join([text_type(j) for j in data[i]]))
             else:
-                values.append(six.text_type(data[i]))
+                values.append(text_type(data[i]))
     return ' '.join(values)
 
 
@@ -280,7 +280,7 @@ class MarcIndex(CustomQuerySetIndex, indexes.Indexable):
                     self.prepared_data[mf_name] = field.data
                 else:
                     data = self.prepared_data.get(mf_name, [])
-                    data.append(six.text_type(field)[6:])
+                    data.append(text_type(field)[6:])
                     self.prepared_data[mf_name] = data
                     sf = field.subfields
                     for s_tag, s_data in [sf[n:n+2] for n in range(0,len(sf),2)]:

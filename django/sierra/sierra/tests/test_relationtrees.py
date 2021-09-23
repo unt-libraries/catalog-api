@@ -7,7 +7,7 @@ import pytest
 
 from .testmodels import models as m
 from sierra.management import relationtrees
-import six
+from six import iteritems
 
 # FIXTURES AND TEST DATA
 
@@ -172,7 +172,7 @@ def tree(make_tree, request):
 
 @pytest.fixture
 def all_trees(make_tree):
-    return {k: make_tree(*v) for k, v in six.iteritems(TREE_PARAMS)}
+    return {k: make_tree(*v) for k, v in iteritems(TREE_PARAMS)}
 
 
 # TESTS

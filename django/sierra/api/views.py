@@ -424,7 +424,7 @@ class FirstItemPerLocationList(SimpleGetMixin, SimpleView):
         facets = queryset.full_response.facets['facet_fields'][ff]
         fields = ['id', 'parent_bib_title', 'parent_bib_record_number',
                   'call_number', 'barcode', 'record_number', 'call_number_type']
-        total_count = len(facets) / 2
+        total_count = int(len(facets) / 2)
         items = []
 
         for key in facets[0:len(facets):2]:

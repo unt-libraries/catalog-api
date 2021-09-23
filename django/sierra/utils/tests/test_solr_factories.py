@@ -8,10 +8,10 @@ import datetime
 import pytz
 import itertools
 
-from utils.test_helpers import solr_factories as f
-import six
+from six import text_type
 from six.moves import range
 
+from utils.test_helpers import solr_factories as f
 
 # FIXTURES AND TEST DATA
 
@@ -416,7 +416,7 @@ def test_solrprofile_init_fields_structure(profile):
     assert prof.fields['haystack_id']['name'] == 'haystack_id'
     assert prof.fields['haystack_id']['is_key'] == True
     assert prof.fields['haystack_id']['type'] == 'string'
-    assert prof.fields['haystack_id']['pytype'] == six.text_type
+    assert prof.fields['haystack_id']['pytype'] == text_type
     assert prof.fields['haystack_id']['emtype'] == 'string'
     assert prof.fields['haystack_id']['multi'] == False
     assert prof.fields['haystack_id']['unique'] == True
@@ -522,10 +522,10 @@ def test_solrprofile_init_fields_with_custom_type(schema, profile, solr_types):
     schema['fields'].append({'name': custom_name, 'type': custom_type,
                              'multiValued': False})
     assert custom_type not in solr_types
-    solr_types[custom_type] = {'pytype': six.text_type, 'emtype': 'string'}
+    solr_types[custom_type] = {'pytype': text_type, 'emtype': 'string'}
     prof = profile(my_schema=schema, solr_types=solr_types)
     assert custom_name in prof.fields
-    assert prof.fields[custom_name]['pytype'] == six.text_type
+    assert prof.fields[custom_name]['pytype'] == text_type
     assert prof.fields[custom_name]['emtype'] == 'string'
 
 

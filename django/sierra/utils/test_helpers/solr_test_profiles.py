@@ -8,24 +8,23 @@ import random
 import datetime
 import re
 import ujson
-
 import pytest
+
+from six import text_type
+from six.moves import range
 
 from utils.test_helpers import solr_factories as sf
 from utils.helpers import NormalizedCallNumber
-import six
-from six.moves import range
-
 
 GLOBAL_UNIQUE_FIELDS = ('django_id', 'code', 'id', 'record_number')
 SOLR_TYPES = {
-  'string': {'pytype': six.text_type, 'emtype': 'string'},
-  'norm_string': {'pytype': six.text_type, 'emtype': 'string'},
-  'alphaOnlySort': {'pytype': six.text_type, 'emtype': 'string'},
-  'text_en': {'pytype': six.text_type, 'emtype': 'text'},
-  'text': {'pytype': six.text_type, 'emtype': 'text'},
-  'textNoStem': {'pytype': six.text_type, 'emtype': 'text'},
-  'stem_text': {'pytype': six.text_type, 'emtype': 'text'},
+  'string': {'pytype': text_type, 'emtype': 'string'},
+  'norm_string': {'pytype': text_type, 'emtype': 'string'},
+  'alphaOnlySort': {'pytype': text_type, 'emtype': 'string'},
+  'text_en': {'pytype': text_type, 'emtype': 'text'},
+  'text': {'pytype': text_type, 'emtype': 'text'},
+  'textNoStem': {'pytype': text_type, 'emtype': 'text'},
+  'stem_text': {'pytype': text_type, 'emtype': 'text'},
   'long': {'pytype': int, 'emtype': 'int'},
   'slong': {'pytype': int, 'emtype': 'int'},
   'int': {'pytype': int, 'emtype': 'int'},
@@ -62,7 +61,7 @@ def join_fields(fnames, sep=' '):
                 if not isinstance(val, (list, tuple, set)):
                     val = [val]
                 values.extend(val)
-        return sep.join([six.text_type(v) for v in values])
+        return sep.join([text_type(v) for v in values])
     return gen
 
 
@@ -119,9 +118,9 @@ def year_like(record):
 
 
 def year_range_like(record):
-    years = [six.text_type(year_like(record)),
-             random.choice([six.text_type(year_like(record)), ''])]
-    return  '-'.join([six.text_type(year) for year in sorted(years)])
+    years = [text_type(year_like(record)),
+             random.choice([text_type(year_like(record)), ''])]
+    return  '-'.join([text_type(year) for year in sorted(years)])
 
 
 def place_like(record):
@@ -176,7 +175,7 @@ def sentence_like(record):
     for choice in (noun_choice, year_choice):
         if choice is not None:
             words.insert(random.randint(0, len(words)),
-                         six.text_type(choice(record)))
+                         text_type(choice(record)))
 
     if wrap_choice is not None:
         start, end = wrap_choice

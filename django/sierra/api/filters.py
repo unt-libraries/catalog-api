@@ -5,16 +5,15 @@ from datetime import datetime
 
 import ujson
 from dateutil import parser as dateparser
+
 from pysolr import SolrError
-
 from django.conf import settings
-
 from rest_framework.filters import BaseFilterBackend
 from haystack.query import SearchQuerySet
+from six import iteritems
 
 from . import exceptions
 from utils import helpers
-import six
 
 # set up logger, for debugging
 logger = logging.getLogger('sierra.custom')
@@ -258,7 +257,7 @@ class HaystackFilter(BaseFilterBackend):
         """
         param_data = {'data': {}, 'search': '', 'order_by': ''}
         validation_errors = []
-        for orig_p_name, p_val in six.iteritems(dict(params)):
+        for orig_p_name, p_val in iteritems(dict(params)):
             p_name = view.get_serializer().restore_field_name(orig_p_name)
 
             if p_name not in self.reserved_params:
@@ -326,8 +325,8 @@ class HaystackFilter(BaseFilterBackend):
         return param_data
 
     def _apply_django_style_filters(self, queryset, params):
-        for p_name, p_val in six.iteritems(params):
-            for operator, op_vals in six.iteritems(p_val):
+        for p_name, p_val in iteritems(params):
+            for operator, op_vals in iteritems(p_val):
                 for op_val in op_vals:
                     negate = False
                     if operator[0] == '-':

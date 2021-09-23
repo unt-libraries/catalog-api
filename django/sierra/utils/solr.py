@@ -8,13 +8,13 @@ import re
 import copy
 from datetime import datetime
 
+import logging
 import pysolr
-
 from django.core.exceptions import ImproperlyConfigured
 from django.conf import settings
+from six import iteritems, text_type
 
-import logging
-import six
+
 # set up logger, for debugging
 logger = logging.getLogger('sierra.custom')
 
@@ -201,12 +201,12 @@ class Queryset(object):
             val = '{}T{}Z'.format(date_str, time_str)
         else:
             val = re.sub(r'([ +\-!(){}\[\]\^"~*?:\\/]|&&|\|\|)', r'\\\1',
-                         six.text_type(val))
+                         text_type(val))
         return val
 
     def _compile_filter_args(self, filter_args):
         fq = []
-        for key, val in six.iteritems(filter_args):
+        for key, val in iteritems(filter_args):
             try:
                 field, filter_type = key.split('__')
             except ValueError:
