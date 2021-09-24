@@ -93,3 +93,7 @@ admin.site.register(ExportType, ExportTypeAdmin)
 admin.site.register(ExportFilter, ExportFilterAdmin)
 admin.site.register(ExportInstance, ExportInstanceAdmin)
 admin.site.register(Status, StatusAdmin)
+
+# Disable admin sidebar added in 3.1
+admin.autodiscover()
+admin.site.enable_nav_sidebar = False

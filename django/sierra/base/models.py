@@ -273,7 +273,7 @@ class FixfldType(ModelWithAttachedName):
                                     to_field='code',
                                     null=True,
                                     blank=True)
-    is_enabled = models.NullBooleanField(null=True, blank=True)
+    is_enabled = models.BooleanField(null=True, blank=True)
 
     class Meta(ModelWithAttachedName.Meta):
         db_table = 'fixfld_type'
@@ -376,7 +376,7 @@ class PhraseEntry(ReadOnlyModel):
     index_tag = models.CharField(max_length=20, blank=True)
     varfield_type_code = models.CharField(max_length=1, blank=True)
     occurrence = models.IntegerField(null=True, blank=True)
-    is_permuted = models.NullBooleanField(null=True, blank=True)
+    is_permuted = models.BooleanField(null=True, blank=True)
     type2 = models.IntegerField(null=True, blank=True)
     type3 = models.CharField(max_length=1, blank=True)
     index_entry = models.CharField(max_length=512, blank=True)
@@ -414,7 +414,7 @@ class PhraseRule(ReadOnlyModel):
     subfield_list = models.CharField(max_length=50, blank=True)
     phrase_type_code = models.CharField(max_length=1, blank=True)
     rule_num = models.IntegerField(null=True, blank=True)
-    is_continue = models.NullBooleanField(null=True, blank=True)
+    is_continue = models.BooleanField(null=True, blank=True)
     display_order = models.IntegerField(null=True, blank=True)
 
     class Meta(ReadOnlyModel.Meta):
@@ -704,7 +704,7 @@ class VarfieldType(ModelWithAttachedName):
                                     blank=True)
     code = models.CharField(max_length=1, blank=True)
     marc_tag = models.CharField(max_length=3, blank=True)
-    is_enabled = models.NullBooleanField(null=True, blank=True)
+    is_enabled = models.BooleanField(null=True, blank=True)
     display_order = models.IntegerField(null=True, blank=True)
 
     class Meta(ModelWithAttachedName.Meta):
@@ -759,7 +759,7 @@ class AuthorityRecord(MainRecordTypeModel):
     code1 = models.CharField(max_length=1, blank=True)
     code2 = models.CharField(max_length=1, blank=True)
     suppress_code = models.CharField(max_length=1, blank=True)
-    is_suppressed = models.NullBooleanField(null=True, blank=True)
+    is_suppressed = models.BooleanField(null=True, blank=True)
 
     class Meta(ReadOnlyModel.Meta):
         db_table = 'authority_record'
@@ -785,8 +785,8 @@ class AuthorityRecord(MainRecordTypeModel):
 
 class Catmaint(ReadOnlyModel):
     id = models.BigIntegerField(primary_key=True)
-    is_locked = models.NullBooleanField(null=True, blank=True)
-    is_viewed = models.NullBooleanField(null=True, blank=True)
+    is_locked = models.BooleanField(null=True, blank=True)
+    is_viewed = models.BooleanField(null=True, blank=True)
     condition_code_num = models.IntegerField(null=True, blank=True)
     index_tag = models.CharField(max_length=1, blank=True)
     index_entry = models.TextField(blank=True)
@@ -917,13 +917,13 @@ class BibRecord(MainRecordTypeModel):
                                 null=True,
                                 blank=True)
     index_change_count = models.IntegerField(null=True, blank=True)
-    is_on_course_reserve = models.NullBooleanField(null=True, blank=True)
-    is_right_result_exact = models.NullBooleanField(null=True, blank=True)
+    is_on_course_reserve = models.BooleanField(null=True, blank=True)
+    is_right_result_exact = models.BooleanField(null=True, blank=True)
     allocation_rule_code = models.CharField(max_length=1, null=True, blank=True)
     skip_num = models.IntegerField(null=True, blank=True)
     cataloging_date_gmt = models.DateTimeField(null=True, blank=True)
     marc_type_code = models.CharField(max_length=1, blank=True)
-    is_suppressed = models.NullBooleanField(null=True, blank=True)
+    is_suppressed = models.BooleanField(null=True, blank=True)
 
     def get_call_numbers(self):
         bib_cn_specs = [
@@ -1035,11 +1035,11 @@ class BibRecordProperty(ReadOnlyModel):
 #                                 to_field='code',
 #                                 null=True,
 #                                 blank=True)
-#     is_available_at_library = models.NullBooleanField(null=True, blank=True)
+#     is_available_at_library = models.BooleanField(null=True, blank=True)
 #     index_change_count = models.IntegerField(null=True, blank=True)
 #     allocation_rule_code = models.CharField(max_length=1, blank=True)
-#     is_on_course_reserve = models.NullBooleanField(null=True, blank=True)
-#     is_right_result_exact = models.NullBooleanField(null=True, blank=True)
+#     is_on_course_reserve = models.BooleanField(null=True, blank=True)
+#     is_right_result_exact = models.BooleanField(null=True, blank=True)
 #     skip_num = models.IntegerField(null=True, blank=True)
 #     cataloging_date_gmt = models.DateTimeField(null=True, blank=True)
 #     marc_type_code = models.CharField(max_length=1, blank=True)
@@ -1071,7 +1071,7 @@ class MaterialProperty(ModelWithAttachedName):
     id = models.IntegerField(primary_key=True)
     code = models.CharField(max_length=3, unique=True, blank=True)
     display_order = models.IntegerField(null=True, blank=True)
-    is_public = models.NullBooleanField(null=True, blank=True)
+    is_public = models.BooleanField(null=True, blank=True)
     material_property_category = models.ForeignKey('MaterialPropertyCategory',
                                                    on_delete=models.CASCADE,
                                                    null=True,
@@ -1087,7 +1087,7 @@ class MaterialProperty(ModelWithAttachedName):
 class MaterialPropertyCategory(ModelWithAttachedName):
     id = models.IntegerField(primary_key=True)
     display_order = models.IntegerField(unique=True, null=True, blank=True)
-    is_default = models.NullBooleanField(null=True, blank=True)
+    is_default = models.BooleanField(null=True, blank=True)
 
     class Meta(ModelWithAttachedName.Meta):
         db_table = 'material_property_category'
@@ -1096,7 +1096,7 @@ class MaterialPropertyCategory(ModelWithAttachedName):
 class MaterialPropertyCategoryMyuser(ReadOnlyModel):
     code = models.CharField(max_length=3, primary_key=True)
     display_order = models.IntegerField(null=True, blank=True)
-    is_default = models.NullBooleanField(null=True, blank=True)
+    is_default = models.BooleanField(null=True, blank=True)
     name = models.CharField(max_length=255, null=True, blank=True)
 
     class Meta(ReadOnlyModel.Meta):
@@ -1120,7 +1120,7 @@ class MaterialPropertyCategoryName(ReadOnlyModel):
 class MaterialPropertyMyuser(ReadOnlyModel):
     code = models.CharField(max_length=3, primary_key=True)
     display_order = models.IntegerField(null=True, blank=True)
-    is_public = models.NullBooleanField(null=True, blank=True)
+    is_public = models.BooleanField(null=True, blank=True)
     material_property_category = models.ForeignKey(MaterialPropertyCategory,
                                                    on_delete=models.CASCADE,
                                                    null=True,
@@ -1198,7 +1198,7 @@ class ContactRecord(MainRecordTypeModel):
                                         null=True,
                                         blank=True)
     code = models.CharField(max_length=5, unique=True, blank=True)
-    is_suppressed = models.NullBooleanField(null=True, blank=True)
+    is_suppressed = models.BooleanField(null=True, blank=True)
 
     class Meta(ReadOnlyModel.Meta):
         db_table = 'contact_record'
@@ -1228,7 +1228,7 @@ class ContactRecordAddressType(ReadOnlyModel):
 #     record_num = models.IntegerField(null=True, blank=True)
 #     code = models.CharField(max_length=5, blank=True)
 #     record_creation_date_gmt = models.DateTimeField(null=True, blank=True)
-#     is_suppressed = models.NullBooleanField(null=True, blank=True)
+#     is_suppressed = models.BooleanField(null=True, blank=True)
 #
 #     class Meta(ReadOnlyModel.Meta):
 #         db_table = 'contact_view'
@@ -1259,7 +1259,7 @@ class CourseRecord(MainRecordTypeModel):
     ccode1 = models.CharField(max_length=20, blank=True)
     ccode2 = models.CharField(max_length=20, blank=True)
     ccode3 = models.CharField(max_length=20, blank=True)
-    is_suppressed = models.NullBooleanField(null=True, blank=True)
+    is_suppressed = models.BooleanField(null=True, blank=True)
 
     class Meta(ReadOnlyModel.Meta):
         db_table = 'course_record'
@@ -1354,7 +1354,7 @@ class HoldingRecord(MainRecordTypeModel):
     locations = models.ManyToManyField('Location',
                                        through='HoldingRecordLocation',
                                        blank=True)
-    is_inherit_loc = models.NullBooleanField(null=True, blank=True)
+    is_inherit_loc = models.BooleanField(null=True, blank=True)
     allocation_rule_code = models.CharField(max_length=1, null=True, blank=True)
     accounting_unit = models.ForeignKey('AccountingUnit',
                                         on_delete=models.CASCADE,
@@ -1387,7 +1387,7 @@ class HoldingRecord(MainRecordTypeModel):
     piece_cnt = models.IntegerField(null=True, blank=True)
     echeckin_code = models.CharField(max_length=1, blank=True)
     media_type_code = models.CharField(max_length=1, blank=True)
-    is_suppressed = models.NullBooleanField(null=True, blank=True)
+    is_suppressed = models.BooleanField(null=True, blank=True)
 
     class Meta(ReadOnlyModel.Meta):
         db_table = 'holding_record'
@@ -1434,7 +1434,7 @@ class HoldingRecordBox(ReadOnlyModel):
     claim_cnt = models.IntegerField(null=True, blank=True)
     copies_cnt = models.IntegerField(null=True, blank=True)
     url = models.CharField(max_length=256, blank=True)
-    is_suppressed = models.NullBooleanField(null=True, blank=True)
+    is_suppressed = models.BooleanField(null=True, blank=True)
     staff_note = models.CharField(max_length=256, blank=True)
 
     class Meta(ReadOnlyModel.Meta):
@@ -1462,16 +1462,16 @@ class HoldingRecordCard(ReadOnlyModel):
                                        null=True, blank=True)
     status_code = models.CharField(max_length=1, blank=True)
     display_format_code = models.CharField(max_length=1, blank=True)
-    is_suppress_opac_display = models.NullBooleanField(null=True, blank=True)
+    is_suppress_opac_display = models.BooleanField(null=True, blank=True)
     order_record = models.ForeignKey('OrderRecord', on_delete=models.CASCADE,
                                      db_column='order_record_metadata_id',
                                      null=True,
                                      blank=True)
-    is_create_item = models.NullBooleanField(null=True, blank=True)
-    is_usmarc = models.NullBooleanField(null=True, blank=True)
-    is_marc = models.NullBooleanField(null=True, blank=True)
-    is_use_default_enum = models.NullBooleanField(null=True, blank=True)
-    is_use_default_date = models.NullBooleanField(null=True, blank=True)
+    is_create_item = models.BooleanField(null=True, blank=True)
+    is_usmarc = models.BooleanField(null=True, blank=True)
+    is_marc = models.BooleanField(null=True, blank=True)
+    is_use_default_enum = models.BooleanField(null=True, blank=True)
+    is_use_default_date = models.BooleanField(null=True, blank=True)
     update_method_code = models.CharField(max_length=1, blank=True)
 
     class Meta(ReadOnlyModel.Meta):
@@ -1520,13 +1520,13 @@ class HoldingRecordCardlink(ReadOnlyModel):
     frequency_code = models.CharField(max_length=10, blank=True)
     calendar_change = models.CharField(max_length=256, blank=True)
     opac_label = models.CharField(max_length=256, blank=True)
-    is_advanced = models.NullBooleanField(null=True, blank=True)
+    is_advanced = models.BooleanField(null=True, blank=True)
     days_btw_iss = models.IntegerField(null=True, blank=True)
     claim_days = models.IntegerField(null=True, blank=True)
     bind_unit = models.IntegerField(null=True, blank=True)
     bind_delay = models.IntegerField(null=True, blank=True)
-    is_bind_with_issue = models.NullBooleanField(null=True, blank=True)
-    is_use_autumn = models.NullBooleanField(null=True, blank=True)
+    is_bind_with_issue = models.BooleanField(null=True, blank=True)
+    is_use_autumn = models.BooleanField(null=True, blank=True)
     enum_level_count = models.IntegerField(null=True, blank=True)
     alt_enum_level_count = models.IntegerField(null=True, blank=True)
     current_item = models.IntegerField(null=True, blank=True)
@@ -1587,7 +1587,7 @@ class HoldingRecordRouting(ReadOnlyModel):
                                        null=True, blank=True)
     copy_num = models.IntegerField(null=True, blank=True)
     display_order = models.IntegerField(null=True, blank=True)
-    is_patron_routing = models.NullBooleanField(null=True, blank=True)
+    is_patron_routing = models.BooleanField(null=True, blank=True)
     priority_num = models.IntegerField(null=True, blank=True)
     patron_record = models.ForeignKey('PatronRecord', on_delete=models.CASCADE,
                                       db_column='patron_record_metadata_id',
@@ -1607,7 +1607,7 @@ class HoldingRecordRouting(ReadOnlyModel):
 #                                     db_column='record_type_code',
 #                                     to_field='code')
 #     record_num = models.IntegerField(null=True, blank=True)
-#     is_inherit_loc = models.NullBooleanField(null=True, blank=True)
+#     is_inherit_loc = models.BooleanField(null=True, blank=True)
 #     allocation_rule_code = models.CharField(max_length=1, blank=True)
 #     accounting_unit = models.ForeignKey('AccountingUnit',
 #                                         on_delete=models.CASCADE,
@@ -1622,7 +1622,7 @@ class HoldingRecordRouting(ReadOnlyModel):
 #     piece_cnt = models.IntegerField(null=True, blank=True)
 #     echeckin_code = models.CharField(max_length=1, blank=True)
 #     media_type_code = models.CharField(max_length=1, blank=True)
-#     is_suppressed = models.NullBooleanField(null=True, blank=True)
+#     is_suppressed = models.BooleanField(null=True, blank=True)
 #     record_creation_date_gmt = models.DateTimeField(null=True, blank=True)
 #
 #     class Meta(ReadOnlyModel.Meta):
@@ -1736,7 +1736,7 @@ class InvoiceRecord(MainRecordTypeModel):
     paid_date_gmt = models.DateTimeField(null=True, blank=True)
     status_code = models.CharField(max_length=20, blank=True)
     posted_data_gmt = models.DateTimeField(null=True, blank=True)
-    is_paid_date_received_date = models.NullBooleanField(null=True, blank=True)
+    is_paid_date_received_date = models.BooleanField(null=True, blank=True)
     ncode1 = models.CharField(max_length=1, blank=True)
     ncode2 = models.CharField(max_length=1, blank=True)
     ncode3 = models.CharField(max_length=1, blank=True)
@@ -1789,7 +1789,7 @@ class InvoiceRecord(MainRecordTypeModel):
                                                   blank=True)
     use_tax_type_code = models.CharField(max_length=10, blank=True)
     use_tax_ship_service_code = models.CharField(max_length=10, blank=True)
-    is_suppressed = models.NullBooleanField(null=True, blank=True)
+    is_suppressed = models.BooleanField(null=True, blank=True)
 
     class Meta(ReadOnlyModel.Meta):
         db_table = 'invoice_record'
@@ -1822,7 +1822,7 @@ class InvoiceRecordLine(ReadOnlyModel):
     external_fund_code_num = models.IntegerField(null=True)
     status_code = models.CharField(max_length=5, blank=True)
     note = models.CharField(max_length=20001, blank=True)
-    is_single_copy_partial_pmt = models.NullBooleanField(null=True, blank=True)
+    is_single_copy_partial_pmt = models.BooleanField(null=True, blank=True)
     title = models.CharField(max_length=20001, blank=True)
     multiflag_code = models.CharField(max_length=1, blank=True)
     line_level_tax = models.DecimalField(null=True,
@@ -1845,7 +1845,7 @@ class InvoiceRecordLine(ReadOnlyModel):
         on_delete=models.CASCADE,
         null=True,
         blank=True)
-    is_use_tax = models.NullBooleanField(null=True, blank=True)
+    is_use_tax = models.BooleanField(null=True, blank=True)
 
     class Meta(ReadOnlyModel.Meta):
         db_table = 'invoice_record_line'
@@ -1886,7 +1886,7 @@ class InvoiceRecordVendorSummary(ReadOnlyModel):
 #     paid_date_gmt = models.DateTimeField(null=True, blank=True)
 #     status_code = models.CharField(max_length=20, blank=True)
 #     posted_date_gmt = models.DateTimeField(null=True, blank=True)
-#     is_paid_date_received_date = models.NullBooleanField(null=True, blank=True)
+#     is_paid_date_received_date = models.BooleanField(null=True, blank=True)
 #     ncode1 = models.CharField(max_length=1, blank=True)
 #     ncode2 = models.CharField(max_length=1, blank=True)
 #     ncode3 = models.CharField(max_length=1, blank=True)
@@ -1935,7 +1935,7 @@ class InvoiceRecordVendorSummary(ReadOnlyModel):
 #                                                   blank=True)
 #     use_tax_type_code = models.CharField(max_length=10, blank=True)
 #     use_tax_ship_service_code = models.CharField(max_length=10, blank=True)
-#     is_suppressed = models.NullBooleanField(null=True, blank=True)
+#     is_suppressed = models.BooleanField(null=True, blank=True)
 #     record_creation_date_gmt = models.DateTimeField(null=True, blank=True)
 #
 #     class Meta(ReadOnlyModel.Meta):
@@ -2049,7 +2049,7 @@ class ItemRecord(MainRecordTypeModel):
                                     to_field='code',
                                     null=True,
                                     blank=True)
-    is_inherit_loc = models.NullBooleanField(null=True, blank=True)
+    is_inherit_loc = models.BooleanField(null=True, blank=True)
     price = models.DecimalField(null=True,
                                 max_digits=30,
                                 decimal_places=6,
@@ -2060,7 +2060,7 @@ class ItemRecord(MainRecordTypeModel):
     last_year_to_date_checkout_total = models.IntegerField(null=True,
                                                            blank=True)
     year_to_date_checkout_total = models.IntegerField(null=True, blank=True)
-    is_bib_hold = models.NullBooleanField(null=True, blank=True)
+    is_bib_hold = models.BooleanField(null=True, blank=True)
     copy_num = models.IntegerField(null=True, blank=True)
     checkout_statistic_group = models.ForeignKey('StatisticGroup',
                                                  on_delete=models.CASCADE,
@@ -2116,7 +2116,7 @@ class ItemRecord(MainRecordTypeModel):
                                      null=True,
                                      blank=True)
     distance_learning_status = models.SmallIntegerField(null=True, blank=True)
-    is_suppressed = models.NullBooleanField(null=True, blank=True)
+    is_suppressed = models.BooleanField(null=True, blank=True)
 
     def get_call_numbers(self):
         """
@@ -2303,7 +2303,7 @@ class ItemStatusPropertyName(ReadOnlyModel):
 #                                     to_field='code',
 #                                     null=True,
 #                                     blank=True)
-#     is_inherit_loc = models.NullBooleanField(null=True, blank=True)
+#     is_inherit_loc = models.BooleanField(null=True, blank=True)
 #     price = models.DecimalField(null=True,
 #                                 max_digits=30,
 #                                 decimal_places=6,
@@ -2314,7 +2314,7 @@ class ItemStatusPropertyName(ReadOnlyModel):
 #     last_year_to_date_checkout_total = models.IntegerField(null=True,
 #                                                            blank=True)
 #     year_to_date_checkout_total = models.IntegerField(null=True, blank=True)
-#     is_bib_hold = models.NullBooleanField(null=True, blank=True)
+#     is_bib_hold = models.BooleanField(null=True, blank=True)
 #     copy_num = models.IntegerField(null=True, blank=True)
 #     checkout_statistic_group = models.ForeignKey('StatisticGroup',
 #                                                  on_delete=models.CASCADE,
@@ -2360,7 +2360,7 @@ class ItemStatusPropertyName(ReadOnlyModel):
 #                                      null=True,
 #                                      blank=True)
 #     distance_learning_status = models.SmallIntegerField(null=True, blank=True)
-#     is_suppressed = models.NullBooleanField(null=True, blank=True)
+#     is_suppressed = models.BooleanField(null=True, blank=True)
 #     record_creation_date_gmt = models.DateTimeField(null=True, blank=True)
 #
 #     class Meta(ReadOnlyModel.Meta):
@@ -2390,7 +2390,7 @@ class ItypeProperty(ModelWithAttachedName):
 class ItypePropertyCategory(ModelWithAttachedName):
     id = models.IntegerField(primary_key=True)
     display_order = models.IntegerField(unique=True, null=True, blank=True)
-    is_default = models.NullBooleanField(null=True, blank=True)
+    is_default = models.BooleanField(null=True, blank=True)
 
     class Meta(ModelWithAttachedName.Meta):
         db_table = 'itype_property_category'
@@ -2644,7 +2644,7 @@ class LicenseRecord(MainRecordTypeModel):
     contract_end_gmt = models.DateTimeField(null=True, blank=True)
     breach_cure = models.IntegerField(null=True, blank=True)
     cancellation_notice = models.IntegerField(null=True, blank=True)
-    is_suppressed = models.NullBooleanField(null=True, blank=True)
+    is_suppressed = models.BooleanField(null=True, blank=True)
     ldate4 = models.DateTimeField(null=True, blank=True)
     # language = models.ForeignKey('LanguageProperty', on_delete=models.CASCADE,
     #                              db_column='language_code',
@@ -3070,7 +3070,7 @@ class OrderRecord(MainRecordTypeModel):
                                                     max_digits=30,
                                                     decimal_places=6,
                                                     blank=True)
-    is_suppressed = models.NullBooleanField(null=True, blank=True)
+    is_suppressed = models.BooleanField(null=True, blank=True)
     fund_copies_paid = models.IntegerField(null=True, blank=True)
 
     class Meta(ReadOnlyModel.Meta):
@@ -3358,7 +3358,7 @@ class OrderTypePropertyName(ReadOnlyModel):
 #                                                     max_digits=30,
 #                                                     decimal_places=6,
 #                                                     blank=True)
-#     is_suppressed = models.NullBooleanField(null=True, blank=True)
+#     is_suppressed = models.BooleanField(null=True, blank=True)
 #     record_creation_date_gmt = models.DateTimeField(null=True, blank=True)
 #
 #     class Meta(ReadOnlyModel.Meta):
@@ -3576,10 +3576,10 @@ class IiiLanguage(ModelWithAttachedName):
     id = models.IntegerField(primary_key=True)
     code = models.CharField(max_length=3, unique=True, blank=True)
     description = models.CharField(max_length=64, blank=True)
-    staff_enabled = models.NullBooleanField(null=True, blank=True)
-    public_enabled = models.NullBooleanField(null=True, blank=True)
+    staff_enabled = models.BooleanField(null=True, blank=True)
+    public_enabled = models.BooleanField(null=True, blank=True)
     display_order = models.IntegerField(null=True, blank=True)
-    is_right_to_left = models.NullBooleanField(null=True, blank=True)
+    is_right_to_left = models.BooleanField(null=True, blank=True)
 
     _language_attname = 'name_iii_language'
     _name_attname = 'description'
@@ -3591,10 +3591,10 @@ class IiiLanguage(ModelWithAttachedName):
 class IiiLanguageMyuser(ReadOnlyModel):
     code = models.CharField(max_length=3, primary_key=True)
     description = models.CharField(max_length=64, blank=True)
-    staff_enabled = models.NullBooleanField(null=True, blank=True)
-    public_enabled = models.NullBooleanField(null=True, blank=True)
+    staff_enabled = models.BooleanField(null=True, blank=True)
+    public_enabled = models.BooleanField(null=True, blank=True)
     display_order = models.IntegerField(null=True, blank=True)
-    is_right_to_left = models.NullBooleanField(null=True, blank=True)
+    is_right_to_left = models.BooleanField(null=True, blank=True)
 
     class Meta(ReadOnlyModel.Meta):
         db_table = 'iii_language_myuser'
@@ -3755,7 +3755,7 @@ class PatronRecord(MainRecordTypeModel):
     registration_total = models.IntegerField(null=True, blank=True)
     attendance_total = models.IntegerField(null=True, blank=True)
     waitlist_count = models.IntegerField(null=True, blank=True)
-    is_reading_history_opt_in = models.NullBooleanField(null=True, blank=True)
+    is_reading_history_opt_in = models.BooleanField(null=True, blank=True)
 
     class Meta(ReadOnlyModel.Meta):
         db_table = 'patron_record'
@@ -3901,7 +3901,7 @@ class PatronRecordPhoneType(ReadOnlyModel):
 #     registration_total = models.IntegerField(null=True, blank=True)
 #     attendance_total = models.IntegerField(null=True, blank=True)
 #     waitlist_count = models.IntegerField(null=True, blank=True)
-#     is_reading_history_opt_in = models.NullBooleanField(null=True,
+#     is_reading_history_opt_in = models.BooleanField(null=True,
 #                                                         blank=True)
 #
 #     class Meta(ReadOnlyModel.Meta):
@@ -3922,7 +3922,7 @@ class Pblock(ReadOnlyModel):
     #                                  to_field='code_num',
     #                                  null=True,
     #                                  blank=True)
-    is_expiration_date_active = models.NullBooleanField(null=True, blank=True)
+    is_expiration_date_active = models.BooleanField(null=True, blank=True)
     max_owed_amt = models.DecimalField(null=True,
                                        max_digits=30,
                                        decimal_places=6,
@@ -3947,11 +3947,11 @@ class Pblock(ReadOnlyModel):
 class PtypeProperty(ModelWithAttachedName):
     id = models.IntegerField(primary_key=True)
     value = models.SmallIntegerField(null=True, unique=True, blank=True)
-    tagging_allowed = models.NullBooleanField(null=True, blank=True)
+    tagging_allowed = models.BooleanField(null=True, blank=True)
     display_order = models.IntegerField(null=True, blank=True)
-    is_force_right_result_exact_allowed = models.NullBooleanField(null=True,
+    is_force_right_result_exact_allowed = models.BooleanField(null=True,
                                                                   blank=True)
-    is_comment_auto_approved = models.NullBooleanField(null=True, blank=True)
+    is_comment_auto_approved = models.BooleanField(null=True, blank=True)
     ptype_property_category = models.ForeignKey('PtypePropertyCategory',
                                                 on_delete=models.CASCADE,
                                                 db_column='ptype_category_id',
@@ -3967,7 +3967,7 @@ class PtypeProperty(ModelWithAttachedName):
 class PtypePropertyCategory(ModelWithAttachedName):
     id = models.IntegerField(primary_key=True)
     display_order = models.IntegerField(null=True, blank=True)
-    is_default = models.NullBooleanField(null=True, blank=True)
+    is_default = models.BooleanField(null=True, blank=True)
 
     class Meta(ModelWithAttachedName.Meta):
         db_table = 'ptype_property_category'
@@ -3976,7 +3976,7 @@ class PtypePropertyCategory(ModelWithAttachedName):
 class PtypePropertyCategoryMyuser(ReadOnlyModel):
     id = models.IntegerField(primary_key=True)
     display_order = models.IntegerField(null=True, blank=True)
-    is_default = models.NullBooleanField(null=True, blank=True)
+    is_default = models.BooleanField(null=True, blank=True)
     name = models.CharField(max_length=255, blank=True)
 
     class Meta(ReadOnlyModel.Meta):
@@ -4000,11 +4000,11 @@ class PtypePropertyCategoryName(ReadOnlyModel):
 
 class PtypePropertyMyuser(ReadOnlyModel):
     value = models.SmallIntegerField(primary_key=True)
-    tagging_allowed = models.NullBooleanField(null=True, blank=True)
+    tagging_allowed = models.BooleanField(null=True, blank=True)
     display_order = models.IntegerField(null=True, blank=True)
-    is_force_right_result_exact_allowed = models.NullBooleanField(null=True,
+    is_force_right_result_exact_allowed = models.BooleanField(null=True,
                                                                   blank=True)
-    is_comment_auto_approved = models.NullBooleanField(null=True, blank=True)
+    is_comment_auto_approved = models.BooleanField(null=True, blank=True)
     ptype_property_category = models.ForeignKey(PtypePropertyCategory,
                                                 on_delete=models.CASCADE,
                                                 db_column='ptype_category_id',
@@ -4146,11 +4146,11 @@ class ProgramRecord(MainRecordTypeModel):
                                      null=True,
                                      blank=True)
     auto_transfer_code = models.CharField(max_length=1, blank=True)
-    is_right_result_exact = models.NullBooleanField(null=True, blank=True)
+    is_right_result_exact = models.BooleanField(null=True, blank=True)
     gcode1 = models.CharField(max_length=1, blank=True)
     gcode2 = models.CharField(max_length=1, blank=True)
     gcode3 = models.CharField(max_length=1, blank=True)
-    is_suppressed = models.NullBooleanField(null=True, blank=True)
+    is_suppressed = models.BooleanField(null=True, blank=True)
 
     class Meta(ReadOnlyModel.Meta):
         db_table = 'program_record'
@@ -4199,11 +4199,11 @@ class ProgramRecordLocation(ReadOnlyModel):
 #                                      null=True,
 #                                      blank=True)
 #     auto_transfer_code = models.CharField(max_length=1, blank=True)
-#     is_right_result_exact = models.NullBooleanField(null=True, blank=True)
+#     is_right_result_exact = models.BooleanField(null=True, blank=True)
 #     gcode1 = models.CharField(max_length=1, blank=True)
 #     gcode2 = models.CharField(max_length=1, blank=True)
 #     gcode3 = models.CharField(max_length=1, blank=True)
-#     is_suppressed = models.NullBooleanField(null=True, blank=True)
+#     is_suppressed = models.BooleanField(null=True, blank=True)
 #     record_creation_date_gmt = models.DateTimeField(null=True, blank=True)
 #
 #     class Meta(ReadOnlyModel.Meta):
@@ -4273,7 +4273,7 @@ class ResourceRecord(MainRecordTypeModel):
                                                    through='ResourceRecordOrderRecordRelatedLink',
                                                    related_name='related_resourcerecord_set',
                                                    blank=True)
-    is_right_result_exact = models.NullBooleanField(null=True, blank=True)
+    is_right_result_exact = models.BooleanField(null=True, blank=True)
     rights_code = models.CharField(max_length=1, blank=True)
     suppress_code = models.CharField(max_length=1, blank=True)
     ecode1 = models.CharField(max_length=1, blank=True)
@@ -4316,7 +4316,7 @@ class ResourceRecord(MainRecordTypeModel):
                                              blank=True)
     data_provider_code = models.CharField(max_length=5, null=True, blank=True)
     consortium_code = models.CharField(max_length=5, null=True, blank=True)
-    is_suppressed = models.NullBooleanField(null=True, blank=True)
+    is_suppressed = models.BooleanField(null=True, blank=True)
 
     def get_url(self):
         """
@@ -4391,7 +4391,7 @@ class ResourceRecord(MainRecordTypeModel):
 #         through='ResourceRecordOrderRecordRelatedLink',
 #         null=True,
 #         blank=True)
-#     is_right_result_exact = models.NullBooleanField(null=True, blank=True)
+#     is_right_result_exact = models.BooleanField(null=True, blank=True)
 #     rights_code = models.CharField(max_length=1, blank=True)
 #     suppress_code = models.CharField(max_length=1, blank=True)
 #     ecode1 = models.CharField(max_length=1, blank=True)
@@ -4433,7 +4433,7 @@ class ResourceRecord(MainRecordTypeModel):
 #     copyright_holder_code = models.CharField(max_length=5, blank=True)
 #     data_provider_code = models.CharField(max_length=5, blank=True)
 #     consortium_code = models.CharField(max_length=5, blank=True)
-#     is_suppressed = models.NullBooleanField(null=True, blank=True)
+#     is_suppressed = models.BooleanField(null=True, blank=True)
 #     record_creation_date_gmt = models.DateTimeField(null=True, blank=True)
 #
 #     class Meta(ReadOnlyModel.Meta):
@@ -4525,7 +4525,7 @@ class SectionRecord(MainRecordTypeModel):
     zcode1 = models.CharField(max_length=1, blank=True)
     zcode2 = models.CharField(max_length=1, blank=True)
     zcode3 = models.CharField(max_length=1, blank=True)
-    is_suppressed = models.NullBooleanField(null=True, blank=True)
+    is_suppressed = models.BooleanField(null=True, blank=True)
 
     class Meta(ReadOnlyModel.Meta):
         db_table = 'section_record'
@@ -4551,7 +4551,7 @@ class SectionRegistrationSeat(ReadOnlyModel):
     patron_record = models.ForeignKey(PatronRecord, on_delete=models.CASCADE,
                                       null=True, blank=True)
     reg_date_gmt = models.DateTimeField(null=True, blank=True)
-    is_registered = models.NullBooleanField(null=True, blank=True)
+    is_registered = models.BooleanField(null=True, blank=True)
     seat_note = models.CharField(max_length=255, blank=True)
     payment = models.ForeignKey('Payment', on_delete=models.CASCADE,
                                 null=True, blank=True)
@@ -4591,7 +4591,7 @@ class SectionRegistrationSeat(ReadOnlyModel):
 #     zcode1 = models.CharField(max_length=1, blank=True)
 #     zcode2 = models.CharField(max_length=1, blank=True)
 #     zcode3 = models.CharField(max_length=1, blank=True)
-#     is_suppressed = models.NullBooleanField(null=True, blank=True)
+#     is_suppressed = models.BooleanField(null=True, blank=True)
 #
 #     class Meta(ReadOnlyModel.Meta):
 #         db_table = 'section_view'
@@ -4746,7 +4746,7 @@ class VendorRecord(MainRecordTypeModel):
     #                              null=True,
     #                              blank=True)
     gir_code = models.IntegerField(null=True, blank=True)
-    is_suppressed = models.NullBooleanField(null=True, blank=True)
+    is_suppressed = models.BooleanField(null=True, blank=True)
 
     class Meta(ReadOnlyModel.Meta):
         db_table = 'vendor_record'
@@ -4827,7 +4827,7 @@ class VendorRecordAddressType(ReadOnlyModel):
 #                                  null=True,
 #                                  blank=True)
 #     gir_code = models.IntegerField(null=True, blank=True)
-#     is_suppressed = models.NullBooleanField(null=True, blank=True)
+#     is_suppressed = models.BooleanField(null=True, blank=True)
 #     record_creation_date_gmt = models.DateTimeField(null=True, blank=True)
 #
 #     class Meta(ReadOnlyModel.Meta):
@@ -4858,7 +4858,7 @@ class VolumeRecord(MainRecordTypeModel):
                                         null=True,
                                         blank=True)
     sort_order = models.IntegerField(null=True, blank=True)
-    is_suppressed = models.NullBooleanField(null=True, blank=True)
+    is_suppressed = models.BooleanField(null=True, blank=True)
 
     class Meta(ReadOnlyModel.Meta):
         db_table = 'volume_record'
@@ -4871,7 +4871,7 @@ class VolumeRecord(MainRecordTypeModel):
 #                                     to_field='code')
 #     record_num = models.IntegerField(null=True, blank=True)
 #     sort_order = models.IntegerField(null=True, blank=True)
-#     is_suppressed = models.NullBooleanField(null=True, blank=True)
+#     is_suppressed = models.BooleanField(null=True, blank=True)
 #     record_creation_date_gmt = models.DateTimeField(null=True, blank=True)
 #
 #     class Meta(ReadOnlyModel.Meta):
@@ -5153,7 +5153,7 @@ class FundProperty(ModelWithAttachedName):
     user_code1 = models.CharField(max_length=255, blank=True)
     user_code2 = models.CharField(max_length=255, blank=True)
     user_code3 = models.CharField(max_length=255, blank=True)
-    is_active = models.NullBooleanField(null=True, blank=True)
+    is_active = models.BooleanField(null=True, blank=True)
 
     class Meta(ModelWithAttachedName.Meta):
         db_table = 'fund_property'
@@ -5253,7 +5253,7 @@ class ColagencyCriteria(ReadOnlyModel):
     email_to = models.CharField(max_length=201, blank=True)
     email_cc = models.CharField(max_length=201, blank=True)
     email_subject = models.CharField(max_length=201, blank=True)
-    auto_new_submission = models.NullBooleanField(null=True, blank=True)
+    auto_new_submission = models.BooleanField(null=True, blank=True)
     auto_update_submission = models.CharField(max_length=13, blank=True)
 
     class Meta(ReadOnlyModel.Meta):
@@ -5323,7 +5323,7 @@ class Fine(ReadOnlyModel):
                                    blank=True)
     initials = models.CharField(max_length=12, blank=True)
     created_code = models.CharField(max_length=1, blank=True)
-    is_print_bill = models.NullBooleanField(null=True, blank=True)
+    is_print_bill = models.BooleanField(null=True, blank=True)
     description = models.CharField(max_length=100, blank=True)
     item_record = models.ForeignKey(ItemRecord, on_delete=models.CASCADE,
                                     db_column='item_record_metadata_id',
@@ -5398,21 +5398,21 @@ class Hold(ReadOnlyModel):
     record = models.ForeignKey(RecordMetadata, on_delete=models.CASCADE,
                                null=True, blank=True)
     placed_gmt = models.DateTimeField(null=True, blank=True)
-    is_frozen = models.NullBooleanField(null=True, blank=True)
+    is_frozen = models.BooleanField(null=True, blank=True)
     delay_days = models.IntegerField(null=True, blank=True)
     location = models.ForeignKey('Location', on_delete=models.CASCADE,
                                  db_column='location_code',
                                  to_field='code', null=True, blank=True)
     expires_gmt = models.DateTimeField(null=True, blank=True)
     status = models.CharField(max_length=1, blank=True)
-    is_ir = models.NullBooleanField(null=True, blank=True)
+    is_ir = models.BooleanField(null=True, blank=True)
     pickup_location = models.ForeignKey('Location', on_delete=models.CASCADE,
                                         db_column='pickup_location_code',
                                         db_constraint=False,
                                         to_field='code',
                                         related_name='pickup_hold_set',
                                         null=True, blank=True)
-    is_ill = models.NullBooleanField(null=True, blank=True)
+    is_ill = models.BooleanField(null=True, blank=True)
     note = models.CharField(max_length=128, blank=True)
     ir_pickup_location = models.ForeignKey('Location', on_delete=models.CASCADE,
                                            db_column='ir_pickup_location_code',
@@ -5422,7 +5422,7 @@ class Hold(ReadOnlyModel):
                                            null=True, blank=True)
     ir_print_name = models.CharField(max_length=255, blank=True)
     ir_delivery_stop_name = models.CharField(max_length=255, blank=True)
-    is_ir_converted_request = models.NullBooleanField(null=True, blank=True)
+    is_ir_converted_request = models.BooleanField(null=True, blank=True)
     patron_records_display_order = models.IntegerField(null=True, blank=True)
     records_display_order = models.IntegerField(null=True, blank=True)
 
@@ -5562,7 +5562,7 @@ class TitlePagingReportEntry(ReadOnlyModel):
     display_order = models.IntegerField(null=True, blank=True)
     title = models.CharField(max_length=200, blank=True)
     call_number = models.CharField(max_length=200, blank=True)
-    is_processed = models.NullBooleanField(null=True, blank=True)
+    is_processed = models.BooleanField(null=True, blank=True)
 
     class Meta(ReadOnlyModel.Meta):
         db_table = 'title_paging_report_entry'
@@ -5600,7 +5600,7 @@ class TitlePagingReportEntryPatron(ReadOnlyModel):
 class B2MCategory(ModelWithAttachedName):
     id = models.BigIntegerField(primary_key=True)
     code = models.CharField(max_length=20, unique=True, blank=True)
-    is_staff_enabled = models.NullBooleanField(null=True, blank=True)
+    is_staff_enabled = models.BooleanField(null=True, blank=True)
 
     class Meta(ModelWithAttachedName.Meta):
         db_table = 'b2m_category'
@@ -5608,7 +5608,7 @@ class B2MCategory(ModelWithAttachedName):
 
 class B2MCategoryMyuser(ReadOnlyModel):
     code = models.CharField(max_length=20, primary_key=True)
-    is_staff_enabled = models.NullBooleanField(null=True, blank=True)
+    is_staff_enabled = models.BooleanField(null=True, blank=True)
     name = models.CharField(max_length=60, blank=True)
 
     class Meta(ReadOnlyModel.Meta):
@@ -5632,10 +5632,10 @@ class M2BmapCategory(ReadOnlyModel):
     id = models.IntegerField(primary_key=True)
     name = models.CharField(max_length=255, blank=True)
     original_delimiter = models.CharField(max_length=1, blank=True)
-    is_case_sensitive = models.NullBooleanField(null=True, blank=True)
-    is_bar_subfield = models.NullBooleanField(null=True, blank=True)
-    is_chinese = models.NullBooleanField(null=True, blank=True)
-    is_stop_on_map = models.NullBooleanField(null=True, blank=True)
+    is_case_sensitive = models.BooleanField(null=True, blank=True)
+    is_bar_subfield = models.BooleanField(null=True, blank=True)
+    is_chinese = models.BooleanField(null=True, blank=True)
+    is_stop_on_map = models.BooleanField(null=True, blank=True)
 
     class Meta(ReadOnlyModel.Meta):
         db_table = 'm2bmap_category'
@@ -5658,7 +5658,7 @@ class MarcExportFormat(ReadOnlyModel):
     id = models.BigIntegerField(primary_key=True)
     code = models.CharField(max_length=20, unique=True, blank=True)
     code_name = models.CharField(max_length=20, blank=True)
-    is_staff_enabled = models.NullBooleanField(null=True, blank=True)
+    is_staff_enabled = models.BooleanField(null=True, blank=True)
 
     class Meta(ReadOnlyModel.Meta):
         db_table = 'marc_export_format'
@@ -5676,7 +5676,7 @@ class MarcPreference(ReadOnlyModel):
                                      db_column='b2m_category_code',
                                      db_constraint=False,
                                      to_field='code', blank=True)
-    is_default_preference = models.NullBooleanField(null=True, blank=True)
+    is_default_preference = models.BooleanField(null=True, blank=True)
 
     class Meta(ReadOnlyModel.Meta):
         db_table = 'marc_preference'
@@ -5686,7 +5686,7 @@ class MarcPreference(ReadOnlyModel):
 
 class Collection(ReadOnlyModel):
     id = models.IntegerField(primary_key=True)
-    is_default = models.NullBooleanField(null=True, blank=True)
+    is_default = models.BooleanField(null=True, blank=True)
     display_order = models.IntegerField(null=True, blank=True)
     avg_width = models.FloatField(null=True, blank=True)
     avg_cost = models.DecimalField(null=True, max_digits=30, decimal_places=6,
@@ -5699,7 +5699,7 @@ class Collection(ReadOnlyModel):
 # CollectionMyuser us not in the Sierra docs, but this seems the appropriate place for it.
 class CollectionMyuser(ReadOnlyModel):
     id = models.IntegerField(primary_key=True)
-    is_default = models.NullBooleanField(null=True, blank=True)
+    is_default = models.BooleanField(null=True, blank=True)
     display_order = models.IntegerField(null=True, blank=True)
     name = models.CharField(max_length=255, blank=True)
 
@@ -5720,7 +5720,7 @@ class EadHierarchy(ReadOnlyModel):
 
 class PhysicalFormat(ModelWithAttachedName):
     id = models.IntegerField(primary_key=True)
-    is_default = models.NullBooleanField(null=True, blank=True)
+    is_default = models.BooleanField(null=True, blank=True)
     display_order = models.IntegerField(null=True, blank=True)
 
     class Meta(ModelWithAttachedName.Meta):
@@ -5729,7 +5729,7 @@ class PhysicalFormat(ModelWithAttachedName):
 
 class PhysicalFormatMyuser(ReadOnlyModel):
     id = models.IntegerField(primary_key=True)
-    is_default = models.NullBooleanField(null=True, blank=True)
+    is_default = models.BooleanField(null=True, blank=True)
     display_order = models.IntegerField(null=True, blank=True)
     name = models.CharField(max_length=255, blank=True)
 
@@ -5832,7 +5832,7 @@ class ScatSectionName(ReadOnlyModel):
 
 class TargetAudience(ModelWithAttachedName):
     id = models.IntegerField(primary_key=True)
-    is_default = models.NullBooleanField(null=True, blank=True)
+    is_default = models.BooleanField(null=True, blank=True)
     display_order = models.IntegerField(null=True, blank=True)
 
     class Meta(ModelWithAttachedName.Meta):
@@ -5841,7 +5841,7 @@ class TargetAudience(ModelWithAttachedName):
 
 class TargetAudienceMyuser(ReadOnlyModel):
     id = models.IntegerField(primary_key=True)
-    is_default = models.NullBooleanField(null=True, blank=True)
+    is_default = models.BooleanField(null=True, blank=True)
     display_order = models.IntegerField(null=True, blank=True)
     name = models.CharField(max_length=255, blank=True)
 
@@ -6097,8 +6097,8 @@ class Location(ModelWithAttachedName):
                                         db_column='parent_location_code',
                                         db_constraint=False,
                                         to_field='code', null=True, blank=True)
-    is_public = models.NullBooleanField(null=True, blank=True)
-    is_requestable = models.NullBooleanField(null=True, blank=True)
+    is_public = models.BooleanField(null=True, blank=True)
+    is_requestable = models.BooleanField(null=True, blank=True)
 
     class Meta(ModelWithAttachedName.Meta):
         db_table = 'location'
@@ -6125,7 +6125,7 @@ class LocationMyuser(ReadOnlyModel):
                                         db_constraint=False,
                                         to_field='code', related_name='+',
                                         null=True, blank=True)
-    is_public = models.NullBooleanField(null=True, blank=True)
+    is_public = models.BooleanField(null=True, blank=True)
     name = models.CharField(max_length=255, blank=True)
 
     class Meta(ReadOnlyModel.Meta):
@@ -6150,8 +6150,8 @@ class LocationPropertyType(ModelWithAttachedName):
     code = models.CharField(max_length=255, unique=True, blank=True)
     display_order = models.IntegerField(null=True, blank=True)
     default_value = models.CharField(max_length=1024, null=True, blank=True)
-    is_single_value = models.NullBooleanField(null=True, blank=True)
-    is_enabled = models.NullBooleanField(null=True, blank=True)
+    is_single_value = models.BooleanField(null=True, blank=True)
+    is_enabled = models.BooleanField(null=True, blank=True)
 
     class Meta(ModelWithAttachedName.Meta):
         db_table = 'location_property_type'
@@ -6161,8 +6161,8 @@ class LocationPropertyTypeMyuser(ReadOnlyModel):
     code = models.CharField(max_length=255, primary_key=True)
     display_order = models.IntegerField(null=True, blank=True)
     default_value = models.CharField(max_length=1024, blank=True)
-    is_single_value = models.NullBooleanField(null=True, blank=True)
-    is_enabled = models.NullBooleanField(null=True, blank=True)
+    is_single_value = models.BooleanField(null=True, blank=True)
+    is_enabled = models.BooleanField(null=True, blank=True)
     name = models.CharField(max_length=255, blank=True)
 
     class Meta(ReadOnlyModel.Meta):
@@ -6267,7 +6267,7 @@ class LanguageProperty(ModelWithAttachedName):
     id = models.IntegerField(primary_key=True)
     code = models.CharField(max_length=3, unique=True, blank=True)
     display_order = models.IntegerField(null=True, blank=True)
-    is_public = models.NullBooleanField(null=True, blank=True)
+    is_public = models.BooleanField(null=True, blank=True)
 
     class Meta(ModelWithAttachedName.Meta):
         db_table = 'language_property'
@@ -6276,7 +6276,7 @@ class LanguageProperty(ModelWithAttachedName):
 class LanguagePropertyMyuser(ReadOnlyModel):
     code = models.CharField(max_length=3, primary_key=True)
     display_order = models.IntegerField(null=True, blank=True)
-    is_public = models.NullBooleanField(null=True, blank=True)
+    is_public = models.BooleanField(null=True, blank=True)
     name = models.CharField(max_length=255, blank=True)
 
     class Meta(ReadOnlyModel.Meta):
@@ -6402,17 +6402,17 @@ class DarcServiceView(ReadOnlyModel):
 class DiacriticCategory(ReadOnlyModel):
     id = models.IntegerField(primary_key=True)
     name = models.CharField(max_length=255, blank=True)
-    is_unicode_style = models.NullBooleanField(null=True, blank=True)
-    is_big5 = models.NullBooleanField(null=True, blank=True)
-    is_cccii = models.NullBooleanField(null=True, blank=True)
-    is_eacc = models.NullBooleanField(null=True, blank=True)
-    is_thai = models.NullBooleanField(null=True, blank=True)
-    is_winpage = models.NullBooleanField(null=True, blank=True)
-    is_multibyte = models.NullBooleanField(null=True, blank=True)
-    is_decomposed_character_used = models.NullBooleanField(null=True,
+    is_unicode_style = models.BooleanField(null=True, blank=True)
+    is_big5 = models.BooleanField(null=True, blank=True)
+    is_cccii = models.BooleanField(null=True, blank=True)
+    is_eacc = models.BooleanField(null=True, blank=True)
+    is_thai = models.BooleanField(null=True, blank=True)
+    is_winpage = models.BooleanField(null=True, blank=True)
+    is_multibyte = models.BooleanField(null=True, blank=True)
+    is_decomposed_character_used = models.BooleanField(null=True,
                                                            blank=True)
-    is_general_rule_enabled = models.NullBooleanField(null=True, blank=True)
-    is_staff_enabled = models.NullBooleanField(null=True, blank=True)
+    is_general_rule_enabled = models.BooleanField(null=True, blank=True)
+    is_staff_enabled = models.BooleanField(null=True, blank=True)
 
     class Meta(ReadOnlyModel.Meta):
         db_table = 'diacritic_category'
@@ -6424,7 +6424,7 @@ class DiacriticMapping(ReadOnlyModel):
     letter = models.CharField(max_length=1, blank=True)
     description = models.CharField(max_length=255, blank=True)
     mapped_string = models.CharField(max_length=255, blank=True)
-    is_preferred = models.NullBooleanField(null=True, blank=True)
+    is_preferred = models.BooleanField(null=True, blank=True)
     diacritic_category = models.ForeignKey(DiacriticCategory,
                                            on_delete=models.CASCADE, null=True,
                                            blank=True)
@@ -6446,10 +6446,10 @@ class KeywordSynonym(ReadOnlyModel):
 
 class NetworkAccessView(ReadOnlyModel):
     port = models.IntegerField(primary_key=True)
-    is_enabled = models.NullBooleanField(null=True, blank=True)
-    is_super_user = models.NullBooleanField(null=True, blank=True)
+    is_enabled = models.BooleanField(null=True, blank=True)
+    is_super_user = models.BooleanField(null=True, blank=True)
     ip_range = models.CharField(max_length=255, blank=True)
-    is_accessible = models.NullBooleanField(null=True, blank=True)
+    is_accessible = models.BooleanField(null=True, blank=True)
     login_name = models.CharField(max_length=128, blank=True)
     service_level = models.IntegerField(null=True, blank=True)
     comment = models.CharField(max_length=255, blank=True)
@@ -6464,7 +6464,7 @@ class OaiCrosswalk(ReadOnlyModel):
     metadata_prefix = models.CharField(max_length=32, blank=True)
     name = models.CharField(max_length=32, unique=True, blank=True)
     description = models.CharField(max_length=255, blank=True)
-    is_system = models.NullBooleanField(null=True, blank=True)
+    is_system = models.BooleanField(null=True, blank=True)
 
     class Meta(ReadOnlyModel.Meta):
         db_table = 'oai_crosswalk'
@@ -6478,8 +6478,8 @@ class OaiCrosswalkField(ReadOnlyModel):
     varfield_type_code = models.CharField(max_length=1, blank=True)
     marc_tag = models.CharField(max_length=3, blank=True)
     subfields = models.CharField(max_length=26, blank=True)
-    is_add_subfield = models.NullBooleanField(null=True, blank=True)
-    is_varfield = models.NullBooleanField(null=True, blank=True)
+    is_add_subfield = models.BooleanField(null=True, blank=True)
+    is_varfield = models.BooleanField(null=True, blank=True)
     fixnum = models.IntegerField(null=True, blank=True)
     order_num = models.IntegerField(null=True, blank=True)
 
@@ -6608,17 +6608,17 @@ class BoolInfo(ReadOnlyModel):
     bool_gmt = models.DateTimeField(null=True, blank=True)
     bool_query = models.TextField(blank=True)
     sql_query = models.TextField(blank=True)
-    is_lookup_call = models.NullBooleanField(null=True, blank=True)
-    is_lookup_880 = models.NullBooleanField(null=True, blank=True)
-    is_search_holdings = models.NullBooleanField(null=True, blank=True)
+    is_lookup_call = models.BooleanField(null=True, blank=True)
+    is_lookup_880 = models.BooleanField(null=True, blank=True)
+    is_search_holdings = models.BooleanField(null=True, blank=True)
     sorter_spec = models.TextField(blank=True)
     lister_spec = models.TextField(blank=True)
     status_code = models.CharField(max_length=1, blank=True)
     iii_user_name = models.CharField(max_length=255, blank=True)
     list_export_spec = models.TextField(blank=True)
     owner_iii_user_name = models.CharField(max_length=255, blank=True)
-    is_store_field = models.NullBooleanField(null=True, blank=True)
-    is_card_search = models.NullBooleanField(null=True, blank=True)
+    is_store_field = models.BooleanField(null=True, blank=True)
+    is_card_search = models.BooleanField(null=True, blank=True)
 
     class Meta(ReadOnlyModel.Meta):
         db_table = 'bool_info'
@@ -6736,7 +6736,7 @@ class IiiRole(ModelWithAttachedName):
     iii_role_category = models.ForeignKey('IiiRoleCategory',
                                           on_delete=models.CASCADE, null=True,
                                           blank=True)
-    is_disabled_during_read_only_access = models.NullBooleanField(null=True,
+    is_disabled_during_read_only_access = models.BooleanField(null=True,
                                                                   blank=True)
 
     class Meta(ModelWithAttachedName.Meta):
@@ -6824,11 +6824,11 @@ class IiiUser(ReadOnlyModel):
     timeout_logout_seconds = models.IntegerField(null=True, blank=True)
     scope_menu_id = models.IntegerField(null=True, blank=True)
     scope_menu_bitmask = models.CharField(max_length=2048, blank=True)
-    is_new_account = models.NullBooleanField(null=True, blank=True)
+    is_new_account = models.BooleanField(null=True, blank=True)
     last_password_change_gmt = models.DateTimeField(null=True, blank=True)
-    is_exempt = models.NullBooleanField(null=True, blank=True)
-    is_suspended = models.NullBooleanField(null=True, blank=True)
-    is_context_only = models.NullBooleanField(null=True, blank=True)
+    is_exempt = models.BooleanField(null=True, blank=True)
+    is_suspended = models.BooleanField(null=True, blank=True)
+    is_context_only = models.BooleanField(null=True, blank=True)
 
     class Meta(ReadOnlyModel.Meta):
         db_table = 'iii_user'
@@ -6851,7 +6851,7 @@ class IiiUserGroup(ReadOnlyModel):
     id = models.BigIntegerField(primary_key=True)
     code = models.CharField(max_length=255, unique=True, blank=True)
     concurrent_max = models.IntegerField(null=True, blank=True)
-    is_independent = models.NullBooleanField(null=True, blank=True)
+    is_independent = models.BooleanField(null=True, blank=True)
 
     class Meta(ReadOnlyModel.Meta):
         db_table = 'iii_user_group'
