@@ -33,7 +33,7 @@ services:
     command: mysqld --wait_timeout=7200
 
   sierra-db-test:
-    image: postgres:9.5
+    image: postgres:9.6
     environment:
       - POSTGRES_USER=${TEST_SIERRA_DB_USER}
       - POSTGRES_PASSWORD=${TEST_SIERRA_DB_PASSWORD}
@@ -102,7 +102,7 @@ services:
     command: redis-server ${REDIS_CELERY_CONF_FILE:---dir /project/data --logfile /project/logs/log.txt --appendonly yes}
 
   redis-celery-test:
-    image: redis:3.2
+    image: redis:6.2.5
     volumes:
       - ./docker_data/redis_celery_test/data:/project/data
       - ./docker_data/redis_celery_test/logs:/project/logs
@@ -115,7 +115,7 @@ services:
     command: redis-server ${REDIS_CELERY_CONF_FILE:---dir /project/data --logfile /project/logs/log.txt --appendonly no}
 
   redis-appdata-dev:
-    image: redis:3.2
+    image: redis:6.2.5
     volumes:
       - ./docker_data/redis_appdata_dev/data:/project/data
       - ./docker_data/redis_appdata_dev/logs:/project/logs
@@ -127,7 +127,7 @@ services:
     command: redis-server ${REDIS_APPDATA_CONF_FILE:---dir /project/data --logfile /project/logs/log.txt --appendonly yes}
 
   redis-appdata-test:
-    image: redis:3.2
+    image: redis:6.2.5
     volumes:
       - ./docker_data/redis_appdata_test/data:/project/data
       - ./docker_data/redis_appdata_test/logs:/project/logs
@@ -174,7 +174,7 @@ services:
     working_dir: /project/catalog-api/django/sierra
     networks:
       - development
-    command: wait-for-it.sh -t 30 default-db-dev:3306 -- wait-for-it.sh -t 30 redis-celery-dev:6379 -- celery -A sierra -c 4 -l info -f /project/logs/celery-worker.log worker
+    command: wait-for-it.sh -t 30 default-db-dev:3306 -- wait-for-it.sh -t 30 redis-celery-dev:6379 -- celery -A sierra worker -c 4 -l INFO -f /project/logs/celery-worker.log
 
   celery-worker-test:
     build:
@@ -193,7 +193,7 @@ services:
     working_dir: /project/catalog-api/django/sierra
     networks:
       - testing
-    command: wait-for-it.sh -t 30 default-db-test:3306 -- wait-for-it.sh -t 30 redis-celery-test:6379 -- celery -A sierra -c 4 -l info -f /project/logs/celery-worker.log worker
+    command: wait-for-it.sh -t 30 default-db-test:3306 -- wait-for-it.sh -t 30 redis-celery-test:6379 -- celery -A sierra worker -c 4 -l INFO -f /project/logs/celery-worker.log
 
   test:
     build:
