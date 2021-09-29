@@ -219,9 +219,10 @@ def test_vcfield_relation_or_fkid_use_same_partfields(testmodels):
     `parent` or the name `parent_id` in the `partfield_names` kwarg,
     so long as both are accessors for the same model field.
     """
-    rel_vcf = testmodels['VCFParentInt']._meta.get_field('vcf')
-    fkid_vcf = testmodels['VCFParentIntID']._meta.get_field('vcf')
-    assert rel_vcf.partfields == fkid_vcf.partfields
+    rel = testmodels['VCFParentInt']._meta.get_field('vcf').partfields[2]
+    fkid = testmodels['VCFParentIntID']._meta.get_field('vcf').partfields[2]
+    assert rel.related_model == fkid.related_model
+    assert rel.target_field == fkid.target_field
 
 
 @pytest.mark.parametrize('modelname, name, number, parent_int, parent_str, '
