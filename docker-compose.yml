@@ -174,7 +174,7 @@ services:
     working_dir: /project/catalog-api/django/sierra
     networks:
       - development
-    command: wait-for-it.sh -t 30 default-db-dev:3306 -- wait-for-it.sh -t 30 redis-celery-dev:6379 -- celery -A sierra worker -c 4 -l INFO -f /project/logs/celery-worker.log
+    command: wait-for-it.sh -t 30 default-db-dev:3306 -- wait-for-it.sh -t 30 redis-celery-dev:6379 -- celery -A sierra worker -E -c 4 -l INFO -f /project/logs/celery-worker.log
 
   celery-worker-test:
     build:
@@ -193,7 +193,7 @@ services:
     working_dir: /project/catalog-api/django/sierra
     networks:
       - testing
-    command: wait-for-it.sh -t 30 default-db-test:3306 -- wait-for-it.sh -t 30 redis-celery-test:6379 -- celery -A sierra worker -c 4 -l INFO -f /project/logs/celery-worker.log
+    command: wait-for-it.sh -t 30 default-db-test:3306 -- wait-for-it.sh -t 30 redis-celery-test:6379 -- celery -A sierra worker -E -c 4 -l INFO -f /project/logs/celery-worker.log
 
   test:
     build:
