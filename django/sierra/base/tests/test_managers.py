@@ -70,16 +70,18 @@ class SierraTestRecordMaker(object):
         )
 
     def get_or_make_location_instance(self, lcode):
-        try:
-            location = m.Location.objects.get(code=lcode)
-        except m.Location.DoesNotExist:
-            location = self.make_instance(
-                m.Location,
-                id=self.next_location_id,
-                code=lcode
-            )
-            self.next_location_id += 1
-        return location
+        if lcode:
+            try:
+                location = m.Location.objects.get(code=lcode)
+            except m.Location.DoesNotExist:
+                location = self.make_instance(
+                    m.Location,
+                    id=self.next_location_id,
+                    code=lcode
+                )
+                self.next_location_id += 1
+            return location
+        return None
 
     def make_item_instance(self, record_md, item_data):
         (location_code,) = item_data or ([],)
