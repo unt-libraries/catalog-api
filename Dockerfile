@@ -1,7 +1,7 @@
-FROM python:3.6.14-stretch
+FROM python:3.9.7-buster
 
 RUN apt-get update -qq && \
-    apt-get install -y libpq-dev python-dev mariadb-client netcat openjdk-8-jre
+    apt-get install -y libpq-dev python-dev mariadb-client netcat openjdk-11-jre
 
 ARG userid=999
 ARG groupid=999

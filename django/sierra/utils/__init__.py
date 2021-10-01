@@ -1,6 +1,6 @@
 from __future__ import absolute_import
 import importlib
-import collections
+from collections.abc import Mapping, Sequence
 
 from six import iteritems
 
@@ -25,11 +25,11 @@ def dict_merge(orig_d, updt_d, list_merge=True):
         result = {'outer_key': {'inner_key': {'a': [0, 1], 'b': 1 }}}
     '''
     for k, v in iteritems(updt_d):
-        if isinstance(v, collections.Mapping):
+        if isinstance(v, Mapping):
             temp_d = dict_merge(orig_d.get(k, {}), v, list_merge)
             orig_d[k] = temp_d
         else:
-            if isinstance(v, collections.Sequence) and list_merge:
+            if isinstance(v, Sequence) and list_merge:
                 orig_d[k] = orig_d.get(k, [])
                 orig_d[k].extend(v)
             else:

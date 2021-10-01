@@ -296,7 +296,7 @@ class MarcUtils(object):
                   `100  1$a` -- Indicators are blank and 1.
         """
         fstring = re.sub(r'\n\s*', ' ', fstring)
-        tag_match = re.match(r'[\s=]*([a-z])?(\d{3})(\/[\d\-]+)?(.*)$', fstring)
+        tag_match = re.match(r'[\s=]*([a-z])?(\d{3})(/[\d\-]+)?(.*)$', fstring)
         group_tag, tag, cps, remainder = tag_match.groups()
         data, ind, sfs = None, None, None
 
@@ -313,7 +313,7 @@ class MarcUtils(object):
             sf_str = re.sub(r'\s?ǂ(.)\s', r'$\1', rem_match.group(3))
             if sf_str[0] != '$':
                 sf_str = '$a{}'.format(sf_str)
-            sfs = re.split(r'[\$\|](.)', sf_str)[1:]
+            sfs = re.split(r'[$|](.)', sf_str)[1:]
         return make_mfield(tag, data=data, subfields=sfs, indicators=ind,
                            group_tag=group_tag)
 
@@ -495,7 +495,7 @@ class PersonalNameParser(SequentialMarcFieldParser):
         self.numeration = p.strip_ends(val)
 
     def do_fuller_form_of_name(self, tag, val):
-        ffn = re.sub(r'^(?:.*\()?([^\(\)]+)(?:\).*)?$', r'\1', val)
+        ffn = re.sub(r'^(?:.*\()?([^()]+)(?:\).*)?$', r'\1', val)
         self.fuller_form_of_name = p.strip_ends(ffn)
 
     def parse_subfield(self, tag, val):
@@ -1279,7 +1279,7 @@ class StandardControlNumberParser(SequentialMarcFieldParser):
         return source, num.strip()
 
     def clean_isbn(self, isbn):
-        match = re.search(r'(?:^|\s)([\dX\-]+)[^\(]*(?:\((.+)\))?', isbn)
+        match = re.search(r'(?:^|\s)([\dX\-]+)[^(]*(?:\((.+)\))?', isbn)
         if match:
             number, qstr = match.groups()
             if number:
@@ -1305,7 +1305,7 @@ class StandardControlNumberParser(SequentialMarcFieldParser):
         return lccn
 
     def clean_qualifier(self, qstr):
-        cleaned = re.sub(r'[\(\)]', r'', p.strip_ends(qstr))
+        cleaned = re.sub(r'[()]', r'', p.strip_ends(qstr))
         return re.split(r'\s*[,;:]\s+', cleaned)
 
     def generate_validity_label(self, tag):
@@ -1641,7 +1641,7 @@ def parse_name_string(name_string):
     except AttributeError:
         pass
 
-    pname_match = re.match(r'((?:\s?[^,\.\s]+){1,3}), ([^,\.]+)(?:, )?(.+)?$',
+    pname_match = re.match(r'((?:\s?[^,.\s]+){1,3}), ([^,.]+)(?:, )?(.+)?$',
                            protected)
     try:
         surname, forename, ptitles = pname_match.groups()
@@ -1770,7 +1770,7 @@ class PersonalNamePermutator(object):
         forms: 'JJ', 'J J', 'J.J.', and 'J. J.' all return ['J', 'J'].
         """
         if np:
-            return [t for t in re.split(r'([A-Z](?=[A-Z]))|[\.\s]+', np) if t]
+            return [t for t in re.split(r'([A-Z](?=[A-Z]))|[.\s]+', np) if t]
         return []
 
     def _try_name_expansion(self, fuller_tokens, cmp_tokens):
@@ -1824,7 +1824,7 @@ class PersonalNamePermutator(object):
         return nicknames, expanded['forename'], expanded['surname']
 
     def split_nickname(self, forename):
-        match = re.search(r'^(.+?)\s+[\(\'"](\S+?)[\)\'"]$', forename)
+        match = re.search(r'^(.+?)\s+[(\'"](\S+?)[)\'"]$', forename)
         if match:
             return match.groups()
         return forename, ''
@@ -2016,7 +2016,7 @@ class PersonalNamePermutator(object):
 
     def _find_perm_overlap(self, perm, cumulative):
         test_str = ''
-        for nextchunk in re.split(r'([, \.])', perm):
+        for nextchunk in re.split(r'([, .])', perm):
             if nextchunk:
                 test_str = ''.join([test_str, nextchunk])
                 match = re.search(r'(?:^|.*\s){}$'.format(test_str), cumulative)
@@ -4725,7 +4725,7 @@ class ToDiscoverPipeline(object):
 
         if '001' in deferred:
             val = deferred['001']
-            is_oclc = re.match(r'(on|ocm|ocn)?\d+(\/.+)?$', val)
+            is_oclc = re.match(r'(on|ocm|ocn)?\d+(/.+)?$', val)
             # OCLC numbers in 001 are treated as valid only if
             # there are not already valid OCLC numbers found in
             # 035s that we've already processed.
