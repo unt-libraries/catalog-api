@@ -29,6 +29,16 @@ def connect(url=None, using='default', **kwargs):
     return pysolr.Solr(url, always_commit=True, **kwargs)
 
 
+def format_datetime_for_solr(dt_obj):
+    """
+    Format a Python datetime object (UTC) in Solr datetime format.
+    """
+    s_time = dt_obj.utctimetuple()
+    date_str = '{}-{:02d}-{:02d}'.format(*s_time[0:3])
+    time_str = '{:02d}:{:02d}:{:02d}'.format(*s_time[3:6])
+    return '{}T{}Z'.format(date_str, time_str)
+
+
 class MultipleObjectsReturned(Exception):
     pass
 
@@ -195,14 +205,9 @@ class Queryset(object):
 
     def _val_to_solr_str(self, val):
         if isinstance(val, datetime):
-            s_time = val.utctimetuple()
-            date_str = '{}-{:02d}-{:02d}'.format(*s_time[0:3])
-            time_str = '{:02d}:{:02d}:{:02d}'.format(*s_time[3:6])
-            val = '{}T{}Z'.format(date_str, time_str)
-        else:
-            val = re.sub(r'([ +\-!(){}\[\]\^"~*?:\\/]|&&|\|\|)', r'\\\1',
-                         text_type(val))
-        return val
+            return format_datetime_for_solr(val)
+        return re.sub(r'([ +\-!(){}\[\]\^"~*?:\\/]|&&|\|\|)', r'\\\1',
+                      text_type(val))
 
     def _compile_filter_args(self, filter_args):
         fq = []

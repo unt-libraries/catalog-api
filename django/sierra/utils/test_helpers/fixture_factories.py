@@ -4,10 +4,12 @@ Provides object factories for use in pytest fixtures.
 
 from __future__ import absolute_import
 import importlib
+from datetime import datetime
 import pysolr
 
 from django.conf import settings
 
+from utils.solr import format_datetime_for_solr
 from . import solr_factories as sf
 
 
@@ -265,8 +267,23 @@ class SolrTestDataAssemblerFactory(object):
             """
             Save this assembler's `rectype` recordset to Solr.
             """
-            if self.records[rectype]:
-                self.profiles[rectype].conn.add(list(self.records[rectype]))
+            recs = []
+            for old_rec in self.records.get(rectype, []):
+                rec = {}
+                for k, v in old_rec.items():
+                    if isinstance(v, datetime):
+                        rec[k] = format_datetime_for_solr(v)
+                    elif isinstance(v, (list, tuple)):
+                        rec[k] = []
+                        for sub_v in v:
+                            if isinstance(sub_v, datetime):
+                                rec[k].append(format_datetime_for_solr(sub_v))
+                            else:
+                                rec[k].append(sub_v)
+                    else:
+                        rec[k] = v
+                recs.append(rec)
+            self.profiles[rectype].conn.add(recs)
 
         def save_all(self):
             """
