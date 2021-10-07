@@ -26,7 +26,7 @@ def connect(url=None, using='default', **kwargs):
         except KeyError:
             raise ImproperlyConfigured('Haystack connection {} does not '
                                        'exist.'.format(using))
-    return pysolr.Solr(url, **kwargs)
+    return pysolr.Solr(url, always_commit=True, **kwargs)
 
 
 class MultipleObjectsReturned(Exception):

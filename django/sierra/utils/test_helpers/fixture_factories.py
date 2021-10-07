@@ -266,7 +266,7 @@ class SolrTestDataAssemblerFactory(object):
             Save this assembler's `rectype` recordset to Solr.
             """
             if self.records[rectype]:
-                self.profiles[rectype].conn.add(self.records[rectype])
+                self.profiles[rectype].conn.add(list(self.records[rectype]))
 
         def save_all(self):
             """
@@ -345,7 +345,7 @@ class TestSolrConnectionFactory(object):
 
     def make(self, conn_name, *args, **kwargs):
         url = settings.HAYSTACK_CONNECTIONS[conn_name]['URL']
-        return pysolr.Solr(url, **kwargs)
+        return pysolr.Solr(url, always_commit=True, **kwargs)
 
     def unmake(self, conn):
         conn.delete(q='*:*')

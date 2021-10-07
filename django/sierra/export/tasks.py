@@ -103,7 +103,7 @@ def optimize():
     url_stack = []
     for index, options in iteritems(settings.HAYSTACK_CONNECTIONS):
         if options['URL'] not in url_stack:
-            conn = pysolr.Solr(options['URL'], 
+            conn = pysolr.Solr(options['URL'], always_commit=True,
                                timeout=options['TIMEOUT'])
             logger.info('Optimizing {} index.'.format(index))
             conn.optimize()
