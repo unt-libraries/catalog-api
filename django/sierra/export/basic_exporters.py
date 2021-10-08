@@ -6,19 +6,18 @@ ExportType you define, you're going to have a class defined here that
 inherits from the base Exporter class. Your ExportType.code should
 match the class name that handles that ExportType.
 """
-from __future__ import unicode_literals
 from __future__ import absolute_import
-import logging
+from __future__ import unicode_literals
 
-from django.conf import settings
-from six import iteritems
+import logging
 
 from base import models as sierra_models
 from base import search_indexes as indexes
+from django.conf import settings
 from export.exporter import (Exporter, ToSolrExporter, MetadataToSolrExporter,
                              CompoundMixin, AttachedRecordExporter)
+from six import iteritems
 from utils import helpers, redisobjs, solr
-
 
 # set up logger, for debugging
 logger = logging.getLogger('sierra.custom')

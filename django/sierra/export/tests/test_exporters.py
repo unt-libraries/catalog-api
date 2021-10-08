@@ -2,9 +2,10 @@
 Tests classes derived from `export.exporter.Exporter`.
 """
 from __future__ import absolute_import
-import pytest
+
 import datetime
 
+import pytest
 from six import text_type
 from six.moves import range
 

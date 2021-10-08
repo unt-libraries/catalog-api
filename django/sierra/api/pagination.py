@@ -5,10 +5,10 @@ about each page.
 '''
 
 from __future__ import absolute_import
-from django.conf import settings
 
-from rest_framework import serializers
+from django.conf import settings
 from rest_framework import pagination
+from rest_framework import serializers
 from rest_framework.templatetags.rest_framework import replace_query_param
 
 from . import serializers as sierra_api_serializers

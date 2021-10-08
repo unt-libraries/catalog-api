@@ -3,13 +3,14 @@ Provides object factories for use in pytest fixtures.
 """
 
 from __future__ import absolute_import
+
 import importlib
 from datetime import datetime
+
 import pysolr
-
 from django.conf import settings
-
 from utils.solr import format_datetime_for_solr
+
 from . import solr_factories as sf
 
 

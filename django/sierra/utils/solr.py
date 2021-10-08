@@ -2,18 +2,18 @@
 Provides Django queryset functionality on top of Solr search results.
 """
 
-from __future__ import unicode_literals
 from __future__ import absolute_import
-import re
+from __future__ import unicode_literals
+
 import copy
+import logging
+import re
 from datetime import datetime
 
-import logging
 import pysolr
-from django.core.exceptions import ImproperlyConfigured
 from django.conf import settings
+from django.core.exceptions import ImproperlyConfigured
 from six import iteritems, text_type
-
 
 # set up logger, for debugging
 logger = logging.getLogger('sierra.custom')

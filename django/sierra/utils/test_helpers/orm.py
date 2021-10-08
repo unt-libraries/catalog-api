@@ -3,14 +3,14 @@ Contains test helpers for managing ORM test models and such.
 """
 
 from __future__ import absolute_import
+
 import os
 from collections import OrderedDict
 
-from django.db import models
+from django.conf import settings
 from django.core import management
 from django.db import connections, OperationalError
-
-from django.conf import settings
+from django.db import models
 
 
 class AppModelsEnvironment(object):

@@ -1,18 +1,16 @@
 from __future__ import absolute_import
-from collections import OrderedDict
-from copy import copy
-
-from django.conf import settings
-
-from api.simpleserializers import SimpleSerializerWithLookups
-from api import serializers as api_serializers
-from api.uris import APIUris
-from .uris import ShelflistAPIUris
-from utils.redisobjs import RedisObject
-from utils import solr
-from utils.camel_case import render, parser
 
 import logging
+from collections import OrderedDict
+
+from api import serializers as api_serializers
+from api.simpleserializers import SimpleSerializerWithLookups
+from api.uris import APIUris
+from utils import solr
+from utils.camel_case import render, parser
+from utils.redisobjs import RedisObject
+
+from .uris import ShelflistAPIUris
 
 # set up logger, for debugging
 logger = logging.getLogger('sierra.custom')

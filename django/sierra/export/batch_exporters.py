@@ -6,15 +6,13 @@ ExportType you define, you're going to have a class defined here that
 inherits from the base Exporter class. Your ExportType.code should
 match the class name that handles that ExportType.
 """
-from __future__ import unicode_literals
 from __future__ import absolute_import
+from __future__ import unicode_literals
+
 import logging
-import re
 
 from django.conf import settings
-
 from export.exporter import BatchExporter
-from . import models
 
 # set up logger, for debugging
 logger = logging.getLogger('sierra.custom')

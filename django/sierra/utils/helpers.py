@@ -2,14 +2,15 @@
 Contains various utility functions and classes for Sierra API project
 code.
 """
-from __future__ import unicode_literals
 from __future__ import absolute_import
+from __future__ import unicode_literals
+
 import operator
 import re
+from functools import reduce
 
 from django.db.models import Q
 from six import text_type
-from functools import reduce
 
 
 def reduce_filter_kwargs(filters):

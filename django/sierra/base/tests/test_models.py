@@ -3,11 +3,10 @@ Tests for custom behavior on base.models (i.e., Sierra models).
 """
 
 from __future__ import absolute_import
+
 import pytest
-
-from base import models as m
 from base import fields as f
-
+from base import models as m
 
 # FIXTURES AND TEST DATA
 # External fixtures used below can be found in

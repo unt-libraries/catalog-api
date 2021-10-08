@@ -7,21 +7,20 @@ Define your subclasses in a separate module and then hook it into your
 project using the EXPORTER_MODULE_REGISTRY Django setting.
 """
 
+from __future__ import absolute_import
 from __future__ import unicode_literals
 
-from __future__ import absolute_import
 import logging
 import sys
 import traceback
 from collections import OrderedDict, namedtuple
 
-from django.db.models import F
-from django.utils import timezone as tz
-from django.conf import settings
-
-from utils import helpers
-from utils import dict_merge
 from base import models as sierra_models
+from django.conf import settings
+from django.db.models import F
+from utils import dict_merge
+from utils import helpers
+
 from .models import ExportInstance, ExportType, Status
 from .tasks import SierraExplicitKeyBundler
 

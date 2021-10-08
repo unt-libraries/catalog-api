@@ -1,12 +1,13 @@
-from __future__ import unicode_literals
 from __future__ import absolute_import
+from __future__ import unicode_literals
+
 import json
 
 import ujson
 from django.http.multipartparser import parse_header
-from six import text_type
 from rest_framework.renderers import BaseRenderer
 from rest_framework.utils import encoders
+from six import text_type
 
 
 class FullJSONRenderer(BaseRenderer):

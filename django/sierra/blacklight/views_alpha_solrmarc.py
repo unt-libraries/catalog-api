@@ -1,19 +1,17 @@
 from __future__ import absolute_import
-from collections import OrderedDict
-
-from django.conf import settings
-
-from rest_framework.decorators import api_view
-from rest_framework.response import Response
-
-from utils import solr
-from shelflist import views as shelflist_views
-from api.simpleviews import SimpleView, SimpleGetMixin
-from blacklight.uris_alpha_solrmarc import AsmUris
-from blacklight.serializers_alpha_solrmarc import AsmSuggestionsSerializer
-from blacklight.filters_alpha_solrmarc import AsmSuggestionsFilter
 
 import logging
+from collections import OrderedDict
+
+from api.simpleviews import SimpleView, SimpleGetMixin
+from blacklight.filters_alpha_solrmarc import AsmSuggestionsFilter
+from blacklight.serializers_alpha_solrmarc import AsmSuggestionsSerializer
+from blacklight.uris_alpha_solrmarc import AsmUris
+from django.conf import settings
+from rest_framework.decorators import api_view
+from rest_framework.response import Response
+from shelflist import views as shelflist_views
+from utils import solr
 
 # set up logger, for debugging
 logger = logging.getLogger('sierra.custom')

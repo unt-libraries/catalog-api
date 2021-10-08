@@ -1,19 +1,16 @@
 from __future__ import absolute_import
-import re
+
 import logging
-from datetime import datetime
+import re
 
-import ujson
 from dateutil import parser as dateparser
-
-from pysolr import SolrError
 from django.conf import settings
+from pysolr import SolrError
 from rest_framework.filters import BaseFilterBackend
-from haystack.query import SearchQuerySet
 from six import iteritems
+from utils import helpers
 
 from . import exceptions
-from utils import helpers
 
 # set up logger, for debugging
 logger = logging.getLogger('sierra.custom')

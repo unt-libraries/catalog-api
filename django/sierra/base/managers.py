@@ -2,11 +2,11 @@
 Custom Managers for sierra base app models.
 """
 from __future__ import absolute_import
-from datetime import date, time, datetime
+
+from datetime import time, datetime
 
 from django.db import models
 from django.utils import timezone as tz
-
 from utils import helpers
 
 

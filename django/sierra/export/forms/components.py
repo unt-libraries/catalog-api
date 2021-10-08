@@ -1,10 +1,11 @@
 from __future__ import absolute_import
+
 import re
 from datetime import date
 
+from base import models as sierra_models
 from django import forms
 from django.core.exceptions import ValidationError
-from base import models as sierra_models
 
 
 # Validators

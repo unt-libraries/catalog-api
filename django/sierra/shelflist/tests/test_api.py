@@ -4,18 +4,16 @@ Tests API features applicable to the `shelflist` app.
 
 from __future__ import absolute_import
 from __future__ import print_function
-import pytest
-import ujson
-import jsonpatch
+
 from datetime import datetime
 
-from six import text_type
-from six.moves import range
-
+import jsonpatch
+import pytest
+import ujson
 from shelflist.exporters import ItemsToSolr
 from shelflist.search_indexes import ShelflistItemIndex
-from shelflist.serializers import ShelflistItemSerializer
-
+from six import text_type
+from six.moves import range
 
 # FIXTURES AND TEST DATA
 # Fixtures used in the below tests can be found in ...

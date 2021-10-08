@@ -80,18 +80,19 @@ to be specific. For the sake of consistency, here's what I've done:
      it makes sense--bibs to items, holdings to items, etc.
 """
 
-from __future__ import unicode_literals
 from __future__ import absolute_import
+from __future__ import unicode_literals
+
 import re
 
-from django.db import models
 from django.conf import settings
+from django.db import models
 from six import python_2_unicode_compatible, text_type
 from six.moves import range
+from utils import helpers
 
 from . import fields
 from .managers import RecordManager
-from utils import helpers
 
 
 @python_2_unicode_compatible

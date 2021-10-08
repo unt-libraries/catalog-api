@@ -1,7 +1,6 @@
 from __future__ import absolute_import
-import jsonpatch
-import jsonpointer
 
+import jsonpatch
 from rest_framework import parsers
 from rest_framework.exceptions import ParseError
 

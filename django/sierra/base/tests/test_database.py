@@ -9,15 +9,12 @@ models made as needed.
 """
 
 from __future__ import absolute_import
+
 import re
-import warnings
 
 import pytest
-
-from django.core.exceptions import ObjectDoesNotExist
-
 from base import models
-
+from django.core.exceptions import ObjectDoesNotExist
 
 # FIXTURES AND TEST DATA
 

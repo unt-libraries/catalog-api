@@ -3,12 +3,12 @@ Contains DRF serializers for alpha-solrmarc bl-suggest resources.
 """
 
 from __future__ import absolute_import
+
+import logging
 from collections import OrderedDict
 
 from api.simpleserializers import SimpleSerializer
 from utils.camel_case import render, parser
-
-import logging
 
 # set up logger, for debugging
 logger = logging.getLogger('sierra.custom')

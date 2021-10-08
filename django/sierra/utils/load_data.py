@@ -18,8 +18,9 @@ class Migration(migrations.Migration):
 """
 
 from __future__ import absolute_import
-from django.core.serializers import base, python
+
 from django.core.management import call_command
+from django.core.serializers import base, python
 
 
 def load_data(path_to_fixture, database='default'):

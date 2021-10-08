@@ -7,14 +7,14 @@ resource: a new index object (ShelflistItemIndex) and creation/storage
 of shelflistitem manifests.
 """
 
-from __future__ import unicode_literals
 from __future__ import absolute_import
+from __future__ import unicode_literals
+
 import logging
 
-from export import exporter, basic_exporters as exporters
+from export import basic_exporters as exporters
 from shelflist.search_indexes import ShelflistItemIndex
-from utils import solr, redisobjs
-
+from utils import redisobjs
 
 # set up logger, for debugging
 logger = logging.getLogger('sierra.custom')

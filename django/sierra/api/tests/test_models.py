@@ -6,15 +6,12 @@ resource (including authentication) is tested via `test_api.py`.
 """
 
 from __future__ import absolute_import
+
 import pytest
-
 import ujson
-
-from django.contrib.auth.models import User
+from api.models import APIUserException, remove_null_kwargs
 from django.contrib.auth import authenticate
-
-from api.models import APIUserException, UserExists, remove_null_kwargs
-
+from django.contrib.auth.models import User
 
 pytestmark = pytest.mark.django_db
 

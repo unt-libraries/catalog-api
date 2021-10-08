@@ -1,23 +1,22 @@
 from __future__ import absolute_import
-from datetime import datetime
-from collections import OrderedDict
-
-from django.conf import settings
-from django.http import Http404
-from django.utils import timezone as tz
-from django.contrib.auth.models import User
-
-from rest_framework.decorators import api_view
-from rest_framework.response import Response
-from rest_framework import permissions
-
-from .simpleviews import SimpleView, SimpleGetMixin
-from utils import solr
-from . import serializers
-from . import filters
-from .uris import APIUris
 
 import logging
+from collections import OrderedDict
+from datetime import datetime
+
+from django.conf import settings
+from django.contrib.auth.models import User
+from django.http import Http404
+from django.utils import timezone as tz
+from rest_framework import permissions
+from rest_framework.decorators import api_view
+from rest_framework.response import Response
+from utils import solr
+
+from . import filters
+from . import serializers
+from .simpleviews import SimpleView, SimpleGetMixin
+from .uris import APIUris
 
 # set up logger, for debugging
 logger = logging.getLogger('sierra.custom')

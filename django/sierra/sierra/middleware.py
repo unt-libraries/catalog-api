@@ -1,9 +1,10 @@
 from __future__ import absolute_import
+
 from django import http
-from django.utils.deprecation import MiddlewareMixin
-from django.utils.http import urlquote
 from django import urls
 from django.conf import settings
+from django.utils.deprecation import MiddlewareMixin
+from django.utils.http import urlquote
 
 
 class AppendOrRemoveSlashMiddleware(MiddlewareMixin):

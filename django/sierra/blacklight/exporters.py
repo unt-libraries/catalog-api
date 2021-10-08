@@ -2,18 +2,17 @@
 Exporters module for catalog-api `blacklight` app.
 """
 
-from __future__ import unicode_literals
-
 from __future__ import absolute_import
-from haystack import exceptions
+from __future__ import unicode_literals
 
 from base import models as sm
 from base.search_indexes import BibIndex
 from blacklight import sierra2marc as s2m
-from export.exporter import Exporter, CompoundMixin, ToSolrExporter
-from utils import solr
-from export.tasks import SolrKeyRangeBundler
 from django.conf import settings
+from export.exporter import Exporter, CompoundMixin, ToSolrExporter
+from export.tasks import SolrKeyRangeBundler
+from haystack import exceptions
+from utils import solr
 
 
 class SameRecSetMultiExporter(CompoundMixin, Exporter):

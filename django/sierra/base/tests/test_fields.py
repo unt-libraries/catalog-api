@@ -3,17 +3,17 @@ Tests for custom fields.
 """
 
 from __future__ import absolute_import
-import re
-import random
-import pytest
 
-from django.db import connections, models, IntegrityError
+import random
+import re
+
+import pytest
+from base import fields
 from django.core import serializers
+from django.db import connections, models, IntegrityError
 from six import text_type
 
-from base import fields
 from .vcftestmodels import models as vtm
-
 
 # FIXTURES AND TEST DATA
 

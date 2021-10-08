@@ -1,21 +1,22 @@
 from __future__ import absolute_import
-from django.http import Http404
-from collections import OrderedDict
-
-from rest_framework.parsers import JSONParser
-from rest_framework.decorators import api_view
-from rest_framework.response import Response
-from rest_framework import permissions
-
-from utils import solr
-from utils.redisobjs import RedisObject
-from api import views as api_views
-from api.simpleviews import SimpleView, SimpleGetMixin, SimplePatchMixin, SimplePutMixin
-from .uris import ShelflistAPIUris
-from . import serializers
-from .parsers import JSONPatchParser
 
 import logging
+from collections import OrderedDict
+
+from api import views as api_views
+from api.simpleviews import SimpleView, SimpleGetMixin, SimplePatchMixin, \
+    SimplePutMixin
+from django.http import Http404
+from rest_framework import permissions
+from rest_framework.decorators import api_view
+from rest_framework.parsers import JSONParser
+from rest_framework.response import Response
+from utils import solr
+from utils.redisobjs import RedisObject
+
+from . import serializers
+from .parsers import JSONPatchParser
+from .uris import ShelflistAPIUris
 
 # set up logger, for debugging
 logger = logging.getLogger('sierra.custom')

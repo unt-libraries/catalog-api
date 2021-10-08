@@ -2,13 +2,14 @@
 Contains factories for generating test data for Solr.
 """
 from __future__ import absolute_import
-import ujson
+
 import datetime
-import pytz
-import random
 import fnmatch
+import random
 from collections import OrderedDict
 
+import pytz
+import ujson
 from six import unichr, text_type
 from six.moves import range
 

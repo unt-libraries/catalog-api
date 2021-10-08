@@ -2,18 +2,17 @@
 Contains models for api app.
 """
 from __future__ import absolute_import
+
 import hashlib
 import importlib
-import csv
 import re
 
 import ujson
-
 from django.conf import settings
+from django.contrib.auth import authenticate
+from django.contrib.auth.models import User
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import models, transaction, IntegrityError
-from django.contrib.auth.models import User
-from django.contrib.auth import authenticate
 
 
 class APIUserException(Exception):

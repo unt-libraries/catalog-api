@@ -4,12 +4,14 @@
 Sierra2Marc module for catalog-api `blacklight` app.
 """
 
-from __future__ import unicode_literals
 from __future__ import absolute_import
 from __future__ import print_function
-import pymarc
-import logging
+from __future__ import unicode_literals
+
 import re
+
+import pymarc
+
 try:
     # Python 3
     from re import ASCII
@@ -33,7 +35,7 @@ from six.moves import range
 from base import models, local_rulesets
 from export.sierra2marc import S2MarcBatch, S2MarcError
 from blacklight import parsers as p
-from utils import helpers, toascii
+from utils import toascii
 
 
 # These are MARC fields that we are currently not including in public

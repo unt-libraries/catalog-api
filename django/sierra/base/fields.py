@@ -19,12 +19,13 @@ foreign keys in Sierra are always implemented as single database
 columns.
 """
 from __future__ import absolute_import
+
 import re
 
+from django.core.exceptions import ValidationError
 from django.db import models
 from django.db.models import functions
 from django.utils.functional import cached_property
-from django.core.exceptions import ValidationError
 from six import text_type
 
 

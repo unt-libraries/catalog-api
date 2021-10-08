@@ -3,10 +3,12 @@ Tests the `blacklight.exporters` classes.
 """
 
 from __future__ import absolute_import
-import pytest
-from datetime import datetime
-import pytz
+
 import random
+from datetime import datetime
+
+import pytest
+import pytz
 from six import text_type
 from six.moves import range
 

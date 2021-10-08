@@ -1,10 +1,11 @@
 # -*- coding: utf-8 -*-
 from __future__ import absolute_import
-import re
-import json
 
-from rest_framework.parsers import JSONParser, ParseError
+import json
+import re
+
 from django.conf import settings
+from rest_framework.parsers import JSONParser, ParseError
 from six import text_type
 from six.moves import range
 

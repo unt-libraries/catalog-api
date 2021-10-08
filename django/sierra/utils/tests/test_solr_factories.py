@@ -3,15 +3,16 @@ Contains tests for utils.test_helpers.solr_factories.
 """
 
 from __future__ import absolute_import
-import pytest
+
 import datetime
-import pytz
 import itertools
 
+import pytest
+import pytz
 from six import text_type
 from six.moves import range
-
 from utils.test_helpers import solr_factories as f
+
 
 # FIXTURES AND TEST DATA
 

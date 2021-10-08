@@ -1,16 +1,16 @@
 from __future__ import absolute_import
+
 import hashlib
-
-from six import ensure_str
-from rest_framework import authentication
-from rest_framework import exceptions
-
-from . import models
-from utils import redisobjs as ro
-
-
 # set up logger, for debugging
 import logging
+
+from rest_framework import authentication
+from rest_framework import exceptions
+from six import ensure_str
+from utils import redisobjs as ro
+
+from . import models
+
 logger = logging.getLogger('sierra.custom')
 
 

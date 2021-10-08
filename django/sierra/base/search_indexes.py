@@ -8,22 +8,21 @@ Haystack to search them. In order to do that, we have to include a
 BibIndex class with the bare minimum attributes to make it a valid
 Haystack SearchIndex class.
 """
-from __future__ import unicode_literals
 from __future__ import absolute_import
-import ujson
-import fnmatch
+from __future__ import unicode_literals
 
-from haystack import indexes, constants, utils, exceptions
-from django.conf import settings
-from django.core.exceptions import ObjectDoesNotExist
+import fnmatch
 import logging
+
+import ujson
+from django.core.exceptions import ObjectDoesNotExist
+from export import sierra2marc as s2m
+from haystack import indexes, constants, utils, exceptions
 from six import text_type
 from six.moves import range
-
-from . import models as sierra_models
-from export import sierra2marc as s2m
 from utils import helpers
 
+from . import models as sierra_models
 
 # set up logger, for debugging
 logger = logging.getLogger('sierra.custom')

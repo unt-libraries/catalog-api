@@ -3,18 +3,17 @@ Tests the 'makefixtures' custom management.py command.
 """
 
 from __future__ import absolute_import
+
 import pytest
 import ujson
-
 from django.core import serializers
 from django.core.management import call_command
 from django.core.management.base import CommandError
 from django.db.models import Q
+from sierra.management.commands import makefixtures
 from six import StringIO
 
 from .testmodels import models as m
-from sierra.management.commands import makefixtures
-
 
 # FIXTURES AND TEST DATA
 # ---------------------------------------------------------------------

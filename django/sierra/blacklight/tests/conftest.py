@@ -3,13 +3,15 @@ Contains pytest fixtures shared by Catalog API blacklight app
 """
 
 from __future__ import absolute_import
+
+import decimal
+from datetime import datetime
+
 import pytest
 import pytz
-from datetime import datetime
-import decimal
-
-from django.conf import settings
 from base import models as m
+from django.conf import settings
+
 from . import solr_test_profiles as tp
 
 

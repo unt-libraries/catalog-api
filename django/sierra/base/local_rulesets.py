@@ -9,12 +9,10 @@ change and as codes/rules in Sierra change, so the goal is to keep this
 collected in one place, isolated as much as possible from other code.
 """
 
-from __future__ import unicode_literals
 from __future__ import absolute_import
-import re
+from __future__ import unicode_literals
 
 from base import ruleset as r
-
 
 ITEM_RULES = {
     # `is_online` is True for online/electronic copies.

@@ -3,16 +3,13 @@ Tests the 'importapiusers' custom management.py command.
 """
 
 from __future__ import absolute_import
-import pytest
-import csv
 
+import pytest
+from api.management.commands import importapiusers
 from django.core.management import call_command
 from django.core.management.base import CommandError
 from six import StringIO
-
-from api.management.commands import importapiusers
 from six.moves import range
-
 
 # FIXTURES AND TEST DATA
 # ---------------------------------------------------------------------

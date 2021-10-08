@@ -2,11 +2,12 @@
 Tests the base.ruleset classes and functions.
 """
 
-from __future__ import unicode_literals
 from __future__ import absolute_import
-import pytest
+from __future__ import unicode_literals
 
+import pytest
 from base import local_rulesets as lr
+
 
 # FIXTURES / TEST DATA
 

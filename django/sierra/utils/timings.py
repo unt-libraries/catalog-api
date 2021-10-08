@@ -34,9 +34,10 @@ logger you want.
 
 from __future__ import absolute_import
 from __future__ import print_function
-import logging
+
 import ast
-from datetime import datetime, time
+import logging
+from datetime import datetime
 
 from rest_framework.test import APIClient
 from six import iteritems

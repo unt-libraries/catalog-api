@@ -3,32 +3,32 @@ Contains all shared pytest fixtures and hooks
 """
 
 from __future__ import absolute_import
-import pytest
-import importlib
-import redis
-import pysolr
-import pytz
-import hashlib
-import six.moves.urllib.request
-import six.moves.urllib.parse
-import six.moves.urllib.error
-import random
-import ujson
-from datetime import datetime
-from collections import OrderedDict
 
+import hashlib
+import importlib
+import random
+from collections import OrderedDict
+from datetime import datetime
+
+import pytest
+import pytz
+import redis
+import six.moves.urllib.error
+import six.moves.urllib.parse
+import six.moves.urllib.request
+import ujson
 from django.conf import settings
 from django.contrib.auth import authenticate
 from django.contrib.auth.models import User
 from django.db.models import ObjectDoesNotExist
 from rest_framework import test as drftest
 
+from api.models import APIUser
+from base import models as bm
+from export import models as em
 from utils.redisobjs import RedisObject
 from utils.test_helpers import (fixture_factories as ff,
                                 solr_test_profiles as tp)
-from export import models as em
-from base import models as bm
-from api.models import APIUser
 
 
 # HOOKS -- These control setup / teardown for all tests.

@@ -15,19 +15,19 @@ values.
 index optimization isn't triggered if commit is false.
 """
 from __future__ import absolute_import
-import subprocess
+
 import os
-import shlex
 import re
+import shlex
+import subprocess
 
 from django.apps import apps
 from django.conf import settings
-
-from haystack.backends import solr_backend, BaseEngine
-from haystack.models import SearchResult
-from haystack.constants import ID, DJANGO_CT, DJANGO_ID
-from haystack.utils import get_model_ct
 from haystack import connections
+from haystack.backends import solr_backend, BaseEngine
+from haystack.constants import ID, DJANGO_CT, DJANGO_ID
+from haystack.models import SearchResult
+from haystack.utils import get_model_ct
 from pysolr import SolrError
 from six.moves import zip
 

@@ -3,10 +3,10 @@ Tests shelflist-app classes derived from `export.exporter.Exporter`.
 """
 
 from __future__ import absolute_import
-import pytest
-import importlib
+
 import random
 
+import pytest
 
 # FIXTURES AND TEST DATA
 # Fixtures used in the below tests can be found in ...

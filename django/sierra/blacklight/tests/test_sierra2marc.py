@@ -4,18 +4,17 @@
 Tests the blacklight.sierra2marc functions.
 """
 
-from __future__ import unicode_literals
 from __future__ import absolute_import
 from __future__ import print_function
-import pytest
-import ujson
+from __future__ import unicode_literals
+
 import datetime
+
+import pytest
 import pytz
-
-from six.moves import range, zip
-
+import ujson
 from blacklight import sierra2marc as s2m
-
+from six.moves import range, zip
 
 # FIXTURES AND TEST DATA
 pytestmark = pytest.mark.django_db

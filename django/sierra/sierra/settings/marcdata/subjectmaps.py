@@ -2,10 +2,10 @@
 Map subject headings to subject facet values.
 """
 
-from __future__ import unicode_literals
 from __future__ import absolute_import
-import re
+from __future__ import unicode_literals
 
+import re
 
 war_words = '(?:war|revolution)'
 

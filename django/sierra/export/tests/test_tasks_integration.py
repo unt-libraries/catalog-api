@@ -3,11 +3,9 @@ Contains integration tests for Celery tasks in `export/tasks.py`.
 """
 
 import pytest
-
-from celery import Celery
-
-from sierra.celery import app
 from export import tasks as export_tasks
+from sierra.celery import app
+
 
 # FIXTURES AND TEST DATA
 

@@ -12,11 +12,10 @@ you are implementing this at your institution, you will want to
 override that locally.
 """
 
-from __future__ import unicode_literals
 from __future__ import absolute_import
-import re
+from __future__ import unicode_literals
 
-from utils import helpers as h
+import re
 
 
 class Ruleset(object):

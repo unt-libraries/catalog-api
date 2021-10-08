@@ -1,14 +1,12 @@
 from __future__ import absolute_import
-import re
-import logging
 
-from pysolr import SolrError
-from django.conf import settings
-from rest_framework.filters import BaseFilterBackend
+import logging
 
 from api import exceptions
 from blacklight import bl_suggest_alpha_solrmarc as suggest
-
+from django.conf import settings
+from pysolr import SolrError
+from rest_framework.filters import BaseFilterBackend
 
 # set up logger, for debugging
 logger = logging.getLogger('sierra.custom')

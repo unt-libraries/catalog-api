@@ -3,11 +3,12 @@ Tests the relationtrees module used in custom sierra management commands.
 """
 
 from __future__ import absolute_import
-import pytest
 
-from .testmodels import models as m
+import pytest
 from sierra.management import relationtrees
 from six import iteritems
+
+from .testmodels import models as m
 
 # FIXTURES AND TEST DATA
 

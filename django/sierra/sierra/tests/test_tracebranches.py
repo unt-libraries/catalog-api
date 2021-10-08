@@ -1,14 +1,12 @@
 from __future__ import absolute_import
+
 import json
 
 import pytest
-
 from django.core.management import call_command
 from django.core.management.base import CommandError
-from six import StringIO
-
-from .testmodels import models as m
 from sierra.management.commands import tracebranches
+from six import StringIO
 
 
 @pytest.fixture

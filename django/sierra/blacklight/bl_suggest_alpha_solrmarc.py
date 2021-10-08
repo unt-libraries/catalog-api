@@ -3,11 +3,13 @@ Contains components for deriving `bl-suggest` auto suggest records from
 the alpha-solrmarc index.
 """
 
-from __future__ import unicode_literals
 from __future__ import absolute_import
-import re
+from __future__ import unicode_literals
+
 import base64
 import hashlib
+import re
+
 from utils.helpers import NormalizedCallNumber
 
 # Start with a few constants and utility functions for parsing data

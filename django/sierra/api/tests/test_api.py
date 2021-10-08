@@ -4,13 +4,12 @@ Contains integration tests for the `api` app.
 
 from __future__ import absolute_import
 from __future__ import print_function
+
 from datetime import datetime
-from pytz import utc
 
 import pytest
 from django.contrib.auth.models import User
-
-from utils.test_helpers import solr_test_profiles as tp
+from pytz import utc
 
 # FIXTURES AND TEST DATA
 # ---------------------------------------------------------------------

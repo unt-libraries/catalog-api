@@ -3,10 +3,11 @@ Contains models for the export app. These are mainly just to provide
 some way to track your exports.
 """
 from __future__ import absolute_import
+
 import importlib
 
-from django.db import models
 from django.contrib.auth.models import User
+from django.db import models
 from six import python_2_unicode_compatible
 
 

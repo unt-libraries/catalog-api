@@ -3,14 +3,8 @@ Tests API features applicable to the `blacklight` app, alpha-solrmarc.
 """
 
 from __future__ import absolute_import
-import pytest
-import ujson
-import jsonpatch
-from datetime import datetime
 
-from shelflist.exporters import ItemsToSolr
-from shelflist.search_indexes import ShelflistItemIndex
-from shelflist.serializers import ShelflistItemSerializer
+import pytest
 
 # FIXTURES AND TEST DATA
 # Fixtures used in the below tests can be found in ...

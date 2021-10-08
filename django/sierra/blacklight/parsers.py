@@ -4,17 +4,15 @@
 Contains Sierra field data parsing functions.
 """
 
-from __future__ import unicode_literals
 from __future__ import absolute_import
+from __future__ import unicode_literals
+
 import logging
 import re
-import collections
 from datetime import datetime
 
-from utils import toascii
-from sierra.settings.marcdata import PERSON_NOBILIARY_PARTICLES
-
 from django.conf import settings
+from utils import toascii
 
 # set up logger, for debugging
 logger = logging.getLogger('sierra.custom')

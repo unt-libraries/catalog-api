@@ -1,16 +1,15 @@
 from __future__ import absolute_import
-from collections import OrderedDict
-import ujson
 
-from django.conf import settings
-from six import iteritems
 import logging
+from collections import OrderedDict
 
+import ujson
+from six import iteritems
 from utils import solr
 from utils.camel_case import render, parser
-from .uris import APIUris
-from .simpleserializers import SimpleSerializer, SimpleSerializerWithLookups
 
+from .simpleserializers import SimpleSerializer, SimpleSerializerWithLookups
+from .uris import APIUris
 
 # set up logger, for debugging
 logger = logging.getLogger('sierra.custom')

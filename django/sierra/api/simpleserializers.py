@@ -1,13 +1,12 @@
 from __future__ import absolute_import
+
+import logging
 from collections import OrderedDict
 from collections.abc import Sequence
 
 import django.db.models.query
-import logging
 from six import iteritems
-
 from utils import solr
-
 
 # set up logger, for debugging
 logger = logging.getLogger('sierra.custom')

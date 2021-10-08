@@ -2,13 +2,12 @@
 Contains the `tracebranches` manage.py command.
 """
 from __future__ import absolute_import
+
 import json
 
 from django.core.management.base import BaseCommand, CommandError
-
 from sierra.management import relationtrees
 from sierra.management.commands import makefixtures
-
 
 INDENT = 2
 

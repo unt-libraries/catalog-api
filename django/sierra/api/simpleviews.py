@@ -1,24 +1,21 @@
 from __future__ import absolute_import
-import six.moves.urllib.request
-import six.moves.urllib.parse
-import six.moves.urllib.error
+
+import logging
 from collections import OrderedDict
+
 import jsonpatch
 import jsonpointer
-
-from django.http import Http404
+import six.moves.urllib.error
+import six.moves.urllib.parse
+import six.moves.urllib.request
+from api import exceptions
 from django.conf import settings
-
+from rest_framework import status
 from rest_framework import views
 from rest_framework.response import Response
 from rest_framework.templatetags.rest_framework import replace_query_param
-from rest_framework import status
-
-from api import exceptions
 from utils import load_class
 from utils.camel_case import render
-
-import logging
 
 # set up logger, for debugging
 logger = logging.getLogger('sierra.custom')

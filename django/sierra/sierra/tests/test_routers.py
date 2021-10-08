@@ -8,14 +8,12 @@ databases.
 """
 
 from __future__ import absolute_import
+
 import pytest
-
-from django.db import connections, DatabaseError
-
-from sierra import routers
-from export import models as em
 from base import models as bm
-
+from django.db import connections, DatabaseError
+from export import models as em
+from sierra import routers
 
 # FIXTURES AND TEST DATA
 # External fixtures used below can be found in

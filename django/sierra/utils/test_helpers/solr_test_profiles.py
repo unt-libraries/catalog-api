@@ -3,18 +3,17 @@ Contains data structures for making Solr test data.
 """
 
 from __future__ import absolute_import
+
+import datetime
 import itertools
 import random
-import datetime
 import re
-import ujson
-import pytest
 
+import ujson
 from six import text_type
 from six.moves import range
-
-from utils.test_helpers import solr_factories as sf
 from utils.helpers import NormalizedCallNumber
+from utils.test_helpers import solr_factories as sf
 
 GLOBAL_UNIQUE_FIELDS = ('django_id', 'code', 'id', 'record_number')
 SOLR_TYPES = {

@@ -1,12 +1,9 @@
 from __future__ import absolute_import
-
 from __future__ import print_function
-import os
-from unipath import Path
 
 import dotenv
 from celery import Celery
-
+from unipath import Path
 
 # set the default Django settings module for the 'celery' program.
 dotenv.load_dotenv('{}/settings/.env'.format(Path(__file__).ancestor(1)))

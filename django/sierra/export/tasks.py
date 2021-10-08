@@ -1,22 +1,18 @@
 from __future__ import absolute_import
-import sys
-import traceback
 
 import logging
+
 import pysolr
-from django import template
+from celery import Task, shared_task, chord, result
 from django.conf import settings
 from django.contrib.auth.models import User
-from django.utils import timezone as tz
 from django.db import connections
-from celery import Task, shared_task, chord, chain, result
+from django.utils import timezone as tz
 from six import iteritems
 from six.moves import range
-
-from . import models as export_models
-from sierra.celery import app
 from utils.redisobjs import RedisObject
 
+from . import models as export_models
 
 # set up loggers
 logger = logging.getLogger('sierra.custom')

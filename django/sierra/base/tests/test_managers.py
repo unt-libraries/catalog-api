@@ -5,10 +5,8 @@ Tests custom filters defined in `sierra.base.managers.`
 from datetime import datetime
 
 import pytest
-
-from django.utils import timezone as tz
-
 from base import models as m
+from django.utils import timezone as tz
 
 # FIXTURES AND TEST DATA
 # Fixtures used in the below tests can be found in

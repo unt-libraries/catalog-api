@@ -3,14 +3,11 @@ Contains structures needed to make Solr test data for `blacklight` app.
 """
 from __future__ import absolute_import
 from __future__ import print_function
-import hashlib
-import base64
+
 import random
 
 from six import text_type
-
 from utils.test_helpers import solr_test_profiles as tp
-
 
 SOLR_TYPES = tp.SOLR_TYPES
 SOLR_TYPES['sint'] = {'pytype': int, 'emtype': 'int'}

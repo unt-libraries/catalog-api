@@ -9,13 +9,13 @@ don't have to duplicate those fixtures here to test them.
 
 from __future__ import absolute_import
 from __future__ import print_function
-import pytest
+
 import importlib
 
+import pytest
 from base import models as bm
-from utils.test_helpers import solr_test_profiles as tp
 from six.moves import range
-
+from utils.test_helpers import solr_test_profiles as tp
 
 # FIXTURES AND TEST DATA
 #

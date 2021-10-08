@@ -3,16 +3,14 @@ sierra2marc.py defines a class (S2MarcBatch) for parsing the Sierra
 models out into MARC21 using Pymarc.
 """
 from __future__ import absolute_import
+
 import re
-import codecs
-import sys
-import pymarc
 from time import time as timestamp
 
+import pymarc
 from django.conf import settings
-
-from utils import helpers
 from six.moves import range
+from utils import helpers
 
 
 class S2MarcError(Exception):

@@ -14,11 +14,10 @@ framework.
 
 """
 from __future__ import absolute_import
-from django.core.wsgi import get_wsgi_application
-import os
-from unipath import Path
 
 import dotenv
+from django.core.wsgi import get_wsgi_application
+from unipath import Path
 
 # We defer to a DJANGO_SETTINGS_MODULE already in the environment, or set
 # via a .env settings file. If running multiple sites in the same mod_wsgi

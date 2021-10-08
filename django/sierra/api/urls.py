@@ -1,10 +1,10 @@
 from __future__ import absolute_import
+
 from django.urls import re_path
-from django.conf import settings
 from django.urls import reverse_lazy
 from django.views.generic import RedirectView
-
 from rest_framework.urlpatterns import format_suffix_patterns
+
 from . import views
 from .uris import APIUris
 

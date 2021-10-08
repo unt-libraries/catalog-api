@@ -3,14 +3,13 @@ Contains structures needed to make Solr test data for `shelflist` app.
 """
 
 from __future__ import absolute_import
+
 import random
 
 from six import text_type
 from six.moves import range
-
 from utils.test_helpers import solr_factories as sf
 from utils.test_helpers import solr_test_profiles as tp
-
 
 SOLR_TYPES = tp.SOLR_TYPES
 GLOBAL_UNIQUE_FIELDS = tp.GLOBAL_UNIQUE_FIELDS

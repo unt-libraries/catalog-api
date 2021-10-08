@@ -2,11 +2,10 @@
 DIY utility for mapping unicode to plain ASCII, for normalization
 """
 
-from __future__ import unicode_literals
 from __future__ import absolute_import
-import unicodedata
-from six import unichr
+from __future__ import unicode_literals
 
+from six import unichr
 
 CHARACTER_MAP = {
     '\u00C0': 'A',

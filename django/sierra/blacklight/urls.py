@@ -4,14 +4,14 @@ Add URL patterns for Django/DRF for `asm-search-suggestions` and
 """
 
 from __future__ import absolute_import
-from django.urls import re_path
-from django.urls import reverse_lazy
-from django.views.generic import RedirectView
 
-from rest_framework.urlpatterns import format_suffix_patterns
 from api.uris import APIUris
 from blacklight import views_alpha_solrmarc as views
 from blacklight.uris_alpha_solrmarc import AsmUris
+from django.urls import re_path
+from django.urls import reverse_lazy
+from django.views.generic import RedirectView
+from rest_framework.urlpatterns import format_suffix_patterns
 
 urlpatterns = [
     re_path(r'^$', RedirectView.as_view(url=reverse_lazy('api-root'),

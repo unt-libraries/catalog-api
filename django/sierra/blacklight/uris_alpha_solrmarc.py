@@ -4,6 +4,7 @@ URI definitions for `asm-search-suggestions` and
 """
 
 from __future__ import absolute_import
+
 from api.uris import Uris
 
 

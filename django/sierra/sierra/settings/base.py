@@ -1,15 +1,15 @@
 # Base Django settings for sierra project.
 
 from __future__ import absolute_import
+
 import os
-from unipath import Path
 
 import dotenv
-
-from django.core.exceptions import ImproperlyConfigured
 from celery.concurrency import asynpool
-from . import marcdata
+from django.core.exceptions import ImproperlyConfigured
+from unipath import Path
 
+from . import marcdata
 
 asynpool.PROC_ALIVE_TIMEOUT = 60.0
 
