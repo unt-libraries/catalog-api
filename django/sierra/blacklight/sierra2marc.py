@@ -36,7 +36,6 @@ from blacklight import parsers as p
 from utils import helpers, toascii
 
 
-
 # These are MARC fields that we are currently not including in public
 # catalog records, listed by III field group tag.
 IGNORED_MARC_FIELDS_BY_GROUP_TAG = {
@@ -54,6 +53,7 @@ class SierraMarcField(pymarc.field.Field):
     Subclass of pymarc field.Field; adds `group_tag` (III field group tag)
     to the Field object.
     """
+
     def __init__(self, tag, indicators=None, subfields=None, data=None,
                  group_tag=None):
         kwargs = {'tag': tag}
@@ -209,7 +209,7 @@ def group_subfields(pmfield, include='', exclude='', unique='', start='',
     def _finish_group(pmfield, grouped, group, limit=None):
         if not limit or (len(grouped) < limit - 1):
             grouped.append(make_mfield(pmfield.tag, subfields=group,
-                                        indicators=pmfield.indicators))
+                                       indicators=pmfield.indicators))
             group = []
         return grouped, group
 
@@ -354,6 +354,7 @@ class MarcFieldGrouper(object):
     return a dict where keys are group names and values are lists of
     field objects.
     """
+
     def __init__(self, group_definitions):
         self.group_definitions = group_definitions
         self.inverse_definitions = self.invert_dict(group_definitions)
@@ -411,6 +412,7 @@ class SequentialMarcFieldParser(object):
     to parse a field. (See PersonalNameParser and OrgEventParser for
     sample implementations.)
     """
+
     def __init__(self, field):
         self.field = field
         self.utils = MarcUtils()
@@ -667,16 +669,16 @@ class HierarchicalTitlePartAnalyzer(object):
 
 class TranscribedTitleParser(SequentialMarcFieldParser):
     variant_types = {
-            '0': '',
-            '1': 'Title translation',
-            '2': 'Issue title',
-            '3': 'Other title',
-            '4': 'Cover title',
-            '5': 'Added title page title',
-            '6': 'Caption title',
-            '7': 'Running title',
-            '8': 'Spine title'
-        }
+        '0': '',
+        '1': 'Title translation',
+        '2': 'Issue title',
+        '3': 'Other title',
+        '4': 'Cover title',
+        '5': 'Added title page title',
+        '6': 'Caption title',
+        '7': 'Running title',
+        '8': 'Spine title'
+    }
     fields_with_nonfiling_chars = ('242', '245')
     f247_display_text = 'Former title'
 
@@ -763,7 +765,7 @@ class TranscribedTitleParser(SequentialMarcFieldParser):
             self.start_next_title()
             self.title_parts = [part]
             if part_type == 'parallel_title':
-              self.lock_parallel = True
+                self.lock_parallel = True
         elif part_type == 'responsibility':
             self.responsibility = part
             if self.field.tag != '490':
@@ -823,14 +825,16 @@ class TranscribedTitleParser(SequentialMarcFieldParser):
                 self.prev_punct = end_punct
             if tstring:
                 title_part, tstring = self.split_title_and_sor(tstring)
-                self.do_compound_title_part(title_part, handle_internal_periods)
+                self.do_compound_title_part(
+                    title_part, handle_internal_periods)
                 do_sor_next = True
 
     def get_flags(self, tag, val):
         if self.field.tag == '490':
             def_to_newpart = tag == 'a'
         else:
-            def_to_newpart = tag == 'n' or (tag == 'p' and self.prev_tag != 'n')
+            def_to_newpart = tag == 'n' or (
+                tag == 'p' and self.prev_tag != 'n')
         is_bdates = tag == 'g' and self.field.tag == '245'
         valid_tags = 'alxv3' if self.field.tag == '490' else 'abcfghiknpsxy'
         is_valid = val.strip() and tag in valid_tags
@@ -865,7 +869,8 @@ class TranscribedTitleParser(SequentialMarcFieldParser):
                 p_switch_re = r'([{}])(\s*[{}]+)($)'.format(isbd, switchp)
             prot = re.sub(p_switch_re, r'\2\1\3', prot)
 
-            part, end_punct = self.analyzer.pop_isbd_punct_from_title_part(prot)
+            part, end_punct = self.analyzer.pop_isbd_punct_from_title_part(
+                prot)
             if part:
                 if self.flags['is_display_text']:
                     self.display_text = p.restore_periods(part)
@@ -908,7 +913,8 @@ class TranscribedTitleParser(SequentialMarcFieldParser):
                 display_text = '{}, {}'.format(display_text, lang)
         if self.field.tag == '246':
             ind2 = self.field.indicators[1]
-            display_text = self.display_text or self.variant_types.get(ind2, '')
+            display_text = self.display_text or self.variant_types.get(
+                ind2, '')
 
         if self.field.tag == '247':
             display_text = self.f247_display_text
@@ -1016,7 +1022,8 @@ class PreferredTitleParser(SequentialMarcFieldParser):
         return False
 
     def push_title_part(self, part, prev_punct):
-        part_type = self.analyzer.what_type_is_this_part(prev_punct, self.flags)
+        part_type = self.analyzer.what_type_is_this_part(
+            prev_punct, self.flags)
         part = p.restore_periods(part)
         force_new = self.force_new_part()
         if not force_new and part_type == 'same_part' and len(self.title_parts):
@@ -1089,7 +1096,8 @@ class PreferredTitleParser(SequentialMarcFieldParser):
                 self.display_constants.append(display_val)
         elif self.flags['is_valid_title_part']:
             prot = p.protect_periods(val)
-            part, end_punct = self.analyzer.pop_isbd_punct_from_title_part(prot)
+            part, end_punct = self.analyzer.pop_isbd_punct_from_title_part(
+                prot)
             if part:
                 if self.flags['is_main_part']:
                     is_243 = self.field.tag == '243'
@@ -1142,6 +1150,7 @@ class EditionParser(SequentialMarcFieldParser):
         '251': 'version',
         '254': 'musical_presentation_statement'
     }
+
     def __init__(self, field):
         super(EditionParser, self).__init__(field)
         self.edition_type = self.edition_types.get(field.tag)
@@ -1345,7 +1354,8 @@ class StandardControlNumberParser(SequentialMarcFieldParser):
                 if ntype:
                     entry['type'] = ntype
                 else:
-                    val, sep, suffix = val.partition(self.oclc_suffix_separator)
+                    val, sep, suffix = val.partition(
+                        self.oclc_suffix_separator)
                     if sep:
                         entry['oclc_suffix'] = ''.join([sep, suffix])
             if val:
@@ -1423,7 +1433,8 @@ class LanguageParser(SequentialMarcFieldParser):
 
             if language:
                 self.languages[language] = None
-                self.categorized[cat] = self.categorized.get(cat, OrderedDict())
+                self.categorized[cat] = self.categorized.get(
+                    cat, OrderedDict())
                 self.categorized[cat][language] = None
 
     def compile_results(self):
@@ -1633,7 +1644,7 @@ def parse_name_string(name_string):
         relations = rel_string.split(', ')
 
     heading = p.restore_periods(protected)
-    
+
     dates_re = r'[^,\.]*(?:\D?[\d]{4}\??-|\D\d{4})'
     pdates_match = re.match(r'(.+), ({})$'.format(dates_re), protected)
     try:
@@ -1653,7 +1664,7 @@ def parse_name_string(name_string):
         is_person = True
         if forename and _forename_is_ptitle(forename):
             if ptitles:
-                ptitles =  ', '.join([forename, ptitles])
+                ptitles = ', '.join([forename, ptitles])
             else:
                 ptitles = forename
             forename = None
@@ -2019,7 +2030,8 @@ class PersonalNamePermutator(object):
         for nextchunk in re.split(r'([, .])', perm):
             if nextchunk:
                 test_str = ''.join([test_str, nextchunk])
-                match = re.search(r'(?:^|.*\s){}$'.format(test_str), cumulative)
+                match = re.search(
+                    r'(?:^|.*\s){}$'.format(test_str), cumulative)
                 if match:
                     return test_str, perm[len(test_str):]
         return None, None
@@ -2096,8 +2108,8 @@ class PersonalNamePermutator(object):
             forename = (self.authorized_name['forename'] or []) + nicknames
             auth_name = self.render_name(forename,
                                          self.authorized_name['surname'])
-            best_fwd_parts  = [prefix_title, auth_name,
-                               self.original_name['numeration']]
+            best_fwd_parts = [prefix_title, auth_name,
+                              self.original_name['numeration']]
             best_fwd = ' '.join([p for p in best_fwd_parts if p])
             best_fwd = ', '.join([best_fwd] + suffix_titles)
         else:
@@ -2125,7 +2137,8 @@ class PersonalNamePermutator(object):
 
             fullest_last = self.render_name_part(self.fullest_name['surname'])
         elif self.fullest_name['forename']:
-            fullest_first = self.render_name_part(self.fullest_name['forename'])
+            fullest_first = self.render_name_part(
+                self.fullest_name['forename'])
         else:
             fullest_fl = all_titles
 
@@ -2248,6 +2261,7 @@ class GenericDisplayFieldParser(SequentialMarcFieldParser):
     handled automatically, assuming it occurs at the beginning of the
     field.
     """
+
     def __init__(self, field, separator=' ', sf_filter=None, label=None):
         filtered = field.filter_subfields(**sf_filter) if sf_filter else field
         super(GenericDisplayFieldParser, self).__init__(filtered)
@@ -2306,7 +2320,8 @@ class PerformanceMedParser(SequentialMarcFieldParser):
 
     def push_instrument_stack(self):
         if self.instrument_stack:
-            self.part_stack.append({self.last_part_type: self.instrument_stack})
+            self.part_stack.append(
+                {self.last_part_type: self.instrument_stack})
             self.instrument_stack = []
 
     def push_part_stack(self):
@@ -2449,6 +2464,7 @@ class MultiFieldMarcRecordParser(object):
     applicable subfield filter, and it should return a string.
     Defaults to the `default_parse_func` method.
     """
+
     def __init__(self, record, mapping, utils=None, default_sf_filter=None):
         self.record = record
         self.mapping = mapping
@@ -2691,13 +2707,13 @@ class ToDiscoverPipeline(object):
         """
         Return the III Record Number, minus the check digit.
         """
-        return { 'id': self.r.record_metadata.get_iii_recnum(False) }
+        return {'id': self.r.record_metadata.get_iii_recnum(False)}
 
     def get_suppressed(self):
         """
         Return 'true' if the record is suppressed, else 'false'.
         """
-        return { 'suppressed': 'true' if self.r.is_suppressed else 'false' }
+        return {'suppressed': 'true' if self.r.is_suppressed else 'false'}
 
     def get_date_added(self):
         """
@@ -2713,7 +2729,7 @@ class ToDiscoverPipeline(object):
         else:
             cdate = r.cataloging_date_gmt
         rval = None if cdate is None else cdate.strftime('%Y-%m-%dT%H:%M:%SZ')
-        return { 'date_added': rval }
+        return {'date_added': rval}
 
     def get_item_info(self):
         """
@@ -2922,6 +2938,7 @@ class ToDiscoverPipeline(object):
         """
         f856s = self.marc_fieldgroups.get('url', [])
         f962s = self.marc_fieldgroups.get('media_link', [])
+
         def _try_media_cover_image(f962s):
             for f962 in f962s:
                 urls = f962.get_subfields('u')
@@ -2940,8 +2957,8 @@ class ToDiscoverPipeline(object):
                     return '{}/small/'.format(url)
 
         url = _try_media_cover_image(f962s) or\
-              _try_digital_library_image(f856s) or\
-              None
+            _try_digital_library_image(f856s) or\
+            None
 
         return {'thumbnail_url': url}
 
@@ -3027,7 +3044,7 @@ class ToDiscoverPipeline(object):
         if (dnum1 and dnum2) and dnum1 > dnum2:
             dnum2 = dnum1
             dstr2 = None
-        
+
         if dstr1 is None:
             if dnum1 is None:
                 return dstr2, None, dnum2, dnum2
@@ -3048,13 +3065,13 @@ class ToDiscoverPipeline(object):
             '046kl': ('creation', ''),
             '046op': ('creation', 'Content originally created in ')
         }
-        pubtype_map_atomic = {            
+        pubtype_map_atomic = {
             'p': [('distribution', 'Released in '),
                   ('creation', 'Created or produced in ')],
             'r': [('distribution', 'Reproduced or reissued in '),
                   ('publication', 'Originally published in ')],
             't': [('publication', ''), ('copyright', '')],
-            
+
         }
         default = ('publication', '')
 
@@ -3201,7 +3218,7 @@ class ToDiscoverPipeline(object):
                 return [pub_stripped]
             return []
 
-        pub_info, described_years, places, publishers = {}, [], [] , []
+        pub_info, described_years, places, publishers = {}, [], [], []
         publication_date_notes = []
         for f26x in self.marc_fieldgroups.get('publication', []):
             years = pull_from_subfields(
@@ -3320,8 +3337,8 @@ class ToDiscoverPipeline(object):
 
         item_rules = self.item_rules
         item_info = [{'location_id': l.item_record.location_id}
-                        for l in r.bibrecorditemrecordlink_set.all()
-                        if not l.item_record.is_suppressed]
+                     for l in r.bibrecorditemrecordlink_set.all()
+                     if not l.item_record.is_suppressed]
         if len(item_info) == 0:
             item_info = [{'location_id': l.code} for l in r.locations.all()]
 
@@ -3580,7 +3597,7 @@ class ToDiscoverPipeline(object):
             'work_heading': heading
         }
 
-    def render_title_expression_id(self, exp_parts, id_parts, json=None, 
+    def render_title_expression_id(self, exp_parts, id_parts, json=None,
                                    facet_vals=None, heading=None,
                                    exp_is_part_of_heading=True):
         json = json or {'p': []}
@@ -3677,7 +3694,8 @@ class ToDiscoverPipeline(object):
             if tkw:
                 # Limit the size of the linked `title` search to 20
                 # words; strip quotation marks.
-                new_jsonp['t'] = ' '.join(tkw.split(' ')[0:20]).replace('"', '')
+                new_jsonp['t'] = ' '.join(
+                    tkw.split(' ')[0:20]).replace('"', '')
             if linking['author']:
                 new_jsonp['a'] = linking['author'].replace('"', '')
             for id_code in ('oclc', 'isbn', 'issn', 'lccn', 'w', 'coden',
@@ -3722,12 +3740,12 @@ class ToDiscoverPipeline(object):
         rendered = self.render_authorized_title(title_struct, names)
         s_rendered = None
         if field.tag.startswith('6'):
-            s_rendered = self.render_authorized_title(title_struct, names, True)
+            s_rendered = self.render_authorized_title(
+                title_struct, names, True)
 
         title_key = ''
         if len(rendered['facet_vals']):
             title_key = rendered['facet_vals'][-1]
-
 
         return {
             'author_info': rendered['author_info'],
@@ -3826,7 +3844,8 @@ class ToDiscoverPipeline(object):
                         have_seen_author = bool(author_contributor_facet)
                         if not have_seen_author:
                             if this_is_1XX or this_is_7XX:
-                                a_sort = generate_facet_key(compiled['heading'])
+                                a_sort = generate_facet_key(
+                                    compiled['heading'])
                             if this_is_1XX:
                                 author_json = json
                                 search_vals = [compiled['heading']]
@@ -3845,9 +3864,9 @@ class ToDiscoverPipeline(object):
         return {
             'author_json': ujson.dumps(author_json) if author_json else None,
             'contributors_json': [ujson.dumps(v) for v in contributors_json]
-                                 or None,
+            or None,
             'meetings_json': [ujson.dumps(v) for v in meetings_json]
-                             or None,
+            or None,
             'author_search': author_search or None,
             'contributors_search': contributors_search or None,
             'meetings_search': meetings_search or None,
@@ -3984,13 +4003,13 @@ class ToDiscoverPipeline(object):
         if nth_ttitle == 0:
             # If this is the first/only title from 245 and there
             # is a 130/240, then we assume the first title from 245
-            # should not create an added facet because it's likely to 
+            # should not create an added facet because it's likely to
             # duplicate that 130/240.
             if f130_240:
                 if total_ttitles == 1:
                     return False
 
-            # If we're here it means there's no 130/240. At this point 
+            # If we're here it means there's no 130/240. At this point
             # we add the first/only title from the 245 if it's probably
             # not duplicated in a 700-730. I.e., if it's the only title
             # in the 245, then it's probably the title for the whole
@@ -4082,7 +4101,8 @@ class ToDiscoverPipeline(object):
         json_fields = {'main': '', 'included': [], 'related': [], 'series': []}
         search_fields = {'included': [], 'related': [], 'series': []}
         title_keys = {'included': set(), 'related': set(), 'series': set()}
-        work_title_keys = {'included': set(), 'related': set(), 'series': set()}
+        work_title_keys = {'included': set(), 'related': set(),
+                           'series': set()}
         variant_titles_notes, variant_titles_search = [], []
         title_series_facet = []
         title_sort = ''
@@ -4167,7 +4187,8 @@ class ToDiscoverPipeline(object):
                 if psor_display_values:
                     psor = '; '.join(psor_display_values)
                     psor_translation = format_translation(psor)
-                    sor_display_values.append(' '.join([sor, psor_translation]))
+                    sor_display_values.append(
+                        ' '.join([sor, psor_translation]))
                 else:
                     sor_display_values.append(sor)
 
@@ -4199,7 +4220,8 @@ class ToDiscoverPipeline(object):
                     search_fields['included'] = sv[:i] + nsv + sv[i:]
                     title_series_facet = fv[:i] + nfv + fv[i:]
                     t_key = generate_facet_key(compiled['title_key'], nfc)
-                    wt_key = generate_facet_key(compiled['work_title_key'], nfc)
+                    wt_key = generate_facet_key(
+                        compiled['work_title_key'], nfc)
                     title_keys['included'].add(t_key)
                     work_title_keys['included'].add(wt_key)
 
@@ -4275,7 +4297,8 @@ class ToDiscoverPipeline(object):
                         args = [None, id_parts]
                         kargs = {'json': new_json, 'heading': st_heading,
                                  'exp_is_part_of_heading': False}
-                        result = self.render_title_expression_id(*args, **kargs)
+                        result = self.render_title_expression_id(
+                            *args, **kargs)
                         new_json = result['json']
                         st_heading = result['heading']
                     json_fields['series'].append(new_json)
@@ -4383,7 +4406,8 @@ class ToDiscoverPipeline(object):
             final_render = ': '.join(final_stack)
             if parsed_pm['materials_specified']:
                 ms_render = ', '.join(parsed_pm['materials_specified'])
-                final_render = ' '.join(('({})'.format(ms_render), final_render))
+                final_render = ' '.join(
+                    ('({})'.format(ms_render), final_render))
             return ''.join([final_render[0].upper(), final_render[1:]])
 
     def get_notes(self):
@@ -4412,6 +4436,7 @@ class ToDiscoverPipeline(object):
                 '1': 'Latest issue consulted'
             }
         }
+
         def join_subfields_with_spaces(f, sf_filter, label=None):
             return GenericDisplayFieldParser(f, ' ', sf_filter, label).parse()
 
@@ -4607,7 +4632,7 @@ class ToDiscoverPipeline(object):
                 'solr_fields': ('physical_description', 'type_format_search')
             },
             'exclude': set(IGNORED_MARC_FIELDS_BY_GROUP_TAG['r']
-                           + IGNORED_MARC_FIELDS_BY_GROUP_TAG['n'] 
+                           + IGNORED_MARC_FIELDS_BY_GROUP_TAG['n']
                            + ('377', '380', '592',))
         }, utils=self.utils)
         return record_parser.parse()
@@ -5043,7 +5068,7 @@ class ToDiscoverPipeline(object):
         elif f.tag in ('651', '691'):
             main_term_type = 'region'
         elif f.tag == '648':
-            main_term_type ='era'
+            main_term_type = 'era'
 
         sep = self.hierarchical_subject_separator
 
@@ -5177,7 +5202,8 @@ class ToDiscoverPipeline(object):
 
         heading_sets = {'subjects': set(), 'genres': set()}
         hf_sets = {'subjects': set(), 'genres': set()}
-        f_sets = {'topic': set(), 'era': set(), 'region': set(), 'genre': set()}
+        f_sets = {'topic': set(), 'era': set(),
+                  'region': set(), 'genre': set()}
 
         for f in self.marc_fieldgroups.get('subject_genre', []):
             compiled = self.parse_and_compile_subject_field(f)
@@ -5202,7 +5228,8 @@ class ToDiscoverPipeline(object):
                                                     sval_groups['secondary'])
                     }
                     for slvl, svals in groups.items():
-                        vals = self.combine_phrases(svals, search[sftype][slvl])
+                        vals = self.combine_phrases(
+                            svals, search[sftype][slvl])
                         search[sftype][slvl] = vals
 
                 heading_sets[ftype_key].add(heading)
@@ -5268,7 +5295,8 @@ class ToDiscoverPipeline(object):
 
         facet = list(all_languages.keys())
         if needs_notes:
-            categorized = {k: list(odict.keys()) for k, odict in categorized.items()}
+            categorized = {k: list(odict.keys())
+                           for k, odict in categorized.items()}
             notes = LanguageParser.generate_language_notes_display(categorized)
 
         return {
@@ -5456,6 +5484,7 @@ class DiscoverS2MarcBatch(S2MarcBatch):
     This straight up converts the Sierra DB BibRecord record (and
     associated data) to a SierraMarcRecord object.
     """
+
     def compile_leader(self, r, base):
         try:
             lf = r.record_metadata.leaderfield_set.all()[0]
@@ -5475,14 +5504,14 @@ class DiscoverS2MarcBatch(S2MarcBatch):
             control_fields = r.record_metadata.controlfield_set.all()
         except Exception as e:
             raise S2MarcError('Skipped. Couldn\'t retrieve control fields. '
-                    '({})'.format(e), str(r))
+                              '({})'.format(e), str(r))
         for cf in control_fields:
             try:
                 data = cf.get_data()
                 field = make_mfield(cf.get_tag(), data=data)
             except Exception as e:
                 raise S2MarcError('Skipped. Couldn\'t create MARC field '
-                    'for {}. ({})'.format(cf.get_tag(), e), str(r))
+                                  'for {}. ({})'.format(cf.get_tag(), e), str(r))
             mfields.append(field)
         return mfields
 
@@ -5509,7 +5538,7 @@ class DiscoverS2MarcBatch(S2MarcBatch):
             tag, ind1, ind2 = vf.marc_tag, vf.marc_ind1, vf.marc_ind2
             content, field = vf.field_content, None
             try:
-                if tag in ['{:03}'.format(num) for num in range(1,10)]:
+                if tag in ['{:03}'.format(num) for num in range(1, 10)]:
                     field = make_mfield(tag, data=content)
                 else:
                     ind = [ind1, ind2]
@@ -5517,10 +5546,10 @@ class DiscoverS2MarcBatch(S2MarcBatch):
                         content = ''.join(('|a', content))
                     sf = re.split(r'\|([a-z0-9])', content)[1:]
                     field = make_mfield(tag, indicators=ind, subfields=sf,
-                                              group_tag=vf.varfield_type_code)
+                                        group_tag=vf.varfield_type_code)
             except Exception as e:
                 raise S2MarcError('Skipped. Couldn\'t create MARC field '
-                        'for {}. ({})'.format(vf.marc_tag, e), str(r))
+                                  'for {}. ({})'.format(vf.marc_tag, e), str(r))
             if field is not None:
                 mfields.append(field)
         return mfields

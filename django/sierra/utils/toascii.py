@@ -1273,4 +1273,3 @@ class FromUnicodeMapping(dict):
 
 def map_from_unicode(text):
     return text.translate(FromUnicodeMapping())
-

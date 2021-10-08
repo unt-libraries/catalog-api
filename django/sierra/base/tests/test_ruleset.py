@@ -10,6 +10,7 @@ from base import ruleset as r
 
 # FIXTURES / TEST DATA
 
+
 @pytest.fixture
 def ex_nondict_map_class():
     class StartswithMapClass(object):

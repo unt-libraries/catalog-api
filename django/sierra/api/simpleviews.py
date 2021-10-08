@@ -1,5 +1,7 @@
 from __future__ import absolute_import
-import six.moves.urllib.request, six.moves.urllib.parse, six.moves.urllib.error
+import six.moves.urllib.request
+import six.moves.urllib.parse
+import six.moves.urllib.error
 from collections import OrderedDict
 import jsonpatch
 import jsonpointer
@@ -30,7 +32,7 @@ class SimpleView(views.APIView):
     """
     queryset = None
     filter_class = load_class(
-                   settings.REST_FRAMEWORK['DEFAULT_FILTER_BACKENDS'][0])
+        settings.REST_FRAMEWORK['DEFAULT_FILTER_BACKENDS'][0])
     serializer_class = None
     ordering = []
     filter_fields = []
@@ -54,7 +56,7 @@ class SimpleView(views.APIView):
     def update_object(self, request, new_data):
         obj = self.get_object()
         serializer = self.get_serializer(force_refresh=True, instance=obj,
-                                         context={'request': request, 
+                                         context={'request': request,
                                                   'view': self}, data=new_data)
         if serializer.is_valid():
             serializer.save()
@@ -70,12 +72,12 @@ class SimpleView(views.APIView):
                    'fields or sub-resource content provided in the request.'
                    ''.format(url),
                    'links': {
-                        'self': {
-                            'href': url,
-                            'id': self.get_object_id(obj)
-                        }
-                    }
-                }
+                       'self': {
+                           'href': url,
+                           'id': self.get_object_id(obj)
+                       }
+                   }
+                   }
 
         return Response(content, status=status.HTTP_200_OK)
 
@@ -165,7 +167,7 @@ class SimpleGetMixin(object):
         if prev_offset is None:
             return None
         return six.moves.urllib.parse.unquote(replace_query_param(url, params['offset_qp'],
-                                                  prev_offset))
+                                                                  prev_offset))
 
     def get_next_page_url(self, url, page):
         """
@@ -182,7 +184,7 @@ class SimpleGetMixin(object):
         if next_offset is None:
             return None
         return six.moves.urllib.parse.unquote(replace_query_param(url, params['offset_qp'],
-                                                  next_offset))
+                                                                  next_offset))
 
     def get_page_data(self, queryset, request):
         """
@@ -200,7 +202,7 @@ class SimpleGetMixin(object):
 
         url = request.build_absolute_uri()
         page_data['_links'] = OrderedDict()
-        page_data['_links']['self'] = {'href': url}        
+        page_data['_links']['self'] = {'href': url}
         prev_page = self.get_prev_page_url(url, page)
         if prev_page is not None:
             page_data['_links']['previous'] = {'href': prev_page}
@@ -230,7 +232,7 @@ class SimpleGetMixin(object):
         else:
             obj = self.get_object()
             data = self.get_serializer(instance=obj, force_refresh=True,
-                    context={'request': request, 'view': self}).data
+                                       context={'request': request, 'view': self}).data
         return Response(data)
 
 
@@ -238,6 +240,7 @@ class SimplePutMixin(object):
     """
     Simple mixin to provide a PUT method for a SimpleView-based object.
     """
+
     def put(self, request, *args, **kwargs):
         ret_val = self.update_object(request, request.data)
         return ret_val
@@ -249,15 +252,16 @@ class SimplePatchMixin(object):
     be sent using a valid json-patch document. (See IETF RFC 6902 for
     more info.)
     """
+
     def patch(self, request, *args, **kwargs):
         patch = request.data
         obj = self.get_object()
         serializer = self.get_serializer(instance=obj,
-                                         context={'request': request, 
+                                         context={'request': request,
                                                   'view': self})
         try:
             new_data = patch.apply(serializer.data)
-        except (jsonpatch.JsonPatchException, 
+        except (jsonpatch.JsonPatchException,
                 jsonpointer.JsonPointerException) as e:
             msg = 'Could not apply json-patch to object: {}'.format(e)
             raise exceptions.BadUpdate(detail=msg)

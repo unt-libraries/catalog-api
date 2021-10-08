@@ -472,7 +472,7 @@ class RecordMetadata(ReadOnlyModel):
     num_revisions = models.IntegerField(null=True, blank=True)
     record_last_updated_gmt = models.DateTimeField(null=True, blank=True)
     previous_last_updated_gmt = models.DateTimeField(null=True, blank=True)
-    objects = RecordManager()  # custom manager    
+    objects = RecordManager()  # custom manager
     # This maps III record type letters to Django model names
     record_type_models = {
         'b': 'BibRecord',
@@ -919,7 +919,8 @@ class BibRecord(MainRecordTypeModel):
     index_change_count = models.IntegerField(null=True, blank=True)
     is_on_course_reserve = models.BooleanField(null=True, blank=True)
     is_right_result_exact = models.BooleanField(null=True, blank=True)
-    allocation_rule_code = models.CharField(max_length=1, null=True, blank=True)
+    allocation_rule_code = models.CharField(
+        max_length=1, null=True, blank=True)
     skip_num = models.IntegerField(null=True, blank=True)
     cataloging_date_gmt = models.DateTimeField(null=True, blank=True)
     marc_type_code = models.CharField(max_length=1, blank=True)
@@ -1355,7 +1356,8 @@ class HoldingRecord(MainRecordTypeModel):
                                        through='HoldingRecordLocation',
                                        blank=True)
     is_inherit_loc = models.BooleanField(null=True, blank=True)
-    allocation_rule_code = models.CharField(max_length=1, null=True, blank=True)
+    allocation_rule_code = models.CharField(
+        max_length=1, null=True, blank=True)
     accounting_unit = models.ForeignKey('AccountingUnit',
                                         on_delete=models.CASCADE,
                                         db_column='accounting_unit_code_num',
@@ -2131,7 +2133,8 @@ class ItemRecord(MainRecordTypeModel):
             {'vf_tag': 'c', 'marc_tags': ['086'], 'sf': '-012z',
              'type': 'sudoc'},
             {'vf_tag': 'c', 'marc_tags': ['*'], 'type': 'other'},
-            {'vf_tag': 'g', 'marc_tags': ['*'], 'sf': '-012z', 'type': 'sudoc'},
+            {'vf_tag': 'g', 'marc_tags': ['*'],
+                'sf': '-012z', 'type': 'sudoc'},
         ]
         cn_tuples = []
         varfields = sorted([vf for vf in self.record_metadata.varfield_set.all()
@@ -2169,11 +2172,11 @@ class ItemRecord(MainRecordTypeModel):
         with "SHELVED BY TITLE," returns True, else returns False.
         """
         probably_shelved_by_title = (
-                self.itype.code_num == 5 and (not cn_string
-                                              or re.search(r'^[A-Za-z]{,2}$',
-                                                           cn_string))
-                or (cn_string and
-                    re.search(r'^periodical', cn_string, re.IGNORECASE)))
+            self.itype.code_num == 5 and (not cn_string
+                                          or re.search(r'^[A-Za-z]{,2}$',
+                                                       cn_string))
+            or (cn_string and
+                re.search(r'^periodical', cn_string, re.IGNORECASE)))
 
         if not probably_shelved_by_title:
             item_vfs = self.record_metadata.varfield_set.all()
@@ -3950,7 +3953,7 @@ class PtypeProperty(ModelWithAttachedName):
     tagging_allowed = models.BooleanField(null=True, blank=True)
     display_order = models.IntegerField(null=True, blank=True)
     is_force_right_result_exact_allowed = models.BooleanField(null=True,
-                                                                  blank=True)
+                                                              blank=True)
     is_comment_auto_approved = models.BooleanField(null=True, blank=True)
     ptype_property_category = models.ForeignKey('PtypePropertyCategory',
                                                 on_delete=models.CASCADE,
@@ -4003,7 +4006,7 @@ class PtypePropertyMyuser(ReadOnlyModel):
     tagging_allowed = models.BooleanField(null=True, blank=True)
     display_order = models.IntegerField(null=True, blank=True)
     is_force_right_result_exact_allowed = models.BooleanField(null=True,
-                                                                  blank=True)
+                                                              blank=True)
     is_comment_auto_approved = models.BooleanField(null=True, blank=True)
     ptype_property_category = models.ForeignKey(PtypePropertyCategory,
                                                 on_delete=models.CASCADE,
@@ -6410,7 +6413,7 @@ class DiacriticCategory(ReadOnlyModel):
     is_winpage = models.BooleanField(null=True, blank=True)
     is_multibyte = models.BooleanField(null=True, blank=True)
     is_decomposed_character_used = models.BooleanField(null=True,
-                                                           blank=True)
+                                                       blank=True)
     is_general_rule_enabled = models.BooleanField(null=True, blank=True)
     is_staff_enabled = models.BooleanField(null=True, blank=True)
 
@@ -6737,7 +6740,7 @@ class IiiRole(ModelWithAttachedName):
                                           on_delete=models.CASCADE, null=True,
                                           blank=True)
     is_disabled_during_read_only_access = models.BooleanField(null=True,
-                                                                  blank=True)
+                                                              blank=True)
 
     class Meta(ModelWithAttachedName.Meta):
         db_table = 'iii_role'

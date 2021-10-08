@@ -21,7 +21,7 @@ from base import models as bm
 # External fixtures used below can be found in
 # django/sierra/conftest.py:
 #    model_instance
-# 
+#
 # The `settings` fixture used in a few tests is the one built into
 # pytest-django.
 

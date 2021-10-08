@@ -202,7 +202,7 @@ class APIUserManager(models.Manager):
         for row in rows:
             rec = {col: row[i] for i, col in enumerate(colnames)}
             perm_dict = {c: _str_to_bool(rec.pop(c))
-                            for c in permission_columns if c in rec}
+                         for c in permission_columns if c in rec}
             if perm_dict:
                 rec['permissions_dict'] = perm_dict
             user_records.append(rec)
@@ -318,7 +318,7 @@ class APIUser(models.Model):
     def set_permissions_to_value(self, permissions, value):
         """
         Set certain permissions to the given `value` for this APIUser.
-        
+
         `permissions` is a list of permissions to set to the supplied
         boolean value.
 

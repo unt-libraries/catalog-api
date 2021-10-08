@@ -166,6 +166,7 @@ class StrPatternMap(object):
     >>> pmap.get('wx', 'Error')
     'Error'
     """
+
     def __init__(self, patterns, exclude=None):
         self.patterns = patterns or {}
         self.exclude = tuple() if exclude is None else tuple(exclude)

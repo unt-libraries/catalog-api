@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*- 
+# -*- coding: utf-8 -*-
 
 """
 Tests the blacklight.parsers functions.
@@ -23,7 +23,6 @@ def pp_do():
     def _do(data):
         return re.sub(r'\.', '', data)
     return _do
-
 
 
 # TESTS
@@ -64,6 +63,7 @@ def test_normalize_whitespace(data, expected):
     """
     assert parsers.normalize_whitespace(data) == expected
 
+
 @pytest.mark.parametrize('data, replace_with_space, norm_space, expected', [
     ('test data', True, True, 'test data'),
     ('Test Data', True, True, 'Test Data'),
@@ -85,8 +85,10 @@ def test_strip_all_punctuation(data, replace_with_space, norm_space, expected):
     `strip_all_punctuation` should strip all punctuation from the input
     data string, replacing with white space (or not) as directed.
     """
-    result = parsers.strip_all_punctuation(data, replace_with_space, norm_space)
+    result = parsers.strip_all_punctuation(
+        data, replace_with_space, norm_space)
     assert result == expected
+
 
 @pytest.mark.parametrize('data, expected', [
     ('test : data', 'test: data'),
@@ -152,15 +154,18 @@ def test_normalize_punctuation_periods_do_not_need_protection(data, expected):
     ('Test data[inner]', True, None, None, None, 'Test datainner'),
     ('Test [inner] data', True, None, None, None, 'Test inner data'),
     ('[Inner] test data', True, None, None, None, 'Inner test data'),
-    ('[First] test [Middle] data [Last]', True, None, None, None, 'First test Middle data Last'),
+    ('[First] test [Middle] data [Last]', True, None,
+     None, None, 'First test Middle data Last'),
     ('Test data', True, None, r'inner', None, 'Test data'),
     ('Test data [inner]', True, None, r'inner', None, 'Test data'),
     ('Test data-[inner]', True, None, r'inner', None, 'Test data-'),
     ('Test data[inner]', True, None, r'inner', None, 'Test data'),
     ('Test [inner] data', True, None, r'inner', None, 'Test data'),
     ('[Inner] test data', True, None, r'Inner', None, 'test data'),
-    ('[First] test [Middle] data [Last]', True, None, r'(Middle|Last)', None, 'First test data'),
-    ('[First] test [Middle] [Middle] data [Last]', True, None, r'(Middle|Last)', None, 'First test data'),
+    ('[First] test [Middle] data [Last]', True, None,
+     r'(Middle|Last)', None, 'First test data'),
+    ('[First] test [Middle] [Middle] data [Last]', True,
+     None, r'(Middle|Last)', None, 'First test data'),
     ('Test data', False, None, None, None, 'Test data'),
     ('Test data [inner]', False, None, None, None, 'Test data'),
     ('Test data-[inner]', False, None, None, None, 'Test data-'),
@@ -168,52 +173,70 @@ def test_normalize_punctuation_periods_do_not_need_protection(data, expected):
     ('Test [inner] data', False, None, None, None, 'Test data'),
     ('[Inner] test data', False, None, None, None, 'test data'),
     ('[First] test [Middle] data [Last]', False, None, None, None, 'test data'),
-    ('[First] test [Middle] [Middle] data [Last]', False, None, None, None, 'test data'),
+    ('[First] test [Middle] [Middle] data [Last]',
+     False, None, None, None, 'test data'),
     ('Test data', False, r'inner', None, None, 'Test data'),
     ('Test data [inner]', False, r'inner', None, None, 'Test data inner'),
     ('Test data-[inner]', False, r'inner', None, None, 'Test data-inner'),
     ('Test data[inner]', False, r'inner', None, None, 'Test datainner'),
     ('Test [inner] data', False, r'inner', None, None, 'Test inner data'),
     ('[Inner] test data', False, r'Inner', None, None, 'Inner test data'),
-    ('[First] test [Middle] data [Last]', False, r'(Middle|Last)', None, None, 'test Middle data Last'),
-    ('[First] test [Middle] [Middle] data [Last]', False, r'(Middle|Last)', None, None, 'test Middle Middle data Last'),
+    ('[First] test [Middle] data [Last]', False,
+     r'(Middle|Last)', None, None, 'test Middle data Last'),
+    ('[First] test [Middle] [Middle] data [Last]', False,
+     r'(Middle|Last)', None, None, 'test Middle Middle data Last'),
     ('Test data', True, None, None, r'inner', 'Test data'),
     ('Test data [inner]', True, None, None, r'inner', 'Test data [inner]'),
     ('Test data-[inner]', True, None, None, r'inner', 'Test data-[inner]'),
     ('Test data[inner]', True, None, None, r'inner', 'Test data[inner]'),
     ('Test [inner] data', True, None, None, r'inner', 'Test [inner] data'),
     ('[Inner] test data', True, None, None, r'Inner', '[Inner] test data'),
-    ('[First] test [Middle] data [Last]', True, None, None, r'(Middle|Last)', 'First test [Middle] data [Last]'),
-    ('[First] test [Middle] [Middle] data [Last]', True, None, None, r'(Middle|Last)', 'First test [Middle] [Middle] data [Last]'),
+    ('[First] test [Middle] data [Last]', True, None, None,
+     r'(Middle|Last)', 'First test [Middle] data [Last]'),
+    ('[First] test [Middle] [Middle] data [Last]', True, None, None,
+     r'(Middle|Last)', 'First test [Middle] [Middle] data [Last]'),
 ])
 def test_strip_brackets(data, keep_inner, to_keep_re, to_remove_re, to_protect_re, expected):
     """
     `strip_brackets` should correctly strip square brackets based on
     the provided keep/remove/protect arguments.
     """
-    assert parsers.strip_brackets(data, keep_inner, to_keep_re, to_remove_re, to_protect_re) == expected
+    assert parsers.strip_brackets(
+        data, keep_inner, to_keep_re, to_remove_re, to_protect_re) == expected
 
 
 @pytest.mark.parametrize('data, expected', [
     ('No periods, no changes', 'No periods, no changes'),
     ('Remove ending period.', 'Remove ending period'),
-    ('Remove ending period from numeric ordinal 1.', 'Remove ending period from numeric ordinal 1'),
-    ('Remove ending period from alphabetic ordinal 21st.', 'Remove ending period from alphabetic ordinal 21st'),
-    ('Remove ending period from Roman Numeral XII.', 'Remove ending period from Roman Numeral XII'),
-    ('Protect ending period from abbreviation eds.', 'Protect ending period from abbreviation eds.'),
+    ('Remove ending period from numeric ordinal 1.',
+     'Remove ending period from numeric ordinal 1'),
+    ('Remove ending period from alphabetic ordinal 21st.',
+     'Remove ending period from alphabetic ordinal 21st'),
+    ('Remove ending period from Roman Numeral XII.',
+     'Remove ending period from Roman Numeral XII'),
+    ('Protect ending period from abbreviation eds.',
+     'Protect ending period from abbreviation eds.'),
     ('Protect ... ellipses', 'Protect ... ellipses'),
     ('Protect .... ellipses', 'Protect ... ellipses'),
     ('Protect. ... Ellipses.', 'Protect ... Ellipses'),
-    ('Protect ending period from initial J.', 'Protect ending period from initial J.'),
+    ('Protect ending period from initial J.',
+     'Protect ending period from initial J.'),
     ('Lowercase initials do not count, j.', 'Lowercase initials do not count, j'),
     ('Remove inner period. Dude', 'Remove inner period Dude'),
-    ('Protect period inside a word, like 1.1', 'Protect period inside a word, like 1.1'),
-    ('Protect inner period from numeric ordinal 1. Dude', 'Protect inner period from numeric ordinal 1. Dude'),
-    ('Protect inner period from longer number, 1684. followed by lowercase letter', 'Protect inner period from longer number, 1684. followed by lowercase letter'),
-    ('Protect inner period from alphabetic ordinal 21st. Dude', 'Protect inner period from alphabetic ordinal 21st. Dude'),
-    ('Protect inner period from Roman Numeral XII. Dude', 'Protect inner period from Roman Numeral XII. Dude'),
-    ('Protect inner period from abbreviation eds. Dude', 'Protect inner period from abbreviation eds. Dude'),
-    ('Protect inner period from inital J. Dude', 'Protect inner period from inital J. Dude'),
+    ('Protect period inside a word, like 1.1',
+     'Protect period inside a word, like 1.1'),
+    ('Protect inner period from numeric ordinal 1. Dude',
+     'Protect inner period from numeric ordinal 1. Dude'),
+    ('Protect inner period from longer number, 1684. followed by lowercase letter',
+     'Protect inner period from longer number, 1684. followed by lowercase letter'),
+    ('Protect inner period from alphabetic ordinal 21st. Dude',
+     'Protect inner period from alphabetic ordinal 21st. Dude'),
+    ('Protect inner period from Roman Numeral XII. Dude',
+     'Protect inner period from Roman Numeral XII. Dude'),
+    ('Protect inner period from abbreviation eds. Dude',
+     'Protect inner period from abbreviation eds. Dude'),
+    ('Protect inner period from inital J. Dude',
+     'Protect inner period from inital J. Dude'),
     ('J.R.R. Tolkien', 'J.R.R. Tolkien'),
     ('Tolkien, J.R.R.', 'Tolkien, J.R.R.'),
     ('Tolkien, J.R.R..', 'Tolkien, J.R.R.'),
@@ -293,17 +316,27 @@ def test_reconstruct_bracketed(data, brackets, stripchars, expected):
     ('do not strip, inner punctuation', 'do not strip, inner punctuation'),
     (' strip whitespace at ends ', 'strip whitespace at ends'),
     ('strip one punctuation mark at end.', 'strip one punctuation mark at end'),
-    ('strip repeated punctuation marks at end,,', 'strip repeated punctuation marks at end'),
-    ('strip multiple different punctuation marks at end./', 'strip multiple different punctuation marks at end'),
-    ('strip punctuation marks and whitespace at end . ;. / ', 'strip punctuation marks and whitespace at end'),
-    (';strip one punctuation mark at beginning', 'strip one punctuation mark at beginning'),
-    (';;;strip repeated punctuation marks at beginning', 'strip repeated punctuation marks at beginning'),
-    ('./strip multiple different punctuation marks at beginning', 'strip multiple different punctuation marks at beginning'),
-    ('. ;./ strip punctuation marks and whitespace at beginning', 'strip punctuation marks and whitespace at beginning'),
-    (' . . . strip punctuation and whitespace from both ends . /; ', 'strip punctuation and whitespace from both ends'),
-    ('(do not strip parentheses or punct inside parentheses...);', '(do not strip parentheses or punct inside parentheses...)'),
+    ('strip repeated punctuation marks at end,,',
+     'strip repeated punctuation marks at end'),
+    ('strip multiple different punctuation marks at end./',
+     'strip multiple different punctuation marks at end'),
+    ('strip punctuation marks and whitespace at end . ;. / ',
+     'strip punctuation marks and whitespace at end'),
+    (';strip one punctuation mark at beginning',
+     'strip one punctuation mark at beginning'),
+    (';;;strip repeated punctuation marks at beginning',
+     'strip repeated punctuation marks at beginning'),
+    ('./strip multiple different punctuation marks at beginning',
+     'strip multiple different punctuation marks at beginning'),
+    ('. ;./ strip punctuation marks and whitespace at beginning',
+     'strip punctuation marks and whitespace at beginning'),
+    (' . . . strip punctuation and whitespace from both ends . /; ',
+     'strip punctuation and whitespace from both ends'),
+    ('(do not strip parentheses or punct inside parentheses...);',
+     '(do not strip parentheses or punct inside parentheses...)'),
     ('do not strip ellipses ...', 'do not strip ellipses ...'),
-    ('weirdness with,                             whitespace.', 'weirdness with,                             whitespace'),
+    ('weirdness with,                             whitespace.',
+     'weirdness with,                             whitespace'),
     ('abbreviations not stripped A.A.', 'abbreviations not stripped A.A.'),
     ('abbreviations not stripped A.A. .;', 'abbreviations not stripped A.A.'),
 ])
@@ -435,8 +468,10 @@ def test_strip_wemi(data, expected):
 
 
 @pytest.mark.parametrize('data, expected', [
-    ('This is an example of a title : subtitle / ed. by John Doe.', 'This is an example of a title : subtitle / ed. by John Doe'),
-    ('Some test data ... that we have (whatever [whatever]).', 'Some test data that we have (whatever whatever)'),
+    ('This is an example of a title : subtitle / ed. by John Doe.',
+     'This is an example of a title : subtitle / ed. by John Doe'),
+    ('Some test data ... that we have (whatever [whatever]).',
+     'Some test data that we have (whatever whatever)'),
 ])
 def test_clean(data, expected):
     """
@@ -736,4 +771,3 @@ def test_shinglecallnum(callnum, expected):
     shingles given the `callnum` value.
     """
     assert parsers.shingle_callnum(callnum) == expected
-

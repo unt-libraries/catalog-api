@@ -33,7 +33,7 @@ from six.moves import zip
 
 
 def is_sequence(arg):
-    return (not hasattr(arg, 'strip') and 
+    return (not hasattr(arg, 'strip') and
             hasattr(arg, '__getitem__') or
             hasattr(arg, '__iter__'))
 
@@ -64,8 +64,8 @@ class CustomSolrSearchBackend(solr_backend.SolrSearchBackend):
         if result_class is None:
             result_class = SearchResult
 
-        if hasattr(raw_results,'stats'):
-            stats = raw_results.stats.get('stats_fields',{})
+        if hasattr(raw_results, 'stats'):
+            stats = raw_results.stats.get('stats_fields', {})
 
         if hasattr(raw_results, 'facets'):
             facets = {
@@ -78,14 +78,16 @@ class CustomSolrSearchBackend(solr_backend.SolrSearchBackend):
                 for facet_field in facets[key]:
                     # Convert to a two-tuple, as Solr's json format returns a list of
                     # pairs.
-                    facets[key][facet_field] = list(zip(facets[key][facet_field][::2], facets[key][facet_field][1::2]))
+                    facets[key][facet_field] = list(
+                        zip(facets[key][facet_field][::2], facets[key][facet_field][1::2]))
 
         if self.include_spelling is True:
             if hasattr(raw_results, 'spellcheck'):
                 if len(raw_results.spellcheck.get('suggestions', [])):
                     # For some reason, it's an array of pairs. Pull off the
                     # collated result from the end.
-                    spelling_suggestion = raw_results.spellcheck.get('suggestions')[-1]
+                    spelling_suggestion = raw_results.spellcheck.get(
+                        'suggestions')[-1]
 
         unified_index = connections[self.connection_alias].get_unified_index()
         indexed_models = unified_index.get_indexed_models()
@@ -101,9 +103,11 @@ class CustomSolrSearchBackend(solr_backend.SolrSearchBackend):
                     string_key = str(key)
 
                     if string_key in index.fields and hasattr(index.fields[string_key], 'convert'):
-                        additional_fields[string_key] = index.fields[string_key].convert(value)
+                        additional_fields[string_key] = index.fields[string_key].convert(
+                            value)
                     else:
-                        additional_fields[string_key] = custom_to_python(value, self.conn._to_python)
+                        additional_fields[string_key] = custom_to_python(
+                            value, self.conn._to_python)
 
                 del(additional_fields[DJANGO_CT])
                 del(additional_fields[DJANGO_ID])
@@ -117,11 +121,13 @@ class CustomSolrSearchBackend(solr_backend.SolrSearchBackend):
 
                     if raw_result.get('__dist__'):
                         from haystack.utils.geo import Distance
-                        additional_fields['_distance'] = Distance(km=float(raw_result['__dist__']))
+                        additional_fields['_distance'] = Distance(
+                            km=float(raw_result['__dist__']))
                     else:
                         additional_fields['_distance'] = None
 
-                result = result_class(app_label, model_name, raw_result[DJANGO_ID], raw_result['score'], **additional_fields)
+                result = result_class(
+                    app_label, model_name, raw_result[DJANGO_ID], raw_result['score'], **additional_fields)
                 results.append(result)
             else:
                 hits -= 1
@@ -143,9 +149,11 @@ class CustomSolrSearchBackend(solr_backend.SolrSearchBackend):
                 models_to_delete = []
 
                 for model in models:
-                    models_to_delete.append("%s:%s" % (DJANGO_CT, get_model_ct(model)))
+                    models_to_delete.append("%s:%s" % (
+                        DJANGO_CT, get_model_ct(model)))
 
-                self.conn.delete(q=" OR ".join(models_to_delete), commit=commit)
+                self.conn.delete(q=" OR ".join(
+                    models_to_delete), commit=commit)
 
             if commit:
                 # Run an optimize post-clear. http://wiki.apache.org/solr/FAQ#head-9aafb5d8dff5308e8ea4fcf4b71f19f029c4bb99
@@ -155,7 +163,8 @@ class CustomSolrSearchBackend(solr_backend.SolrSearchBackend):
                 raise
 
             if len(models):
-                self.log.error("Failed to clear Solr index of models '%s': %s", ','.join(models_to_delete), e)
+                self.log.error(
+                    "Failed to clear Solr index of models '%s': %s", ','.join(models_to_delete), e)
             else:
                 self.log.error("Failed to clear Solr index: %s", e)
 

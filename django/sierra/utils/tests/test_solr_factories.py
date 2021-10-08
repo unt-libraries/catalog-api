@@ -15,6 +15,7 @@ from utils.test_helpers import solr_factories as f
 
 # FIXTURES AND TEST DATA
 
+
 @pytest.fixture
 def schema():
     """
@@ -25,68 +26,68 @@ def schema():
     return {
         'uniqueKey': 'haystack_id',
         'fields': [
-            { 'name': 'haystack_id', 
-              'type': 'string',
-              'multiValued': False },
-            { 'name': 'django_id', 
-              'type': 'string',
-              'multiValued': False },
-            { 'name': 'django_ct', 
-              'type': 'string',
-              'multiValued': False },
-            { 'name': 'code',
-              'type': 'string',
-              'multiValued': False },
-            { 'name': 'label',
-              'type': 'string',
-              'multiValued': False },
-            { 'name': 'type',
-              'type': 'string',
-              'multiValued': False },
-            { 'name': 'id',
-              'type': 'long',
-              'multiValued': False },
-            { 'name': 'creation_date',
-              'type': 'date',
-              'multiValued': False },
-            { 'name': 'title',
-              'type': 'text_en',
-              'multiValued': False },
-            { 'name': 'notes',
-              'type': 'text_en',
-              'multiValued': True },
-            { 'name': 'status_code',
-              'type': 'string',
-              'multiValued': False },
-            { 'name': 'children_ids',
-              'type': 'long',
-              'multiValued': True },
-            { 'name': 'children_codes',
-              'type': 'string',
-              'multiValued': True },
-            { 'name': 'parent_id',
-              'type': 'long',
-              'multiValued': False },
-            { 'name': 'parent_title',
-              'type': 'text_en',
-              'multiValued': False },
-            { 'name': 'suppressed',
-              'type': 'boolean',
-              'multiValued': False } ],
+            {'name': 'haystack_id',
+             'type': 'string',
+             'multiValued': False},
+            {'name': 'django_id',
+             'type': 'string',
+             'multiValued': False},
+            {'name': 'django_ct',
+             'type': 'string',
+             'multiValued': False},
+            {'name': 'code',
+             'type': 'string',
+             'multiValued': False},
+            {'name': 'label',
+             'type': 'string',
+             'multiValued': False},
+            {'name': 'type',
+             'type': 'string',
+             'multiValued': False},
+            {'name': 'id',
+             'type': 'long',
+             'multiValued': False},
+            {'name': 'creation_date',
+             'type': 'date',
+             'multiValued': False},
+            {'name': 'title',
+             'type': 'text_en',
+             'multiValued': False},
+            {'name': 'notes',
+             'type': 'text_en',
+             'multiValued': True},
+            {'name': 'status_code',
+             'type': 'string',
+             'multiValued': False},
+            {'name': 'children_ids',
+             'type': 'long',
+             'multiValued': True},
+            {'name': 'children_codes',
+             'type': 'string',
+             'multiValued': True},
+            {'name': 'parent_id',
+             'type': 'long',
+             'multiValued': False},
+            {'name': 'parent_title',
+             'type': 'text_en',
+             'multiValued': False},
+            {'name': 'suppressed',
+             'type': 'boolean',
+             'multiValued': False}],
         'dynamicFields': [
-            { 'name': '*_unstem_search',
-              'type': 'textNoStem',
-              'multiValued': True },
-            { 'name': '*_display',
-              'type': 'string',
-              'multiValued': True },
-            { 'name': '*_search',
-              'type': 'string',
-              'multiValued': True },
-            { 'name': '*_facet',
-              'type': 'string',
-              'multiValued': True }
-    ] }
+            {'name': '*_unstem_search',
+             'type': 'textNoStem',
+             'multiValued': True},
+            {'name': '*_display',
+             'type': 'string',
+             'multiValued': True},
+            {'name': '*_search',
+             'type': 'string',
+             'multiValued': True},
+            {'name': '*_facet',
+             'type': 'string',
+             'multiValued': True}
+        ]}
 
 
 @pytest.fixture
@@ -144,7 +145,7 @@ def solr_types():
     used in defining SolrProfile objects.
     """
     default = f.SolrProfile.DEFAULT_SOLR_FIELD_TYPE_MAPPING
-    return { t: params.copy() for t, params in default.items() }
+    return {t: params.copy() for t, params in default.items()}
 
 
 @pytest.fixture
@@ -154,6 +155,7 @@ def fixture_factory(profile):
     SolrFixtureFactory object.
     """
     solr_profile = profile
+
     def _fixture_factory(profile=None):
         profile = profile or solr_profile()
         return f.SolrFixtureFactory(profile)
@@ -215,14 +217,14 @@ def test_solrdatagenfactory_choice(choices, repeatable, try_num, exp_num,
 
 @pytest.mark.parametrize('choices, multi_num, repeatable, try_num, exp_num, '
                          'exp_last_num', [
-    (list(range(0, 10)), 5, True, 1000, 1000, 5),
-    (list(range(0, 10)), 5, False, 1000, 2, 5),
-    (list(range(0, 10)), 6, False, 1000, 2, 4),
-    (list(range(0, 10000)), 5, True, 1000, 1000, 5),
-    (list(range(0, 10000)), 5, False, 1000, 1000, 5),
-    (list(range(0, 1000)), 5, True, 1000, 1000, 5),
-    (list(range(0, 1000)), 5, False, 1000, 200, 5),
-])
+                             (list(range(0, 10)), 5, True, 1000, 1000, 5),
+                             (list(range(0, 10)), 5, False, 1000, 2, 5),
+                             (list(range(0, 10)), 6, False, 1000, 2, 4),
+                             (list(range(0, 10000)), 5, True, 1000, 1000, 5),
+                             (list(range(0, 10000)), 5, False, 1000, 1000, 5),
+                             (list(range(0, 1000)), 5, True, 1000, 1000, 5),
+                             (list(range(0, 1000)), 5, False, 1000, 200, 5),
+                         ])
 def test_solrdatagenfactory_multichoice(choices, multi_num, repeatable,
                                         try_num, exp_num, exp_last_num,
                                         gen_factory):
@@ -273,7 +275,7 @@ def test_solrdatagenfactory_type_text(gen_factory):
     words_lists = [v.split(' ') for v in values]
     words = [w for words_list in words_lists for w in words_list]
     assert all([len(w) >= 1 and len(w) <= 2 for w in words_lists])
-    assert all([len(w) >=3 and len(w) <=5 for w in words])
+    assert all([len(w) >= 3 and len(w) <= 5 for w in words])
 
 
 def test_solrdatagenfactory_type_int(gen_factory):
@@ -355,7 +357,7 @@ def test_solrdatagenfactory_randomcounter(gen_factory):
     """
     count = gen_factory().random_counter(0, 10)
     counts = [count() for _ in range(0, 100)]
-    assert [c <= 10 and c >=0 for c in counts]
+    assert [c <= 10 and c >= 0 for c in counts]
 
 
 @pytest.mark.parametrize('num_cycles, max_total, mn, mx', [
@@ -396,7 +398,7 @@ def test_solrdatagenfactory_precisedistributioncounter(num_cycles, max_total,
     ('notes', 'one', [u'one']),
     ('notes', ['one', 123], [u'one', u'123']),
     ('creation_date', datetime.datetime(2015, 1, 1, 0, 0),
-                      datetime.datetime(2015, 1, 1, 0, 0))
+     datetime.datetime(2015, 1, 1, 0, 0))
 ])
 def test_solrprofile_field_topython(fname, val, expected, profile):
     """
@@ -552,7 +554,7 @@ def test_solrfixturefactory_make_basic_fields(data_emitter, gen_factory,
     factory = fixture_factory(prof)
     records = factory.make(1000)
 
-    values = { fname: [r[fname] for r in records] for fname in user_fields }
+    values = {fname: [r[fname] for r in records] for fname in user_fields}
     title_words_lists = [v.split(' ') for v in values['title']]
     title_words = [w for words_list in title_words_lists for w in words_list]
     min_date = datetime.datetime(*defaults['date']['mn'], tzinfo=pytz.utc)
@@ -580,17 +582,17 @@ def test_solrfixturefactory_make_multi_fields(profile, fixture_factory):
     factory = fixture_factory(prof)
     records = factory.make(1000)
 
-    values = { fname: [r[fname] for r in records] for fname in user_fields }
-    ftypes = { fname: f['pytype'] for fname, f in prof.fields.items() }
+    values = {fname: [r[fname] for r in records] for fname in user_fields}
+    ftypes = {fname: f['pytype'] for fname, f in prof.fields.items()}
 
     assert len(records) == 1000
     assert all([isinstance(v, ftypes['notes'])
                 for vlist in values['notes'] for v in vlist])
     assert all([isinstance(v, ftypes['children_ids'])
                for vlist in values['children_ids'] for v in vlist])
-    assert all([len(vlist) >=1 and len(vlist) <= 10
+    assert all([len(vlist) >= 1 and len(vlist) <= 10
                for vlist in values['notes']])
-    assert all([len(vlist) >=1 and len(vlist) <= 10
+    assert all([len(vlist) >= 1 and len(vlist) <= 10
                for vlist in values['children_ids']])
 
 
@@ -617,7 +619,7 @@ def test_solrfixturefactory_make_unique_fields(fields, defaults, attempted,
     factory = fixture_factory(prof)
     records = factory.make(attempted)
 
-    values = { fname: [r[fname] for r in records] for fname in prof.fields }
+    values = {fname: [r[fname] for r in records] for fname in prof.fields}
 
     assert len(records) == expected
     # converting the generated values list to a set tests uniqueness
@@ -625,7 +627,7 @@ def test_solrfixturefactory_make_unique_fields(fields, defaults, attempted,
 
 
 @pytest.mark.parametrize('fields, unique, defaults, attempted, expected', [
-    (['id', 'title'], ['id'], {'int': {'mn': 1, 'mx': 2000} }, 1000, 1000),
+    (['id', 'title'], ['id'], {'int': {'mn': 1, 'mx': 2000}}, 1000, 1000),
     (['id', 'title'], ['title'], None, 1000, 1000),
     (['code', 'title'], ['code'], {'string': {'mn': 1, 'mx': 1}}, 1000, 26),
     (['code', 'title'], ['code', 'title'], {'string': {'mn': 1, 'mx': 1}},
@@ -652,7 +654,7 @@ def test_solrfixturefactory_makemore(fields, unique, defaults, attempted,
     second_records = factory.make_more(first_records, attempted_second)
     records = first_records + second_records
 
-    values = { fname: [r[fname] for r in records] for fname in prof.fields }
+    values = {fname: [r[fname] for r in records] for fname in prof.fields}
 
     assert len(first_records) == attempted_first
     assert len(records) == expected
@@ -688,8 +690,8 @@ def test_solrfixturefactory_custom_gens(gen_factory, profile, fixture_factory):
     factory = fixture_factory(prof)
     records = factory.make(1000)
 
-    values = { fname: [r[fname] for r in records] for fname in fields }
-    ftypes = { fname: f['pytype'] for fname, f in prof.fields.items() }
+    values = {fname: [r[fname] for r in records] for fname in fields}
+    ftypes = {fname: f['pytype'] for fname, f in prof.fields.items()}
 
     assert len(records) == 1000
     assert all([len(values[fname]) == 1000 for fname in values])
@@ -762,7 +764,7 @@ def test_solrfixturefactory_fieldgen_precedence(profgen_fields, callgen_fields,
     factory = fixture_factory(prof)
     records = factory.make(10, **callgens)
 
-    values = { fname: [r[fname] for r in records] for fname in prof.fields }
+    values = {fname: [r[fname] for r in records] for fname in prof.fields}
 
     assert len(records) == 10
     assert all([int(v) == 1 for fname in expected_use_profgen
@@ -830,5 +832,5 @@ def test_solrfixturefactory_fieldgen_order(profgen_fields, auto_fields,
 
     assert len(records) == 100
     assert all([[int(r[fn]) for fn in profgen_fields]
-                 == sorted([int(r[fn]) for fn in profgen_fields])
-                 for r in records])
+                == sorted([int(r[fn]) for fn in profgen_fields])
+                for r in records])

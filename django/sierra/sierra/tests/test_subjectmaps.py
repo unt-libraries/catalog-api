@@ -15,11 +15,11 @@ from sierra.settings.marcdata import subjectmaps
 # SAMPLE_PATTERN_MAP, like subjectmaps.LCSH_SUBDIVISION_PATTERNS
 war_words = '(?:war|revolution)'
 SAMPLE_PATTERN_MAP = [
-    [r'annexation to (.+)', 
+    [r'annexation to (.+)',
         [('topic', 'Annexation (International law)'), ('region', '{}')],
         'Annexation to the United States'],
     [r'art and(?: the)? {}'.format(war_words),
-        [('topic','Art and war')],
+        [('topic', 'Art and war')],
         'Art and the war'],
     [r'dependency on (?!foreign countries)(.+)',
         [('topic', 'Dependency'), ('region', '{}')],

@@ -68,15 +68,15 @@ REDIS_CONNECTION = {
 # Solr settings
 SOLR_PORT = get_env_variable('TEST_SOLR_PORT', '8883')
 SOLR_HOST = get_env_variable('TEST_SOLR_HOST', '127.0.0.1')
-solr_haystack_url = get_env_variable('SOLR_HAYSTACK_URL', 
-                    'http://{}:{}/solr/haystack'.format(SOLR_HOST, SOLR_PORT))
-solr_bibdata_url = get_env_variable('SOLR_BIBDATA_URL', 
-                    'http://{}:{}/solr/bibdata'.format(SOLR_HOST, SOLR_PORT))
-solr_marc_url = get_env_variable('SOLR_MARC_URL', 
-                    'http://{}:{}/solr/marc'.format(SOLR_HOST, SOLR_PORT))
-solr_d01_url =  'http://{}:{}/solr/discover-01'.format(SOLR_HOST, SOLR_PORT)
-solr_d02_url =  'http://{}:{}/solr/discover-02'.format(SOLR_HOST, SOLR_PORT)
-solr_bls_url =  'http://{}:{}/solr/bl-suggest'.format(SOLR_HOST, SOLR_PORT)
+solr_haystack_url = get_env_variable('SOLR_HAYSTACK_URL',
+                                     'http://{}:{}/solr/haystack'.format(SOLR_HOST, SOLR_PORT))
+solr_bibdata_url = get_env_variable('SOLR_BIBDATA_URL',
+                                    'http://{}:{}/solr/bibdata'.format(SOLR_HOST, SOLR_PORT))
+solr_marc_url = get_env_variable('SOLR_MARC_URL',
+                                 'http://{}:{}/solr/marc'.format(SOLR_HOST, SOLR_PORT))
+solr_d01_url = 'http://{}:{}/solr/discover-01'.format(SOLR_HOST, SOLR_PORT)
+solr_d02_url = 'http://{}:{}/solr/discover-02'.format(SOLR_HOST, SOLR_PORT)
+solr_bls_url = 'http://{}:{}/solr/bl-suggest'.format(SOLR_HOST, SOLR_PORT)
 
 HAYSTACK_CONNECTIONS['default']['URL'] = solr_haystack_url
 HAYSTACK_CONNECTIONS['haystack']['URL'] = solr_haystack_url

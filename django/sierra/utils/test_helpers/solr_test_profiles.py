@@ -18,19 +18,19 @@ from utils.helpers import NormalizedCallNumber
 
 GLOBAL_UNIQUE_FIELDS = ('django_id', 'code', 'id', 'record_number')
 SOLR_TYPES = {
-  'string': {'pytype': text_type, 'emtype': 'string'},
-  'norm_string': {'pytype': text_type, 'emtype': 'string'},
-  'alphaOnlySort': {'pytype': text_type, 'emtype': 'string'},
-  'text_en': {'pytype': text_type, 'emtype': 'text'},
-  'text': {'pytype': text_type, 'emtype': 'text'},
-  'textNoStem': {'pytype': text_type, 'emtype': 'text'},
-  'stem_text': {'pytype': text_type, 'emtype': 'text'},
-  'long': {'pytype': int, 'emtype': 'int'},
-  'slong': {'pytype': int, 'emtype': 'int'},
-  'int': {'pytype': int, 'emtype': 'int'},
-  'integer': {'pytype': int, 'emtype': 'int'},
-  'date': {'pytype': datetime.datetime, 'emtype': 'date'},
-  'boolean': {'pytype': bool, 'emtype': 'boolean'},
+    'string': {'pytype': text_type, 'emtype': 'string'},
+    'norm_string': {'pytype': text_type, 'emtype': 'string'},
+    'alphaOnlySort': {'pytype': text_type, 'emtype': 'string'},
+    'text_en': {'pytype': text_type, 'emtype': 'text'},
+    'text': {'pytype': text_type, 'emtype': 'text'},
+    'textNoStem': {'pytype': text_type, 'emtype': 'text'},
+    'stem_text': {'pytype': text_type, 'emtype': 'text'},
+    'long': {'pytype': int, 'emtype': 'int'},
+    'slong': {'pytype': int, 'emtype': 'int'},
+    'int': {'pytype': int, 'emtype': 'int'},
+    'integer': {'pytype': int, 'emtype': 'int'},
+    'date': {'pytype': datetime.datetime, 'emtype': 'date'},
+    'boolean': {'pytype': bool, 'emtype': 'boolean'},
 }
 
 LETTERS_UPPER = list('ABCDEFGHIJKLMNOPQRSTUVWXYZ')
@@ -46,6 +46,7 @@ WRAP_PUNCTUATION = [list('()'), list('[]'), list('{}'), list("''"), list('""')]
 # Solr field data.
 
 GENS = sf.SolrDataGenFactory()
+
 
 def join_fields(fnames, sep=' '):
     """
@@ -120,7 +121,7 @@ def year_like(record):
 def year_range_like(record):
     years = [text_type(year_like(record)),
              random.choice([text_type(year_like(record)), ''])]
-    return  '-'.join([text_type(year) for year in sorted(years)])
+    return '-'.join([text_type(year) for year in sorted(years)])
 
 
 def place_like(record):
@@ -182,7 +183,8 @@ def sentence_like(record):
         wrap_index = random.randint(0, len(words) - 1)
         words[wrap_index] = '{}{}{}'.format(start, words[wrap_index], end)
 
-    punct_pos = random.sample(list(range(0, len(words) - 1)), len(inner_choices))
+    punct_pos = random.sample(
+        list(range(0, len(words) - 1)), len(inner_choices))
     for i, inner_punct in enumerate(inner_choices):
         if inner_punct is not None:
             punct_index = punct_pos[i]
@@ -251,25 +253,26 @@ ITEMSTATUS_GENS = (
 # ITEMS
 
 ITEM_FIELDS = ('django_ct', 'django_id', 'id', 'haystack_id', 'type',
-    'suppressed', 'record_revision_number', 'record_number',
-    'call_number_type', 'call_number', 'call_number_search',
-    'call_number_sort', 'copy_number', 'volume', 'volume_sort',
-    'barcode', 'local_code1', 'location_code', 'item_type_code', 'status_code',
-    'public_notes', 'long_messages', 'price', 'copy_use_count',
-    'internal_use_count', 'iuse3_count', 'number_of_renewals',
-    'total_renewal_count', 'total_checkout_count',
-    'last_year_to_date_checkout_count', 'year_to_date_checkout_count',
-    'record_creation_date', 'record_last_updated_date', 'last_checkin_date',
-    'due_date', 'checkout_date', 'recall_date', 'overdue_date',
-    'parent_bib_id', 'parent_bib_record_number', 'parent_bib_title',
-    'parent_bib_main_author', 'parent_bib_publication_year', 'text')
+               'suppressed', 'record_revision_number', 'record_number',
+               'call_number_type', 'call_number', 'call_number_search',
+               'call_number_sort', 'copy_number', 'volume', 'volume_sort',
+               'barcode', 'local_code1', 'location_code', 'item_type_code', 'status_code',
+               'public_notes', 'long_messages', 'price', 'copy_use_count',
+               'internal_use_count', 'iuse3_count', 'number_of_renewals',
+               'total_renewal_count', 'total_checkout_count',
+               'last_year_to_date_checkout_count', 'year_to_date_checkout_count',
+               'record_creation_date', 'record_last_updated_date', 'last_checkin_date',
+               'due_date', 'checkout_date', 'recall_date', 'overdue_date',
+               'parent_bib_id', 'parent_bib_record_number', 'parent_bib_title',
+               'parent_bib_main_author', 'parent_bib_publication_year', 'text')
 
 # Item-field specific gen functions
+
 
 def lc_cn(record):
     emitter = sf.DataEmitter(alphabet=LETTERS_UPPER)
     lcclass = '{}{}'.format(emitter.emit('string', mn=1, mx=2),
-                           emitter.emit('int', mn=1, mx=9999))
+                            emitter.emit('int', mn=1, mx=9999))
     cutter = '{}{}'.format(emitter.emit('string', mn=1, mx=2),
                            emitter.emit('int', mn=1, mx=999))
     date = emitter.emit('int', mn=1950, mx=2018)
@@ -325,7 +328,7 @@ def other_cn(record):
 
 def random_cn(record):
     cntype = record['call_number_type']
-    
+
     if cntype == 'lc':
         return lc_cn(record)
 
@@ -405,7 +408,7 @@ def sequential_date(datefield, chance=100):
         if datefield == 'last_checkin' and record['total_checkout_count'] > 1:
             return True
         if (datefield == 'checkout' and record.get('last_checkin_date', None)
-             and record['total_checkout_count'] == 1):
+                and record['total_checkout_count'] == 1):
             return False
         if seq_index <= 2 and not record.get('checkout_date', None):
             return False
@@ -515,7 +518,6 @@ def choose_and_link_to_parent_bib(bib_rec_pool):
     return gen
 
 
-
 ITEM_GENS = (
     ('django_ct', GENS.static('base.itemrecord')),
     ('id', GENS(auto_increment())),
@@ -526,7 +528,7 @@ ITEM_GENS = (
     ('record_revision_number', GENS.static(1)),
     ('record_number', GENS(auto_increment('i', 10000001))),
     ('call_number_type', GENS.choice(['lc'] * 5 + ['sudoc'] * 2 +
-                                      ['dewey'] * 1 + ['other'] * 2)),
+                                     ['dewey'] * 1 + ['other'] * 2)),
     ('call_number', GENS(random_cn)),
     ('call_number_search', GENS(cn_for_search('call_number'))),
     ('call_number_sort', GENS(cn_for_sort('call_number'))),
@@ -571,10 +573,10 @@ ITEM_GENS = (
 # ERESOURCES
 
 ERES_FIELDS = ('django_ct', 'django_id', 'id', 'haystack_id', 'type',
-    'eresource_type', 'suppressed', 'record_revision_number', 'record_number',
-    'title', 'alternate_titles', 'subjects', 'summary', 'publisher', 'alert',
-    'internal_notes', 'holdings', 'record_creation_date',
-    'record_last_updated_date', 'text')
+               'eresource_type', 'suppressed', 'record_revision_number', 'record_number',
+               'title', 'alternate_titles', 'subjects', 'summary', 'publisher', 'alert',
+               'internal_notes', 'holdings', 'record_creation_date',
+               'record_last_updated_date', 'text')
 
 
 ERES_GENS = (
@@ -599,27 +601,27 @@ ERES_GENS = (
     ('record_last_updated_date', GENS(sequential_date('record_last_updated'))),
     ('text', GENS(join_fields(['title', 'subjects', 'eresource_type',
                               'record_number', 'publisher',
-                              'alternate_titles'])))
+                               'alternate_titles'])))
 )
 
 
 # BIBS
 
 BIB_FIELDS = ('django_ct', 'django_id', 'id', 'haystack_id', 'suppressed',
-    'record_number', 'material_type', 'formats', 'languages', 'isbn_numbers',
-    'issn_numbers', 'lccn_number', 'oclc_numbers', 'dewey_call_numbers',
-    'loc_call_numbers', 'sudoc_numbers', 'other_call_numbers',
-    'main_call_number', 'main_call_number_sort', 'main_title', 'subtitle',
-    'statement_of_responsibility', 'full_title', 'title_sort',
-    'alternate_titles', 'uniform_title', 'related_titles', 'corporations',
-    'meetings', 'people', 'creator', 'creator_sort', 'contributors',
-    'author_title_search', 'imprints', 'publishers', 'publication_country',
-    'publication_dates', 'publication_places', 'physical_characteristics',
-    'context_notes', 'summary_notes', 'toc_notes', 'era_terms', 'form_terms',
-    'general_terms', 'genre_terms', 'geographic_terms', 'other_terms',
-    'topic_terms', 'full_subjects', 'series', 'series_exact',
-    'series_creators', 'urls', 'url_labels', 'timestamp', 'item_ids',
-    'item_record_numbers', 'text')
+              'record_number', 'material_type', 'formats', 'languages', 'isbn_numbers',
+              'issn_numbers', 'lccn_number', 'oclc_numbers', 'dewey_call_numbers',
+              'loc_call_numbers', 'sudoc_numbers', 'other_call_numbers',
+              'main_call_number', 'main_call_number_sort', 'main_title', 'subtitle',
+              'statement_of_responsibility', 'full_title', 'title_sort',
+              'alternate_titles', 'uniform_title', 'related_titles', 'corporations',
+              'meetings', 'people', 'creator', 'creator_sort', 'contributors',
+              'author_title_search', 'imprints', 'publishers', 'publication_country',
+              'publication_dates', 'publication_places', 'physical_characteristics',
+              'context_notes', 'summary_notes', 'toc_notes', 'era_terms', 'form_terms',
+              'general_terms', 'genre_terms', 'geographic_terms', 'other_terms',
+              'topic_terms', 'full_subjects', 'series', 'series_exact',
+              'series_creators', 'urls', 'url_labels', 'timestamp', 'item_ids',
+              'item_record_numbers', 'text')
 
 
 # Bib-field specific gen functions
@@ -677,6 +679,7 @@ def sortable_text_field(fieldname):
 
 def agent(name_gen, name_type):
     add_to = 'people' if name_type == 'person' else '{}s'.format(name_type)
+
     def gen(record):
         name = name_gen(record)
         record[add_to] = record.get(add_to, None) or []
@@ -788,19 +791,19 @@ BIB_GENS = (
     ('item_record_numbers', None),
     ('text', GENS(join_fields(['haystack_id', 'record_number', 'material_type',
                               'formats', 'languages', 'isbn_numbers',
-                              'issn_numbers', 'lccn_number', 'oclc_numbers',
-                              'dewey_call_numbers', 'loc_call_numbers',
-                              'sudoc_numbers', 'other_call_numbers',
-                              'main_call_number',
-                              'statement_of_responsibility', 'full_title',
-                              'alternate_titles', 'uniform_title',
-                              'related_titles', 'corporations', 'meetings',
-                              'people', 'imprints', 'publishers',
-                              'publication_country', 'publication_dates',
-                              'publication_places', 'physical_characteristics',
-                              'context_notes', 'summary_notes', 'toc_notes',
-                              'full_subjects', 'series', 'series_creators',
-                              'url_labels'])))
+                               'issn_numbers', 'lccn_number', 'oclc_numbers',
+                               'dewey_call_numbers', 'loc_call_numbers',
+                               'sudoc_numbers', 'other_call_numbers',
+                               'main_call_number',
+                               'statement_of_responsibility', 'full_title',
+                               'alternate_titles', 'uniform_title',
+                               'related_titles', 'corporations', 'meetings',
+                               'people', 'imprints', 'publishers',
+                               'publication_country', 'publication_dates',
+                               'publication_places', 'physical_characteristics',
+                               'context_notes', 'summary_notes', 'toc_notes',
+                               'full_subjects', 'series', 'series_creators',
+                               'url_labels'])))
 )
 
 
@@ -828,24 +831,24 @@ def marc_json(record):
             '003': 'OCoLC',
             '050': {
                 'subfields': [
-                    { 'a': lc_cn(record) }
+                    {'a': lc_cn(record)}
                 ],
                 'ind1': ' ',
                 'ind2': ' '
             },
             '100': {
                 'subfields': [
-                    { 'a': '{}, {} {},'.format(last, first, middle) },
-                    { 'd': '{}.'.format(years) }
+                    {'a': '{}, {} {},'.format(last, first, middle)},
+                    {'d': '{}.'.format(years)}
                 ],
                 'ind1': str(random.randint(1, 9)),
                 'ind2': str(random.randint(1, 9))
             },
             '245': {
                 'subfields': [
-                    { 'a': '{} :'.format(title_like(record)) },
-                    { 'b': '{} /'.format(title_like(record)) },
-                    { 'c': 'by {} {} {}.'.format(first, middle, last)}
+                    {'a': '{} :'.format(title_like(record))},
+                    {'b': '{} /'.format(title_like(record))},
+                    {'c': 'by {} {} {}.'.format(first, middle, last)}
                 ],
                 'ind1': str(random.randint(1, 9)),
                 'ind2': str(random.randint(1, 9))

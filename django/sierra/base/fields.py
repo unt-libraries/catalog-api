@@ -189,7 +189,8 @@ class VirtualCompField(models.Field):
         pf_list = []
         for pf in self.partfield_names:
             try:
-                pf_list.append(self.model._meta.get_field(pf).remote_field.model._meta.pk)
+                pf_list.append(self.model._meta.get_field(
+                    pf).remote_field.model._meta.pk)
             except AttributeError:
                 pf_list.append(self.model._meta.get_field(pf))
         return tuple(pf_list)
@@ -494,4 +495,3 @@ class CompositeIEndsWith(models.lookups.IEndsWith):
 @VirtualCompField.register_lookup
 class CompositeEndsWith(models.lookups.EndsWith):
     prepare_rhs = True
-

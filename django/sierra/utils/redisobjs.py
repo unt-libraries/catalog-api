@@ -7,7 +7,8 @@ from six import iteritems
 
 
 class RedisObject(object):
-    conn = redis.StrictRedis(decode_responses=True, **settings.REDIS_CONNECTION)
+    conn = redis.StrictRedis(decode_responses=True, **
+                             settings.REDIS_CONNECTION)
 
     def __init__(self, entity, id):
         self.entity = entity

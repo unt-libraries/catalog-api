@@ -44,7 +44,7 @@ PROJECT_DIR = '{}'.format(Path(__file__).ancestor(3))
 # Be sure to create this directory if it doesn't exist.
 MEDIA_ROOT = get_env_variable('MEDIA_ROOT')
 
-# Path to the directory where static files get put when you run the 
+# Path to the directory where static files get put when you run the
 # collectstatic admin command. Usually only matters in production.
 STATIC_ROOT = get_env_variable('STATIC_ROOT')
 
@@ -77,7 +77,7 @@ DATABASES = {
         },
     },
     'default': {
-        'ENGINE': get_env_variable('DEFAULT_DB_ENGINE', 
+        'ENGINE': get_env_variable('DEFAULT_DB_ENGINE',
                                    'django.db.backends.mysql'),
         'NAME': get_env_variable('DEFAULT_DB_NAME', 'django_catalog_api'),
         'USER': get_env_variable('DEFAULT_DB_USER'),
@@ -276,15 +276,15 @@ LOGGING = {
 
 SOLR_PORT = get_env_variable('SOLR_PORT', '8983')
 SOLR_HOST = get_env_variable('SOLR_HOST', '127.0.0.1')
-solr_haystack_url = get_env_variable('SOLR_HAYSTACK_URL', 
-                    'http://{}:{}/solr/haystack'.format(SOLR_HOST, SOLR_PORT))
-solr_bibdata_url = get_env_variable('SOLR_BIBDATA_URL', 
-                    'http://{}:{}/solr/bibdata'.format(SOLR_HOST, SOLR_PORT))
-solr_marc_url = get_env_variable('SOLR_MARC_URL', 
-                    'http://{}:{}/solr/marc'.format(SOLR_HOST, SOLR_PORT))
-solr_d01_url =  'http://{}:{}/solr/discover-01'.format(SOLR_HOST, SOLR_PORT)
-solr_d02_url =  'http://{}:{}/solr/discover-02'.format(SOLR_HOST, SOLR_PORT)
-solr_bls_url =  'http://{}:{}/solr/bl-suggest'.format(SOLR_HOST, SOLR_PORT)
+solr_haystack_url = get_env_variable('SOLR_HAYSTACK_URL',
+                                     'http://{}:{}/solr/haystack'.format(SOLR_HOST, SOLR_PORT))
+solr_bibdata_url = get_env_variable('SOLR_BIBDATA_URL',
+                                    'http://{}:{}/solr/bibdata'.format(SOLR_HOST, SOLR_PORT))
+solr_marc_url = get_env_variable('SOLR_MARC_URL',
+                                 'http://{}:{}/solr/marc'.format(SOLR_HOST, SOLR_PORT))
+solr_d01_url = 'http://{}:{}/solr/discover-01'.format(SOLR_HOST, SOLR_PORT)
+solr_d02_url = 'http://{}:{}/solr/discover-02'.format(SOLR_HOST, SOLR_PORT)
+solr_bls_url = 'http://{}:{}/solr/bl-suggest'.format(SOLR_HOST, SOLR_PORT)
 
 # HAYSTACK_CONNECTIONS, a required setting for Haystack
 HAYSTACK_CONNECTIONS = {
@@ -358,7 +358,7 @@ REST_FRAMEWORK = {
     'DEFAULT_PAGINATION_SERIALIZER_CLASS':
         'api.pagination.SierraApiPaginationSerializer',
     'DEFAULT_RENDERER_CLASSES': ('api.renderers.HALJSONRenderer',
-                            'rest_framework.renderers.BrowsableAPIRenderer',),
+                                 'rest_framework.renderers.BrowsableAPIRenderer',),
     'DEFAULT_PARSER_CLASSES': ('rest_framework.parsers.JSONParser',),
     'EXCEPTION_HANDLER': 'api.exceptions.sierra_exception_handler'
 }
@@ -387,7 +387,7 @@ CELERY_WORKER_MAX_TASKS_PER_CHILD = 2
 
 # CORS settings
 CORS_ORIGIN_REGEX_WHITELIST = tuple(
-            get_env_variable('CORS_ORIGIN_REGEX_WHITELIST', '').split(' '))
+    get_env_variable('CORS_ORIGIN_REGEX_WHITELIST', '').split(' '))
 CORS_ALLOW_HEADERS = (
     'x-requested-with',
     'content-type',
@@ -470,7 +470,7 @@ REST_VIEWS_HAYSTACK_CONNECTIONS = {
 # This specifies which installed apps have user permissions settings
 # for the APIUser (api app), allowing you to define app-specific
 # permissions in apps and manage them centrally via the api app.
-# For apps with custom permissions, implement as a dict named 
+# For apps with custom permissions, implement as a dict named
 # "permissions" in the app's __init__.py.
 API_PERMISSIONS = [
     'shelflist',

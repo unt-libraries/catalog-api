@@ -13,7 +13,6 @@ from base import models as m
 from . import solr_test_profiles as tp
 
 
-
 @pytest.fixture(scope='module')
 def bl_solr_profile_definitions(global_solr_conn, solr_profile_definitions):
     """
@@ -230,7 +229,7 @@ def add_varfields_to_record(model_instance, setattr_model_instance):
 
 @pytest.fixture
 def add_items_to_bib(model_instance, make_record_metadata_instance,
-                    add_varfields_to_record):
+                     add_varfields_to_record):
     """
     Pytest fixture that adds one or more item records to a bib record
     (base.models.ItemRecord and base.models.BibRecord instances).
@@ -370,4 +369,3 @@ def add_locations_to_bib(model_instance, setattr_model_instance):
         bib.refresh_from_db()
         return bib
     return _add_locations_to_bib
-

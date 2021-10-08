@@ -52,6 +52,3 @@ class SimpleSignatureAuthentication(authentication.BaseAuthentication):
                 ret_val = (user, None)
 
         return ret_val
-
-
-

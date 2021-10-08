@@ -3,6 +3,7 @@ from __future__ import print_function
 from datetime import datetime, time
 from six.moves import range
 
+
 def _get_test_filter_params(date_from, date_to):
     date_from = datetime.combine(date_from, time(0, 0))
     date_to = datetime.combine(date_to, time(23, 59, 59, 99))
@@ -17,7 +18,7 @@ def _get_test_filter_params(date_from, date_to):
         'bibrecorditemrecordlink_set',
         'bibrecorditemrecordlink_set__bib_record__record_metadata',
         'bibrecorditemrecordlink_set__bib_record__record_metadata'
-            + '__varfield_set',
+        + '__varfield_set',
     ]
     select_related = ['record_metadata', 'location', 'itype']
     return [
@@ -47,6 +48,7 @@ def _get_test_filter_params(date_from, date_to):
         },
     ]
 
+
 def _apply_filter(qs, params):
     filter = params['filter']
     order_by = params['order_by']
@@ -63,6 +65,7 @@ def _apply_filter(qs, params):
         set = set.prefetch_related(*prefetch_related)
     return set
 
+
 def get_test_sets(date_from, date_to, model):
     sets = []
     p = _get_test_filter_params(date_from, date_to)
@@ -70,11 +73,13 @@ def get_test_sets(date_from, date_to, model):
         sets.append(_apply_filter(model.objects.all(), i))
     return sets
 
+
 def list_recnums(set):
     rlist = []
     for rec in set:
         rlist.append(rec.record_metadata.get_iii_recnum(True))
     return len(rlist)
+
 
 def timeit(func, *args, **kwargs):
     t0 = datetime.now()
@@ -82,6 +87,7 @@ def timeit(func, *args, **kwargs):
     t1 = datetime.now()
     diff = t1 - t0
     return {'secs': diff.total_seconds(), 'return_value': result}
+
 
 def _average_results(raw):
     avg_results = []
@@ -93,14 +99,18 @@ def _average_results(raw):
         avg_results.append(result_set)
     return avg_results
 
+
 def count_test(set):
     return [set.count, ]
+
 
 def len_test(set):
     return [len, set]
 
+
 def list_test(set):
     return [list_recnums, set]
+
 
 def run_benchmarks(date_from, date_to, model, tests, num_tests=1, reset=True):
     results = {}
@@ -126,6 +136,7 @@ def run_benchmarks(date_from, date_to, model, tests, num_tests=1, reset=True):
         results[test['name']] = _average_results(this_test_results)
     return results
 
+
 def print_results(results):
     for test_name in results.keys():
         print(test_name + ' Test Results ---------------------------------\n')
@@ -136,9 +147,10 @@ def print_results(results):
             print('    ' + str(round(test_set['secs'], 2)) + ' seconds\n')
             count += 1
 
+
 if __name__ == "__main__":
     from base.models import ItemRecord
-    
+
     date_from = datetime(2014, 0o2, 0o1)
     date_to = datetime(2014, 0o2, 0o5)
     tests = [

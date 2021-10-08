@@ -19,49 +19,49 @@ def reduce_filter_kwargs(filters):
     passed straight into a QuerySet.filter() call.
     """
     return reduce(operator.or_,
-                      [reduce(operator.and_, 
-                      [Q(**{key: filter[key]}) for key in filter])
-                      for filter in filters])
+                  [reduce(operator.and_,
+                          [Q(**{key: filter[key]}) for key in filter])
+                   for filter in filters])
 
 
 def get_varfield_vals(vf_set, tag, marc_tags=['*'], many=False,
                       content_method=None, cm_kw_params={}):
-        """
-        This method lets us get varfield data from a Django ORM object
-        easily without triggering another DB query (e.g. by using a
-        queryset.filter).
-        
-        It just loops through the varfield set and returns field(s)
-        matching the provided tag. If many is False it just returns the
-        first match as a string (or None); if many is True it returns
-        an array of all matching values (or an empty array). If
-        content_method is specified, then it uses that method (e.g.
-        model method) to pull out the content, otherwise it just uses
-        vf.field_content.
+    """
+    This method lets us get varfield data from a Django ORM object
+    easily without triggering another DB query (e.g. by using a
+    queryset.filter).
 
-        Note that you can specify one, multiple, or None marc_tags to
-        match in addition to the III field tag. * (default) is a
-        wildcard that ignores the marc tag and matches only based on
-        III field tag; None means the VF has no MARC tag and is
-        therefore non-MARC data.
-        """
-        values = [] if many else None
-        if not isinstance(marc_tags, (list, tuple)):
-            marc_tags = [marc_tags]
+    It just loops through the varfield set and returns field(s)
+    matching the provided tag. If many is False it just returns the
+    first match as a string (or None); if many is True it returns
+    an array of all matching values (or an empty array). If
+    content_method is specified, then it uses that method (e.g.
+    model method) to pull out the content, otherwise it just uses
+    vf.field_content.
 
-        if vf_set is not None:
-            for vf in vf_set:
-                if (vf.varfield_type_code == tag and 
-                        (marc_tags == ['*'] or vf.marc_tag in marc_tags)):
-                    if content_method is not None:
-                        content = getattr(vf, content_method)(**cm_kw_params)
-                    else:
-                        content = vf.field_content
-                    if many:
-                        values.append(content)
-                    else:
-                        return content
-        return values
+    Note that you can specify one, multiple, or None marc_tags to
+    match in addition to the III field tag. * (default) is a
+    wildcard that ignores the marc tag and matches only based on
+    III field tag; None means the VF has no MARC tag and is
+    therefore non-MARC data.
+    """
+    values = [] if many else None
+    if not isinstance(marc_tags, (list, tuple)):
+        marc_tags = [marc_tags]
+
+    if vf_set is not None:
+        for vf in vf_set:
+            if (vf.varfield_type_code == tag and
+                    (marc_tags == ['*'] or vf.marc_tag in marc_tags)):
+                if content_method is not None:
+                    content = getattr(vf, content_method)(**cm_kw_params)
+                else:
+                    content = vf.field_content
+                if many:
+                    values.append(content)
+                else:
+                    return content
+    return values
 
 
 class CallNumberError(Exception):
@@ -103,7 +103,7 @@ class NormalizedCallNumber(object):
         """
         kind = self.kind
         call = self.call
-        process_it = getattr(self, '_process_{}'.format(kind), 
+        process_it = getattr(self, '_process_{}'.format(kind),
                              self._process_default)
         try:
             call = process_it(text_type(call))
@@ -129,7 +129,7 @@ class NormalizedCallNumber(object):
             # if there's no colon, treat the whole thing as the stem
             # with a blank suffix
             stem, suffix = (call, '')
-        
+
         # need to ensure stems all have the same format so that the
         # sort compares stem to stem correctly. Stems may or may not
         # have, e.g., /7-1 at the end. We add whatever is missing.
@@ -138,7 +138,7 @@ class NormalizedCallNumber(object):
             stem = '{}/0'.format(stem)
         if not re.search(r'-', stem):
             stem = '{}-0'.format(stem)
-        
+
         # For suffixes: years (which, pre-2000, left off the leading 1)
         # sort first. Letters sort next. Non-year numbers sort third.
         # So to force sorting first, we add a period to the beginning
@@ -292,8 +292,9 @@ class NormalizedCallNumber(object):
         parts = []
         for x in data.split(' '):
             if ((decimals and re.search(r'^\d*\.?\d+$', x))
-                or (not decimals and re.search(r'^\d+$', x))):
-                x = '{:010d}{}'.format(int(float(x)), text_type(float(x)%1)[1:])
+                    or (not decimals and re.search(r'^\d+$', x))):
+                x = '{:010d}{}'.format(
+                    int(float(x)), text_type(float(x) % 1)[1:])
                 x = re.sub(r'\.0$', '', x)
             parts.append(x)
         return ' '.join(parts)

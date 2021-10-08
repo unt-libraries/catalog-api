@@ -9,6 +9,7 @@ from .models import ExportType, ExportFilter, ExportInstance, Status
 from .forms.modelforms import ExportForm
 from .tasks import export_dispatch
 
+
 def process_export_form(request):
     """
     Takes a request object and validates/parses/processes POSTed form
@@ -41,12 +42,13 @@ class ExportInstanceAdmin(admin.ModelAdmin):
     list_display = ('export_filter', 'export_type', 'user', 'timestamp',
                     'status', 'errors', 'warnings')
     readonly_fields = ('status', 'export_type', 'export_filter',
-                        'filter_params', 'user', 'timestamp', 'errors',
-                        'warnings')
+                       'filter_params', 'user', 'timestamp', 'errors',
+                       'warnings')
     list_filter = ('user', 'status', 'export_type',)
     ordering = ('-timestamp',)
     change_list_template = 'admin/export_instance_changelist.html'
     change_form_template = 'admin/export_instance_changeform.html'
+
     class Media:
         css = {
             'all': ('export/admin_styles.css',)
@@ -76,7 +78,7 @@ class ExportInstanceAdmin(admin.ModelAdmin):
                     self.model._meta.model_name
                 )
                 response = HttpResponseRedirect(reverse(reverse_url,
-                    args=(form.instance.pk, )))
+                                                        args=(form.instance.pk, )))
             else:
                 response = render(request, 'admin/trigger_export.html', {
                     'form': form,

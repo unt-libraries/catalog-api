@@ -23,6 +23,7 @@ from base import models
 
 pytestmark = pytest.mark.django_db
 
+
 def get_sierra_models():
     potential_models = [getattr(models, m) for m in dir(models)]
     return [m for m in potential_models
@@ -46,6 +47,7 @@ ALL_MODELS = get_sierra_models()
 MODEL_RELATED_FIELDS = get_model_related_fields(ALL_MODELS)
 
 # TESTS
+
 
 @pytest.mark.parametrize('model', ALL_MODELS)
 def test_model_instance_against_database(model):
@@ -115,5 +117,3 @@ def test_specific_m2one_relation(many_model, one_model, field_name):
     relationship_exists = hasattr(many_model, field_name)
     assert relationship_exists or not objects_exist
     assert objects_exist or not relationship_exists
-
-

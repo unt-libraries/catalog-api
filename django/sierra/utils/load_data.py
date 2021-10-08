@@ -49,7 +49,6 @@ def load_data(path_to_fixture, database='default'):
 
                 python._get_model = _get_model
                 call_command('loaddata', path_to_fixture, database=database)
-                
 
             finally:
                 python._get_model = original_get_model

@@ -29,7 +29,7 @@ def api_root(request):
     links = resp.data['catalogApi']['_links']
     links['shelflistitems'] = {
         'href': ShelflistAPIUris.get_uri('shelflistitems-list', req=request,
-                                        template=True, absolute=True),
+                                         template=True, absolute=True),
         'templated': True
     }
     resp.data['catalogApi']['_links'] = OrderedDict(sorted(links.items()))
@@ -43,19 +43,19 @@ class ShelflistItemList(SimpleGetMixin, SimpleView):
     """
     serializer_class = serializers.ShelflistItemSerializer
     ordering = None
-    filter_fields = ['call_number', 'call_number_type', 'barcode', 
+    filter_fields = ['call_number', 'call_number_type', 'barcode',
                      'status_code', 'shelf_status', 'suppressed',
                      'inventory_notes', 'flags', 'due_date', 'inventory_date']
     resource_name = 'shelflistItems'
 
     def get_queryset(self):
-        return solr.Queryset().filter(type='Item', 
-                    location_code=self.kwargs['code']).order_by('call_number_type', 'call_number_sort', 'volume_sort', 'copy_number')
+        return solr.Queryset().filter(type='Item',
+                                      location_code=self.kwargs['code']).order_by('call_number_type', 'call_number_sort', 'volume_sort', 'copy_number')
 
 
 # Add SimplePutMixin, SimplePatchMixin before SimpleGetMixin to enable
 # Put/Patch behavior. Disabled for now for security in production.
-class ShelflistItemDetail(SimplePutMixin, SimplePatchMixin, SimpleGetMixin, 
+class ShelflistItemDetail(SimplePutMixin, SimplePatchMixin, SimpleGetMixin,
                           SimpleView):
     """
     Retrieve one item.
@@ -66,7 +66,7 @@ class ShelflistItemDetail(SimplePutMixin, SimplePatchMixin, SimpleGetMixin,
     parser_classes = (JSONPatchParser, JSONParser)
     permission_classes = (permissions.IsAuthenticatedOrReadOnly,)
     resource_name = 'shelflistItems'
-    
+
     def get_object(self):
         queryset = self.get_queryset()
         try:
@@ -102,11 +102,10 @@ class FirstItemPerLocationList(api_views.FirstItemPerLocationList):
             this_id = item['id']
             item['_links']['shelflistItem'] = {
                 'href': ShelflistAPIUris.get_uri(
-                'shelflistitems-detail', req=request, absolute=True,
-                v=self.api_version, code=l_code, id=this_id)
+                    'shelflistitems-detail', req=request, absolute=True,
+                    v=self.api_version, code=l_code, id=this_id)
             }
             r = RedisObject('shelflistitem_manifest', l_code)
             item['rowNumber'] = r.get_index(this_id)
 
         return data
-

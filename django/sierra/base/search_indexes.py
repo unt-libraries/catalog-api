@@ -41,7 +41,7 @@ def cat_fields(data, include=(), exclude=()):
     """
     values = []
     for i in data:
-        if data[i] is not None and ((include and i in include) 
+        if data[i] is not None and ((include and i in include)
                                     or (exclude and i not in exclude)):
             if type(data[i]) is list or type(data[i]) is tuple:
                 values.append(' '.join([text_type(j) for j in data[i]]))
@@ -224,7 +224,7 @@ class BibIndex(SolrmarcIndex, indexes.Indexable):
     to get it to search our non-Haystack-managed SolrMarc index(es).
     """
     text = indexes.CharField(document=True)
-    
+
     def get_model(self):
         return sierra_models.BibRecord
 
@@ -247,12 +247,12 @@ class MarcIndex(CustomQuerySetIndex, indexes.Indexable):
 
     def __init__(self, queryset=None, using=None):
         super(MarcIndex, self).__init__(queryset=queryset, using=using)
-        for mf in range(10,1000):
+        for mf in range(10, 1000):
             fname = 'mf_{:03d}'.format(mf)
             setattr(self, fname, indexes.FacetCharField(stored=False))
-            for sf in ['0','1','2','3','4','5','6','7','8','9','a','b','c','d',
-                       'e','f','g','h','i','j','k','l','m','n','o','p','q','r',
-                       's','t','u','v','w','x','y','z']:
+            for sf in ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd',
+                       'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r',
+                       's', 't', 'u', 'v', 'w', 'x', 'y', 'z']:
                 sfname = 'sf_{:03d}{}'.format(mf, sf)
                 setattr(self, sfname, indexes.FacetCharField(stored=False))
 
@@ -283,7 +283,7 @@ class MarcIndex(CustomQuerySetIndex, indexes.Indexable):
                     data.append(text_type(field)[6:])
                     self.prepared_data[mf_name] = data
                     sf = field.subfields
-                    for s_tag, s_data in [sf[n:n+2] for n in range(0,len(sf),2)]:
+                    for s_tag, s_data in [sf[n:n+2] for n in range(0, len(sf), 2)]:
                         sf_name = 'sf_{}{}'.format(field.tag, s_tag)
                         data = self.prepared_data.get(sf_name, [])
                         data.append(s_data)
@@ -309,7 +309,7 @@ class MetadataBaseIndex(CustomQuerySetIndex, indexes.Indexable):
     label = indexes.FacetCharField()
     type = indexes.FacetCharField()
     _version_ = indexes.IntegerField()
-    
+
     def get_model(self):
         return self.model
 
@@ -330,7 +330,7 @@ class MetadataBaseIndex(CustomQuerySetIndex, indexes.Indexable):
 class LocationIndex(MetadataBaseIndex):
     model = sierra_models.Location
     type_name = 'Location'
-    
+
     def prepare_label(self, obj):
         return obj.get_name()
 
@@ -339,7 +339,7 @@ class ItypeIndex(MetadataBaseIndex):
     model = sierra_models.ItypeProperty
     type_name = 'Itype'
     code = indexes.CharField(model_attr='code_num')
-    
+
     def prepare_label(self, obj):
         return obj.get_name()
 
@@ -376,25 +376,25 @@ class ItemIndex(CustomQuerySetIndex, indexes.Indexable):
     public_notes = indexes.MultiValueField(null=True)
     local_code1 = indexes.IntegerField(model_attr='icode1', null=True)
     number_of_renewals = indexes.IntegerField(model_attr='renewal_total',
-        null=True)
+                                              null=True)
     item_type_code = indexes.FacetCharField(null=True)
     price = indexes.DecimalField(model_attr='price', null=True)
     # NOTE: item_message_code and opac_message_code are left out
     # because their corresponding labels are not available in the
     # Sierra database.
-    #item_message_code = indexes.CharField(model_attr='item_message_code',
+    # item_message_code = indexes.CharField(model_attr='item_message_code',
     #    null=True)
-    #opac_message_code = indexes.CharField(model_attr='opac_message_code',
+    # opac_message_code = indexes.CharField(model_attr='opac_message_code',
     #    null=True)
     internal_use_count = indexes.IntegerField(model_attr='internal_use_count',
-        null=True)
+                                              null=True)
     copy_use_count = indexes.IntegerField(model_attr='copy_use_count',
-        null=True)
+                                          null=True)
     iuse3_count = indexes.IntegerField(model_attr='use3_count', null=True)
     total_checkout_count = indexes.IntegerField(model_attr='checkout_total',
-        null=True)
+                                                null=True)
     total_renewal_count = indexes.IntegerField(model_attr='renewal_total',
-        null=True)
+                                               null=True)
     year_to_date_checkout_count = indexes.IntegerField(
         model_attr='year_to_date_checkout_total', null=True)
     last_year_to_date_checkout_count = indexes.IntegerField(
@@ -404,7 +404,7 @@ class ItemIndex(CustomQuerySetIndex, indexes.Indexable):
     due_date = indexes.DateTimeField(null=True)
     checkout_date = indexes.DateTimeField(null=True)
     last_checkin_date = indexes.DateTimeField(model_attr='last_checkin_gmt',
-        null=True)
+                                              null=True)
     overdue_date = indexes.DateTimeField(null=True)
     recall_date = indexes.DateTimeField(null=True)
     record_creation_date = indexes.DateTimeField(
@@ -415,7 +415,7 @@ class ItemIndex(CustomQuerySetIndex, indexes.Indexable):
         model_attr='record_metadata__num_revisions', null=True)
     suppressed = indexes.BooleanField()
     _version_ = indexes.IntegerField()
-    
+
     def get_model(self):
         return sierra_models.ItemRecord
 
@@ -437,7 +437,7 @@ class ItemIndex(CustomQuerySetIndex, indexes.Indexable):
             return bib.record_metadata.id
         except IndexError:
             return None
-    
+
     def prepare_parent_bib_record_number(self, obj):
         try:
             bib = obj.bibrecorditemrecordlink_set.all()[0].bib_record
@@ -483,7 +483,7 @@ class ItemIndex(CustomQuerySetIndex, indexes.Indexable):
         """
         (cn, ctype) = self.get_call_number(obj)
         return ctype
-    
+
     def prepare_call_number_sort(self, obj):
         """
         Prepare call_number_sort field. This prepares a version of each
@@ -580,7 +580,7 @@ class ItemIndex(CustomQuerySetIndex, indexes.Indexable):
         except (sierra_models.Location.DoesNotExist, AttributeError):
             pass
         return code
-    
+
     def prepare_due_date(self, obj):
         """
         Due date is from any checkout records attached to the item.
@@ -589,7 +589,7 @@ class ItemIndex(CustomQuerySetIndex, indexes.Indexable):
             return obj.checkout.due_gmt
         except ObjectDoesNotExist:
             return None
-    
+
     def prepare_checkout_date(self, obj):
         try:
             return obj.checkout.checkout_gmt
@@ -620,7 +620,7 @@ class ItemIndex(CustomQuerySetIndex, indexes.Indexable):
                 return True
             else:
                 return False
-    
+
     def prepare(self, obj):
         self.prepared_data = super(ItemIndex, self).prepare(obj)
         include = ('record_number', 'parent_bib_record_number', 'call_number',
@@ -659,7 +659,7 @@ class ElectronicResourceIndex(CustomQuerySetIndex, indexes.Indexable):
         model_attr='record_metadata__num_revisions', null=True)
     suppressed = indexes.BooleanField()
     _version_ = indexes.IntegerField()
-    
+
     def get_model(self):
         return sierra_models.ResourceRecord
 
@@ -706,7 +706,7 @@ class ElectronicResourceIndex(CustomQuerySetIndex, indexes.Indexable):
 
         try:
             res_id = obj.record_metadata.varfield_set.filter(
-               varfield_type_code='p')[0].field_content
+                varfield_type_code='p')[0].field_content
         except IndexError:
             pass
         else:
@@ -759,13 +759,14 @@ class ElectronicResourceIndex(CustomQuerySetIndex, indexes.Indexable):
             try:
                 h_rec_num = h.record_metadata.get_iii_recnum(True)
                 bib_vf = h.bibrecord_set.all()[0].record_metadata.\
-                            varfield_set.all()
+                    varfield_set.all()
             except IndexError:
                 pass
             else:
                 title = helpers.get_varfield_vals(bib_vf, 't', '245',
-                            cm_kw_params={'subfields': 'a'},
-                            content_method='display_field_content')
+                                                  cm_kw_params={
+                                                      'subfields': 'a'},
+                                                  content_method='display_field_content')
                 ret_val.append(title)
                 data_map.append(h_rec_num)
 

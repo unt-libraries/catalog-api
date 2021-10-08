@@ -33,7 +33,8 @@ class FullJSONRenderer(BaseRenderer):
         if accepted_media_type:
             # If the media type looks like 'application/json; indent=4',
             # then pretty print the result.
-            base_media_type, params = parse_header(accepted_media_type.encode('ascii'))
+            base_media_type, params = parse_header(
+                accepted_media_type.encode('ascii'))
             indent = params.get('indent', indent)
             try:
                 indent = max(min(int(indent), 8), 0)

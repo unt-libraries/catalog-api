@@ -269,13 +269,13 @@ class ResourceTypeDeterminer(object):
         ('audio_spoken', 'cassette'): (('audio', 'spoken', 'cassette'), ()),
         ('audio_music', 'streaming'): (('audio', 'music', 'streaming',), ()),
         ('audio_music', 'record_7inch'): (('audio', 'music', 'record'),
-                                           ('record_7inch',)),
+                                          ('record_7inch',)),
         ('audio_music', 'record_10inch'): (('audio', 'music', 'record'),
-                                            ('record_10inch',)),
+                                           ('record_10inch',)),
         ('audio_music', 'record_12inch'): (('audio', 'music', 'record'),
-                                            ('record_12inch',)),
+                                           ('record_12inch',)),
         ('audio_music', 'record_78rpm'): (('audio', 'music', 'record'),
-                                           ('record_78rpm',)),
+                                          ('record_78rpm',)),
         ('audio_music', 'record'): (('audio', 'music', 'record'), ()),
         ('audio_music', 'cd'): (('audio', 'music', 'cd'), ()),
         ('audio_music', 'cassette'): (('audio', 'music', 'cassette'), ()),
@@ -443,7 +443,8 @@ class ResourceTypeDeterminer(object):
 
     def format_resource_type_value(self, rtypes, fmts):
         rtypestr = '_'.join(rtypes)
-        fmtstr = ', '.join([self.format_labels.get(f, f) for f in sorted(fmts)])
+        fmtstr = ', '.join([self.format_labels.get(f, f)
+                           for f in sorted(fmts)])
         return '!'.join((rtypestr, fmtstr)) if fmtstr else rtypestr
 
     def categorize_resource_type(self, rtypes, fmts):
@@ -572,5 +573,3 @@ class ResourceTypeDeterminer(object):
 BIB_RULES = {
     'resource_type': r.Ruleset([(ResourceTypeDeterminer(), None)]),
 }
-
-

@@ -440,7 +440,7 @@ def test_relation_getasthroughrelations_not_m2m_returns_error(relation):
     'multiple models, non-relevant model is between first and second',
     'multiple models, non-relevant model is after first and second',
 ],
-indirect=['relation'])
+    indirect=['relation'])
 def test_relation_arrangemodels_order(relation, models, result):
     """
     Relation.arrange_models should return models in dependency order,
@@ -662,11 +662,11 @@ def test_makerelationchainfromfieldnames(bp_key, fieldnames):
 @pytest.mark.utilities
 @pytest.mark.parametrize('model, exp', [
     (m.ReferenceNode, [['end'], ['srn', 'end'], ['srn', 'parent', 'end'],
-                            ['throughnode_set', 'm2m', 'end'], ['one']]),
+                       ['throughnode_set', 'm2m', 'end'], ['one']]),
     (m.ThroughNode, [['ref', 'end'], ['ref', 'srn', 'end'], ['ref', 'one'],
-                          ['ref', 'srn', 'parent', 'end'],
-                          ['ref', 'throughnode_set', 'm2m', 'end'],
-                          ['m2m', 'end']]),
+                     ['ref', 'srn', 'parent', 'end'],
+                     ['ref', 'throughnode_set', 'm2m', 'end'],
+                     ['m2m', 'end']]),
     (m.EndNode, []),
     (m.OneToOneNode, []),
     (m.SelfReferentialNode, [['end'], ['parent', 'end']]),
@@ -706,8 +706,8 @@ def test_harvest_picks_trees_into_bucket_using_qset(all_trees, mocker):
     }
     for tree in all_trees.values():
         mocker.patch.object(tree, 'pick', return_value=bucket)
-    relationtrees.harvest(list(all_trees.values()), into=bucket, tree_qsets=qsets)
+    relationtrees.harvest(list(all_trees.values()),
+                          into=bucket, tree_qsets=qsets)
     for tree in all_trees.values():
         tree.pick.assert_called_once_with(into=bucket,
                                           qset=qsets.get(tree, None))
-

@@ -224,7 +224,7 @@ class SuggestBuilder(object):
         self.srecs = {}
         self.extractors = tuple(
             cl(self.source_facet_fields, self.suppression_fields)
-                for cl in self.extractor_classes
+            for cl in self.extractor_classes
         )
 
     @property
@@ -280,7 +280,7 @@ class SuggestBuilder(object):
         except AttributeError:
             self._extractors_by_heading_source = {
                 v: obj for obj in self.extractors
-                    for v in obj.heading_source_fields
+                for v in obj.heading_source_fields
             }
             return self._extractors_by_heading_source
 
@@ -581,7 +581,7 @@ class BlSuggestBuilder(SuggestBuilder):
         Sudocs are indexed like call numbers.
         """
         htype = 'sudoc'
-        source_to_type_map = { 'sudoc_numbers': 'sudoc' }
+        source_to_type_map = {'sudoc_numbers': 'sudoc'}
         heading_source_fields = tuple(source_to_type_map.keys())
 
     extractor_classes = tuple(

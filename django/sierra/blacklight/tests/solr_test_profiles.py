@@ -16,7 +16,8 @@ SOLR_TYPES = tp.SOLR_TYPES
 SOLR_TYPES['sint'] = {'pytype': int, 'emtype': 'int'}
 SOLR_TYPES['cn_norm'] = {'pytype': text_type, 'emtype': 'string'}
 SOLR_TYPES['heading_term_text'] = {'pytype': text_type, 'emtype': 'string'}
-SOLR_TYPES['heading_term_text_stem'] = {'pytype': text_type, 'emtype': 'string'}
+SOLR_TYPES['heading_term_text_stem'] = {
+    'pytype': text_type, 'emtype': 'string'}
 SOLR_TYPES['full_heading_text'] = {'pytype': text_type, 'emtype': 'string'}
 GLOBAL_UNIQUE_FIELDS = ('code', 'id', 'record_number')
 GENS = tp.GENS
@@ -65,6 +66,7 @@ DISCOVER_FIELDS = (
 )
 
 # Discover field specific gen functions
+
 
 def _combine_fields(record, fields):
     """
@@ -155,7 +157,7 @@ DISCOVER_GENS = (
     ('included_work_titles_search', GENS(tp.chance(tp.multi(tp.title_like, 1,
                                                             3), 50))),
     ('related_work_titles_search', GENS(tp.chance(tp.multi(tp.title_like, 1, 3),
-                                                   20))),
+                                                  20))),
     ('related_series_titles_search', GENS(tp.chance(tp.multi(tp.title_like, 1,
                                                              3), 20))),
     ('variant_titles_notes', GENS(tp.chance(tp.multi(tp.title_like, 1, 3),

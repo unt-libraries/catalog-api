@@ -49,18 +49,18 @@ def inventory_notes(record):
 
     def username():
         return text_type(emitter.emit('string', mn=4, mx=8,
-                                    alphabet=tp.LETTERS_LOWER))
+                                      alphabet=tp.LETTERS_LOWER))
 
     def status_msg(status):
         if status == 'unknown':
             action = 'cleared status'
         else:
-            action = 'set status to {}'.format(status) 
+            action = 'set status to {}'.format(status)
         return text_type('@SYSTEMLOG-STATUS|{} {}').format(username(), action)
 
     def flag_msg(flag, action):
         return text_type('@SYSTEMLOG-FLAG|{} {} flag {}').format(username(),
-                                                               action, flag)
+                                                                 action, flag)
 
     def manual_msg():
         msg = emitter.emit('text', mn_words=1, mx_words=5)

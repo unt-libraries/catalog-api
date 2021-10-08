@@ -14,6 +14,7 @@ def load_class(class_str):
     module_path = '.'.join(class_data[:-1])
     return getattr(importlib.import_module(module_path), class_data[-1])
 
+
 def dict_merge(orig_d, updt_d, list_merge=True):
     '''
     Performs a recursive update on nested dictionaries of arbitrary

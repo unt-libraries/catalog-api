@@ -9,7 +9,9 @@ import redis
 import pysolr
 import pytz
 import hashlib
-import six.moves.urllib.request, six.moves.urllib.parse, six.moves.urllib.error
+import six.moves.urllib.request
+import six.moves.urllib.parse
+import six.moves.urllib.error
 import random
 import ujson
 from datetime import datetime
@@ -129,6 +131,7 @@ def setattr_model_instance():
         _set_write_override(instance, False)
 
     cache = OrderedDict()
+
     def _setattr_model_instance(instance, attr, value):
         meta = instance._meta
         cache_key = '{}.{}.{}.{}'.format(meta.app_label, meta.model_name,
@@ -138,7 +141,7 @@ def setattr_model_instance():
         _set_and_save(instance, attr, value)
 
     yield _setattr_model_instance
-        
+
     while cache:
         key = list(cache.keys())[-1]
         instance, attr, old_value = cache.pop(key)
@@ -348,7 +351,7 @@ def sierra_records_by_recnum_range():
     """
     def _sierra_records_by_recnum_range(start, end=None, rm_only=False):
         rectype = start[0]
-        filter_options = {'record_range_from': start, 
+        filter_options = {'record_range_from': start,
                           'record_range_to': end or start}
         if rm_only:
             model = bm.RecordMetadata
@@ -499,9 +502,9 @@ def derive_exporter_class(installed_test_class, model_instance, export_type):
             model_name = newclass.model._meta.object_name
         except AttributeError:
             model_name = None
-        new_exptype_info = { 'code': new_exptype_name, 'path': classpath,
-                             'label': 'Do {} load'.format(new_exptype_name),
-                             'description': new_exptype_name, 'order': 999 }
+        new_exptype_info = {'code': new_exptype_name, 'path': classpath,
+                            'label': 'Do {} load'.format(new_exptype_name),
+                            'description': new_exptype_name, 'order': 999}
         models = importlib.import_module('export.models')
         new_exptype = model_instance(models.ExportType, **new_exptype_info)
         return newclass
@@ -670,7 +673,8 @@ def assert_all_exported_records_are_indexed(assert_records_are_indexed,
                     if child.is_active:
                         assert_records_are_indexed(index, ch_rsets[ch_name])
                     else:
-                        assert_records_are_not_indexed(index, ch_rsets[ch_name])
+                        assert_records_are_not_indexed(
+                            index, ch_rsets[ch_name])
     return _assert_all_exported_records_are_indexed
 
 
@@ -690,7 +694,8 @@ def assert_deleted_records_are_not_indexed(assert_records_are_indexed,
         # Otherwise, if the parent has a `main_child` that has indexes,
         # then those are the ones to check.
         if not indexes and hasattr(exporter, 'main_child'):
-            indexes = list(getattr(exporter.main_child, 'indexes', {}).values())
+            indexes = list(
+                getattr(exporter.main_child, 'indexes', {}).values())
             ref_exporter = exporter.main_child
 
         for index in indexes:
@@ -718,11 +723,15 @@ def api_solr_env(global_basic_solr_assembler):
     status_recs = assembler.make('itemstatus', 10)
     bib_recs = assembler.make('bib', 100)
     item_recs = assembler.make('item', 200,
-        location_code=gens.choice([r['code'] for r in loc_recs]),
-        item_type_code=gens.choice([r['code'] for r in itype_recs]),
-        status_code=gens.choice([r['code'] for r in status_recs]),
-        parent_bib_id=gens(tp.choose_and_link_to_parent_bib(bib_recs))
-    )
+                               location_code=gens.choice(
+                                   [r['code'] for r in loc_recs]),
+                               item_type_code=gens.choice(
+                                   [r['code'] for r in itype_recs]),
+                               status_code=gens.choice(
+                                   [r['code'] for r in status_recs]),
+                               parent_bib_id=gens(
+                                   tp.choose_and_link_to_parent_bib(bib_recs))
+                               )
     eres_recs = assembler.make('eresource', 25)
     assembler.save_all()
     return assembler

@@ -98,7 +98,7 @@ class ItemSerializer(SimpleSerializerWithLookups):
         qs = solr.Queryset(page_by=1000).filter(type__in=types)
         qs = qs.only('type', 'code', 'label')
         results = [i for i in qs]
-        
+
         lookups = {'Location': {}, 'ItemStatus': {}, 'Itype': {}}
         for r in results:
             try:
@@ -129,7 +129,7 @@ class ItemSerializer(SimpleSerializerWithLookups):
             return 'CHECKED OUT'
         else:
             return self.get_lookup_value('status', value)
-    
+
     def process_item_type(self, value, obj):
         '''
         Returns item_type label based on item_type_code.
@@ -158,13 +158,13 @@ class ItemSerializer(SimpleSerializerWithLookups):
         if req is not None and view is not None:
             ret['self'] = {
                 'href': APIUris.get_uri('items-detail', req=req, absolute=True,
-                                                 v=view.api_version,
-                                                 id=obj_id)
+                                        v=view.api_version,
+                                        id=obj_id)
             }
             ret['parentBib'] = {
                 'href': APIUris.get_uri('bibs-detail', req=req, absolute=True,
-                                                 v=view.api_version,
-                                                 id=p_bib_id)
+                                        v=view.api_version,
+                                        id=p_bib_id)
             }
             ret['location'] = {
                 'href': APIUris.get_uri('locations-detail', req=req,
@@ -280,8 +280,8 @@ class BibSerializer(SimpleSerializer):
                 for item_id in item_ids:
                     items.append({
                         'href': APIUris.get_uri('items-detail', req=req,
-                                        absolute=True, v=view.api_version,
-                                        id=item_id)
+                                                absolute=True, v=view.api_version,
+                                                id=item_id)
                     })
                 ret['items'] = items
 
@@ -406,7 +406,7 @@ class LocationSerializer(SimpleSerializer):
             ret['items'] = {
                 'href': '{}?{}={}'.format(
                     APIUris.get_uri('items-list', req=req, absolute=True,
-                    v=view.api_version), fk, code
+                                    v=view.api_version), fk, code
                 )
             }
         return ret
@@ -444,7 +444,7 @@ class ItemTypeSerializer(SimpleSerializer):
             ret['items'] = {
                 'href': '{}?{}={}'.format(
                     APIUris.get_uri('items-list', req=req, absolute=True,
-                    v=view.api_version), fk, code
+                                    v=view.api_version), fk, code
                 )
             }
 
@@ -483,7 +483,7 @@ class ItemStatusSerializer(SimpleSerializer):
             ret['items'] = {
                 'href': '{}?{}={}'.format(
                     APIUris.get_uri('items-list', req=req, absolute=True,
-                    v=view.api_version), fk, code
+                                    v=view.api_version), fk, code
                 )
             }
 

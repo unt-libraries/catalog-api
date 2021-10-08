@@ -16,7 +16,8 @@ class Migration(migrations.Migration):
         migrations.CreateModel(
             name='ExportFilter',
             fields=[
-                ('code', models.CharField(max_length=255, serialize=False, primary_key=True)),
+                ('code', models.CharField(max_length=255,
+                 serialize=False, primary_key=True)),
                 ('label', models.CharField(max_length=255)),
                 ('order', models.IntegerField()),
                 ('description', models.TextField()),
@@ -28,12 +29,14 @@ class Migration(migrations.Migration):
         migrations.CreateModel(
             name='ExportInstance',
             fields=[
-                ('id', models.AutoField(verbose_name='ID', serialize=False, auto_created=True, primary_key=True)),
+                ('id', models.AutoField(verbose_name='ID',
+                 serialize=False, auto_created=True, primary_key=True)),
                 ('filter_params', models.CharField(max_length=255)),
                 ('timestamp', models.DateTimeField()),
                 ('errors', models.IntegerField(default=0)),
                 ('warnings', models.IntegerField(default=0)),
-                ('export_filter', models.ForeignKey(on_delete=models.CASCADE, to='export.ExportFilter')),
+                ('export_filter', models.ForeignKey(
+                    on_delete=models.CASCADE, to='export.ExportFilter')),
             ],
             options={
             },
@@ -42,7 +45,8 @@ class Migration(migrations.Migration):
         migrations.CreateModel(
             name='ExportType',
             fields=[
-                ('code', models.CharField(max_length=255, serialize=False, primary_key=True)),
+                ('code', models.CharField(max_length=255,
+                 serialize=False, primary_key=True)),
                 ('path', models.CharField(max_length=255)),
                 ('label', models.CharField(max_length=255)),
                 ('description', models.TextField()),
@@ -56,7 +60,8 @@ class Migration(migrations.Migration):
         migrations.CreateModel(
             name='Status',
             fields=[
-                ('code', models.CharField(max_length=255, serialize=False, primary_key=True)),
+                ('code', models.CharField(max_length=255,
+                 serialize=False, primary_key=True)),
                 ('label', models.CharField(max_length=255)),
                 ('description', models.TextField()),
             ],
@@ -68,19 +73,22 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='exportinstance',
             name='export_type',
-            field=models.ForeignKey(on_delete=models.CASCADE, to='export.ExportType'),
+            field=models.ForeignKey(
+                on_delete=models.CASCADE, to='export.ExportType'),
             preserve_default=True,
         ),
         migrations.AddField(
             model_name='exportinstance',
             name='status',
-            field=models.ForeignKey(on_delete=models.CASCADE, to='export.Status'),
+            field=models.ForeignKey(
+                on_delete=models.CASCADE, to='export.Status'),
             preserve_default=True,
         ),
         migrations.AddField(
             model_name='exportinstance',
             name='user',
-            field=models.ForeignKey(on_delete=models.CASCADE, to=settings.AUTH_USER_MODEL),
+            field=models.ForeignKey(
+                on_delete=models.CASCADE, to=settings.AUTH_USER_MODEL),
             preserve_default=True,
         ),
     ]

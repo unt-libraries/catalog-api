@@ -35,7 +35,7 @@ class Exporter(object):
     Exporter class. Subclass this to define your export jobs. Your
     class names should match exactly 1:1 with the ExportType.codes
     you've defined.
-    
+
     Your Exporter subclasses should at the very LEAST override the
     export_records() method to define how the export works.
 
@@ -54,16 +54,16 @@ class Exporter(object):
     filtering from the POV of the RecordMetadata model. Alternatively,
     you can simply override the get_deletions method and do whatever
     you want.
-    
+
     The deletion_filter attribute should contain a list of
     dictionaries, where each dict contains keyword filter criteria that
     should be ANDed together and each dict group then gets ORed to
     produce the final filter.
-    
+
     If your export job doesn't need to handle deletions, simply don't
     specify a deletion_filter in your subclass--the get_deletions
     method will return None and you won't have to worry about it.
-    
+
     In certain cases you might want to apply some sort of base filter
     when getting records, aside from whatever export filter is used.
     For instance, if you want to filter out suppressed records. To do
@@ -73,14 +73,14 @@ class Exporter(object):
     filter out suppressed records from getting loaded into Solr, then
     you'll want to check for newly suppressed records in your deletion
     filter along with deleted records.
-    
+
     Use select_related and prefetch_related attributes to specify what
     related objects should be prefetched or preselected when records
     are fetched from the DB. These have a MASSIVE performance benefit
     if your job uses a lot of data in related tables, so use them!
     (See the Django docs on the Queryset API for info about
     prefetch_related and select_related.)
-    
+
     Note about max_rec_chunk and max_del_chunk. These are used by
     the tasks.py module that breaks up record loads and delegates tasks
     out to Celery. The max_rec_chunk size is the size of the chunk used
@@ -133,7 +133,7 @@ class Exporter(object):
         if export_filter == 'last_export':
             try:
                 latest = ExportInstance.objects.filter(
-                    export_type=self.export_type, 
+                    export_type=self.export_type,
                     status__in=['success', 'done_with_errors']
                 ).order_by(
                     '-timestamp'
@@ -199,7 +199,7 @@ class Exporter(object):
         """
         prefetch_related = prefetch_related or []
         qs = model.objects.filter_by(export_filter, options=filter_options)
-        
+
         if added_filters:
             q_filter = helpers.reduce_filter_kwargs(added_filters)
             qs = qs.filter(q_filter)
@@ -321,7 +321,7 @@ class Exporter(object):
         """
         Override this method in your subclasses only if you need to do
         deletions.
-        
+
         When passed a queryset (e.g., from self.get_deletions()), this
         should delete the records as necessary.
 
@@ -546,7 +546,7 @@ class CompoundMixin(object):
     def spawn_children(cls, parent_args):
         return OrderedDict(
             (c.name, c.spawn_instance(cls, *parent_args))
-                for c in cls.children_config
+            for c in cls.children_config
         )
 
     @property

@@ -54,7 +54,7 @@ class Status(models.Model):
     code = models.CharField(max_length=255, primary_key=True)
     label = models.CharField(max_length=255)
     description = models.TextField()
-    
+
     def __str__(self):
         return self.label
 
@@ -76,7 +76,7 @@ class ExportInstance(models.Model):
     timestamp = models.DateTimeField()
     errors = models.IntegerField(default=0)
     warnings = models.IntegerField(default=0)
-    
+
     def __str__(self):
         return u'{} - {} - {}'.format(self.timestamp,
                                       self.export_type,

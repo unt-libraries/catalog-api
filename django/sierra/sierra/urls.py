@@ -1,4 +1,5 @@
 from __future__ import absolute_import
+import logging
 from django.urls import include, re_path
 from django.conf import settings
 from django.conf.urls.static import static
@@ -7,7 +8,6 @@ from django.urls import reverse_lazy
 from django.views.generic import RedirectView
 admin.autodiscover()
 
-import logging
 
 # set up logger, for debugging
 logger = logging.getLogger('sierra.custom')

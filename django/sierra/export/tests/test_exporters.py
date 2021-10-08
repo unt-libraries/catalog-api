@@ -221,14 +221,14 @@ def test_basic_tosolr_export_records(et_code, rset_code, rectypes, do_reindex,
     expclass = basic_exporter_class(et_code)
     exporter = new_exporter(expclass, 'full_export', 'waiting')
     records = record_sets[rset_code]
-    
+
     # Do some setup to put some meaningful data into the index first.
     # We want some records that overlap with the incoming record set
     # and some that don't.
     num_existing = records.count() / 2
     overlap_recs = records[0:num_existing]
     only_new = records[num_existing:]
-    old_rec_pks = [text_type(pk) for pk in range(99991,99995)]
+    old_rec_pks = [text_type(pk) for pk in range(99991, 99995)]
     only_old_rec_data = [(pk, {}) for pk in old_rec_pks]
     data = only_old_rec_data + [(r.pk, {}) for r in overlap_recs]
     for rtype in rectypes:
@@ -309,7 +309,7 @@ def test_basic_tosolr_delete_records(et_code, rset_code, rectypes,
     data = [(r.id, {'record_number': r.get_iii_recnum()}) for r in records]
     for rtype in rectypes:
         basic_solr_assembler.load_static_test_data(rtype, data)
-    
+
     expclass = basic_exporter_class(et_code)
     exporter = new_exporter(expclass, 'full_export', 'waiting')
 
@@ -402,7 +402,7 @@ def test_attached_solr_delete_records(et_code, rset_code, rectypes,
     data = [(r.id, {'record_number': r.get_iii_recnum()}) for r in records]
     for rtype in rectypes:
         basic_solr_assembler.load_static_test_data(rtype, data)
-    
+
     expclass = basic_exporter_class(et_code)
     exporter = new_exporter(expclass, 'full_export', 'waiting')
 
@@ -434,7 +434,7 @@ def test_max_chunk_settings_overrides(et_code, settings, basic_exporter_class,
     new_rc_val, new_dc_val = 77777, 88888
     settings.EXPORTER_MAX_RC_CONFIG[test_et_code] = new_rc_val
     settings.EXPORTER_MAX_DC_CONFIG[test_et_code] = new_dc_val
-    
+
     exporter = new_exporter(expclass, 'full_export', 'waiting')
     assert exporter.max_rec_chunk == new_rc_val
     assert exporter.max_del_chunk == new_dc_val
@@ -466,55 +466,55 @@ def test_max_chunk_settings_defaults(et_code, settings, basic_exporter_class,
 
 @pytest.mark.return_vals
 @pytest.mark.parametrize('vals_list, expected', [
-    ([ { 'ids': ['b1', 'b2'] },
-       { 'ids': ['b4', 'b5'] },
-       { 'ids': ['b3'] }
-    ], { 'ids': ['b1', 'b2', 'b4', 'b5', 'b3'] }),
+    ([{'ids': ['b1', 'b2']},
+      {'ids': ['b4', 'b5']},
+      {'ids': ['b3']}
+      ], {'ids': ['b1', 'b2', 'b4', 'b5', 'b3']}),
 
-    ([ { 'names': [{'first': 'Bob', 'last': 'Jones'}] },
-       { 'names': [{'first': 'Sarah', 'last': 'Kim'}] },
-       { 'names': [{'first': 'Sally', 'last': 'Smith'}] }
-    ], { 'names': [{'first': 'Bob', 'last': 'Jones'},
-                   {'first': 'Sarah', 'last': 'Kim'},
-                   {'first': 'Sally', 'last': 'Smith'}] }),
+    ([{'names': [{'first': 'Bob', 'last': 'Jones'}]},
+      {'names': [{'first': 'Sarah', 'last': 'Kim'}]},
+      {'names': [{'first': 'Sally', 'last': 'Smith'}]}
+      ], {'names': [{'first': 'Bob', 'last': 'Jones'},
+                    {'first': 'Sarah', 'last': 'Kim'},
+          {'first': 'Sally', 'last': 'Smith'}]}),
 
-    ([ { 'grades': {'Bob Jones': ['A', 'B'],
-                    'Sarah Kim': ['B', 'A', 'C']} },
-       { 'grades': {'Bob Jones': ['A']} },
-       { 'grades': {'Sally Smith': ['A', 'A', 'B']} }
-    ], { 'grades': {'Bob Jones': ['A', 'B', 'A'],
-                    'Sarah Kim': ['B', 'A', 'C'],
-                    'Sally Smith': ['A', 'A', 'B']} }),
+    ([{'grades': {'Bob Jones': ['A', 'B'],
+                  'Sarah Kim': ['B', 'A', 'C']}},
+      {'grades': {'Bob Jones': ['A']}},
+      {'grades': {'Sally Smith': ['A', 'A', 'B']}}
+      ], {'grades': {'Bob Jones': ['A', 'B', 'A'],
+                     'Sarah Kim': ['B', 'A', 'C'],
+                     'Sally Smith': ['A', 'A', 'B']}}),
 
-    ([ { 'list1': ['a', 'b'], 'list2': [1, 2] },
-       { 'list1': ['c', 'd'], 'list2': [3, 4] },
-       { 'list1': ['e', 'f'], 'list2': [5, 6] },
-    ], { 'list1': ['a', 'b', 'c', 'd', 'e', 'f'],
-         'list2': [1, 2, 3, 4, 5, 6] }),
+    ([{'list1': ['a', 'b'], 'list2': [1, 2]},
+      {'list1': ['c', 'd'], 'list2': [3, 4]},
+      {'list1': ['e', 'f'], 'list2': [5, 6]},
+      ], {'list1': ['a', 'b', 'c', 'd', 'e', 'f'],
+          'list2': [1, 2, 3, 4, 5, 6]}),
 
-    ([ { 'list1': ['a', 'b'], 'list2': [1, 2] },
-       { 'list1': ['c', 'd']},
-       { 'list1': ['e', 'f'], 'list2': [5, 6] },
-    ], { 'list1': ['a', 'b', 'c', 'd', 'e', 'f'],
-         'list2': [1, 2, 5, 6] }),
+    ([{'list1': ['a', 'b'], 'list2': [1, 2]},
+      {'list1': ['c', 'd']},
+      {'list1': ['e', 'f'], 'list2': [5, 6]},
+      ], {'list1': ['a', 'b', 'c', 'd', 'e', 'f'],
+          'list2': [1, 2, 5, 6]}),
 
-    ([ { 'list1': [], 'list2': [1, 2] },
-       { 'list1': ['c', 'd'], 'list2': [3, 4] },
-       { 'list1': ['e', 'f'], 'list2': [5, 6] },
-    ], { 'list1': ['c', 'd', 'e', 'f'],
-         'list2': [1, 2, 3, 4, 5, 6] }),
+    ([{'list1': [], 'list2': [1, 2]},
+      {'list1': ['c', 'd'], 'list2': [3, 4]},
+      {'list1': ['e', 'f'], 'list2': [5, 6]},
+      ], {'list1': ['c', 'd', 'e', 'f'],
+          'list2': [1, 2, 3, 4, 5, 6]}),
 
-    ([ { 'list1': ['a', 'b'] },
-       { 'list2': [1, 2] },
-    ], { 'list1': ['a', 'b'],
-         'list2': [1, 2] }),
+    ([{'list1': ['a', 'b']},
+      {'list2': [1, 2]},
+      ], {'list1': ['a', 'b'],
+          'list2': [1, 2]}),
 
-    ([ { 'list1': [1, 2, 3] },
-       None,
-       { 'list1': [4, 5, 6] }
-    ], { 'list1': [1, 2, 3, 4, 5, 6] }),
+    ([{'list1': [1, 2, 3]},
+      None,
+      {'list1': [4, 5, 6]}
+      ], {'list1': [1, 2, 3, 4, 5, 6]}),
 
-    ([ None, None, None ], None),
+    ([None, None, None], None),
 ], ids=[
     'one key, arrays of values',
     'one key, arrays of dicts',
@@ -543,31 +543,31 @@ def test_exporter_default_compile_vals(vals_list, expected, new_exporter,
 @pytest.mark.do_export
 @pytest.mark.parametrize('classname, method, children_and_retvals, expected', [
     ('AttachedRecordExporter', 'export_records',
-        [ ('C1', {'colors': ['red', 'green']}), ('C2', {'sounds': ['woosh']}),
-          ('C3', None) ],
-        { 'C1': {'colors': ['red', 'green']},
-          'C2': {'sounds': ['woosh']},
-          'C3': None }
-    ),
+        [('C1', {'colors': ['red', 'green']}), ('C2', {'sounds': ['woosh']}),
+         ('C3', None)],
+        {'C1': {'colors': ['red', 'green']},
+         'C2': {'sounds': ['woosh']},
+         'C3': None}
+     ),
     ('AttachedRecordExporter', 'delete_records',
-        [ ('C1', {'colors': ['red', 'green']}), ('C2', {'sounds': ['woosh']}),
-          ('C3', None) ],
-        { 'C1': {'colors': ['red', 'green']} }
-    ),
+        [('C1', {'colors': ['red', 'green']}), ('C2', {'sounds': ['woosh']}),
+         ('C3', None)],
+        {'C1': {'colors': ['red', 'green']}}
+     ),
     ('BatchExporter', 'export_records',
-        [ ('C1', {'colors': ['red', 'green']}), ('C2', {'sounds': ['woosh']}),
-          ('C3', None) ],
-        { 'C1': {'colors': ['red', 'green']},
-          'C2': {'sounds': ['woosh']},
-          'C3': None }
-    ),
+        [('C1', {'colors': ['red', 'green']}), ('C2', {'sounds': ['woosh']}),
+         ('C3', None)],
+        {'C1': {'colors': ['red', 'green']},
+         'C2': {'sounds': ['woosh']},
+         'C3': None}
+     ),
     ('BatchExporter', 'delete_records',
-        [ ('C1', {'colors': ['red', 'green']}), ('C2', {'sounds': ['woosh']}),
-          ('C3', None) ],
-        { 'C1': {'colors': ['red', 'green']},
-          'C2': {'sounds': ['woosh']},
-          'C3': None }
-    ),
+        [('C1', {'colors': ['red', 'green']}), ('C2', {'sounds': ['woosh']}),
+         ('C3', None)],
+        {'C1': {'colors': ['red', 'green']},
+         'C2': {'sounds': ['woosh']},
+         'C3': None}
+     ),
 ], ids=[
     'AttachedRE export_records: all children run and return their vals',
     'AttachedRE delete_records: only main child runs and returns vals',
@@ -606,110 +606,110 @@ def test_compound_ops_and_return_vals(classname, method, children_and_retvals,
 @pytest.mark.return_vals
 @pytest.mark.parametrize('classname, children, vals_list, expected', [
     ('AttachedRecordExporter', ('C1', 'C2'),
-        [ {'C1': {'colors': ['red', 'blue']}, 'C2': {'sounds': ['pop']}},
-          {'C1': {'colors': ['tan']}, 'C2': {'sounds': ['squee', 'pop']}} ],
-        { 'C1': {'colors': ['red', 'blue', 'tan']},
-          'C2': {'sounds': ['pop', 'squee', 'pop']} }),
+        [{'C1': {'colors': ['red', 'blue']}, 'C2': {'sounds': ['pop']}},
+         {'C1': {'colors': ['tan']}, 'C2': {'sounds': ['squee', 'pop']}}],
+        {'C1': {'colors': ['red', 'blue', 'tan']},
+         'C2': {'sounds': ['pop', 'squee', 'pop']}}),
 
     ('AttachedRecordExporter', ('C1', 'C2'),
-        [ {'C1': {'colors': ['red', 'blue']}, 'C2': {'colors': ['yellow']}},
-          {'C1': {'colors': ['tan']}, 'C2': {'colors': ['pink', 'brown']}} ],
-        { 'C1': {'colors': ['red', 'blue', 'tan']},
-          'C2': {'colors': ['yellow', 'pink', 'brown']} }),
+        [{'C1': {'colors': ['red', 'blue']}, 'C2': {'colors': ['yellow']}},
+         {'C1': {'colors': ['tan']}, 'C2': {'colors': ['pink', 'brown']}}],
+        {'C1': {'colors': ['red', 'blue', 'tan']},
+         'C2': {'colors': ['yellow', 'pink', 'brown']}}),
 
     ('AttachedRecordExporter', ('C1', 'C2'),
-        [ {'C1': {'colors': ['red', 'blue']}, 'C2': {'colors': ['yellow']}},
-          {'C1': {'sounds': ['pop', 'bang']}, 'C2': {'colors': ['red']}} ],
-        { 'C1': {'colors': ['red', 'blue'], 'sounds': ['pop', 'bang']},
-          'C2': {'colors': ['yellow', 'red']} }),
+        [{'C1': {'colors': ['red', 'blue']}, 'C2': {'colors': ['yellow']}},
+         {'C1': {'sounds': ['pop', 'bang']}, 'C2': {'colors': ['red']}}],
+        {'C1': {'colors': ['red', 'blue'], 'sounds': ['pop', 'bang']},
+         'C2': {'colors': ['yellow', 'red']}}),
 
     ('AttachedRecordExporter', ('C1', 'C2'),
-        [ {'C1': None, 'C2': {'colors': ['yellow']}},
-          {'C1': None, 'C2': {'colors': ['pink', 'brown']}} ],
-        { 'C1': None, 'C2': {'colors': ['yellow', 'pink', 'brown']} }),
+        [{'C1': None, 'C2': {'colors': ['yellow']}},
+         {'C1': None, 'C2': {'colors': ['pink', 'brown']}}],
+        {'C1': None, 'C2': {'colors': ['yellow', 'pink', 'brown']}}),
 
     ('AttachedRecordExporter', ('C1', 'C2'),
-        [ {'C1': {'colors': ['red']}, 'C2': {'colors': ['yellow']}},
-          {'C1': None, 'C2': {'colors': ['pink', 'brown']}} ],
-        { 'C1': {'colors': ['red']},
-          'C2': {'colors': ['yellow', 'pink', 'brown']} }),
+        [{'C1': {'colors': ['red']}, 'C2': {'colors': ['yellow']}},
+         {'C1': None, 'C2': {'colors': ['pink', 'brown']}}],
+        {'C1': {'colors': ['red']},
+         'C2': {'colors': ['yellow', 'pink', 'brown']}}),
 
     ('AttachedRecordExporter', ('C1', 'C2'),
-        [ {'C1': None, 'C2': None}, {'C1': None, 'C2': None} ],
-        { 'C1': None, 'C2': None }),
+        [{'C1': None, 'C2': None}, {'C1': None, 'C2': None}],
+        {'C1': None, 'C2': None}),
 
     ('AttachedRecordExporter', ('C1', 'C2'),
-        [ {'C1': {'colors': ['red']}},
-          {'C1': {'colors': ['tan']}, 'C2': {'colors': ['pink', 'brown']}} ],
-        { 'C1': {'colors': ['red', 'tan']},
-          'C2': {'colors': ['pink', 'brown']} }),
+        [{'C1': {'colors': ['red']}},
+         {'C1': {'colors': ['tan']}, 'C2': {'colors': ['pink', 'brown']}}],
+        {'C1': {'colors': ['red', 'tan']},
+         'C2': {'colors': ['pink', 'brown']}}),
 
     ('AttachedRecordExporter', ('C1', 'C2'),
-        [ {'C1': {'colors': ['red']}}, {'C1': {'colors': ['tan']}} ],
-        { 'C1': {'colors': ['red', 'tan']} }),
+        [{'C1': {'colors': ['red']}}, {'C1': {'colors': ['tan']}}],
+        {'C1': {'colors': ['red', 'tan']}}),
 
     ('BatchExporter', ('C1', 'C2'),
-        [ {'C1': {'colors': ['red', 'blue']}},
-          {'C1': {'colors': ['tan', 'red']}} ],
-        { 'C1': {'colors': ['red', 'blue', 'tan', 'red']} }),
+        [{'C1': {'colors': ['red', 'blue']}},
+         {'C1': {'colors': ['tan', 'red']}}],
+        {'C1': {'colors': ['red', 'blue', 'tan', 'red']}}),
 
     ('BatchExporter', ('C1', 'C2'),
-        [ {'C1': {'colors': ['red', 'blue']}},
-          {'C1': {'sounds': ['pop']}} ],
-        { 'C1': {'colors': ['red', 'blue'], 'sounds': ['pop']} }),
+        [{'C1': {'colors': ['red', 'blue']}},
+         {'C1': {'sounds': ['pop']}}],
+        {'C1': {'colors': ['red', 'blue'], 'sounds': ['pop']}}),
 
     ('BatchExporter', ('C1', 'C2'),
-        [ {'C1': None}, {'C1': {'colors': ['red']}} ],
-        { 'C1': {'colors': ['red']} }),
+        [{'C1': None}, {'C1': {'colors': ['red']}}],
+        {'C1': {'colors': ['red']}}),
 
     ('BatchExporter', ('C1', 'C2'),
-        [ {'C1': None}, {'C1': None} ],
-        { 'C1': None }),
+        [{'C1': None}, {'C1': None}],
+        {'C1': None}),
 
     ('BatchExporter', ('C1', 'C2'),
-        [ {'C1': {'colors': ['red', 'blue']}}, {'C2': {'sounds': ['pop']}} ],
-        { 'C1': {'colors': ['red', 'blue']}, 'C2': {'sounds': ['pop']} }),
+        [{'C1': {'colors': ['red', 'blue']}}, {'C2': {'sounds': ['pop']}}],
+        {'C1': {'colors': ['red', 'blue']}, 'C2': {'sounds': ['pop']}}),
 
     ('BatchExporter', ('C1', 'C2'),
-        [ {'C1': None}, {'C2': {'sounds': ['pop']}} ],
-        { 'C1': None, 'C2': {'sounds': ['pop']} }),
+        [{'C1': None}, {'C2': {'sounds': ['pop']}}],
+        {'C1': None, 'C2': {'sounds': ['pop']}}),
 
     ('BatchExporter', ('C1', 'C2'),
-        [ {'C1': None}, {'C2': None} ],
-        { 'C1': None, 'C2': None }),
+        [{'C1': None}, {'C2': None}],
+        {'C1': None, 'C2': None}),
 
     ('BatchExporter', ('C1', 'C2'),
-        [ {'C1': {'colors': ['red', 'blue']}, 'C2': {'sounds': ['pop']}},
-          {'C1': {'colors': ['tan']}, 'C2': {'sounds': ['squee', 'pop']}} ],
-        { 'C1': {'colors': ['red', 'blue', 'tan']},
-          'C2': {'sounds': ['pop', 'squee', 'pop']} }),
+        [{'C1': {'colors': ['red', 'blue']}, 'C2': {'sounds': ['pop']}},
+         {'C1': {'colors': ['tan']}, 'C2': {'sounds': ['squee', 'pop']}}],
+        {'C1': {'colors': ['red', 'blue', 'tan']},
+         'C2': {'sounds': ['pop', 'squee', 'pop']}}),
 
     ('BatchExporter', ('C1', 'C2'),
-        [ {'C1': {'colors': ['red', 'blue']}, 'C2': {'colors': ['yellow']}},
-          {'C1': {'colors': ['tan']}, 'C2': {'colors': ['pink', 'brown']}} ],
-        { 'C1': {'colors': ['red', 'blue', 'tan']},
-          'C2': {'colors': ['yellow', 'pink', 'brown']} }),
+        [{'C1': {'colors': ['red', 'blue']}, 'C2': {'colors': ['yellow']}},
+         {'C1': {'colors': ['tan']}, 'C2': {'colors': ['pink', 'brown']}}],
+        {'C1': {'colors': ['red', 'blue', 'tan']},
+         'C2': {'colors': ['yellow', 'pink', 'brown']}}),
 
     ('BatchExporter', ('C1', 'C2'),
-        [ {'C1': {'colors': ['red', 'blue']}, 'C2': {'colors': ['yellow']}},
-          {'C1': {'sounds': ['pop', 'bang']}, 'C2': {'colors': ['red']}} ],
-        { 'C1': {'colors': ['red', 'blue'], 'sounds': ['pop', 'bang']},
-          'C2': {'colors': ['yellow', 'red']} }),
+        [{'C1': {'colors': ['red', 'blue']}, 'C2': {'colors': ['yellow']}},
+         {'C1': {'sounds': ['pop', 'bang']}, 'C2': {'colors': ['red']}}],
+        {'C1': {'colors': ['red', 'blue'], 'sounds': ['pop', 'bang']},
+         'C2': {'colors': ['yellow', 'red']}}),
 
     ('BatchExporter', ('C1', 'C2'),
-        [ {'C1': None, 'C2': {'colors': ['yellow']}},
-          {'C1': None, 'C2': {'colors': ['pink', 'brown']}} ],
-        { 'C1': None, 'C2': {'colors': ['yellow', 'pink', 'brown']} }),
+        [{'C1': None, 'C2': {'colors': ['yellow']}},
+         {'C1': None, 'C2': {'colors': ['pink', 'brown']}}],
+        {'C1': None, 'C2': {'colors': ['yellow', 'pink', 'brown']}}),
 
     ('BatchExporter', ('C1', 'C2'),
-        [ {'C1': {'colors': ['red']}, 'C2': {'colors': ['yellow']}},
-          {'C1': None, 'C2': {'colors': ['pink', 'brown']}} ],
-        { 'C1': {'colors': ['red']},
-          'C2': {'colors': ['yellow', 'pink', 'brown']} }),
+        [{'C1': {'colors': ['red']}, 'C2': {'colors': ['yellow']}},
+         {'C1': None, 'C2': {'colors': ['pink', 'brown']}}],
+        {'C1': {'colors': ['red']},
+         'C2': {'colors': ['yellow', 'pink', 'brown']}}),
 
     ('BatchExporter', ('C1', 'C2'),
-        [ {'C1': None, 'C2': None}, {'C1': None, 'C2': None} ],
-        { 'C1': None, 'C2': None }),
+        [{'C1': None, 'C2': None}, {'C1': None, 'C2': None}],
+        {'C1': None, 'C2': None}),
 
 ], ids=[
     'AttachedRE: children have different keys',
@@ -755,18 +755,18 @@ def test_compound_compile_vals(classname, children, vals_list, expected,
 @pytest.mark.callback
 @pytest.mark.parametrize('classname, children, vals', [
     ('AttachedRecordExporter', ('C1', 'C2'),
-        { 'C1': {'colors': ['red']}, 'C2': {'sounds': 'pop'} }),
+        {'C1': {'colors': ['red']}, 'C2': {'sounds': 'pop'}}),
     ('AttachedRecordExporter', ('C1', 'C2'),
-        { 'C1': {'colors': ['red']}, 'C2': None }),
+        {'C1': {'colors': ['red']}, 'C2': None}),
     ('AttachedRecordExporter', ('C1', 'C2'),
-        { 'C1': {'colors': ['red']} }),
+        {'C1': {'colors': ['red']}}),
     ('AttachedRecordExporter', ('C1', 'C2'), None),
     ('BatchExporter', ('C1', 'C2'),
-        { 'C1': {'colors': ['red']}, 'C2': {'sounds': 'pop'} }),
+        {'C1': {'colors': ['red']}, 'C2': {'sounds': 'pop'}}),
     ('BatchExporter', ('C1', 'C2'),
-        { 'C1': {'colors': ['red']}, 'C2': None }),
+        {'C1': {'colors': ['red']}, 'C2': None}),
     ('BatchExporter', ('C1', 'C2'),
-        { 'C1': {'colors': ['red']} }),
+        {'C1': {'colors': ['red']}}),
     ('BatchExporter', ('C1', 'C2'), None),
 ], ids=[
     'AttachedRE: both children have vals',
@@ -798,7 +798,7 @@ def test_compound_final_callback(classname, children, vals,
     exp = new_exporter(expclass, 'full_export', 'waiting')
     exp.final_callback(vals=vals)
     for name, child in exp.children.items():
-        expected_vals = None if vals is None else vals.get(name, None) 
+        expected_vals = None if vals is None else vals.get(name, None)
         child.final_callback.assert_called_with(vals=expected_vals,
                                                 status='success')
 
@@ -862,7 +862,7 @@ def test_ertosolr_export_callback_commits_to_redis(basic_exporter_class,
     for key, val in existing.items():
         redis_obj(key).set(val)
 
-    vals = { 'h_lists': { 'e1': ['c6', 'c4'], 'e3': ['c5', 'c7'] } }
+    vals = {'h_lists': {'e1': ['c6', 'c4'], 'e3': ['c5', 'c7']}}
     expected = {
         'eresource_holdings_list:e1': ['c6', 'c4'],
         'eresource_holdings_list:e2': ['c1', 'c2', 'c3'],
@@ -903,7 +903,7 @@ def test_ertosolr_delete_callback_commits_to_redis(basic_exporter_class,
     for key, val in existing.items():
         redis_obj(key).set(val)
 
-    vals = { 'deletions': ['e1', 'e3'] }
+    vals = {'deletions': ['e1', 'e3']}
     expected = {
         'eresource_holdings_list:e2': ['c1', 'c2', 'c3'],
         'reverse_holdings_list:0': {

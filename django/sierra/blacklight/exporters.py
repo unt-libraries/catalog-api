@@ -180,7 +180,7 @@ class BibsToDiscover(ToSolrExporter):
 
     app_name = 'blacklight'
     IndexCfgEntry = ToSolrExporter.Index
-    index_config = (IndexCfgEntry('Bibs', DiscoverIndexer, 
+    index_config = (IndexCfgEntry('Bibs', DiscoverIndexer,
                                   settings.BL_CONN_NAME),)
     model = sm.BibRecord
     deletion_filter = [
@@ -200,13 +200,13 @@ class BibsToDiscover(ToSolrExporter):
         'bibrecorditemrecordlink_set__item_record__location__locationname_set',
         'bibrecorditemrecordlink_set__item_record__record_metadata',
         'bibrecorditemrecordlink_set__item_record__record_metadata'
-            '__record_type',
+        '__record_type',
         'bibrecorditemrecordlink_set__item_record__record_metadata'
-            '__varfield_set',
+        '__varfield_set',
         'bibrecordproperty_set',
         'bibrecordproperty_set__material__materialpropertyname_set',
         'bibrecordproperty_set__material__materialpropertyname_set'
-            '__iii_language',
+        '__iii_language',
         'locations',
         'locations__locationname_set',
     ]

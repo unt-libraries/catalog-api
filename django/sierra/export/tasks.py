@@ -1,5 +1,6 @@
 from __future__ import absolute_import
-import sys, traceback
+import sys
+import traceback
 
 import logging
 import pysolr
@@ -233,7 +234,7 @@ class JobPlan(object):
         self.instance_pk = exp.instance.pk
         self.chunk_sizes = {
             op: exp.max_del_chunk if op == 'deletion' else exp.max_rec_chunk
-                for op in operations
+            for op in operations
         }
         self.bundler = exp.bundler
         self.batch_size = batch_size
@@ -260,8 +261,8 @@ class JobPlan(object):
         except ValueError:
             batch_id, padded_cnum, op, pnum = chunk_id.split('-')
             rset_name = None
-        return { 'batch_id': batch_id, 'chunk_num': int(padded_cnum),
-                 'rset_name': rset_name, 'op': op, 'part_num': int(pnum) }
+        return {'batch_id': batch_id, 'chunk_num': int(padded_cnum),
+                'rset_name': rset_name, 'op': op, 'part_num': int(pnum)}
 
     def get_records_for_operation(self, exp, op, prefetch=True):
         if op == 'export':
@@ -412,7 +413,7 @@ class JobPlan(object):
             lines.extend([
                 '`{}`: {} {}'.format(op, rec_count, rec_label),
                 '`{}`: {} {} (chunk size is {})'
-                    ''.format(op, chunk_count, chunk_label, chunk_size),
+                ''.format(op, chunk_count, chunk_label, chunk_size),
             ])
             for rset_name, rset_count in op_totals.items():
                 if rset_name is not None:
@@ -421,7 +422,7 @@ class JobPlan(object):
                         '    `{}`: {} {}'.format(rset_name, rset_count,
                                                  rset_rec_label)
                     ])
-                
+
         tot_chunks = self.totals['chunks']
         tot_chunks_label = _plural('chunk', tot_chunks)
         tot_batches = self.totals['batches']
@@ -429,9 +430,9 @@ class JobPlan(object):
         lines.extend([
             '- {} total {}'.format(tot_chunks, tot_chunks_label),
             '- {} total {} ({} chunks per batch)'
-                ''.format(tot_batches, tot_batches_label, self.batch_size)
+            ''.format(tot_batches, tot_batches_label, self.batch_size)
         ])
-        
+
         batch_ids = sorted(self.registry.keys())
         first_chunk_id = self.registry[batch_ids[0]][0]
         last_chunk_id = self.registry[batch_ids[-1]][-1]
@@ -462,6 +463,7 @@ class ExportTask(Task):
     Subclasses celery.Task to provide custom on_failure and on_success
     behavior.
     """
+
     def on_failure(self, exc, task_id, args, kwargs, einfo):
         """
         Handle a task that raises an uncaught exception.
@@ -675,7 +677,7 @@ def do_final_cleanup(vals_list, instance_pk, export_filter, export_type,
     else:
         if status == 'errors':
             vals_list = _compile_vals_list_for_batch(prev_batch_task_id)
-        
+
         cumulative_vals = exp.compile_vals([cumulative_vals] + vals_list)
 
         # UNCOMMENT the below to help troubleshoot issues with `vals`

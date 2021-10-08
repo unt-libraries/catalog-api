@@ -50,6 +50,7 @@ class Result(dict):
     the object attributes / dict values directly. Can be saved back to
     Solr using save().
     """
+
     def __init__(self, *args, **kwargs):
         super(Result, self).__init__(*args, **kwargs)
         self.__dict__ = self
@@ -281,7 +282,7 @@ class Queryset(object):
     def search(self, raw_query, params=None):
         q = self._search_params.get('q', '*')
 
-        if q not in ('*', '*:*') :
+        if q not in ('*', '*:*'):
             q = '({}) AND ({})'.format(q, raw_query)
         else:
             q = raw_query

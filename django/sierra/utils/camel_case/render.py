@@ -6,9 +6,11 @@ from rest_framework.renderers import JSONRenderer
 from six import iteritems
 from six.moves import map, range
 
+
 def underscoreToCamel(s):
-  parts = s.split('_')
-  return ''.join([parts[i].capitalize() if i !=0 else parts[i] for i in range(0, len(parts))])
+    parts = s.split('_')
+    return ''.join([parts[i].capitalize() if i != 0 else parts[i] for i in range(0, len(parts))])
+
 
 def camelize(data):
     if isinstance(data, dict):
@@ -20,6 +22,7 @@ def camelize(data):
         data = list(map(camelize, data))
         return data
     return data
+
 
 class CamelCaseJSONRenderer(JSONRenderer):
 

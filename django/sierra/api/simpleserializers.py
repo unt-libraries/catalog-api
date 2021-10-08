@@ -178,7 +178,7 @@ class SimpleSerializer(object):
         else:
             new_obj_data = {}
             old_obj = self.object
-            
+
             # obj could be dict-like or have attributes
             if hasattr(old_obj, 'iteritems'):
                 old_obj_dict = old_obj
@@ -192,7 +192,7 @@ class SimpleSerializer(object):
                     obj_fname = fsettings.get('source', fname)
                     new_val = data.get(self.render_field_name(fname), None)
                     new_obj_data[obj_fname] = new_val
-            
+
             populated_fields = list(new_obj_data.keys())
             for obj_fname, obj_val in iteritems(old_obj_dict):
                 if obj_fname not in populated_fields:
@@ -251,14 +251,14 @@ class SimpleSerializerWithLookups(SimpleSerializer):
     serializers that require lookups of some sort on each item--
     either in a search index or a database. The goal is to minimize
     the number of lookups required to improve performance.
-    
+
     To use, your child class should override the cache_all_lookups
     and cache_all_db_objects methods to specify how lookup values are
     derived. (Note that both are optional.)
     """
     _lookup_cache = {}
     _db_cache = {}
-    
+
     def cache_all(self):
         self.cache_all_lookups()
         self.cache_all_db_objects()
@@ -289,8 +289,8 @@ class SimpleSerializerWithLookups(SimpleSerializer):
             objects = [self.instance]
         keys = [getattr(obj, key_field) for obj in objects]
         return model.objects.filter(
-                **{'{}__in'.format(match_field): 
-                    keys}).prefetch_related(*prefetch)
+            **{'{}__in'.format(match_field):
+               keys}).prefetch_related(*prefetch)
 
     def cache_lookup(self, fname, values):
         self._lookup_cache[fname] = values

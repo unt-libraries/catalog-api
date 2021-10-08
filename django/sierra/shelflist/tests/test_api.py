@@ -47,187 +47,195 @@ PARAMETERS__FILTER_TESTS = (
     'test_data, search, expected',
 
     # Filter by Call Number
-    { 'exact call number | one match': ((
+    {'exact call number | one match': ((
         ('TEST1', {'call_number': 'AB100 .A1 1', 'call_number_type': 'lc'}),
         ('TEST2', {'call_number': 'AB101 .A1 1', 'call_number_type': 'lc'}),
-     ), 'callNumber=AB100 .A1 1', ['TEST1']),
-    }, { 'exact call number, truncated | no matches': ((
+    ), 'callNumber=AB100 .A1 1', ['TEST1']),
+    }, {'exact call number, truncated | no matches': ((
         ('TEST1', {'call_number': 'AB100 .A1 1', 'call_number_type': 'lc'}),
         ('TEST2', {'call_number': 'AB101 .A1 1', 'call_number_type': 'lc'}),
-     ), 'callNumber=AB100 .A1', []),
-    }, { 'exact call number, normalized | one match': ((
+    ), 'callNumber=AB100 .A1', []),
+    }, {'exact call number, normalized | one match': ((
         ('TEST1', {'call_number': 'AB100 .A1 1', 'call_number_type': 'lc'}),
         ('TEST2', {'call_number': 'AB101 .A1 1', 'call_number_type': 'lc'}),
-     ), 'callNumber=ab100a11', ['TEST1']),
-    }, { 'exact call number, normalized and truncated | no matches': ((
+    ), 'callNumber=ab100a11', ['TEST1']),
+    }, {'exact call number, normalized and truncated | no matches': ((
         ('TEST1', {'call_number': 'AB100 .A1 1', 'call_number_type': 'lc'}),
         ('TEST2', {'call_number': 'AB101 .A1 1', 'call_number_type': 'lc'}),
-     ), 'callNumber=ab100a1', []),
-    }, { 'startswith call number | no matches': ((
+    ), 'callNumber=ab100a1', []),
+    }, {'startswith call number | no matches': ((
         ('TEST1', {'call_number': 'AB100 .A1 1', 'call_number_type': 'lc'}),
-        ('TEST2', {'call_number': 'AB101 .A1 1', 'call_number_type': 'lc'}),
-     ), 'callNumber[startswith]=AB102', []),
-    }, { 'startswith call number | multiple matches': ((
+        ('TEST2', {'call_number': 'AB101 .A1 1',
+                   'call_number_type': 'lc'}),
+    ), 'callNumber[startswith]=AB102', []),
+    }, {'startswith call number | multiple matches': ((
         ('TEST1', {'call_number': 'AB100 .A1 1', 'call_number_type': 'lc'}),
-        ('TEST2', {'call_number': 'AB101 .A1 1', 'call_number_type': 'lc'}),
-     ), 'callNumber[startswith]=AB1', ['TEST1', 'TEST2']),
-    }, { 'startswith call number, extra spaces | one match': ((
-        ('TEST1', {'call_number': 'AB100 .A1 1', 'call_number_type': 'lc'}),
-        ('TEST2', {'call_number': 'AB101 .A1 1', 'call_number_type': 'lc'}),
-     ), 'callNumber[startswith]=AB 100 .A1', ['TEST1']),
+        ('TEST2', {'call_number': 'AB101 .A1 1',
+                   'call_number_type': 'lc'}),
+    ), 'callNumber[startswith]=AB1', ['TEST1', 'TEST2']),
+    }, {'startswith call number, extra spaces | one match': ((
+        ('TEST1', {'call_number': 'AB100 .A1 1',
+                   'call_number_type': 'lc'}),
+        ('TEST2', {'call_number': 'AB101 .A1 1',
+                   'call_number_type': 'lc'}),
+    ), 'callNumber[startswith]=AB 100 .A1', ['TEST1']),
     },
 
     # Filter by Call Number and Type
-    { 'call number is correct; type is incorrect | no matches': ((
+    {'call number is correct; type is incorrect | no matches': ((
         ('TEST1', {'call_number': 'AB100 .A1 1', 'call_number_type': 'lc'}),
         ('TEST2', {'call_number': 'AB101 .A1 1', 'call_number_type': 'lc'}),
-     ), 'callNumber=AB 100 .A1 1&callNumberType=other', []),
-    }, { 'call number is correct; type is correct | one match': ((
+    ), 'callNumber=AB 100 .A1 1&callNumberType=other', []),
+    }, {'call number is correct; type is correct | one match': ((
         ('TEST1', {'call_number': 'AB100 .A1 1', 'call_number_type': 'lc'}),
         ('TEST2', {'call_number': 'AB101 .A1 1', 'call_number_type': 'lc'}),
-     ), 'callNumber=AB 100 .A1 1&callNumberType=lc', ['TEST1']),
+    ), 'callNumber=AB 100 .A1 1&callNumberType=lc', ['TEST1']),
     },
 
     # Filter by Barcode
-    { 'exact barcode | one match': ((
+    {'exact barcode | one match': ((
         ('TEST1', {'barcode': '5555000001'}),
         ('TEST2', {'barcode': '5555000002'}),
-     ), 'barcode=5555000001', ['TEST1']),
-    }, { 'exact barcode, truncated | no matches': ((
+    ), 'barcode=5555000001', ['TEST1']),
+    }, {'exact barcode, truncated | no matches': ((
         ('TEST1', {'barcode': '5555000001'}),
         ('TEST2', {'barcode': '5555000002'}),
-     ), 'barcode=555500000', []),
-    }, { 'startswith barcode, truncated | one match': ((
+    ), 'barcode=555500000', []),
+    }, {'startswith barcode, truncated | one match': ((
         ('TEST1', {'barcode': '5555000001'}),
         ('TEST2', {'barcode': '5554000001'}),
-     ), 'barcode[startswith]=5555', ['TEST1']),
-    }, { 'startswith barcode, truncated | multiple matches': ((
+    ), 'barcode[startswith]=5555', ['TEST1']),
+    }, {'startswith barcode, truncated | multiple matches': ((
         ('TEST1', {'barcode': '5555000001'}),
         ('TEST2', {'barcode': '5554000001'}),
-     ), 'barcode[startswith]=555', ['TEST1', 'TEST2']),
+    ), 'barcode[startswith]=555', ['TEST1', 'TEST2']),
     },
 
     # Filter by Item Status and Due Date
-    { 'status CHECKED OUT | one match': ((
+    {'status CHECKED OUT | one match': ((
         ('TEST1', {'status_code': '-',
                    'due_date': datetime(2019, 6, 30, 00, 00, 00)}),
         ('TEST2', {'status_code': '-', 'due_date': None}),
-     ), 'status_code=-&dueDate[isnull]=false', ['TEST1']),
-    }, { 'status CHECKED OUT and status code a | one match': ((
+    ), 'status_code=-&dueDate[isnull]=false', ['TEST1']),
+    }, {'status CHECKED OUT and status code a | one match': ((
         ('TEST1', {'status_code': 'a',
                    'due_date': datetime(2019, 6, 30, 00, 00, 00)}),
         ('TEST2', {'status_code': '-', 'due_date': None}),
-     ), 'status_code=a&dueDate[isnull]=false', ['TEST1']),
-    }, { 'status CHECKED OUT and status code a, b | multiple matches': ((
+    ), 'status_code=a&dueDate[isnull]=false', ['TEST1']),
+    }, {'status CHECKED OUT and status code a, b | multiple matches': ((
         ('TEST1', {'status_code': 'a',
                    'due_date': datetime(2019, 6, 30, 00, 00, 00)}),
         ('TEST2', {'status_code': 'b', 'due_date': None}),
         ('TEST3', {'status_code': 'b',
                    'due_date': datetime(2019, 9, 30, 00, 00, 00)}),
         ('TEST4', {'status_code': '-', 'due_date': None}),
-     ), 'status_code[in]=[a,b]&dueDate[isnull]=false', ['TEST1', 'TEST3']),
-    }, { 'status CHECKED OUT and status code a | no matches': ((
+    ), 'status_code[in]=[a,b]&dueDate[isnull]=false', ['TEST1', 'TEST3']),
+    }, {'status CHECKED OUT and status code a | no matches': ((
         ('TEST1', {'status_code': '-',
                    'due_date': datetime(2019, 6, 30, 00, 00, 00)}),
         ('TEST2', {'status_code': '-', 'due_date': None}),
-     ), 'status_code=a&dueDate[isnull]=false', []),
-    }, { 'status NOT CHECKED OUT and status code - | one match': ((
+    ), 'status_code=a&dueDate[isnull]=false', []),
+    }, {'status NOT CHECKED OUT and status code - | one match': ((
         ('TEST1', {'status_code': '-',
                    'due_date': datetime(2019, 6, 30, 00, 00, 00)}),
         ('TEST2', {'status_code': '-', 'due_date': None}),
-     ), 'status_code=-&dueDate[isnull]=true', ['TEST2']),
-    }, { 'status NOT CHECKED OUT and status code a | one match': ((
+    ), 'status_code=-&dueDate[isnull]=true', ['TEST2']),
+    }, {'status NOT CHECKED OUT and status code a | one match': ((
         ('TEST1', {'status_code': '-',
                    'due_date': datetime(2019, 6, 30, 00, 00, 00)}),
         ('TEST2', {'status_code': 'a', 'due_date': None}),
-     ), 'status_code=a&dueDate[isnull]=true', ['TEST2']),
-    }, { 'status NOT CHECKED OUT and status code a, b | multiple matches': ((
+    ), 'status_code=a&dueDate[isnull]=true', ['TEST2']),
+    }, {'status NOT CHECKED OUT and status code a, b | multiple matches': ((
         ('TEST1', {'status_code': 'b',
                    'due_date': datetime(2019, 6, 30, 00, 00, 00)}),
         ('TEST2', {'status_code': 'a', 'due_date': None}),
         ('TEST3', {'status_code': 'b', 'due_date': None}),
-     ), 'status_code[in]=[a,b]&dueDate[isnull]=true', ['TEST2', 'TEST3']),
+    ), 'status_code[in]=[a,b]&dueDate[isnull]=true', ['TEST2', 'TEST3']),
     },
 
     # Filter by Suppression
-    { 'suppression | one match': ((
+    {'suppression | one match': ((
         ('TEST1', {'suppressed': True}),
         ('TEST2', {'suppressed': False}),
-     ), 'suppressed=true', ['TEST1']),
-    }, { 'suppression | no matches': ((
+    ), 'suppressed=true', ['TEST1']),
+    }, {'suppression | no matches': ((
         ('TEST1', {'suppressed': True}),
         ('TEST2', {'suppressed': True}),
-     ), 'suppressed=false', []),
-    }, { 'suppression | multiple matches': ((
+    ), 'suppressed=false', []),
+    }, {'suppression | multiple matches': ((
         ('TEST1', {'suppressed': True}),
         ('TEST2', {'suppressed': True}),
-     ), 'suppressed=true', ['TEST1', 'TEST2']),
-    }, 
+    ), 'suppressed=true', ['TEST1', 'TEST2']),
+    },
 
     # Filter by Shelf / Inventory Status
-    { 'shelf status, on shelf | one match': ((
+    {'shelf status, on shelf | one match': ((
         ('TEST1', {'shelf_status': 'onShelf'}),
         ('TEST2', {'shelf_status': 'unknown'}),
-     ), 'shelfStatus=onShelf', ['TEST1']),
-    }, { 'shelf status, on shelf | no matches': ((
+    ), 'shelfStatus=onShelf', ['TEST1']),
+    }, {'shelf status, on shelf | no matches': ((
         ('TEST1', {'shelf_status': 'unknown'}),
         ('TEST2', {'shelf_status': 'unknown'}),
-     ), 'shelfStatus=onShelf', []),
-    }, { 'shelf status, on shelf or unknown | multiple matches': ((
+    ), 'shelfStatus=onShelf', []),
+    }, {'shelf status, on shelf or unknown | multiple matches': ((
         ('TEST1', {'shelf_status': 'onShelf'}),
         ('TEST2', {'shelf_status': 'unknown'}),
         ('TEST3', {'shelf_status': 'notOnShelf'}),
-     ), 'shelfStatus[in]=[unknown,onShelf]', ['TEST1', 'TEST2']),
+    ), 'shelfStatus[in]=[unknown,onShelf]', ['TEST1', 'TEST2']),
     },
-    
+
     # Filter by Inventory Notes
-    { 'inventory notes, attempt to keyword search | no matches': ((
+    {'inventory notes, attempt to keyword search | no matches': ((
         ('TEST1', {'inventory_notes': ['2019-01-01T20:49:49|user|my note']}),
         ('TEST2', {'inventory_notes': ['2019-01-01T20:49:49|@SYS|note text']}),
-     ), 'inventoryNotes=user', []),
-    }, { 'contains inventory notes | one note matches': ((
+    ), 'inventoryNotes=user', []),
+    }, {'contains inventory notes | one note matches': ((
         ('TEST1', {'inventory_notes': ['2019-01-01T20:49:49|user|my note',
                                        '2019-03-01T00:00:00|@SYS|note text']}),
-        ('TEST2', {'inventory_notes': ['2019-01-01T20:49:49|@SYS|note text']}),
-     ), 'inventoryNotes[contains]=user', ['TEST1']),
-    }, { 'contains inventory notes | no matches': ((
+        ('TEST2', {'inventory_notes': [
+            '2019-01-01T20:49:49|@SYS|note text']}),
+    ), 'inventoryNotes[contains]=user', ['TEST1']),
+    }, {'contains inventory notes | no matches': ((
         ('TEST1', {'inventory_notes': ['2019-01-01T20:49:49|user|my note',
                                        '2019-03-01T00:00:00|@SYS|note text']}),
-        ('TEST2', {'inventory_notes': ['2019-01-01T20:49:49|@SYS|note text']}),
-     ), 'inventoryNotes[contains]=otheruser', []),
-    }, { 'contains inventory notes | multiple matches': ((
+        ('TEST2', {'inventory_notes': [
+            '2019-01-01T20:49:49|@SYS|note text']}),
+    ), 'inventoryNotes[contains]=otheruser', []),
+    }, {'contains inventory notes | multiple matches': ((
         ('TEST1', {'inventory_notes': ['2019-01-01T20:49:49|user|my note',
                                        '2019-03-01T00:00:00|@SYS|note text']}),
-        ('TEST2', {'inventory_notes': ['2019-01-01T20:49:49|@SYS|note text']}),
-     ), 'inventoryNotes[contains]=note', ['TEST1', 'TEST2']),
-    }, { 'inventory notes has user-entered notes | one match': ((
+        ('TEST2', {'inventory_notes': [
+            '2019-01-01T20:49:49|@SYS|note text']}),
+    ), 'inventoryNotes[contains]=note', ['TEST1', 'TEST2']),
+    }, {'inventory notes has user-entered notes | one match': ((
         ('TEST1', {'inventory_notes': ['2019-01-01T20:49:49|user|my note',
                                        '2019-03-01T00:00:00|@SYS|note text']}),
-        ('TEST2', {'inventory_notes': ['2019-01-01T20:49:49|@SYS|note text']}),
-     ), 'inventoryNotes[matches]=^[^|]*\\|[^@]', ['TEST1']),
+        ('TEST2', {'inventory_notes': [
+            '2019-01-01T20:49:49|@SYS|note text']}),
+    ), 'inventoryNotes[matches]=^[^|]*\\|[^@]', ['TEST1']),
     },
 
     # Filter by Flags
-    { 'flags, filter by one flag | no matches': ((
+    {'flags, filter by one flag | no matches': ((
         ('TEST1', {'flags': ['workflowStart']}),
         ('TEST2', {'flags': ['workflowStart', 'workflowOther']}),
-     ), 'flags[in]=[workflowEnd]', []),
-    }, { 'flags, filter by one flag | one match': ((
+    ), 'flags[in]=[workflowEnd]', []),
+    }, {'flags, filter by one flag | one match': ((
         ('TEST1', {'flags': ['workflowStart']}),
         ('TEST2', {'flags': ['workflowStart', 'workflowOther']}),
-     ), 'flags[in]=[workflowOther]', ['TEST2']),
-    }, { 'flags, filter by one flag | multiple matches': ((
+    ), 'flags[in]=[workflowOther]', ['TEST2']),
+    }, {'flags, filter by one flag | multiple matches': ((
         ('TEST1', {'flags': ['workflowStart']}),
         ('TEST2', {'flags': ['workflowStart', 'workflowOther']}),
-     ), 'flags[in]=[workflowStart]', ['TEST1', 'TEST2']),
-    }, { 'flags, filter by two flags | multiple matches (OR)': ((
+    ), 'flags[in]=[workflowStart]', ['TEST1', 'TEST2']),
+    }, {'flags, filter by two flags | multiple matches (OR)': ((
         ('TEST1', {'flags': ['workflowStart', 'workflowEnd']}),
         ('TEST2', {'flags': ['workflowStart', 'workflowOther']}),
-     ), 'flags[in]=[workflowOther,workflowEnd]', ['TEST1', 'TEST2']),
-    }, { 'flags, filter by multiple flags | no matches': ((
+    ), 'flags[in]=[workflowOther,workflowEnd]', ['TEST1', 'TEST2']),
+    }, {'flags, filter by multiple flags | no matches': ((
         ('TEST1', {'flags': ['workflowStart', 'workflowEnd']}),
         ('TEST2', {'flags': ['workflowStart', 'workflowOther']}),
-     ), 'flags[in]=[notHere1,notHere2,notHere3]', []),
+    ), 'flags[in]=[notHere1,notHere2,notHere3]', []),
     },
 )
 
@@ -235,100 +243,100 @@ PARAMETERS__FILTER_TESTS = (
 # TESTDATA__FIRSTITEMPERLOCATION: We use a consistent set of test data
 # for testing the firstitemperlocation resource.
 TESTDATA__FIRSTITEMPERLOCATION = (
-    ( 'atest1', 1,
-        { 'location_code': 'atest',
-          'barcode': '1',
-          'call_number': 'BB 1234 C35 1990',
-          'call_number_type': 'lc'} ),
-    ( 'atest2', 0,
-        { 'location_code': 'atest',
-          'barcode': '2',
-          'call_number': 'BB 1234 A22 2000',
-          'call_number_type': 'lc' } ),
-    ( 'atest3', 2,
-        { 'location_code': 'atest',
-          'barcode': '3',
-          'call_number': 'BC 2345 F80',
-          'call_number_type': 'lc' } ),
-    ( 'atest4', 3,
-        { 'location_code': 'atest',
-          'barcode': '4',
-          'call_number': 'BB 1234',
-          'call_number_type': 'sudoc' } ),
-    ( 'btest1', 0,
-        { 'location_code': 'btest',
-          'barcode': '3',
-          'call_number': 'BB 1234 D99',
-          'call_number_type': 'lc' } ),
-    ( 'btest2', 3,
-        { 'location_code': 'btest',
-          'barcode': '4',
-          'call_number': 'BB 1234 A22',
-          'call_number_type': 'sudoc' } ),
-    ( 'btest3', 1,
-        { 'location_code': 'btest',
-          'barcode': '5',
-          'call_number': 'CC 9876 H43',
-          'call_number_type': 'lc' } ),
-    ( 'btest4', 2,
-        { 'location_code': 'btest',
-          'barcode': '6',
-          'call_number': 'BB 1234',
-          'call_number_type': 'sudoc' } ),
-    ( 'ctest1', 1,
-        { 'location_code': 'ctest',
-          'barcode': '8',
-          'call_number': 'BB 1234 D99 2016',
-          'call_number_type': 'lc' } ),
-    ( 'ctest2', 3,
-        { 'location_code': 'ctest',
-          'barcode': '9',
-          'call_number': 'CC 1234 A22',
-          'call_number_type': 'other' } ),
-    ( 'ctest3', 0,
-        { 'location_code': 'ctest',
-          'barcode': '10',
-          'call_number': '900.1 H43',
-          'call_number_type': 'dewey' } ),
-    ( 'ctest4', 2,
-        { 'location_code': 'ctest',
-          'barcode': '11',
-          'call_number': 'AB 1234',
-          'call_number_type': 'other' } ),
+    ('atest1', 1,
+        {'location_code': 'atest',
+         'barcode': '1',
+         'call_number': 'BB 1234 C35 1990',
+         'call_number_type': 'lc'}),
+    ('atest2', 0,
+        {'location_code': 'atest',
+         'barcode': '2',
+         'call_number': 'BB 1234 A22 2000',
+         'call_number_type': 'lc'}),
+    ('atest3', 2,
+        {'location_code': 'atest',
+         'barcode': '3',
+         'call_number': 'BC 2345 F80',
+         'call_number_type': 'lc'}),
+    ('atest4', 3,
+        {'location_code': 'atest',
+         'barcode': '4',
+         'call_number': 'BB 1234',
+         'call_number_type': 'sudoc'}),
+    ('btest1', 0,
+        {'location_code': 'btest',
+         'barcode': '3',
+         'call_number': 'BB 1234 D99',
+         'call_number_type': 'lc'}),
+    ('btest2', 3,
+        {'location_code': 'btest',
+         'barcode': '4',
+         'call_number': 'BB 1234 A22',
+         'call_number_type': 'sudoc'}),
+    ('btest3', 1,
+        {'location_code': 'btest',
+         'barcode': '5',
+         'call_number': 'CC 9876 H43',
+         'call_number_type': 'lc'}),
+    ('btest4', 2,
+        {'location_code': 'btest',
+         'barcode': '6',
+         'call_number': 'BB 1234',
+         'call_number_type': 'sudoc'}),
+    ('ctest1', 1,
+        {'location_code': 'ctest',
+         'barcode': '8',
+         'call_number': 'BB 1234 D99 2016',
+         'call_number_type': 'lc'}),
+    ('ctest2', 3,
+        {'location_code': 'ctest',
+         'barcode': '9',
+         'call_number': 'CC 1234 A22',
+         'call_number_type': 'other'}),
+    ('ctest3', 0,
+        {'location_code': 'ctest',
+         'barcode': '10',
+         'call_number': '900.1 H43',
+         'call_number_type': 'dewey'}),
+    ('ctest4', 2,
+        {'location_code': 'ctest',
+         'barcode': '11',
+         'call_number': 'AB 1234',
+         'call_number_type': 'other'}),
 )
 
 
 PARAMETERS__FIRSTITEMPERLOCATION = (
     ('test_data, search, expected'),
-    { 'LC call number type | A match at each location':
+    {'LC call number type | A match at each location':
         (TESTDATA__FIRSTITEMPERLOCATION,
          'callNumber[startswith]=BB 12&callNumberType=lc',
          ['atest2', 'btest1', 'ctest1']),
-    }, { 'LC call number type | A match at one location':
-        (TESTDATA__FIRSTITEMPERLOCATION,
-         'callNumber[startswith]=BC&callNumberType=lc',
-         ['atest3']),
-    }, { 'LC call number type | No matches':
-        (TESTDATA__FIRSTITEMPERLOCATION,
-         'callNumber[startswith]=D&callNumberType=lc',
-         None),
-    }, { 'SUDOC call number type | A match at two locations':
-        (TESTDATA__FIRSTITEMPERLOCATION,
-         'callNumber[startswith]=BB&callNumberType=sudoc',
-         ['atest4', 'btest4']),
-    }, { 'DEWEY call number type | A match at one location':
-        (TESTDATA__FIRSTITEMPERLOCATION,
-         'callNumber[startswith]=900&callNumberType=dewey',
-         ['ctest3']),
-    }, { 'OTHER call number type | A match at one location':
-        (TESTDATA__FIRSTITEMPERLOCATION,
-         'callNumber[startswith]=C&callNumberType=other',
-         ['ctest2']),
-    }, { 'BARCODE | A match at two locations':
-        (TESTDATA__FIRSTITEMPERLOCATION,
-         'barcode=3',
-         ['atest3', 'btest1']),
-    }, 
+     }, {'LC call number type | A match at one location':
+         (TESTDATA__FIRSTITEMPERLOCATION,
+          'callNumber[startswith]=BC&callNumberType=lc',
+          ['atest3']),
+         }, {'LC call number type | No matches':
+             (TESTDATA__FIRSTITEMPERLOCATION,
+              'callNumber[startswith]=D&callNumberType=lc',
+              None),
+             }, {'SUDOC call number type | A match at two locations':
+                 (TESTDATA__FIRSTITEMPERLOCATION,
+                  'callNumber[startswith]=BB&callNumberType=sudoc',
+                  ['atest4', 'btest4']),
+                 }, {'DEWEY call number type | A match at one location':
+                     (TESTDATA__FIRSTITEMPERLOCATION,
+                      'callNumber[startswith]=900&callNumberType=dewey',
+                      ['ctest3']),
+                     }, {'OTHER call number type | A match at one location':
+                         (TESTDATA__FIRSTITEMPERLOCATION,
+                          'callNumber[startswith]=C&callNumberType=other',
+                          ['ctest2']),
+                         }, {'BARCODE | A match at two locations':
+                             (TESTDATA__FIRSTITEMPERLOCATION,
+                              'barcode=3',
+                              ['atest3', 'btest1']),
+                             },
 )
 
 
@@ -379,8 +387,8 @@ def get_shelflist_urls():
     """
     def _get_shelflist_urls(records):
         locations = set([r['location_code'] for r in records])
-        return { loc: ('{}locations/{}/shelflistitems/'.format(API_ROOT, loc)) 
-                 for loc in locations }
+        return {loc: ('{}locations/{}/shelflistitems/'.format(API_ROOT, loc))
+                for loc in locations}
     return _get_shelflist_urls
 
 
@@ -532,11 +540,13 @@ def test_shelflistitem_resource(api_settings, get_shelflist_urls,
 
 @pytest.mark.parametrize('resource, linked_resource, link_field, '
                          'rev_link_field', [
-    ('items', 'shelflistItems', 'shelflistItem', 'item'),
-    ('shelflistItems', 'items', 'item', 'shelflistItem'),
-    ('shelflistItems', 'locations', 'location', 'shelflist'),
-    ('locations', 'shelflistItems', 'shelflist', 'location'),
-])
+                             ('items', 'shelflistItems', 'shelflistItem', 'item'),
+                             ('shelflistItems', 'items', 'item', 'shelflistItem'),
+                             ('shelflistItems', 'locations',
+                              'location', 'shelflist'),
+                             ('locations', 'shelflistItems',
+                              'shelflist', 'location'),
+                         ])
 def test_shelflistitem_links(resource, linked_resource, link_field,
                              rev_link_field, api_settings, api_client,
                              get_shelflist_urls, shelflist_solr_env,
@@ -564,7 +574,7 @@ def test_shelflistitem_links(resource, linked_resource, link_field,
     assert ref_obj in rev_objs
 
 
-@pytest.mark.parametrize('test_data, search, expected', 
+@pytest.mark.parametrize('test_data, search, expected',
                          compile_params(PARAMETERS__FILTER_TESTS),
                          ids=compile_ids(PARAMETERS__FILTER_TESTS))
 def test_shelflistitem_list_view_filters(test_data, search, expected,
@@ -589,7 +599,7 @@ def test_shelflistitem_list_view_filters(test_data, search, expected,
         data['location_code'] = loc
     _, trecs = assemble_shelflist_test_records(test_data,
                                                id_field='record_number')
-    
+
     # First let's do a quick sanity check to make sure the resource
     # returns the correct num of records before the filter is applied.
     url = get_shelflist_urls(shelflist_solr_env.records['shelflistitem'])[loc]
@@ -664,7 +674,7 @@ def test_shelflistitem_putpatch_requires_auth(api_settings,
     before = api_client.get(url)
     put_resp = api_client.put(url, {})
     patch_resp = api_client.patch(url, {})
-    after = api_client.get(url)    
+    after = api_client.get(url)
     assert put_resp.status_code == 403
     assert patch_resp.status_code == 403
     assert before.data == after.data
@@ -735,7 +745,7 @@ def test_shelflistitem_update_items(method, api_settings,
         req_body = ujson.dumps(try_item)
     elif method == 'patch':
         req_body = jsonpatch.make_patch(before.data, try_item)
-    
+
     resp = send_api_data(api_client, url, req_body, method)
     after = api_client.get(url)
 
@@ -841,7 +851,8 @@ def test_shelflist_firstitemperlocation_list(test_data, search, expected,
 
     if expected is None:
         for item in rsp_items:
-            assert item['locationCode'] not in list(test_data_by_location.keys())
+            assert item['locationCode'] not in list(
+                test_data_by_location.keys())
     else:
         for exp_id in expected:
             exp_row = [i[1] for i in test_data if i[0] == exp_id][0]

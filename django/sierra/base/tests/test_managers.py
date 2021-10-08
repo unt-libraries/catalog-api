@@ -19,6 +19,7 @@ pytestmark = pytest.mark.django_db
 
 DEFAULT_TZ = tz.get_default_timezone()
 
+
 class SierraTestRecordMaker(object):
     """
     This is a one-off class used to create test records to load into
@@ -31,7 +32,7 @@ class SierraTestRecordMaker(object):
     `global_model_instance` (pytest fixture), depending on the scope of
     the parent fixture. Then, call the `make_all` method and pass in
     a dictionary structure defining the bib/item records you want made.
-    
+
     Note: This class started out as a way to set up a testing
     environment specifically for this module, so it is not exactly
     complete. The model fields that get populated are limited to the
@@ -40,6 +41,7 @@ class SierraTestRecordMaker(object):
     this out into `utils/test_helpers`. For now I don't think that's
     necessary.
     """
+
     def __init__(self, make_instance):
         self.make_instance = make_instance
         self.reset_vars()
@@ -668,4 +670,3 @@ def test_recordmanager_location(model, lcodes, which_loc, expected, test_env):
     results = model.objects.filter_by('location', opts_dict)
     record_nums = [r.record_metadata.get_iii_recnum() for r in results]
     assert sorted(record_nums) == sorted(expected)
-

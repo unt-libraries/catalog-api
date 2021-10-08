@@ -13,9 +13,10 @@ from rest_framework.templatetags.rest_framework import replace_query_param
 
 from . import serializers as sierra_api_serializers
 
+
 class NextPageField(serializers.Field):
     page_field = 'page'
-    
+
     def to_native(self, value):
         if not value.has_next():
             return None
@@ -48,14 +49,14 @@ class SierraApiPaginationSerializer(serializers.Serializer):
     totalPages = serializers.Field(source='paginator.num_pages')
     page = serializers.Field(source='number')
     links = serializers.Field()
-    
+
     _options_class = pagination.PaginationSerializerOptions
     results_field = 'results'
-    
+
     def __init__(self, *args, **kwargs):
         super(SierraApiPaginationSerializer, self).__init__(*args, **kwargs)
         object_serializer = self.opts.object_serializer_class
-        
+
         if object_serializer.root_label:
             results_field = object_serializer.root_label
         else:
@@ -66,11 +67,11 @@ class SierraApiPaginationSerializer(serializers.Serializer):
         else:
             context_kwarg = {}
 
-        self.fields['links'] = PageLinksSerializer(source='*', 
-                                instance=kwargs['instance'],
-                                **context_kwarg)
+        self.fields['links'] = PageLinksSerializer(source='*',
+                                                   instance=kwargs['instance'],
+                                                   **context_kwarg)
 
-        self.fields[results_field] = object_serializer(source='object_list', 
+        self.fields[results_field] = object_serializer(source='object_list',
                                                        **context_kwarg)
 
     def get_count_per_page(self, obj):

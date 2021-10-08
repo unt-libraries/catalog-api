@@ -60,10 +60,13 @@ def shelflist_solr_env(global_shelflist_solr_assembler):
     itype_recs = assembler.make('itype', 10)
     status_recs = assembler.make('itemstatus', 10)
     shelflistitem_recs = assembler.make('shelflistitem', 200,
-        location_code=gens.choice([r['code'] for r in loc_recs]),
-        item_type_code=gens.choice([r['code'] for r in itype_recs]),
-        status_code=gens.choice([r['code'] for r in status_recs]),
-    )
+                                        location_code=gens.choice(
+                                            [r['code'] for r in loc_recs]),
+                                        item_type_code=gens.choice(
+                                            [r['code'] for r in itype_recs]),
+                                        status_code=gens.choice(
+                                            [r['code'] for r in status_recs]),
+                                        )
     assembler.save_all()
     return assembler
 

@@ -19,7 +19,7 @@ class S2MarcError(Exception):
     def __init__(self, message, record_id):
         self.msg = message
         self.id = record_id
-    
+
     def __str__(self):
         return 'Record {}: {}'.format(self.id, self.msg)
 
@@ -35,7 +35,7 @@ class S2MarcBatch(object):
         'dewey': 'd',
         'sudoc': 'e',
         'other': 'f'
-    } 
+    }
 
     def __init__(self, records):
         if (hasattr(records, '__iter__') and not isinstance(records, str)):
@@ -59,7 +59,7 @@ class S2MarcBatch(object):
             control_fields = r.record_metadata.controlfield_set.all()
         except Exception as e:
             raise S2MarcError('Skipped. Couldn\'t retrieve control fields. '
-                    '({})'.format(e), str(r))
+                              '({})'.format(e), str(r))
         for cf in control_fields:
             try:
                 data = cf.get_data()
@@ -67,28 +67,28 @@ class S2MarcBatch(object):
                 marc_record.add_ordered_field(field)
             except Exception as e:
                 raise S2MarcError('Skipped. Couldn\'t create MARC field '
-                    'for {}. ({})'.format(cf.get_tag(), e), str(r))
+                                  'for {}. ({})'.format(cf.get_tag(), e), str(r))
         try:
             varfields = r.record_metadata.varfield_set\
-                        .exclude(marc_tag=None)\
-                        .exclude(marc_tag='')\
-                        .order_by('marc_tag')
+                .exclude(marc_tag=None)\
+                .exclude(marc_tag='')\
+                .order_by('marc_tag')
         except Exception as e:
             raise S2MarcError('Skipped. Couldn\'t retrieve varfields. '
-                    '({})'.format(e), str(r))
+                              '({})'.format(e), str(r))
         for vf in varfields:
             tag = vf.marc_tag
             ind1 = vf.marc_ind1
             ind2 = vf.marc_ind2
             content = vf.field_content
             try:
-                if tag in ['{:03}'.format(num) for num in range(1,10)]:
+                if tag in ['{:03}'.format(num) for num in range(1, 10)]:
                     field = pymarc.field.Field(tag=tag, data=content)
                 else:
                     field = pymarc.field.Field(
-                            tag=tag,
-                            indicators=[ind1, ind2],
-                            subfields=re.split(r'\|([a-z0-9])', content)[1:]
+                        tag=tag,
+                        indicators=[ind1, ind2],
+                        subfields=re.split(r'\|([a-z0-9])', content)[1:]
                     )
                     if tag == '856' and field['u'] is not None:
                         field['u'] = re.sub(r'^([^ ]+) ".*$', r'\1',
@@ -96,7 +96,7 @@ class S2MarcBatch(object):
                 marc_record.add_ordered_field(field)
             except Exception as e:
                 raise S2MarcError('Skipped. Couldn\'t create MARC field '
-                        'for {}. ({})'.format(vf.marc_tag, e), str(r))
+                                  'for {}. ({})'.format(vf.marc_tag, e), str(r))
                 break
         if not marc_record.fields:
             raise S2MarcError('Skipped. No MARC fields on Bib record.', str(r))
@@ -106,9 +106,9 @@ class S2MarcBatch(object):
         suppressed = 'true' if r.is_suppressed else 'false'
         material_type = r.bibrecordproperty_set.all()[0].material.get_name()
         metadata_field = pymarc.field.Field(
-                tag='907',
-                indicators=[' ', ' '],
-                subfields=['a', '.{}'.format(recnum), 'b', str(r.id), 
+            tag='907',
+            indicators=[' ', ' '],
+                subfields=['a', '.{}'.format(recnum), 'b', str(r.id),
                            'c', suppressed, 'd', material_type]
         )
         # Add a list of attached items to the 908 field.
@@ -145,7 +145,7 @@ class S2MarcBatch(object):
             i += 1
 
         if re.match(r'[0-9]', marc_record.as_marc()[5]):
-            raise S2MarcError('Skipped. MARC record exceeds 99,999 bytes.', 
+            raise S2MarcError('Skipped. MARC record exceeds 99,999 bytes.',
                               str(r))
 
         return marc_record
@@ -175,7 +175,7 @@ class S2MarcBatch(object):
             except Exception as e:
                 rec_num = r.get_fields('907')[0].get_subfields('a')[0]
                 self.errors.append(S2MarcError('Could not write '
-                        'record to file. {}'.format(e), str(rec_num)))
+                                               'record to file. {}'.format(e), str(rec_num)))
             else:
                 success_count += 1
         return success_count
@@ -221,4 +221,3 @@ class S2MarcBatch(object):
         self.success_count = self._write_records(marc_records, marcfile)
         marcfile.close()
         return filename
-        

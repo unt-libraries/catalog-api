@@ -129,7 +129,7 @@ class AppModelsEnvironment(object):
         """
         try:
             management.call_command('migrate', self.modulename, 'zero',
-                                     verbosity=0, interactive=False)
+                                    verbosity=0, interactive=False)
         except OperationalError:
             # If DB tables from a previous run have been deleted, the
             # above attempt to migrate will error out. In that case,

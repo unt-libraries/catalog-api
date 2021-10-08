@@ -13,6 +13,7 @@ import logging
 # set up logger, for debugging
 logger = logging.getLogger('sierra.custom')
 
+
 class AsmSuggestionsSerializer(SimpleSerializer):
     fields = OrderedDict()
     fields['heading_display'] = {'type': 'str'}

@@ -32,7 +32,7 @@ class Bucket(dict):
             objset = [objset]
         for obj in objset:
             compartment = obj._meta.model
-            try:                
+            try:
                 self[compartment][obj.pk] = obj
             except KeyError:
                 self[compartment] = {obj.pk: obj}
@@ -41,7 +41,8 @@ class Bucket(dict):
     def dump(self):
         objects = []
         for c in self.compartments:
-            objects += sorted(list(self.get(c, {}).values()), key=lambda x: x.pk)
+            objects += sorted(list(self.get(c, {}).values()),
+                              key=lambda x: x.pk)
         return objects
 
 
@@ -105,7 +106,7 @@ class Relation(object):
         kind = '{} {}'.format(kind, ' M2M' if self.is_m2m else ' FK')
         return '<{} on `{}` from {} to {}>'.format(kind, self.fieldname, mname,
                                                    target_mname)
-        
+
     def _describe(self, acc):
         """
         Set some basic attributes about this relationship by inspecting
@@ -177,7 +178,8 @@ class Relation(object):
             f for f in meta.get_fields()
             if (f.one_to_many or f.one_to_one) and f.auto_created and not f.concrete
         ]
-        matching_rel = [rel for rel in all_rels if rel.related_model == self.through]
+        matching_rel = [
+            rel for rel in all_rels if rel.related_model == self.through]
         try:
             through_name = matching_rel[0].get_accessor_name()
         except IndexError:
@@ -185,10 +187,12 @@ class Relation(object):
                    'other.'.format(self.model, self.target_model))
             raise BadRelation(msg)
         through_model = getattr(self.model, through_name).rel.related_model
-        rel_fs = [f for f in through_model._meta.get_fields() if f.related_model]
+        rel_fs = [f for f in through_model._meta.get_fields()
+                  if f.related_model]
 
         try:
-            thru_f = [f for f in rel_fs if f.related_model == self.target_model][0]
+            thru_f = [f for f in rel_fs if f.related_model ==
+                      self.target_model][0]
         except IndexError:
             msg = ('Field for relation from model {} to {} not found.'
                    ''.format(through_model, self.target_model))
@@ -352,7 +356,8 @@ def trace_branches(model, orig_model=None, brfields=None, cache=None):
     """
     tracing, orig_model = [], orig_model or model
     meta = model._meta
-    relfields = [f for f in meta.fields if f.remote_field] + [f for f in meta.many_to_many]
+    relfields = [f for f in meta.fields if f.remote_field] + \
+        [f for f in meta.many_to_many]
     for field in relfields:
         cache = cache or []
         field_id = '{}.{}'.format(meta.model_name, field.name)

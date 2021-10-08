@@ -13,6 +13,7 @@ from export import tasks as export_tasks
 
 # pytestmark = pytest.mark.django_db
 
+
 @pytest.fixture(scope='function')
 def export_and_monitor(global_new_export_instance, django_db_blocker):
     """
@@ -71,7 +72,7 @@ def export_and_monitor(global_new_export_instance, django_db_blocker):
             task = self.state.tasks.get(event['uuid'])
             is_final_task = task.name.endswith('do_final_cleanup')
             task_done = event['type'] not in ('task-received', 'task-started')
-            return is_final_task and task_done 
+            return is_final_task and task_done
 
         def stop(self):
             self.celery_app.events.Receiver.should_stop = True
@@ -133,20 +134,27 @@ def export_and_monitor(global_new_export_instance, django_db_blocker):
 
 @pytest.mark.parametrize('exp_type, exp_filter, options, num_expected_batches, '
                          'num_expected_chunks, exp_solr_results, wait_limit', [
-    ('LocationsToSolr', 'full_export', {}, 1, 1, {'haystack': 131}, 30),
-    ('ItypesToSolr', 'full_export', {}, 1, 1, {'haystack': 100}, 30),
-    ('ItemStatusesToSolr', 'full_export', {}, 1, 1, {'haystack': 22}, 30),
-    ('AllMetadataToSolr', 'full_export', {}, 1, 3, {'haystack': 253}, 30),
-    ('ItemsToSolr', 'full_export', {}, 1, 2, {'haystack': 269}, 30),
-    ('EResourcesToSolr', 'full_export', {}, 1, 2, {'haystack': 1}, 30),
-    ('ItemsBibsToSolr', 'full_export', {}, 1, 2,
-     {'haystack': 269, 'bibdata': 0}, 30),
-    ('BibsAndAttachedToSolr', 'full_export', {}, 1, 4,
-     {'haystack': 269, 'bibdata': 0}, 30),
-    ('BibsToDiscover', 'full_export', {}, 1, 2, {'discover-02': 261}, 30),
-    ('BibsToDiscoverAndAttachedToSolr', 'full_export', {}, 1, 2,
-     {'haystack': 269, 'bibdata': 0, 'discover-02': 261}, 30),
-])
+                             ('LocationsToSolr', 'full_export',
+                              {}, 1, 1, {'haystack': 131}, 30),
+                             ('ItypesToSolr', 'full_export',
+                              {}, 1, 1, {'haystack': 100}, 30),
+                             ('ItemStatusesToSolr', 'full_export',
+                              {}, 1, 1, {'haystack': 22}, 30),
+                             ('AllMetadataToSolr', 'full_export',
+                              {}, 1, 3, {'haystack': 253}, 30),
+                             ('ItemsToSolr', 'full_export',
+                              {}, 1, 2, {'haystack': 269}, 30),
+                             ('EResourcesToSolr', 'full_export',
+                              {}, 1, 2, {'haystack': 1}, 30),
+                             ('ItemsBibsToSolr', 'full_export', {}, 1, 2,
+                              {'haystack': 269, 'bibdata': 0}, 30),
+                             ('BibsAndAttachedToSolr', 'full_export', {}, 1, 4,
+                              {'haystack': 269, 'bibdata': 0}, 30),
+                             ('BibsToDiscover', 'full_export',
+                              {}, 1, 2, {'discover-02': 261}, 30),
+                             ('BibsToDiscoverAndAttachedToSolr', 'full_export', {}, 1, 2,
+                              {'haystack': 269, 'bibdata': 0, 'discover-02': 261}, 30),
+                         ])
 def test_export_tasks(exp_type, exp_filter, options, num_expected_chunks,
                       num_expected_batches, exp_solr_results, wait_limit,
                       solr_conns, export_and_monitor):
@@ -184,5 +192,3 @@ def test_export_tasks(exp_type, exp_filter, options, num_expected_chunks,
     for name, conn in solr_conns.items():
         if name != 'default':
             assert conn.search('*:*').hits == exp_solr_results.get(name, 0)
-
-

@@ -68,7 +68,7 @@ class DataEmitter(object):
             ]
         return [
             unichr(code) for this_range in uchar_ranges
-                for code in range(this_range[0], this_range[1] + 1)
+            for code in range(this_range[0], this_range[1] + 1)
         ]
 
     def _emit_string(self, mn=0, mx=0, alphabet=None):
@@ -80,7 +80,7 @@ class DataEmitter(object):
         return ''.join(random.choice(alphabet) for _ in range(length))
 
     def _emit_text(self, mn_words=0, mx_words=0, mn_word_len=0,
-                  mx_word_len=0, alphabet=None):
+                   mx_word_len=0, alphabet=None):
         """
         Generate random unicode multi-word text.
 
@@ -197,6 +197,7 @@ class SolrDataGenFactory(object):
     def _make_choice_function(self, values, repeatable):
         choices = [v for v in values]
         random.shuffle(choices)
+
         def _choice_function(record):
             if repeatable:
                 return random.choice(choices)
@@ -282,6 +283,7 @@ class SolrDataGenFactory(object):
         to a parent.
         """
         counters = {'into_left': total_into, 'from_left': total_from}
+
         def _counter():
             if counters['into_left'] == 0:
                 return 0
@@ -500,7 +502,7 @@ class SolrProfile(object):
             if gen.max_unique is not None:
                 if value in fieldvals and len(records) >= gen.max_unique:
                     raise type(self).ViolatesUniqueness
-            
+
             while value in fieldvals:
                 value = self._do_gen(gen, record)
             return value

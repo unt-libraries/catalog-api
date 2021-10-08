@@ -125,7 +125,7 @@ def test_itemstosolr_delete_records(exporter_class, record_sets, new_exporter,
     data = [(r.id, {'record_number': r.get_iii_recnum()}) for r in records]
     shelflist_solr_assembler.load_static_test_data('shelflistitem', data,
                                                    id_field='id')
-    
+
     expclass = exporter_class('ItemsToSolr')
     exporter = new_exporter(expclass, 'full_export', 'waiting')
 
@@ -201,7 +201,7 @@ def test_itemstosolr_export_returns_lcodes(exporter_class,
     expclass = exporter_class('ItemsToSolr')
     exporter = new_exporter(expclass, 'full_export', 'waiting')
     vals = exporter.export_records(records)
-    assert vals['seen_lcodes'] == expected_lcodes 
+    assert vals['seen_lcodes'] == expected_lcodes
 
 
 @pytest.mark.shelflist
@@ -316,7 +316,7 @@ def test_itemstosolr_shelflist_manifests(exporter_class, new_exporter,
         for pk, cn, vol, copy in slist:
             solr_data.append((pk, {'location_code': lcode,
                              'call_number_sort': cn, 'volume_sort': vol,
-                             'copy_number': copy, 'call_number_type': 'lc'}))
+                                   'copy_number': copy, 'call_number_type': 'lc'}))
     shelflist_solr_assembler.load_static_test_data('shelflistitem', solr_data,
                                                    id_field='id')
 

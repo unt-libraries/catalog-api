@@ -17,6 +17,7 @@ import logging
 # set up logger, for debugging
 logger = logging.getLogger('sierra.custom')
 
+
 class ShelflistItemSerializer(SimpleSerializerWithLookups):
     fields = OrderedDict()
     fields['_links'] = {'type': 'str', 'derived': True}
@@ -139,4 +140,3 @@ class LocationSerializer(api_serializers.LocationSerializer):
             }
 
         return ret
-

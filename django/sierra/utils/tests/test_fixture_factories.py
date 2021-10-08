@@ -18,7 +18,7 @@ from six.moves import range
 
 
 # FIXTURES AND TEST DATA
-# 
+#
 # Fixtures from django/sierra/conftest:
 #     model_instance
 #     global_model_instance
@@ -95,8 +95,9 @@ def test_solr_env(global_test_assembler):
     gens = assembler.gen_factory
     loc_recs = assembler.make('location', 10)
     item_recs = assembler.make('item', 100,
-        location_code=gens.choice([r['code'] for r in loc_recs])
-    )
+                               location_code=gens.choice(
+                                   [r['code'] for r in loc_recs])
+                               )
     assembler.save_all()
     return assembler
 
@@ -258,7 +259,7 @@ def test_installed_test_class_fixture__override(count, installed_test_class):
     before_class = getattr(mod, classname)
 
     result_tuple = installed_test_class(testclass, modpath)
-    
+
     mod = importlib.import_module(modpath)
     after_class = getattr(mod, classname)
 

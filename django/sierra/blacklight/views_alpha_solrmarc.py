@@ -25,11 +25,11 @@ def api_root(request):
     links = resp.data['catalogApi']['_links']
     links['asm-search-suggestions'] = {
         'href': AsmUris.get_uri('asm-search-suggestions-list', req=request,
-                                 template=False, absolute=True)
+                                template=False, absolute=True)
     }
     links['asm-browse-suggestions'] = {
         'href': AsmUris.get_uri('asm-browse-suggestions-list', req=request,
-                                 template=False, absolute=True)
+                                template=False, absolute=True)
     }
     resp.data['catalogApi']['_links'] = OrderedDict(sorted(links.items()))
     return Response(resp.data)
@@ -83,4 +83,3 @@ class AsmBrowseSuggestionsList(AsmSuggestionsList):
 
     def get_queryset(self):
         return solr.Queryset(using='bl-suggest', search_handler='browse')
-    

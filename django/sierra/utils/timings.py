@@ -46,7 +46,7 @@ from six.moves import range
 class APIViewTimingTester(object):
     console_logger = logging.getLogger('sierra.custom')
     file_logger = logging.getLogger('sierra.file')
-    
+
     def __init__(self, url_base='/', test_params={}, repeat=4):
         self.url_base = url_base
         self.test_params = test_params
@@ -110,6 +110,7 @@ class APIViewTimingTester(object):
             for key, value in sorted(iteritems(r['timings'])):
                 logger.info('{:<30}{:.3f}'.format('{}:'.format(key), value))
             logger.info('')
+
 
 p = [
     {'url': 'items/.json', 'data': {'offset': 1, 'limit': 20}},

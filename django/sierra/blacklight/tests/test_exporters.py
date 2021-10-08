@@ -53,7 +53,7 @@ def do_commit():
     'BibsToDiscover',
     'BibsToDiscoverAndAttachedToSolr',
 ])
-def test_exporter_class_versions(et_code, new_exporter, 
+def test_exporter_class_versions(et_code, new_exporter,
                                  discover_exporter_class):
     """
     For all exporter types / classes that are under test in this test
@@ -177,7 +177,7 @@ def test_dsc_export_get_records_last_export(et_code, last_dt, bdate, idates,
                                             expected, bl_sierra_test_record,
                                             setattr_model_instance,
                                             add_items_to_bib,
-                                            discover_exporter_class, 
+                                            discover_exporter_class,
                                             new_exporter):
     """
     The `get_records` method for discover exporters should return the
@@ -275,7 +275,7 @@ def test_bibstodsc_export_records(discover_exporter_class, record_sets,
     expclass = discover_exporter_class('BibsToDiscover')
     exporter = new_exporter(expclass, 'full_export', 'waiting')
     records = record_sets['bib_set']
-    
+
     # Do some setup to put some meaningful data into the index first.
     # We want some records that overlap with the incoming record set
     # and some that don't.
@@ -283,7 +283,7 @@ def test_bibstodsc_export_records(discover_exporter_class, record_sets,
     overlap_recs = records[0:num_existing]
     overlap_rec_pks = [r.pk for r in overlap_recs]
     only_new_recs = records[num_existing:]
-    old_rec_pks = [text_type(pk) for pk in range(99991,99995)]
+    old_rec_pks = [text_type(pk) for pk in range(99991, 99995)]
     only_old_rec_data = [(pk, {}) for pk in old_rec_pks]
 
     overlap_rec_data = []
@@ -399,7 +399,7 @@ def test_bibstodsc_delete_records(discover_exporter_class, record_sets,
     data = [(r.get_iii_recnum(False), {'suppressed': False}) for r in records]
     bl_solr_assembler.load_static_test_data('discover', data,
                                             id_field='id')
-    
+
     expclass = discover_exporter_class('BibsToDiscover')
     exporter = new_exporter(expclass, 'full_export', 'waiting')
     index = exporter.indexes['Bibs']
@@ -453,7 +453,7 @@ def test_attachedtodsc_delete_records(discover_exporter_class, do_commit,
     bl_solr_assembler.load_static_test_data('discover', ams_data)
     basic_solr_assembler.load_static_test_data('bib', bib_data)
     # basic_solr_assembler.load_static_test_data('marc', bib_data)
-    
+
     expclass = discover_exporter_class('BibsToDiscoverAndAttachedToSolr')
     exporter = new_exporter(expclass, 'full_export', 'waiting')
 

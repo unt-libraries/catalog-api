@@ -211,7 +211,7 @@ class SolrTestDataAssemblerFactory(object):
             self.records = {}
             self.profiles = {
                 rectype: self.make_profile(rectype, **profile_def)
-                    for rectype, profile_def in profile_definitions.items()
+                for rectype, profile_def in profile_definitions.items()
             }
 
         def make_profile(self, rectype, conn=None, user_fields=None,

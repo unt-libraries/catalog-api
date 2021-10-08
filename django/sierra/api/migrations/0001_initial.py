@@ -16,9 +16,11 @@ class Migration(migrations.Migration):
         migrations.CreateModel(
             name='APIUser',
             fields=[
-                ('id', models.AutoField(verbose_name='ID', serialize=False, auto_created=True, primary_key=True)),
+                ('id', models.AutoField(verbose_name='ID',
+                 serialize=False, auto_created=True, primary_key=True)),
                 ('secret', models.CharField(max_length=128)),
-                ('permissions', models.TextField(default=b'{"system_shelflist_item_note":false,"change_shelflist_item_note":false,"delete_shelflist_item_note":false,"change_shelflist_item":false,"add_shelflist_item_note":false}')),
+                ('permissions', models.TextField(
+                    default=b'{"system_shelflist_item_note":false,"change_shelflist_item_note":false,"delete_shelflist_item_note":false,"change_shelflist_item":false,"add_shelflist_item_note":false}')),
                 ('user', models.OneToOneField(on_delete=models.CASCADE,
                                               to=settings.AUTH_USER_MODEL)),
             ],

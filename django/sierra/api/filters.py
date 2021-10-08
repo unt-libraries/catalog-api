@@ -27,10 +27,10 @@ class HaystackFilter(BaseFilterBackend):
     """
     Filter to let us filter Haystack SearchQuerySets.
     """
-    reserved_params = [settings.REST_FRAMEWORK['PAGINATE_BY_PARAM'], 
+    reserved_params = [settings.REST_FRAMEWORK['PAGINATE_BY_PARAM'],
                        settings.REST_FRAMEWORK['PAGINATE_PARAM'],
-                       settings.REST_FRAMEWORK['ORDER_BY_PARAM'], 
-                       settings.REST_FRAMEWORK['SEARCH_PARAM'], 
+                       settings.REST_FRAMEWORK['ORDER_BY_PARAM'],
+                       settings.REST_FRAMEWORK['SEARCH_PARAM'],
                        settings.REST_FRAMEWORK['SEARCHTYPE_PARAM'], 'format']
     valid_operators = ['exact', 'contains', 'in', 'gt', 'gte', 'lt', 'lte',
                        'startswith', 'endswith', 'range', 'matches', 'isnull',
@@ -126,7 +126,7 @@ class HaystackFilter(BaseFilterBackend):
             filters = []
         for f in filters:
             if (p_name == f or (re.match(r'^\/.*\/$', f)
-                and re.match(re.sub(r'^\/(.*)\/$', r'\1', f), p_name))):
+                                and re.match(re.sub(r'^\/(.*)\/$', r'\1', f), p_name))):
                 break
         else:
             raise FilterValidationError('\'{}\' is not a valid field for '
@@ -135,7 +135,7 @@ class HaystackFilter(BaseFilterBackend):
             raise FilterValidationError('\'{}\' is not a valid operator. '
                                         'Valid operators include: {}.'
                                         ''.format(operator,
-                                            ', '.join(self.valid_operators)))
+                                                  ', '.join(self.valid_operators)))
         list_m = re.match(r'\[(.+)\]$', p_val)
         if list_m and operator != 'matches':
             if operator not in ('in', 'range'):
@@ -204,16 +204,16 @@ class HaystackFilter(BaseFilterBackend):
                 val = dateparser.parse(val)
             except Exception as e:
                 raise FilterValidationError('There was a problem '
-                    'parsing the value \'{}\' in your query: {}'
-                    ''.format(val, e))
+                                            'parsing the value \'{}\' in your query: {}'
+                                            ''.format(val, e))
 
         else:
             raise FilterValidationError('There was a problem filtering on '
-                'the {} field: the datetime was formatted incorrectly. '
-                'Dates and times are expected to be full ISO 8601-formatted '
-                'strings in UTC time; e.g.: 2014-06-13T12:00:00Z would '
-                'indicate June 13, 2014 at 12:00 UTC time.'
-                ''.format(orig_name))
+                                        'the {} field: the datetime was formatted incorrectly. '
+                                        'Dates and times are expected to be full ISO 8601-formatted '
+                                        'strings in UTC time; e.g.: 2014-06-13T12:00:00Z would '
+                                        'indicate June 13, 2014 at 12:00 UTC time.'
+                                        ''.format(orig_name))
         return (name, op, val)
 
     def _type_normalize_bool(self, orig_name, name, op, val):
@@ -242,7 +242,7 @@ class HaystackFilter(BaseFilterBackend):
             if ordering is None or p not in ordering:
                 raise FilterValidationError('\'{}\' is not a valid field for '
                                             'ordering results.'.format(orig_p))
-            new_param = '{}{}'.format(direction, 
+            new_param = '{}{}'.format(direction,
                                       self.order_field_mapping.get(p, p))
             new_order_params.append(new_param)
 
@@ -305,10 +305,10 @@ class HaystackFilter(BaseFilterBackend):
                     msg = ('Query filter criteria specified for this resource '
                            'is invalid. The searchtype parameter must be one '
                            'of the following values: {}'.format(
-                                ', '.join(list(self.searchtypes.keys()))))
+                               ', '.join(list(self.searchtypes.keys()))))
                     raise exceptions.BadQuery(detail=msg)
 
-            elif p_name == settings.REST_FRAMEWORK.get('ORDER_BY_PARAM', 
+            elif p_name == settings.REST_FRAMEWORK.get('ORDER_BY_PARAM',
                                                        'order_by'):
                 try:
                     order_param = self._get_order_param(p_val[0], view)
@@ -320,7 +320,7 @@ class HaystackFilter(BaseFilterBackend):
         if validation_errors:
             msg = ('Query filter criteria specified for this resource is '
                    'invalid. The following errors were raised. {}'.format(
-                        ' '.join(validation_errors)))
+                       ' '.join(validation_errors)))
             raise exceptions.BadQuery(detail=msg)
         return param_data
 
@@ -344,7 +344,7 @@ class HaystackFilter(BaseFilterBackend):
     def filter_queryset(self, request, queryset, view):
         request_params = self._prep_params(request.query_params, view)
         try:
-            queryset = self._apply_django_style_filters(queryset, 
+            queryset = self._apply_django_style_filters(queryset,
                                                         request_params['data'])
         except KeyError:
             pass

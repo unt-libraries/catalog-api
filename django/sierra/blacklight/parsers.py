@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*- 
+# -*- coding: utf-8 -*-
 
 """
 Contains Sierra field data parsing functions.
@@ -90,15 +90,20 @@ def strip_brackets(data, keep_inner=True, to_keep_re=None,
     *and* the surrounding brackets hould be kept.
     """
     to_protect = r'\[({})\]'.format(protect_re) if protect_re else '^$'
-    to_remove = r'(^|\s*)\[({})\]'.format(to_remove_re) if to_remove_re and keep_inner else '^$'
-    to_keep = r'\[({})\]'.format(to_keep_re) if to_keep_re and not keep_inner else '^$'
+    to_remove = r'(^|\s*)\[({})\]'.format(
+        to_remove_re) if to_remove_re and keep_inner else '^$'
+    to_keep = r'\[({})\]'.format(
+        to_keep_re) if to_keep_re and not keep_inner else '^$'
     brackets = r'[\[\]]' if keep_inner else r'(^|\s*)\[[^\]]*\]'
 
-    brackets_protected = re.sub(to_protect, r'{\1}', data) if re.search(to_protect, data) else data
+    brackets_protected = re.sub(to_protect, r'{\1}', data) if re.search(
+        to_protect, data) else data
     certain_data_removed = re.sub(to_remove, '', brackets_protected)
-    certain_data_kept = re.sub(to_keep, r'\1', certain_data_removed) if re.search(to_keep, certain_data_removed) else certain_data_removed
+    certain_data_kept = re.sub(to_keep, r'\1', certain_data_removed) if re.search(
+        to_keep, certain_data_removed) else certain_data_removed
     brackets_removed = re.sub(brackets, '', certain_data_kept)
-    protected_brackets_restored = re.sub(r'\{([^\}]*)\}', r'[\1]', brackets_removed)
+    protected_brackets_restored = re.sub(
+        r'\{([^\}]*)\}', r'[\1]', brackets_removed)
 
     return protected_brackets_restored.lstrip()
 
@@ -229,8 +234,10 @@ def protect_periods(data, repl_char='~',
     protect_all = r'\b(({}|{}|{})(?=\.\W)|{}|({}|{}))\.'.format(ordinal_period_numeric, ordinal_period_alphabetic,
                                                                 roman_numerals, ordinal_period_long_number, initials,
                                                                 abbreviations_re)
-    periods_in_words_protected = re.sub(r'\.(\w)', r'{}\1'.format(repl_char), data)
-    ellipses_protected = re.sub(r'\.{3}', r'{0}{0}{0}'.format(repl_char), periods_in_words_protected)
+    periods_in_words_protected = re.sub(
+        r'\.(\w)', r'{}\1'.format(repl_char), data)
+    ellipses_protected = re.sub(r'\.{3}', r'{0}{0}{0}'.format(
+        repl_char), periods_in_words_protected)
     return re.sub(protect_all, r'\1{}'.format(repl_char), ellipses_protected)
 
 
@@ -248,7 +255,7 @@ def protect_periods_and_do(data, do, repl_char='~',
     """
     Do something to an input data string, but protect certain periods
     first via `protect_periods`.
-    
+
     This parser will do the `do` function on the `data` string, but it
     will protect non-structural periods beforehand and restore them for
     you afterward. (The `do` function must return a string. If you need
@@ -277,18 +284,25 @@ def normalize_punctuation(data, periods_protected=False, repl_char='~',
     `periods_protected` to True when used in this context.
     """
     def _normalize(data):
-        bracket_front_punct_removed = re.sub(r'([\[\{{\(])(\s*{}\s*)+'.format(punctuation_re), r'\1', data)
-        bracket_end_punct_removed = re.sub(r'(\s*{}\s*)+([\]\}}\)])'.format(punctuation_re), r'\2', bracket_front_punct_removed)
-        empty_brackets_removed = re.sub(r'(\[\s*\]|\(\s*\)|\{\s*\})', r'', bracket_end_punct_removed)
-        multiples_removed = re.sub(r'(\s?)(\s*{0})+\s*({0})(\s|$)'.format(punctuation_re), r'\1\3\4', empty_brackets_removed)
-        periods_after_abbrevs_removed = re.sub(r'{}(\s*\.)(\s*[^.]|$)'.format(repl_char), r'{}\2'.format(repl_char), multiples_removed)
-        front_punct_removed = re.sub(r'^(\s*{}\s*)+'.format(punctuation_re), r'', periods_after_abbrevs_removed)
+        bracket_front_punct_removed = re.sub(
+            r'([\[\{{\(])(\s*{}\s*)+'.format(punctuation_re), r'\1', data)
+        bracket_end_punct_removed = re.sub(
+            r'(\s*{}\s*)+([\]\}}\)])'.format(punctuation_re), r'\2', bracket_front_punct_removed)
+        empty_brackets_removed = re.sub(
+            r'(\[\s*\]|\(\s*\)|\{\s*\})', r'', bracket_end_punct_removed)
+        multiples_removed = re.sub(
+            r'(\s?)(\s*{0})+\s*({0})(\s|$)'.format(punctuation_re), r'\1\3\4', empty_brackets_removed)
+        periods_after_abbrevs_removed = re.sub(
+            r'{}(\s*\.)(\s*[^.]|$)'.format(repl_char), r'{}\2'.format(repl_char), multiples_removed)
+        front_punct_removed = re.sub(
+            r'^(\s*{}\s*)+'.format(punctuation_re), r'', periods_after_abbrevs_removed)
         return front_punct_removed
 
     if periods_protected:
         normalized = _normalize(data.strip())
     else:
-        normalized = protect_periods_and_do(data.strip(), _normalize, repl_char)
+        normalized = protect_periods_and_do(
+            data.strip(), _normalize, repl_char)
     return compress_punctuation(normalized, left_space_re=r'\.(?!\.\.)|,')
 
 
@@ -311,9 +325,11 @@ def strip_ends(data, periods_protected=False, end='both',
     """
     def strip_punctuation(data):
         if end in ('both', 'left'):
-            data = re.sub(r'^({0}|\s)*(.+?)'.format(end_punctuation_re), r'\2', data)
+            data = re.sub(
+                r'^({0}|\s)*(.+?)'.format(end_punctuation_re), r'\2', data)
         if end in ('both', 'right'):
-            data = re.sub(r'(.+?)({0}|\s)*$'.format(end_punctuation_re), r'\1', data)
+            data = re.sub(
+                r'(.+?)({0}|\s)*$'.format(end_punctuation_re), r'\1', data)
         return data
 
     if periods_protected:
@@ -461,7 +477,7 @@ def extract_years(data, year_limit=None):
     date_re = r'(?<!\d)({}|{}|{})\?*{}?'.format(*args)
 
     data = data.replace('[', '').replace(']', '')
-    
+
     for d1, dash, d2 in re.findall(date_re, data, flags=re.IGNORECASE):
         new_dates = []
         for i, date in enumerate((d1, d2)):
@@ -732,5 +748,3 @@ def shingle_callnum(cn):
     if stack:
         shingles.append(''.join([last_shingle, ''.join(stack)]))
     return shingles
-
-

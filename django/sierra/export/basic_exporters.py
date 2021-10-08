@@ -84,9 +84,9 @@ class ItemsToSolr(ToSolrExporter):
         'bibrecorditemrecordlink_set__bib_record',
         'bibrecorditemrecordlink_set__bib_record__record_metadata',
         'bibrecorditemrecordlink_set__bib_record__record_metadata'
-            '__record_type',
+        '__record_type',
         'bibrecorditemrecordlink_set__bib_record__record_metadata'
-            '__varfield_set',
+        '__varfield_set',
         'bibrecorditemrecordlink_set__bib_record__bibrecordproperty_set'
     ]
     select_related = ['record_metadata', 'record_metadata__record_type',
@@ -119,8 +119,8 @@ class EResourcesToSolr(ToSolrExporter):
         'holding_records__record_metadata__record_type',
         'record_metadata__varfield_set',
         'resourcerecordholdingrecordrelatedlink_set',
-        'resourcerecordholdingrecordrelatedlink_set__holding_record__'\
-            'bibrecord_set'
+        'resourcerecordholdingrecordrelatedlink_set__holding_record__'
+        'bibrecord_set'
     ]
     select_related = ['record_metadata', 'record_metadata__record_type',
                       'access_provider', 'access_provider__record_metadata']
@@ -129,17 +129,17 @@ class EResourcesToSolr(ToSolrExporter):
 
     def export_records(self, records):
         self.indexes['EResources'].do_update(records)
-        return { 'h_lists': self.indexes['EResources'].h_lists }
+        return {'h_lists': self.indexes['EResources'].h_lists}
 
     def delete_records(self, records):
         self.indexes['EResources'].do_delete(records)
-        return { 'deletions': [r.get_iii_recnum(True) for r in records] }
+        return {'deletions': [r.get_iii_recnum(True) for r in records]}
 
     def commit_to_redis(self, vals):
         self.log('Info', 'Committing EResource updates to Redis...')
         rhl_obj = redisobjs.RedisObject('reverse_holdings_list', '0')
         reverse_holdings = rhl_obj.get() or {}
-        
+
         # Update holdings for updated eresources
         for ernum, h_list in vals.get('h_lists', {}).items():
             redisobjs.RedisObject('eresource_holdings_list', ernum).set(h_list)
@@ -199,7 +199,7 @@ class HoldingUpdate(CompoundMixin, Exporter):
         'resourcerecord_set__record_metadata__varfield_set',
         'resourcerecord_set__holding_records'
     ]
-    
+
     def __init__(self, *args, **kwargs):
         super(HoldingUpdate, self).__init__(*args, **kwargs)
         self.max_rec_chunk = self.children['EResourcesToSolr'].max_rec_chunk
@@ -240,13 +240,14 @@ class HoldingUpdate(CompoundMixin, Exporter):
                 holdings = er_mapping.get(er_rec_num, {}).get('holdings', [])
                 try:
                     vf = h.bibrecord_set.all()[0].record_metadata\
-                            .varfield_set.all()
+                        .varfield_set.all()
                 except IndexError:
                     title = None
                 else:
                     title = helpers.get_varfield_vals(vf, 't', '245',
-                                cm_kw_params={'subfields': 'a'},
-                                content_method='display_field_content')
+                                                      cm_kw_params={
+                                                          'subfields': 'a'},
+                                                      content_method='display_field_content')
                 data = {
                     'delete': False,
                     'title': title,
@@ -309,7 +310,7 @@ class HoldingUpdate(CompoundMixin, Exporter):
             eresources = list(eresources)
             ret_er_vals = self.eresources_to_solr.export_records(eresources)
 
-        return { 'holdings': h_vals, 'eresources': ret_er_vals }
+        return {'holdings': h_vals, 'eresources': ret_er_vals}
 
     def commit_to_redis(self, vals):
         self.log('Info', 'Committing Holdings updates to Redis...')
@@ -364,11 +365,11 @@ class BibsDownloadMarc(Exporter):
         'bibrecorditemrecordlink_set__item_record',
         'bibrecorditemrecordlink_set__item_record__record_metadata',
         'bibrecorditemrecordlink_set__item_record__record_metadata'
-            '__record_type',
+        '__record_type',
         'bibrecordproperty_set',
         'bibrecordproperty_set__material__materialpropertyname_set',
         'bibrecordproperty_set__material__materialpropertyname_set'
-            '__iii_language',
+        '__iii_language',
     ]
     select_related = ['record_metadata', 'record_metadata__record_type']
 
@@ -391,7 +392,7 @@ class BibsDownloadMarc(Exporter):
         else:
             for e in batch.errors:
                 self.log('Warning', 'Record {}: {}'.format(e.id, e.msg))
-        return { 'marcfile': filename }
+        return {'marcfile': filename}
 
 
 class BibsToSolr(ToSolrExporter):
@@ -417,11 +418,11 @@ class BibsToSolr(ToSolrExporter):
         'bibrecorditemrecordlink_set__item_record',
         'bibrecorditemrecordlink_set__item_record__record_metadata',
         'bibrecorditemrecordlink_set__item_record__record_metadata'
-            '__record_type',
+        '__record_type',
         'bibrecordproperty_set',
         'bibrecordproperty_set__material__materialpropertyname_set',
         'bibrecordproperty_set__material__materialpropertyname_set'
-            '__iii_language',
+        '__iii_language',
     ]
     select_related = ['record_metadata', 'record_metadata__record_type']
     is_active = False
@@ -438,7 +439,7 @@ class ItemsBibsToSolr(AttachedRecordExporter):
     Exports item records based on the provided export_filter using the
     existing ItemsToSolr job and then grabs the items' parent bibs and
     exports them using BibsToSolr.
-    
+
     If using this in production, make sure to use it in conjunction
     with a bib loader, like BibsToSolr or BibsItemsToSolr. That way
     bib records that need to be deleted will actually get deleted.

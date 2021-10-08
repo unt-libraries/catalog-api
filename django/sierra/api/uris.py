@@ -27,7 +27,7 @@ class Uris(object):
     named_uripatterns = {}
 
     @classmethod
-    def get_uri(self, name, req=None, absolute=False, template=False, 
+    def get_uri(self, name, req=None, absolute=False, template=False,
                 **kwargs):
         '''
         Get a named URI based on parameters passed via kwargs. Each
@@ -100,8 +100,8 @@ class APIUris(Uris):
         'itemstatuses-detail': [r'v', {'v': r'1'}, r'/itemstatuses/',
                                 {'code': ''}],
         'callnumbermatches-list': [r'v', {'v': r'1'}, r'/callnumbermatches/'],
-        'firstitemperlocation-list': [r'v', {'v': r'1'}, 
-                                    r'/firstitemperlocation/'],
+        'firstitemperlocation-list': [r'v', {'v': r'1'},
+                                      r'/firstitemperlocation/'],
         'eresources-list': [r'v', {'v': r'1'}, r'/eresources/'],
         'eresources-detail': [r'v', {'v': r'1'}, r'/eresources/', {'id': ''}],
     }

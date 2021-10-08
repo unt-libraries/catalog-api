@@ -14,6 +14,7 @@ framework.
 
 """
 from __future__ import absolute_import
+from django.core.wsgi import get_wsgi_application
 import os
 from unipath import Path
 
@@ -29,7 +30,6 @@ dotenv.load_dotenv('{}/settings/.env'.format(Path(__file__).ancestor(1)))
 # This application object is used by any WSGI server configured to use this
 # file. This includes Django's development server, if the WSGI_APPLICATION
 # setting points here.
-from django.core.wsgi import get_wsgi_application
 application = get_wsgi_application()
 
 # Apply WSGI middleware here.

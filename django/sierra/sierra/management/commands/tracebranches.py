@@ -45,6 +45,3 @@ class Command(BaseCommand):
         branches = relationtrees.trace_branches(model)
         out = [[rel.fieldname for rel in branch] for branch in branches]
         self.stdout.write(json.dumps(out, indent=INDENT))
-
-
-
