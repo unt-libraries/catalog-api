@@ -1,4 +1,4 @@
-FROM python:3.9.7-buster
+FROM python:3.10-buster
 
 RUN apt-get update -qq && \
     apt-get install -y libpq-dev python-dev mariadb-client netcat openjdk-11-jre
@@ -20,7 +20,7 @@ RUN git clone https://github.com/vishnubob/wait-for-it.git ../wait-for-it
 
 COPY requirements/* /project/requirements/
 
-RUN pip install setuptools-scm==5.0.2
+RUN pip install setuptools-scm==6.3.2
 
 RUN pip install -r /project/requirements/requirements-base.txt \
                 -r /project/requirements/requirements-dev.txt \
