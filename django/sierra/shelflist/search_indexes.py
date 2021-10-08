@@ -29,7 +29,7 @@ class ShelflistItemIndex(search_indexes.ItemIndex):
 
     The `get_location_manifest` method pulls a list of item IDs from
     Solr, sorted in shelflist order, for a particular location, to help
-    build shelflist item manifests.    
+    build shelflist item manifests.
     """
     shelf_status = indexes.FacetCharField(null=True)
     inventory_notes = indexes.MultiValueField(null=True)

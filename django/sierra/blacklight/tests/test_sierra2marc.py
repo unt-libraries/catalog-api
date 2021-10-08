@@ -2507,7 +2507,8 @@ def test_todscpipeline_getpubinfo_pub_search(ldr_07, fparams, expected,
                                   'shelf_facet': None},
                               ),
 
-                             # czm / unknown bib location and one unknown item location
+                             # czm / unknown bib location and one unknown item
+                             # location
                              ((('blah', 'Blah'),),
                               (('blah2', 'Blah2'), ('czm', 'Chilton Media Library'),),
                                  tuple(),
@@ -2517,7 +2518,8 @@ def test_todscpipeline_getpubinfo_pub_search(ldr_07, fparams, expected,
                                   'shelf_facet': None}
                               ),
 
-                             # w3 / one suppressed item, one unsuppressed item, diff locs
+                             # w3 / one suppressed item, one unsuppressed item,
+                             # diff locs
                              ((('czm', 'Chilton Media Library'),),
                               (('w3', 'Willis Library-3rd Floor'),),
                                  (('lwww', 'UNT ONLINE RESOURCES'),),
@@ -2527,7 +2529,8 @@ def test_todscpipeline_getpubinfo_pub_search(ldr_07, fparams, expected,
                                   'shelf_facet': ['Willis Library-3rd Floor']},
                               ),
 
-                             # w3 / one suppressed item, one unsuppressed item, same locs
+                             # w3 / one suppressed item, one unsuppressed item,
+                             # same locs
                              ((('czm', 'Chilton Media Library'),),
                               (('w3', 'Willis Library-3rd Floor'),),
                                  (('w3', 'Willis Library-3rd Floor'),),
@@ -2547,7 +2550,8 @@ def test_todscpipeline_getpubinfo_pub_search(ldr_07, fparams, expected,
                                   'shelf_facet': None}
                               ),
 
-                             # r, lwww / online-only item with bib location in different collection
+                             # r, lwww / online-only item with bib location in
+                             # different collection
                              ((('r', 'Discovery Park Library'),),
                               (('lwww', 'UNT ONLINE RESOURCES'),),
                                  tuple(),
@@ -2567,7 +2571,8 @@ def test_todscpipeline_getpubinfo_pub_search(ldr_07, fparams, expected,
                                   'shelf_facet': None}
                               ),
 
-                             # w, lwww / online-only item with bib location in same collection
+                             # w, lwww / online-only item with bib location in
+                             # same collection
                              ((('w', 'Willis Library'),),
                               (('lwww', 'UNT ONLINE RESOURCES'),),
                                  tuple(),
@@ -2597,7 +2602,8 @@ def test_todscpipeline_getpubinfo_pub_search(ldr_07, fparams, expected,
                                   'shelf_facet': None}
                               ),
 
-                             # w, lwww, w3 / bib with online and physical locations
+                             # w, lwww, w3 / bib with online and physical
+                             # locations
                              ((('w', 'Willis Library'),),
                               (('lwww', 'UNT ONLINE RESOURCES'),
                                ('w3', 'Willis Library-3rd Floor'),),
@@ -2615,7 +2621,8 @@ def test_todscpipeline_getpubinfo_pub_search(ldr_07, fparams, expected,
                              # that still use Eagle Commons, I've changed names of the s*
                              # locations, below. Because of the "s Eagle Commons Library" test
                              # fixture, the building_facet is still "Eagle Commons Library,"
-                             # even though the name has changed, in reality. This is fine.
+                             # even though the name has changed, in reality.
+                             # This is fine.
                              ((('sd', 'X Government Documents'),),
                               (('gwww', 'GOVT ONLINE RESOURCES'),
                                  ('sdus', 'X US Documents'),
@@ -3899,7 +3906,7 @@ def test_todscpipeline_getcontributorinfo(fparams, expected,
            }],
       }),
 
-    ('245', ['a', 'Title in French.', 'p',  'Part One =',
+    ('245', ['a', 'Title in French.', 'p', 'Part One =',
              'b', 'Title in English.', 'p', 'Part One.'],
      {'nonfiling_chars': 0,
       'transcribed': [
@@ -3909,7 +3916,7 @@ def test_todscpipeline_getcontributorinfo(fparams, expected,
            }],
       }),
 
-    ('245', ['a', 'Title in French.', 'p',  'Part One :',
+    ('245', ['a', 'Title in French.', 'p', 'Part One :',
              'b', 'subtitle = Title in English.', 'p', 'Part One : subtitle.'],
      {'nonfiling_chars': 0,
       'transcribed': [
@@ -3930,7 +3937,7 @@ def test_todscpipeline_getcontributorinfo(fparams, expected,
            }],
       }),
 
-    ('245', ['a', 'Title in French.', 'p',  'Part One :',
+    ('245', ['a', 'Title in French.', 'p', 'Part One :',
              'b', 'subtitle = Title in English.', 'p', 'Part One : subtitle.',
              'c', 'by Author in French = by Author in English'],
      {'nonfiling_chars': 0,
@@ -3951,7 +3958,7 @@ def test_todscpipeline_getcontributorinfo(fparams, expected,
       'transcribed': [{'parts': ['First title']},
                       {'parts': ['Second title']}]}),
 
-    ('245', ['a', 'Title in French.', 'p',  'Part One',
+    ('245', ['a', 'Title in French.', 'p', 'Part One',
              'h', '[sound recording] =', 'b', 'Title in English.',
              'p', 'Part One.'],
      {'nonfiling_chars': 0,
@@ -4723,7 +4730,8 @@ def test_transcribedtitleparser_parse(tag, subfields, expected,
       'relations': None,
       }),
 ])
-def test_preferredtitleparser_parse(tag, subfields, expected, params_to_fields):
+def test_preferredtitleparser_parse(
+        tag, subfields, expected, params_to_fields):
     """
     PreferredTitleParser `parse` method should return a dict with the
     expected structure, given the provided MARC field.
@@ -6250,8 +6258,8 @@ def test_generatefacetkey(fval, nf_chars, expected):
      ]}),
 
     # 490/800: Traced 490s are not included in Series titles
-    ([('490', ['a', 'Some series (statement).',  '1 ']),
-      ('490', ['a', 'Piano music of Edward Copeland.',  '1 ']),
+    ([('490', ['a', 'Some series (statement).', '1 ']),
+      ('490', ['a', 'Piano music of Edward Copeland.', '1 ']),
       ('800', ['a', 'Smith, Joe.', 't', 'Some series.'], '1 '),
       ('800', ['a', 'Copeland, Edward.', 't', 'Piano music.'], '1 ')],
      {'related_series_titles_json': [
@@ -6646,7 +6654,7 @@ def test_generatefacetkey(fval, nf_chars, expected):
         'title-title-title-title-title-title-title-title-title-title-title-'
         'title-title-title-title-title-title-title-title-title-title-title-'
         'title-title-title-title-title-title-title-title',
-      'main_work_title_json':{
+      'main_work_title_json': {
         'p': [{'d': 'Title title title title title title title title title '
                     'title title title title title title title title title '
                     'title title title title title title title ...',
@@ -6865,7 +6873,7 @@ def test_generatefacetkey(fval, nf_chars, expected):
 
     # 245: Parallel title and separate parallel SOR
     ([('100', ['a', 'Smith, Joe'], '1 '),
-      ('245', ['a', 'Title in Spanish.', 'p',  'Part One :',
+      ('245', ['a', 'Title in Spanish.', 'p', 'Part One :',
                'b', 'subtitle = Title in English.', 'p', 'Part One : subtitle.',
                'c', 'por Joe Smith = by Joe Smith.'], '10')],
      {'title_display': 'Title in Spanish > Part One: subtitle '

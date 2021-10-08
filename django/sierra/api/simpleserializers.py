@@ -273,7 +273,7 @@ class SimpleSerializerWithLookups(SimpleSerializer):
     def cache_all_db_objects(self):
         """
         Child classes should implement this method to cache DB
-        objects using self.cache_field. 
+        objects using self.cache_field.
         """
         pass
 

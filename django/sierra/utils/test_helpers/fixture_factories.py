@@ -235,7 +235,7 @@ class SolrTestDataAssemblerFactory(object):
 
         def make(self, rectype, number, context=None, **field_gens):
             """
-            Make a set of records via a 
+            Make a set of records via a
             solr_factories.SolrFixtureFactory for the given `rectype`
             profile. `number` is an integer defining how many records
             to create. `context` is an optional keyword arg providing

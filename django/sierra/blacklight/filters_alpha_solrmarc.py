@@ -27,7 +27,7 @@ class AsmSuggestionsFilter(BaseFilterBackend):
         This uses the `make_normalized_heading_string` suggest function
         to normalize the search query. BUT, quotes have to be handled
         such that they are included only if the person has entered a
-        complete phrase in quotes. E.g.: "online audio" is sent to 
+        complete phrase in quotes. E.g.: "online audio" is sent to
         Solr as-is, but -- "online aud -- is sent without the starting
         quotation mark. Or -- "online video" "romeo and -- is sent with
         the first phrase in quotes but not the second.
@@ -59,7 +59,7 @@ class AsmSuggestionsFilter(BaseFilterBackend):
                     if q[-1] != '"':
                         q = '{}*'.format(q)
                     if browse:
-                        q = '\ '.join(q.split(' '))
+                        q = '\\ '.join(q.split(' '))
                 elif key == 'fq':
                     fq.extend(val)
                 elif key not in self.reserved_params:

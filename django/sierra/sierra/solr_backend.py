@@ -54,7 +54,8 @@ def custom_to_python(val, _to_python):
 
 
 class CustomSolrSearchBackend(solr_backend.SolrSearchBackend):
-    def _process_results(self, raw_results, highlight=False, result_class=None, distance_point=None):
+    def _process_results(self, raw_results, highlight=False,
+                         result_class=None, distance_point=None):
         results = []
         hits = raw_results.hits
         facets = {}
@@ -102,7 +103,8 @@ class CustomSolrSearchBackend(solr_backend.SolrSearchBackend):
                     index = unified_index.get_index(model)
                     string_key = str(key)
 
-                    if string_key in index.fields and hasattr(index.fields[string_key], 'convert'):
+                    if string_key in index.fields and hasattr(
+                            index.fields[string_key], 'convert'):
                         additional_fields[string_key] = index.fields[string_key].convert(
                             value)
                     else:
@@ -156,7 +158,8 @@ class CustomSolrSearchBackend(solr_backend.SolrSearchBackend):
                     models_to_delete), commit=commit)
 
             if commit:
-                # Run an optimize post-clear. http://wiki.apache.org/solr/FAQ#head-9aafb5d8dff5308e8ea4fcf4b71f19f029c4bb99
+                # Run an optimize post-clear.
+                # http://wiki.apache.org/solr/FAQ#head-9aafb5d8dff5308e8ea4fcf4b71f19f029c4bb99
                 self.conn.optimize()
         except (IOError, SolrError) as e:
             if not self.silently_fail:

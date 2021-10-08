@@ -1,5 +1,5 @@
 """
-Contains the `tracebranches` manage.py command. 
+Contains the `tracebranches` manage.py command.
 """
 from __future__ import absolute_import
 import json

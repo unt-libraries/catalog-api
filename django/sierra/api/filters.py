@@ -81,7 +81,7 @@ class HaystackFilter(BaseFilterBackend):
         Python list. Arrays are comma-delimited lists of values, where
         double-quotes MAY be used to wrap a value that includes a
         comma, and a backslash character preceding either a double-
-        quote or a comma escapes it. Thus: ["a,b",c,d] and [a\,b,c,d]
+        quote or a comma escapes it. Thus: ["a,b",c,d] and [a\\,b,c,d]
         both become ['a,b', 'c', 'd'].
         """
         vals, this_val, in_quotes, escape = [], '', False, False

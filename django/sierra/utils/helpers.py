@@ -1,6 +1,6 @@
 """
 Contains various utility functions and classes for Sierra API project
-code. 
+code.
 """
 from __future__ import unicode_literals
 from __future__ import absolute_import
@@ -99,7 +99,7 @@ class NormalizedCallNumber(object):
     def normalize(self):
         """
         Parses the call number in self.call based on the string in
-        self.kind. Stores it in self.normalized_call and returns it. 
+        self.kind. Stores it in self.normalized_call and returns it.
         """
         kind = self.kind
         call = self.call

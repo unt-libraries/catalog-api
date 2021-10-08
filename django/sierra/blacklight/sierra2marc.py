@@ -269,7 +269,7 @@ class MarcUtils(object):
             - An OCLC-docs style string.
                   100  1  Bullett ǂd 1894-1958.
             - A MarcEdit-style string.
-                  =100  1\$aBullett, Gerald William,$d1894-1958.
+                  =100  1\\$aBullett, Gerald William,$d1894-1958.
             - A III Sierra-style string (field group tag is optional).
                   a100 1  Bullett, Gerald William,|d1894-1958.
             - A combination of the above.
@@ -286,7 +286,7 @@ class MarcUtils(object):
               or '\' for blank. Spaces may be used throughout the rest
               of the field data.
             - Otherwise, it attempts to determine two indicator values
-              which each may be 0-9, space, #, or \. If spaces are used
+              which each may be 0-9, space, #, or \\. If spaces are used
               for indicator values in combination with spaces used for
               separation, then every attempt is made to interpret them
               correctly but it may be ambiguous. The first non-space
@@ -1026,7 +1026,8 @@ class PreferredTitleParser(SequentialMarcFieldParser):
             prev_punct, self.flags)
         part = p.restore_periods(part)
         force_new = self.force_new_part()
-        if not force_new and part_type == 'same_part' and len(self.title_parts):
+        if not force_new and part_type == 'same_part' and len(
+                self.title_parts):
             part = self.join_parts(self.title_parts[-1], part, prev_punct)
             self.title_parts[-1] = part
         else:
@@ -2449,7 +2450,7 @@ class MultiFieldMarcRecordParser(object):
     appropriate group field tag is found, then that is used IF the MARC
     tag does not appear in the set of `exclude` tags.
 
-    The field definition is a dict that uses the following keys. 
+    The field definition is a dict that uses the following keys.
 
     `solr_fields` -- (Required.) A list or tuple containing the Solr
     fields to generate for the given MARC field.
@@ -2479,7 +2480,8 @@ class MultiFieldMarcRecordParser(object):
         ret_val = {}
         for f in self.record.fields:
             fdef = self.mapping.get(f.tag)
-            if fdef is None and f.tag not in self.mapping.get('exclude', set()):
+            if fdef is None and f.tag not in self.mapping.get(
+                    'exclude', set()):
                 fdef = self.mapping.get(f.group_tag)
             if fdef:
                 parse_func = fdef.get('parse_func', self.default_parse_func)
@@ -3303,7 +3305,8 @@ class ToDiscoverPipeline(object):
             year_display = self._format_years_for_display(sort)
 
         facet_dates, search_dates = [], []
-        for ystrs, expanded in self._expand_years(coded_dates, described_years):
+        for ystrs, expanded in self._expand_years(
+                coded_dates, described_years):
             if expanded:
                 if self.year_for_boost is None:
                     boost_year = self._get_year_for_boost(ystrs, expanded[-1])
@@ -3584,7 +3587,10 @@ class ToDiscoverPipeline(object):
 
         args = [pre_info['expression_components'], pre_info['id_components']]
         if any(args):
-            kargs = {'json': json, 'facet_vals': facet_vals, 'heading': heading}
+            kargs = {
+                'json': json,
+                'facet_vals': facet_vals,
+                'heading': heading}
             result = self.render_title_expression_id(*args, **kargs)
             rkeys = ('json', 'facet_vals', 'heading')
             json, facet_vals, heading = (result[key] for key in rkeys)
@@ -4723,7 +4729,8 @@ class ToDiscoverPipeline(object):
         num = {'lccn': [], 'oclc': [], 'all': []}
         search = []
 
-        def _put_compiled_into_vars(c, display, numbers, search, prepend=False):
+        def _put_compiled_into_vars(
+                c, display, numbers, search, prepend=False):
             if c['main_number'] not in numbers['all']:
                 if prepend:
                     display[c['type']].insert(0, c['display_val'])
@@ -4941,7 +4948,7 @@ class ToDiscoverPipeline(object):
             w1 = generate_facet_key(wordstr1, space_char=sc).split(sc)
             w2 = generate_facet_key(wordstr2, space_char=sc).split(sc)
             for i in range(len(w2)):
-                if w2[i] == w1[0] and w2[i:i+len(w1)] == w1:
+                if w2[i] == w1[0] and w2[i:i + len(w1)] == w1:
                     return True
             return False
 
@@ -5214,7 +5221,8 @@ class ToDiscoverPipeline(object):
                     json[ftype_key].append(compiled['json'])
                 for facet_key, fvals in compiled['facets'].items():
                     if facet_key == 'heading':
-                        vals = [v for v in fvals if v not in hf_sets[ftype_key]]
+                        vals = [
+                            v for v in fvals if v not in hf_sets[ftype_key]]
                         heading_facets[ftype_key].extend(vals)
                     else:
                         vals = [v for v in fvals if v not in f_sets[facet_key]]

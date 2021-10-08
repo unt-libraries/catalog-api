@@ -130,7 +130,7 @@ def test_db_write_routing(model_class, testing, expected, settings,
     try:
         instance = model_instance(model_class)
     except Exception as e:
-        if type(e) == expected:
+        if isinstance(e, expected):
             result = True
         else:
             raise

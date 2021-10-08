@@ -52,13 +52,16 @@ class RedisObject(object):
         datatype = self.get_datatype()
         try:
             if datatype == 'zset':
-                return [json.loads(i) for i in self.conn.zrange(self.key, 0, -1)]
+                return [json.loads(i)
+                        for i in self.conn.zrange(self.key, 0, -1)]
             if datatype == 'hash':
-                return {k: json.loads(v) for k, v in iteritems(self.conn.hgetall(self.key))}
+                return {k: json.loads(v) for k, v in iteritems(
+                    self.conn.hgetall(self.key))}
             if datatype == 'string':
                 return json.loads(self.conn.get(self.key))
             if datatype == 'list':
-                return [json.loads(i) for i in self.conn.lrange(self.key, 0, -1)]
+                return [json.loads(i)
+                        for i in self.conn.lrange(self.key, 0, -1)]
             if datatype == 'set':
                 return [json.loads(i) for i in self.conn.smembers(self.key)]
         except TypeError:

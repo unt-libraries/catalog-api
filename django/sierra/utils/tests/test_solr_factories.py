@@ -730,7 +730,7 @@ def test_solrfixturefactory_fieldgen_precedence(profgen_fields, callgen_fields,
     This tests to make sure gens and gen overrides fire using the
     correct precedence. Setting field gens on the `SolrProfile` object
     overrides the fixture factory's default auto generators. Then,
-    passing field gens to the fixture 
+    passing field gens to the fixture
 
     Overrides
     for those can then be passed when calling the fixture factory's

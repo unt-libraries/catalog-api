@@ -5699,7 +5699,8 @@ class Collection(ReadOnlyModel):
         db_table = 'collection'
 
 
-# CollectionMyuser us not in the Sierra docs, but this seems the appropriate place for it.
+# CollectionMyuser us not in the Sierra docs, but this seems the
+# appropriate place for it.
 class CollectionMyuser(ReadOnlyModel):
     id = models.IntegerField(primary_key=True)
     is_default = models.BooleanField(null=True, blank=True)
@@ -6700,7 +6701,8 @@ class CircTrans(ReadOnlyModel):
         db_table = 'circ_trans'
 
 
-# Not sure, we have a couple of rows in our counter table. Possibly stores counts of various things?
+# Not sure, we have a couple of rows in our counter table. Possibly stores
+# counts of various things?
 class Counter(ReadOnlyModel):
     code = models.CharField(max_length=100, primary_key=True)
     num = models.IntegerField(null=True, blank=True)
@@ -6709,7 +6711,8 @@ class Counter(ReadOnlyModel):
         db_table = 'counter'
 
 
-# Looks like this stores a list of the functions used in the "FUNCTIONS" menu in the SDA.
+# Looks like this stores a list of the functions used in the "FUNCTIONS"
+# menu in the SDA.
 class Function(ReadOnlyModel):
     id = models.IntegerField(primary_key=True)
     display_order = models.IntegerField(null=True, blank=True)
@@ -6802,7 +6805,7 @@ class IiiUser(ReadOnlyModel):
     # iii_user_group = models.ForeignKey('IiiUserGroup',
     #                                    on_delete=models.CASCADE,
     #                                    db_column='iii_user_group_code',
-    #                                    to_field='code', null=True, blank=True)
+    # to_field='code', null=True, blank=True)
     full_name = models.CharField(max_length=255, blank=True)
     iii_language = models.ForeignKey(IiiLanguage, on_delete=models.CASCADE,
                                      null=True, blank=True)
@@ -6837,7 +6840,8 @@ class IiiUser(ReadOnlyModel):
         db_table = 'iii_user'
 
 
-# Apparently links III users and funds? Our iii_user_fund_master table is empty.
+# Apparently links III users and funds? Our iii_user_fund_master table is
+# empty.
 class IiiUserFundMaster(ReadOnlyModel):
     id = models.IntegerField(primary_key=True)
     iii_user = models.ForeignKey(IiiUser, on_delete=models.CASCADE,

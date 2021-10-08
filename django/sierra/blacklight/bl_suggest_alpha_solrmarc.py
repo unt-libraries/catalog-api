@@ -74,7 +74,7 @@ def truncate(string, limit):
     including the elipses, will equal the given limit.
     """
     if len(string) > limit:
-        return '{} ...'.format(string[0:(limit-4)])
+        return '{} ...'.format(string[0:(limit - 4)])
     return string
 
 
@@ -191,7 +191,7 @@ class SuggestBuilder(object):
         def normalize_heading(self, heading, for_browse=True):
             """
             Produce a normalized (string) form of the given `heading`.
-            Default behavior is to convert punctuation to space. If 
+            Default behavior is to convert punctuation to space. If
             `for_browse` is True, then it also remove spaces between
             digits and non-digits.
             """

@@ -8,7 +8,7 @@ class Uris(object):
     '''
     Provides a simpler (or at least faster) way to build URIs for a
     REST API project that requires links between resources and thus
-    lots of potentially slow URL reversals. 
+    lots of potentially slow URL reversals.
 
     The named_uripatterns member is similar to Django's urlpatterns,
     except it's made for simple lookups of URLs based on names, and it

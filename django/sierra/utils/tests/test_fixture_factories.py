@@ -266,5 +266,5 @@ def test_installed_test_class_fixture__override(count, installed_test_class):
     assert after_class == testclass
     assert before_class != testclass
     assert result_tuple == (modpath, testclass, before_class)
-    assert getattr(before_class, 'arg') == None
+    assert getattr(before_class, 'arg') is None
     assert getattr(after_class, 'arg') == count

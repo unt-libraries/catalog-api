@@ -116,7 +116,7 @@ class SimpleGetMixin(object):
         """
         if getattr(self, '_cached_page', None) is None:
             offset, limit = self.get_offset_limit_from_request(request)
-            results = queryset[offset:offset+limit]
+            results = queryset[offset:offset + limit]
             total = queryset.count()
             end_row = self.get_page_end_row(total, offset, limit)
             offset = None if end_row is None else offset
@@ -222,7 +222,7 @@ class SimpleGetMixin(object):
     def get(self, request, *args, **kwargs):
         """
         HTTP `get` method for this view. Given the `request`, `args`,
-        and `kwargs`, return an appropriately paginated Response obj. 
+        and `kwargs`, return an appropriately paginated Response obj.
         """
         if self.multi:
             queryset = self.get_queryset()

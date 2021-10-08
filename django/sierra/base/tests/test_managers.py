@@ -649,7 +649,7 @@ def test_recordmanager_fullexport(model, test_env):
     (m.ItemRecord, ['_czm'], 'item', ['i3', 'i6']),
     (m.ItemRecord, ['_w', '_x'], 'item', ['i1']),
     (m.ItemRecord, ['_w', '_r'], 'item', []),
-    (m.ItemRecord, ['_w'], 'both',  ['i0', 'i2', 'i3', 'i4']),
+    (m.ItemRecord, ['_w'], 'both', ['i0', 'i2', 'i3', 'i4']),
     (m.ItemRecord, ['_w3'], 'both', ['i0', 'i4']),
     (m.ItemRecord, ['_czm'], 'both', ['i3', 'i4', 'i6']),
     (m.ItemRecord, ['_xdoc'], 'both', ['i5']),

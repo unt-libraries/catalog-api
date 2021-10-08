@@ -11,7 +11,7 @@ class AppendOrRemoveSlashMiddleware(MiddlewareMixin):
     will remove the slash if a slash-appended url won't resolve, but its non-slashed
     counterpart will.
 
-    Additionally, if a 404 error is raised within a view for a non-slashed url, and 
+    Additionally, if a 404 error is raised within a view for a non-slashed url, and
     APPEND_SLASH is True, and the slash-appended url resolves, the middleware will
     redirect. (The default APPEND_SLASH behaviour only catches Resolver404, so
     wouldn't work in this case.)
@@ -33,7 +33,8 @@ class AppendOrRemoveSlashMiddleware(MiddlewareMixin):
 
             if _is_valid_path(new_path, urlconf):
                 # if the new url is valid, redirect to it
-                return http.HttpResponsePermanentRedirect(generate_url(request, new_path))
+                return http.HttpResponsePermanentRedirect(
+                    generate_url(request, new_path))
 
     def process_response(self, request, response):
         """If a 404 is raised within a view, try appending/removing the slash (based
@@ -50,7 +51,8 @@ class AppendOrRemoveSlashMiddleware(MiddlewareMixin):
             if new_path:
                 urlconf = getattr(request, 'urlconf', None)
                 if _is_valid_path(new_path, urlconf):
-                    return http.HttpResponsePermanentRedirect(generate_url(request, new_path))
+                    return http.HttpResponsePermanentRedirect(
+                        generate_url(request, new_path))
         return response
 
 

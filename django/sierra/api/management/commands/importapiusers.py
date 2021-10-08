@@ -1,5 +1,5 @@
 """
-Contains the `importapiusers` manage.py command. 
+Contains the `importapiusers` manage.py command.
 """
 from __future__ import absolute_import
 import csv

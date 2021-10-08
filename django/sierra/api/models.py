@@ -175,7 +175,7 @@ class APIUserManager(models.Manager):
                     au.update_and_save(secret_text, **kwargs)
                     updated.append(au)
             except APIUserException as e:
-                errors.append((i+1, record, e))
+                errors.append((i + 1, record, e))
         return (created, updated, errors)
 
     def table_to_batch(self, table):

@@ -4,7 +4,7 @@ Get regexes for helping clean up punctuation in MARC data.
 
 # When found in square brackets, these phrases are removed entirely.
 BRACKET_DATA_REMOVE = [
-    'et al\.'
+    'et al\\.'
 ]
 BRACKET_DATA_REMOVE_REGEX = r'({})'.format('|'.join(BRACKET_DATA_REMOVE))
 

@@ -196,7 +196,8 @@ def test_normalize_punctuation_periods_do_not_need_protection(data, expected):
     ('[First] test [Middle] [Middle] data [Last]', True, None, None,
      r'(Middle|Last)', 'First test [Middle] [Middle] data [Last]'),
 ])
-def test_strip_brackets(data, keep_inner, to_keep_re, to_remove_re, to_protect_re, expected):
+def test_strip_brackets(data, keep_inner, to_keep_re,
+                        to_remove_re, to_protect_re, expected):
     """
     `strip_brackets` should correctly strip square brackets based on
     the provided keep/remove/protect arguments.
@@ -707,7 +708,7 @@ def test_truncator_truncate(data, mn, mx, trunc_patterns, trunc_to_punct, exp):
     """
     `Truncator.truncate`, when the Truncate obj is instantiated with
     the given `trunc_patterns` and `trunc_to_punct` args, should return
-    the `expected` result, when passed the given `mn` and `mx` args. 
+    the `expected` result, when passed the given `mn` and `mx` args.
     """
     truncator = parsers.Truncator(trunc_patterns, trunc_to_punct)
     assert truncator.truncate(data, mn, mx) == exp

@@ -43,7 +43,7 @@ def cat_fields(data, include=(), exclude=()):
     for i in data:
         if data[i] is not None and ((include and i in include)
                                     or (exclude and i not in exclude)):
-            if type(data[i]) is list or type(data[i]) is tuple:
+            if isinstance(data[i], list) or isinstance(data[i], tuple):
                 values.append(' '.join([text_type(j) for j in data[i]]))
             else:
                 values.append(text_type(data[i]))
@@ -283,7 +283,8 @@ class MarcIndex(CustomQuerySetIndex, indexes.Indexable):
                     data.append(text_type(field)[6:])
                     self.prepared_data[mf_name] = data
                     sf = field.subfields
-                    for s_tag, s_data in [sf[n:n+2] for n in range(0, len(sf), 2)]:
+                    for s_tag, s_data in [sf[n:n + 2]
+                                          for n in range(0, len(sf), 2)]:
                         sf_name = 'sf_{}{}'.format(field.tag, s_tag)
                         data = self.prepared_data.get(sf_name, [])
                         data.append(s_data)
@@ -294,7 +295,7 @@ class MarcIndex(CustomQuerySetIndex, indexes.Indexable):
 
 class MetadataBaseIndex(CustomQuerySetIndex, indexes.Indexable):
     """
-    Subclassable class for creating III "metadata" indexes -- 
+    Subclassable class for creating III "metadata" indexes --
     Locations, Itypes, etc. (E.g. admin parameters.) Most of them are
     just key/value pairs (code/label), so they follow a predictable
     pattern. In each subclass just be sure to set your model and
@@ -487,10 +488,10 @@ class ItemIndex(CustomQuerySetIndex, indexes.Indexable):
     def prepare_call_number_sort(self, obj):
         """
         Prepare call_number_sort field. This prepares a version of each
-        call_number that should sort correctly when sorted as a string. 
+        call_number that should sort correctly when sorted as a string.
         LPCD 100,000 --> LPCD!0000100000,
         PT8142.Z5 A5613 1988 --> PT!0000008142!Z5!A!0000005613
-        !0000001988. 
+        !0000001988.
         """
         (cn, ctype) = self.get_call_number(obj)
         if cn is not None:

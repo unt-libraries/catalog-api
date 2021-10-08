@@ -181,7 +181,7 @@ def test_importapiusers_output_sanity(cmd, apiuser_with_custom_defaults,
     created, updated, errors = [], [], []
     for i, user in enumerate(batch):
         if user['username'] == '':
-            errors.append(i+1)
+            errors.append(i + 1)
         elif not updated:
             updated.append(user['username'])
             test_uclass.objects.batch_import_users([user])

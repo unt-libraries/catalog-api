@@ -58,7 +58,7 @@ class DataEmitter(object):
     def make_unicode_alphabet(uchar_ranges=None):
         """
         Generate a list of characters to use for initializing a new
-        DataEmitters object. Pass a nested list of tuples representing 
+        DataEmitters object. Pass a nested list of tuples representing
         the character ranges to include via `char_ranges`.
         """
         if uchar_ranges is None:
@@ -333,7 +333,7 @@ class SolrProfile(object):
         dataset you want to force. Provide one or the other; you don't
         need both. Normally you'll provide the `conn` and the schema
         will be grabbed automatically; `schema` overrides `conn` if
-        both are provided. 
+        both are provided.
 
         `user_fields`: A list of field names (each of which should
         match a field name (whether static or dynamic) in the schema).

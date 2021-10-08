@@ -175,7 +175,7 @@ class SierraExplicitKeyBundler(RecordSetBundler):
         sorted_qset = self.apply_sort(queryset)
         manifest = [r['pk'] for r in sorted_qset.values('pk')]
         for start in range(0, len(manifest), size):
-            yield manifest[start:start+size]
+            yield manifest[start:start + size]
 
     def unpack(self, bundle, all_recs):
         sorted_qset = self.apply_sort(all_recs)

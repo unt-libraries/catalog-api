@@ -586,7 +586,8 @@ def person_name(name, indicators=None):
             forename = name
         else:
             surname = name
-            if is_family_name or re.search(r'\s*family\b', surname, flags=re.I):
+            if is_family_name or re.search(
+                    r'\s*family\b', surname, flags=re.I):
                 family_name = surname
                 surname = re.sub(r'\s*family\b', '', surname, flags=re.I)
 
@@ -652,7 +653,7 @@ class Truncator(object):
             self.trunc_patterns.append(r'{0}(.(?!{0}))*$'.format(p))
 
     def truncate(self, text, min_len, max_len):
-        slice_range = (min_len-1, max_len)
+        slice_range = (min_len - 1, max_len)
         text_slice = text[slice(*slice_range)]
         for pattern in self.trunc_patterns:
             match = re.search(pattern, text_slice)

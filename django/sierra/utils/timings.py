@@ -80,7 +80,7 @@ class APIViewTimingTester(object):
             response = client.get(url, test['data'])
             print ('Now the real requests.')
             for i in range(0, repeat):
-                print('{}...'.format(i+1))
+                print('{}...'.format(i + 1))
                 response = client.get(url, test['data'])
                 try:
                     raw_timings = ast.literal_eval(response['timings'])

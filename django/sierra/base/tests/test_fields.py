@@ -149,7 +149,7 @@ def noise_data():
     """
     Pytest fixture that returns a generator for creating `n` sets of
     parameters that can be passed to `make_instance` to create noise
-    data. 
+    data.
     """
     def _noise_data(n):
         count = 1
@@ -180,7 +180,7 @@ def get_db_columns():
 def do_for_multiple_models():
     """
     Pytest fixture that performs a manager/queryset action across
-    multiple models and returns the results, if any. 
+    multiple models and returns the results, if any.
     """
     def _do_for_multiple_models(models, action):
         results = []
@@ -684,7 +684,8 @@ def test_vcfield_other_lookups_work(modelname, name, number, parent_int,
     ('VCFParentStr', [('aaa', 1, 1, '3'), ('aaa', 1, 1, '1'),
                       ('aaa', 1, 1, None)], [(u'aaa', 1, None), (u'aaa', 1, u'1'), (u'aaa', 1, u'3')]),
 ])
-def test_vcfield_orderby_works(modelname, data, expected, testmodels, make_instance):
+def test_vcfield_orderby_works(
+        modelname, data, expected, testmodels, make_instance):
     """
     Using a VirtualCompField with the `order_by` obj manager method
     should return a QuerySet with instances in the appropriate order:

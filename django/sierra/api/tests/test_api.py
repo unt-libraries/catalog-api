@@ -1349,9 +1349,15 @@ PARAMETERS__FILTER_TESTS__INTENDED = (
              ), 'creator=Person, Test&suppressed=false', ['TEST2', 'TEST3'])
              }, {'multi-arg | kw query with multiple criteria':
                  ('bibs', (
-                     ('TEST1', {'creator': 'Person, Test', 'suppressed': True}),
-                     ('TEST2', {'creator': 'Person, Joe', 'suppressed': False}),
-                     ('TEST3', {'creator': 'Person, Test', 'suppressed': False}),
+                     ('TEST1',
+                      {'creator': 'Person, Test',
+                       'suppressed': True}),
+                     ('TEST2',
+                      {'creator': 'Person, Joe',
+                       'suppressed': False}),
+                     ('TEST3',
+                      {'creator': 'Person, Test',
+                       'suppressed': False}),
                  ), 'creator[keywords]=person OR test&suppressed=false',
                      ['TEST2', 'TEST3'])
                  }, {'multi-arg | multiple criteria with negation':
@@ -1589,7 +1595,10 @@ PARAMETERS__FILTER_TESTS__STRANGE = (
                                                                                                      # match both "MT 20" and "MT 1 .B82" -- because the search
                                                                                                      # normalization removes spaces and punctuation. (MT 20 ==> MT20
                                                                                                      # and MT 1 .B82 ==> MT1B82.) We SHOULD use call number sort
-                                                                                                     # normalization for these operators.
+                                                                                                     # normalization
+                                                                                                     # for
+                                                                                                     # these
+                                                                                                     # operators.
                                                                                                      ('items', (
                                                                                                          ('TEST1', {
                                                                                                              'call_number': 'MT 100.1 .C35 1995'}),
