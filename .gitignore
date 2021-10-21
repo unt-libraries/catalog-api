@@ -3,6 +3,7 @@
 *.log.*
 *.iml
 *.env
+!docker*.env
 
 secrets.json
 settings.json
