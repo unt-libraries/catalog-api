@@ -4,37 +4,42 @@
     http://wiki.apache.org/solr/SchemaXml.  The page also has a link to an 
     extensively commented version of this file.
 -->
-<schema name="Blacklight-Alpha-Solrmarc" version="2.4">
+<schema name="discover" version="1.6">
   <types>
-    <fieldType name="string" class="solr.StrField" sortMissingLast="true" omitNorms="true"/>
-    <fieldType name="boolean" class="solr.BoolField" sortMissingLast="true" omitNorms="true"/>
-    <fieldType name="integer" class="solr.IntField" omitNorms="true"/>
-    <fieldType name="long" class="solr.LongField" omitNorms="true"/>
-    <fieldType name="float" class="solr.FloatField" omitNorms="true"/>
-    <fieldType name="double" class="solr.DoubleField" omitNorms="true"/>
-    <fieldType name="sint" class="solr.SortableIntField" sortMissingLast="true" omitNorms="true"/>
-    <fieldType name="slong" class="solr.SortableLongField" sortMissingLast="true" omitNorms="true"/>
-    <fieldType name="sfloat" class="solr.SortableFloatField" sortMissingLast="true" omitNorms="true"/>
-    <fieldType name="sdouble" class="solr.SortableDoubleField" sortMissingLast="true" omitNorms="true"/>
-    <fieldType name="date" class="solr.TrieDateField" sortMissingLast="true" omitNorms="true"/>
-    <fieldType name="random" class="solr.RandomSortField" indexed="true" />
+    <fieldType name="string" class="solr.StrField" sortMissingLast="true" omitNorms="true" uninvertible="false"/>
+    <fieldType name="boolean" class="solr.BoolField" sortMissingLast="true" omitNorms="true" uninvertible="false"/>
+    <fieldType name="integer" class="solr.IntPointField" sortMissingLast="true" omitNorms="true" uninvertible="false"/>
+    <fieldType name="long" class="solr.LongPointField" sortMissingLast="true" omitNorms="true" uninvertible="false"/>
+    <fieldType name="float" class="solr.FloatPointField" sortMissingLast="true" omitNorms="true" uninvertible="false"/>
+    <fieldType name="double" class="solr.DoublePointField" sortMissingLast="true" omitNorms="true" uninvertible="false"/>
+    <fieldType name="date" class="solr.DatePointField" sortMissingLast="true" omitNorms="true" uninvertible="false"/>
 
-    <fieldType name="text" class="solr.TextField" positionIncrementGap="100">
+    <fieldType name="text" class="solr.TextField" positionIncrementGap="100" uninvertible="false">
       <analyzer type="index">
         <tokenizer class="solr.WhitespaceTokenizerFactory"/>
-        <filter class="solr.ICUNormalizer2FilterFactory" name="nfkc" mode="compose" />
-        <filter class="solr.ASCIIFoldingFilterFactory" />
-        <filter class="solr.WordDelimiterFilterFactory" generateWordParts="1" generateNumberParts="1" catenateWords="1" catenateNumbers="0" catenateAll="1" splitOnCaseChange="1" preserveOriginal="1"/>
-        <filter class="solr.LowerCaseFilterFactory"/>
+        <filter class="solr.WordDelimiterGraphFilterFactory"
+                generateWordParts="1"
+                generateNumberParts="1"
+                catenateWords="1"
+                catenateNumbers="0"
+                catenateAll="1"
+                splitOnCaseChange="1"
+                preserveOriginal="1"/>
+        <filter class="solr.FlattenGraphFilterFactory"/>
+        <filter class="solr.ICUFoldingFilterFactory"/>
         <filter class="solr.RemoveDuplicatesTokenFilterFactory"/>
       </analyzer>
       <analyzer type="query">
         <tokenizer class="solr.WhitespaceTokenizerFactory"/>
-        <filter class="solr.ICUNormalizer2FilterFactory" name="nfkc" mode="compose" />
-        <filter class="solr.ASCIIFoldingFilterFactory" />
-        <filter class="solr.SynonymFilterFactory" synonyms="synonyms.txt" ignoreCase="true" expand="true"/>
-        <filter class="solr.WordDelimiterFilterFactory" generateWordParts="1" generateNumberParts="1" catenateWords="1" catenateNumbers="0" catenateAll="1" splitOnCaseChange="1" preserveOriginal="1"/>
-        <filter class="solr.LowerCaseFilterFactory"/>
+        <filter class="solr.WordDelimiterGraphFilterFactory"
+                generateWordParts="1"
+                generateNumberParts="1"
+                catenateWords="1"
+                catenateNumbers="0"
+                catenateAll="1"
+                splitOnCaseChange="1"
+                preserveOriginal="1"/>
+        <filter class="solr.ICUFoldingFilterFactory"/>
         <filter class="solr.RemoveDuplicatesTokenFilterFactory"/>
       </analyzer>
     </fieldType>
@@ -51,12 +56,10 @@
          The PatternReplaceFilterFactory steps will convert each value to a normalized
          version. At query time, the same steps will be applied to the query value.
     -->
-    <fieldType name="cn_norm" class="solr.TextField" positionIncrementGap="100">
+    <fieldType name="cn_norm" class="solr.TextField" positionIncrementGap="100" uninvertible="false">
       <analyzer>
         <tokenizer class="solr.KeywordTokenizerFactory"/>
-        <filter class="solr.ICUNormalizer2FilterFactory" name="nfkc" mode="compose" />
-        <filter class="solr.ASCIIFoldingFilterFactory" />
-        <filter class="solr.LowerCaseFilterFactory"/>
+        <filter class="solr.ICUFoldingFilterFactory"/>
         <filter class="solr.PatternReplaceFilterFactory" pattern="(\d)[^a-z0-9]+(?=\d)" replacement="$1-"/>
         <filter class="solr.PatternReplaceFilterFactory" pattern="([a-z])[^a-z0-9]+(?=[a-z])" replacement="$1-"/>
         <filter class="solr.PatternReplaceFilterFactory" pattern="[^a-z0-9\-]+" replacement=""/>
@@ -64,40 +67,47 @@
       </analyzer>
     </fieldType>
 
-    <fieldType name="stem_text" class="solr.TextField" positionIncrementGap="100">
+    <fieldType name="stem_text" class="solr.TextField" positionIncrementGap="100" uninvertible="false">
       <analyzer type="index">
         <tokenizer class="solr.WhitespaceTokenizerFactory"/>
-        <filter class="solr.ICUNormalizer2FilterFactory" name="nfkc" mode="compose" />
-        <filter class="solr.ASCIIFoldingFilterFactory" />
-        <filter class="solr.WordDelimiterFilterFactory" generateWordParts="1" generateNumberParts="1" catenateWords="1" catenateNumbers="1" catenateAll="0" splitOnCaseChange="1"/>
-        <filter class="solr.LowerCaseFilterFactory"/>
+        <filter class="solr.WordDelimiterGraphFilterFactory"
+                generateWordParts="1"
+                generateNumberParts="1"
+                catenateWords="1"
+                catenateNumbers="0"
+                catenateAll="1"
+                splitOnCaseChange="1"
+                preserveOriginal="1"/>
+        <filter class="solr.FlattenGraphFilterFactory"/>
+        <filter class="solr.ICUFoldingFilterFactory"/>
         <filter class="solr.PorterStemFilterFactory"/>
         <filter class="solr.RemoveDuplicatesTokenFilterFactory"/>
       </analyzer>
       <analyzer type="query">
         <tokenizer class="solr.WhitespaceTokenizerFactory"/>
-        <filter class="solr.ICUNormalizer2FilterFactory" name="nfkc" mode="compose" />
-        <filter class="solr.ASCIIFoldingFilterFactory" />
-        <filter class="solr.SynonymFilterFactory" synonyms="synonyms.txt" ignoreCase="true" expand="true"/>
-        <filter class="solr.WordDelimiterFilterFactory" generateWordParts="1" generateNumberParts="1" catenateWords="0" catenateNumbers="0" catenateAll="0" splitOnCaseChange="1"/>
-        <filter class="solr.LowerCaseFilterFactory"/>
+        <filter class="solr.WordDelimiterGraphFilterFactory"
+                generateWordParts="1"
+                generateNumberParts="1"
+                catenateWords="1"
+                catenateNumbers="0"
+                catenateAll="1"
+                splitOnCaseChange="1"
+                preserveOriginal="1"/>
+        <filter class="solr.ICUFoldingFilterFactory"/>
         <filter class="solr.PorterStemFilterFactory"/>
         <filter class="solr.RemoveDuplicatesTokenFilterFactory"/>
       </analyzer>
     </fieldType>
 
-    <fieldType name="full_heading_text" class="solr.TextField" positionIncrementGap="100">
+    <fieldType name="full_heading_text" class="solr.TextField" positionIncrementGap="100" uninvertible="false">
       <analyzer>
         <tokenizer class="solr.PatternTokenizerFactory" pattern="(,|[^\p{Punct}\s]+)" group="0" />
-        <filter class="solr.ICUNormalizer2FilterFactory" name="nfkc" mode="compose" />
-        <filter class="solr.ASCIIFoldingFilterFactory" />
-        <filter class="solr.LowerCaseFilterFactory"/>
-        <filter class="solr.RemoveDuplicatesTokenFilterFactory"/>
+        <filter class="solr.ICUFoldingFilterFactory"/>
       </analyzer>
     </fieldType>
 
-    <fieldType name="heading_term_text" class="solr.TextField" positionIncrementGap="100">
-      <analyzer>
+    <fieldType name="heading_term_text" class="solr.TextField" positionIncrementGap="100" uninvertible="false">
+      <analyzer type="index">
         <!--
           This pattern tokenizer is designed to break the following into separate tokens:
             - Words (consecutive strings of not-space, not-punctuation)
@@ -108,16 +118,33 @@
           the word `john` on its own, but can provide a good phrase-boost for the query `john, henry`.
          -->
         <tokenizer class="solr.PatternTokenizerFactory" pattern="(,|([^\p{Punct}\s]*\.[^\p{Punct}\s]+)+|[^\p{Punct}\s]+)" group="0" />
-        <filter class="solr.ICUNormalizer2FilterFactory" name="nfkc" mode="compose" />
-        <filter class="solr.ASCIIFoldingFilterFactory" />
-        <filter class="solr.WordDelimiterFilterFactory" generateWordParts="1" generateNumberParts="1" catenateWords="1" catenateNumbers="0" catenateAll="1" splitOnCaseChange="1" preserveOriginal="1"/>
-        <filter class="solr.LowerCaseFilterFactory"/>
-        <filter class="solr.RemoveDuplicatesTokenFilterFactory"/>
+        <filter class="solr.WordDelimiterGraphFilterFactory"
+                generateWordParts="1"
+                generateNumberParts="1"
+                catenateWords="1"
+                catenateNumbers="0"
+                catenateAll="1"
+                splitOnCaseChange="1"
+                preserveOriginal="1"/>
+        <filter class="solr.FlattenGraphFilterFactory"/>
+        <filter class="solr.ICUFoldingFilterFactory"/>
+      </analyzer>
+      <analyzer type="query">
+        <tokenizer class="solr.PatternTokenizerFactory" pattern="(,|([^\p{Punct}\s]*\.[^\p{Punct}\s]+)+|[^\p{Punct}\s]+)" group="0" />
+        <filter class="solr.WordDelimiterGraphFilterFactory"
+                generateWordParts="1"
+                generateNumberParts="1"
+                catenateWords="1"
+                catenateNumbers="0"
+                catenateAll="1"
+                splitOnCaseChange="1"
+                preserveOriginal="1"/>
+        <filter class="solr.ICUFoldingFilterFactory"/>
       </analyzer>
     </fieldType>
 
-    <fieldType name="heading_term_text_stem" class="solr.TextField" positionIncrementGap="100">
-      <analyzer>
+    <fieldType name="heading_term_text_stem" class="solr.TextField" positionIncrementGap="100" uninvertible="false">
+      <analyzer type="index">
         <!--
           This pattern tokenizer is designed to break the following into separate tokens:
             - Words (consecutive strings of not-space, not-punctuation)
@@ -128,15 +155,38 @@
           the word `john` on its own, but can provide a good phrase-boost for the query `john, henry`.
          -->
         <tokenizer class="solr.PatternTokenizerFactory" pattern="(,|([^\p{Punct}\s]*\.[^\p{Punct}\s]+)+|[^\p{Punct}\s]+)" group="0" />
-        <filter class="solr.ICUNormalizer2FilterFactory" name="nfkc" mode="compose" />
-        <filter class="solr.ASCIIFoldingFilterFactory" />
-        <filter class="solr.WordDelimiterFilterFactory" generateWordParts="1" generateNumberParts="1" catenateWords="1" catenateNumbers="0" catenateAll="1" splitOnCaseChange="1" preserveOriginal="1"/>
-        <filter class="solr.LowerCaseFilterFactory"/>
+        <filter class="solr.WordDelimiterGraphFilterFactory"
+                generateWordParts="1"
+                generateNumberParts="1"
+                catenateWords="1"
+                catenateNumbers="0"
+                catenateAll="1"
+                splitOnCaseChange="1"
+                preserveOriginal="1"/>
+        <filter class="solr.FlattenGraphFilterFactory"/>
+        <filter class="solr.ICUFoldingFilterFactory"/>
+        <filter class="solr.PorterStemFilterFactory"/>
+        <filter class="solr.RemoveDuplicatesTokenFilterFactory"/>
+      </analyzer>
+      <analyzer type="query">
+        <tokenizer class="solr.PatternTokenizerFactory" pattern="(,|([^\p{Punct}\s]*\.[^\p{Punct}\s]+)+|[^\p{Punct}\s]+)" group="0" />
+        <filter class="solr.WordDelimiterGraphFilterFactory"
+                generateWordParts="1"
+                generateNumberParts="1"
+                catenateWords="1"
+                catenateNumbers="0"
+                catenateAll="1"
+                splitOnCaseChange="1"
+                preserveOriginal="1"/>
+        <filter class="solr.ICUFoldingFilterFactory"/>
         <filter class="solr.PorterStemFilterFactory"/>
         <filter class="solr.RemoveDuplicatesTokenFilterFactory"/>
       </analyzer>
     </fieldType>
-    
+
+   <!-- Commenting out `spell_text` type for now. Later when/if we re-implement spellcheck,
+        we may revisit this.
+  
     <fieldType name="spell_text" class="solr.TextField" positionIncrementGap="100" >
       <analyzer>
         <tokenizer class="solr.StandardTokenizerFactory"/>
@@ -145,69 +195,38 @@
         <filter class="solr.LowerCaseFilterFactory"/>
         <filter class="solr.RemoveDuplicatesTokenFilterFactory"/>
       </analyzer>
-    </fieldType>
+   </fieldType>
+  -->
 
-    <fieldType name="norm_string" class="solr.TextField" sortMissingLast="true" omitNorms="true">
+    <fieldType name="norm_string" class="solr.SortableTextField" sortMissingLast="true" omitNorms="true" uninvertible="true">
       <analyzer>
         <tokenizer class="solr.KeywordTokenizerFactory"/>
-        <filter class="solr.ICUNormalizer2FilterFactory" name="nfkc" mode="compose" />
-        <filter class="solr.ASCIIFoldingFilterFactory" />
-        <filter class="solr.LowerCaseFilterFactory" />
+        <filter class="solr.ICUFoldingFilterFactory"/>
       </analyzer>
-    </fieldType>
-
-    <fieldType name="reverse_number" class="solr.TextField" sortMissingLast="true" omitNorms="true">
-      <analyzer type="index">
-        <tokenizer class="solr.KeywordTokenizerFactory"/>
-        <filter class="solr.PatternReplaceFilterFactory" pattern="^(\d+\-?\d*)$" replacement="$1!$1"/>
-        <filter class="solr.PatternReplaceFilterFactory" pattern="9(?=.*!)" replacement="a"/>
-        <filter class="solr.PatternReplaceFilterFactory" pattern="8(?=.*!)" replacement="b"/>
-        <filter class="solr.PatternReplaceFilterFactory" pattern="7(?=.*!)" replacement="c"/>
-        <filter class="solr.PatternReplaceFilterFactory" pattern="6(?=.*!)" replacement="d"/>
-        <filter class="solr.PatternReplaceFilterFactory" pattern="5(?=.*!)" replacement="e"/>
-        <filter class="solr.PatternReplaceFilterFactory" pattern="4(?=.*!)" replacement="f"/>
-        <filter class="solr.PatternReplaceFilterFactory" pattern="3(?=.*!)" replacement="g"/>
-        <filter class="solr.PatternReplaceFilterFactory" pattern="2(?=.*!)" replacement="h"/>
-        <filter class="solr.PatternReplaceFilterFactory" pattern="1(?=.*!)" replacement="i"/>
-        <filter class="solr.PatternReplaceFilterFactory" pattern="0(?=.*!)" replacement="j"/>
-      </analyzer>
-    <analyzer type="query">
-        <tokenizer class="solr.KeywordTokenizerFactory"/>
-    </analyzer>
     </fieldType>
   </types>
 
   <fields>
-    <!-- REVISED SCHEMA ###################################################################################
-         Fields in this section have been fully implemented.
-
-         To implement a field:
-            - Add it below.
-            - Add a line to alpha-solrmarc-02_index.properties defining how to derive it.
-            - If it's a calculated field (not straight from MARC):
-                - Add it to sierra2marc_alpha_solrmarc_02.py, and
-                - Add relevant tests for it.
+    <!-- SCHEMA FIELDS ###################################################################################
+         To implement a new field:
+            - Add it, below.
             - Make sure it's represented in solr_test_profiles.py.
-            - Update the solrconfig.xml file so that it uses the new field:
+            - If needed, update the solrconfig.xml file so that it uses the new field:
                 - For fields that display in search results, add to "catalog-search" request
                   handler, `fl` parameter.
-            - Move the field from the OLD FIELDS: TO-DO section to OLD FIELDS: DONE.
+            - Add the needed processes to populate the field to sierra2marc.py.
+            - Add relevant tests for it.
 
-         After implementing a field, run tests:
-            - django/sierra/blacklight/tests/test_exporters_alpha_solrmarc_02.py
-            - django/sierra/blacklight/tests/test_sierra2marc_alpha_solrmarc_02.py
-
-         For now bl-suggest tests have been disabled. Once schema updates are complete, we'll go back and
-         revise how we're deriving bl-suggest headings.
+         After implementing a field, run tests.
     -->
     
     <!-- META-INFORMATION ================================================================================= -->
-    <field name="id" type="string" indexed="true" stored="true" required="true" multiValued="false"/>
-    <field name="timestamp_of_last_solr_update" type="date" indexed="true" stored="true" default="NOW" multiValued="false"/>
+    <field name="id" type="string" indexed="true" stored="true" required="true" multiValued="false" docValues="true"/>
+    <field name="timestamp_of_last_solr_update" type="date" indexed="true" stored="true" default="NOW" multiValued="false" docValues="true"/>
     <field name="suppressed" type="boolean" indexed="true" stored="true" multiValued="false"/>
-    <field name="date_added" type="date" indexed="true" stored="true" multiValued="false"/>
+    <field name="date_added" type="date" indexed="true" stored="true" multiValued="false" docValues="true"/>
     <field name="_version_" type="long" indexed="true" stored="true"/>
-    <field name="resource_type" type="string" indexed="true" stored="true" required="true" multiValued="false"/>
+    <field name="resource_type" type="string" indexed="true" stored="true" multiValued="false" docValues="true"/>
 
     <!-- DISPLAY-ONLY FIELDS ============================================================================== -->
     <!-- Attached Items -->
@@ -253,39 +272,43 @@
     <field name="related_work_titles_json" type="string" indexed="false" stored="true" multiValued="true"/>
     <field name="related_series_titles_json" type="string" indexed="false" stored="true" multiValued="true"/>
     <field name="variant_titles_notes" type="string" indexed="false" stored="true" multiValued="true"/>
+    <!-- Edition -->
+    <field name="editions_display" type="string" indexed="false" stored="true" multiValued="true"/>
     <!-- Subjects / Genres -->
     <field name="subject_headings_json" type="string" indexed="false" stored="true" multiValued="true"/>
     <field name="genre_headings_json" type="string" indexed="false" stored="true" multiValued="true"/>
+    <!-- Linking Fields -->
+    <field name="serial_continuity_linking_json" type="string" indexed="false" stored="true" multiValued="true"/>
+    <field name="related_resources_linking_json" type="string" indexed="false" stored="true" multiValued="true"/>
+    <!-- Serial Holdings -->
+    <field name="library_has_display" type="string" indexed="false" stored="true" multiValued="true"/>
 
     <!-- SORT FIELDS ====================================================================================== -->
-    <field name="publication_sort" type="string" indexed="true" stored="false" multiValued="false"/>
+    <field name="publication_sort" type="string" indexed="true" stored="false" multiValued="false" docValues="true"/>
     <field name="author_sort" type="norm_string" indexed="true" stored="false" multiValued="false"/>
-    <field name="title_sort" type="string" indexed="true" stored="false" multiValued="false"/>
+    <field name="title_sort" type="string" indexed="true" stored="false" multiValued="false" docValues="true"/>
 
     <!-- FACET FIELDS ===================================================================================== -->
-    <field name="publication_decade_facet" type="reverse_number" indexed="true" stored="false" multiValued="true"/>
-    <field name="publication_year_facet" type="reverse_number" indexed="true" stored="false" multiValued="true"/>
-    <field name="publication_year_range_facet" type="string" indexed="true" stored="true" multiValued="true"/>
-    <copyField source="publication_year_facet" dest="publication_year_range_facet"/>
-    <field name="access_facet" type="string" indexed="true" stored="false" multiValued="true"/>
-    <field name="building_facet" type="string" indexed="true" stored="false" multiValued="true"/>
-    <field name="shelf_facet" type="string" indexed="true" stored="false" multiValued="true"/>
-    <field name="collection_facet" type="string" indexed="true" stored="false" multiValued="true"/>
-    <field name="resource_type_facet" type="string" indexed="true" stored="false" multiValued="true"/>
-    <field name="media_type_facet" type="string" indexed="true" stored="false" multiValued="true"/>
-    <field name="languages" type="string" indexed="true" stored="true" multiValued="true"/>
-    <field name="author_contributor_facet" type="string" indexed="true" stored="false" multiValued="true"/>
-    <field name="meeting_facet" type="string" indexed="true" stored="false" multiValued="true"/>
-    <field name="title_series_facet" type="string" indexed="true" stored="false" multiValued="true"/>
-    <field name="games_ages_facet" type="string" indexed="true" stored="false" multiValued="true" />
-    <field name="games_duration_facet" type="string" indexed="true" stored="false" multiValued="true" />
-    <field name="games_players_facet" type="string" indexed="true" stored="false" multiValued="true" />
-    <field name="subject_heading_facet" type="string" indexed="true" stored="false" multiValued="true" />
-    <field name="genre_heading_facet" type="string" indexed="true" stored="false" multiValued="true" />
-    <field name="topic_facet" type="string" indexed="true" stored="false" multiValued="true" />
-    <field name="era_facet" type="string" indexed="true" stored="false" multiValued="true" />
-    <field name="region_facet" type="string" indexed="true" stored="false" multiValued="true" />
-    <field name="genre_facet" type="string" indexed="true" stored="false" multiValued="true" />
+    <field name="publication_year_range_facet" type="integer" indexed="true" stored="true" multiValued="true" docValues="true"/>
+    <field name="access_facet" type="string" indexed="true" stored="false" multiValued="true" docValues="true"/>
+    <field name="building_facet" type="string" indexed="true" stored="false" multiValued="true" docValues="true"/>
+    <field name="shelf_facet" type="string" indexed="true" stored="false" multiValued="true" docValues="true"/>
+    <field name="collection_facet" type="string" indexed="true" stored="false" multiValued="true" docValues="true"/>
+    <field name="resource_type_facet" type="string" indexed="true" stored="false" multiValued="true" docValues="true"/>
+    <field name="media_type_facet" type="string" indexed="true" stored="false" multiValued="true" docValues="true"/>
+    <field name="languages" type="string" indexed="true" stored="true" multiValued="true" docValues="true"/>
+    <field name="author_contributor_facet" type="string" indexed="true" stored="false" multiValued="true" docValues="true"/>
+    <field name="meeting_facet" type="string" indexed="true" stored="false" multiValued="true" docValues="true"/>
+    <field name="title_series_facet" type="string" indexed="true" stored="false" multiValued="true" docValues="true"/>
+    <field name="games_ages_facet" type="string" indexed="true" stored="false" multiValued="true" docValues="true"/>
+    <field name="games_duration_facet" type="string" indexed="true" stored="false" multiValued="true" docValues="true"/>
+    <field name="games_players_facet" type="string" indexed="true" stored="false" multiValued="true" docValues="true"/>
+    <field name="subject_heading_facet" type="string" indexed="true" stored="false" multiValued="true" docValues="true"/>
+    <field name="genre_heading_facet" type="string" indexed="true" stored="false" multiValued="true" docValues="true"/>
+    <field name="topic_facet" type="string" indexed="true" stored="false" multiValued="true" docValues="true"/>
+    <field name="era_facet" type="string" indexed="true" stored="false" multiValued="true" docValues="true"/>
+    <field name="region_facet" type="string" indexed="true" stored="false" multiValued="true" docValues="true"/>
+    <field name="genre_facet" type="string" indexed="true" stored="false" multiValued="true" docValues="true"/>
 
     <!-- For future use, for CN / browse-the-shelf type features -->
     <!-- <field name="call_numbers_facet" type="string" indexed="true" stored="false" multiValued="true"/> -->
@@ -320,12 +343,16 @@
     <field name="related_series_titles_search" type="text" indexed="true" stored="false" multiValued="true"/>
     <field name="variant_titles_search" type="text" indexed="true" stored="false" multiValued="true"/>
 
+    <!-- Edition -->
+    <field name="editions_search" type="text" indexed="true" stored="false" multiValued="true"/>
+
     <!-- Description and Notes -->
     <field name="toc_notes" type="stem_text" indexed="true" stored="true" multiValued="true"/>
     <field name="summary_notes" type="string" indexed="false" stored="true" multiValued="true"/>
 
     <field name="current_publication_frequency" type="string" indexed="false" stored="true" multiValued="true"/>
     <field name="former_publication_frequency" type="string" indexed="false" stored="true" multiValued="true"/>
+    <field name="arrangement_of_materials" type="string" indexed="false" stored="true" multiValued="true"/>
     <field name="physical_description" type="string" indexed="false" stored="true" multiValued="true"/>
     <field name="physical_medium" type="string" indexed="false" stored="true" multiValued="true"/>
     <field name="geospatial_data" type="string" indexed="false" stored="true" multiValued="true"/>
@@ -339,6 +366,10 @@
     <field name="performers" type="string" indexed="false" stored="true" multiValued="true"/>
     <field name="language_notes" type="string" indexed="false" stored="true" multiValued="true"/>
     <field name="dissertation_notes" type="string" indexed="false" stored="true" multiValued="true"/>
+    <field name="audience" type="string" indexed="false" stored="true" multiValued="true"/>
+    <field name="creator_demographics" type="string" indexed="false" stored="true" multiValued="true"/>
+    <field name="curriculum_objectives" type="string" indexed="false" stored="true" multiValued="true"/>
+    <field name="system_details" type="string" indexed="false" stored="true" multiValued="true"/>
     <field name="notes" type="string" indexed="false" stored="true" multiValued="true"/>
 
     <!-- Subjects / Genres -->
@@ -367,144 +398,16 @@
     <copyField source="resource_type_facet" dest="type_format_search"/>
     <copyField source="media_type_facet" dest="type_format_search"/>
     <copyField source="languages" dest="type_format_search"/>
-    <copyField source="physical_description" dest="type_format_search"/>
-    <copyField source="physical_medium" dest="type_format_search"/>
-    <copyField source="geospatial_data" dest="type_format_search"/>
-    <copyField source="audio_characteristics" dest="type_format_search"/>
-    <copyField source="projection_characteristics" dest="type_format_search"/>
-    <copyField source="video_characteristics" dest="type_format_search"/>
-    <copyField source="digital_file_characteristics" dest="type_format_search"/>
-    <copyField source="graphic_representation" dest="type_format_search"/>
-    <copyField source="performance_medium" dest="type_format_search"/>
-
-    <copyField source="production_credits" dest="responsibility_search"/>
-    <copyField source="performers" dest="responsibility_search"/>
 
     <field name="notes_search" type="stem_text" indexed="true" stored="false" multiValued="true"/>
-    <copyField source="summary_notes" dest="notes_search"/>
-    <copyField source="language_notes" dest="notes_search"/>
-    <copyField source="dissertation_notes" dest="notes_search"/>
-    <copyField source="notes" dest="notes_search"/>
     <copyField source="publication_date_notes" dest="notes_search"/>
     <copyField source="variant_titles_notes" dest="notes_search"/>
 
     <!-- "Boost" field(s) -->
-    <field name="record_boost" type="integer" indexed="true" stored="true" multiValued="false" />
+    <field name="record_boost" type="integer" indexed="true" stored="true" multiValued="false" docValues="true" />
 
-
-    <!-- OLD FIELDS: DONE #################################################################################
-         Fields in this section have been re-implemented in the new schema and have one or more
-         counterparts in the REVISED SCHEMA section, above.
-
-         Some fields below are commented out and some are not. Fields that are not needed or have a
-         duplicate name in the section above have been commented out. Fields that may still be used in the
-         Blacklight UI will remain active until they are removed from the UI, at which point I will comment
-         them out.
-    -->
-    
-    <!-- <field name="id" type="string" indexed="true" stored="true" required="true" multiValued="false" /> -->
-    <!-- <field name="item_ids" type="slong" indexed="true" stored="true" multiValued="true"/> -->
-    <!-- <field name="item_record_numbers" type="string" indexed="true" stored="true" multiValued="true"/> -->
-    <!-- <field name="timestamp" type="date" indexed="true" stored="true" default="NOW" multiValued="false"/> -->
-    <!-- <field name="text" type="text" indexed="true" stored="false" multiValued="true"/> -->
-    <!-- <field name="suppressed" type="boolean" indexed="true" stored="true" multiValued="false" /> -->
-    <!-- <field name="_version_" type="long" indexed="true" stored="true"/> -->
-    <!-- <field name="urls" type="string" indexed="false" stored="true" multiValued="true"/> -->
-    <!-- <field name="url_labels" type="string" indexed="false" stored="true" multiValued="true"/> -->
-    <!-- <field name="publication_dates_facet" type="string" indexed="true" stored="true" multiValued="true" /> -->
-    <!-- <field name="imprints" type="text" indexed="true" stored="true" multiValued="true"/> -->
-    <!-- <field name="publication_country" type="text" indexed="true" stored="true" multiValued="false"/> -->
-    <!-- <field name="publication_places" type="text" indexed="true" stored="true" multiValued="true"/> -->
-    <!-- <field name="publishers" type="text" indexed="true" stored="true" multiValued="true"/> -->
-    <!-- <field name="publication_dates" type="text" indexed="true" stored="true" multiValued="true"/> -->
-    <!-- <field name="bib_location_codes" type="string" indexed="true" stored="true" multiValued="true"/> -->
-    <!-- <field name="item_location_codes" type="string" indexed="true" stored="true" multiValued="true"/> -->
-    <!-- <field name="material_type" type="string" indexed="true" stored="true" multiValued="false" /> -->
-    <field name="author_title_search" type="text" indexed="true" stored="true" multiValued="true"/>
-    <field name="creator" type="text" indexed="true" stored="true" multiValued="false"/>
-    <field name="contributors" type="text" indexed="true" stored="true" multiValued="true"/>
-    <field name="series_creators" type="text" indexed="true" stored="true" multiValued="true"/>
-    <field name="people" type="text" indexed="true" stored="true" multiValued="true"/>
-    <field name="corporations" type="text" indexed="true" stored="true" multiValued="true"/>
-    <field name="meetings" type="text" indexed="true" stored="true" multiValued="true"/>
-    <field name="creator_sort" type="norm_string" indexed="true" stored="true"/>
-    <field name="public_author_facet" type="string" indexed="true" stored="false" multiValued="true" />
-    <field name="meetings_facet" type="string" indexed="true" stored="false" multiValued="true" />
-    <field name="physical_characteristics" type="text" indexed="true" stored="true" multiValued="true" />
-    <field name="context_notes" type="text" indexed="true" stored="true" multiValued="true" />
-    <!-- <field name="title_sort" type="string" indexed="true" stored="true"/> -->
-    <field name="full_title" type="text" indexed="true" stored="true" multiValued="false"/>
-    <field name="main_title" type="text" indexed="true" stored="true" multiValued="false"/>
-    <field name="subtitle" type="text" indexed="true" stored="true" multiValued="false"/>
-    <field name="statement_of_responsibility" type="text" indexed="true" stored="true" multiValued="false"/>
-    <field name="uniform_title" type="text" indexed="true" stored="true" multiValued="false"/>
-    <field name="alternate_titles" type="text" indexed="true" stored="true" multiValued="true"/>
-    <field name="related_titles" type="text" indexed="true" stored="true" multiValued="true"/>
-    <field name="series" type="text" indexed="true" stored="true" multiValued="true"/>
-    <field name="series_exact" type="text" indexed="true" stored="true" multiValued="true"/>
-    <field name="public_title_facet" type="string" indexed="true" stored="false" multiValued="true" />
-    <field name="public_series_facet" type="string" indexed="true" stored="false" multiValued="true" />
-    <field name="main_call_number" type="string" indexed="true" stored="true" multiValued="false" />
-    <field name="main_call_number_sort" type="string" indexed="true" stored="true" multiValued="false" />
-    <field name="loc_call_numbers" type="string" indexed="true" stored="true" multiValued="true" />
-    <field name="dewey_call_numbers" type="string" indexed="true" stored="true" multiValued="true" />
-    <field name="sudoc_numbers" type="string" indexed="true" stored="true" multiValued="true" />
-    <field name="other_call_numbers" type="string" indexed="true" stored="true" multiValued="true" />
-    <!--<field name="call_numbers_search" type="string" indexed="true" stored="false" multiValued="true" />-->
-    <!--<field name="isbn_numbers" type="string" indexed="true" stored="true" multiValued="true" />-->
-    <!--<field name="issn_numbers" type="string" indexed="true" stored="true" multiValued="true" />-->
-    <!--<field name="lccn_number" type="string" indexed="true" stored="true" />-->
-    <!--<field name="oclc_numbers" type="string" indexed="true" stored="true" multiValued="true" />-->
-    <field name="game_facet" type="string" indexed="true" stored="true" multiValued="true" />
-    <field name="full_subjects" type="text" indexed="true" stored="true" multiValued="true"/>
-    <field name="topic_terms" type="text" indexed="true" stored="true" multiValued="true"/>
-    <field name="general_terms" type="text" indexed="true" stored="true" multiValued="true"/>
-    <field name="genre_terms" type="text" indexed="true" stored="true" multiValued="true"/>
-    <field name="geographic_terms" type="text" indexed="true" stored="true" multiValued="true"/>
-    <field name="era_terms" type="text" indexed="true" stored="true" multiValued="true"/>
-    <field name="form_terms" type="text" indexed="true" stored="true" multiValued="true"/>
-    <field name="other_terms" type="text" indexed="true" stored="true" multiValued="true"/>
-    <field name="public_subject_facet" type="string" indexed="true" stored="false" multiValued="true" />
-    <field name="geographic_terms_facet" type="string" indexed="true" stored="false" multiValued="true" />
-    <field name="era_terms_facet" type="string" indexed="true" stored="false" multiValued="true" />
-    <field name="public_genre_facet" type="string" indexed="true" stored="false" multiValued="true" />
-
-
-    <!-- These fields aren't being used anyway so I am removing them. -->
-    <!-- <field name="people_facet" type="string" indexed="true" stored="true" multiValued="true" docValues="true" /> -->
-    <!-- <field name="corporations_facet" type="string" indexed="true" stored="true" multiValued="true" docValues="true" /> -->
-    <!-- <field name="topic_terms_facet" type="string" indexed="true" stored="true" multiValued="true" docValues="true" /> -->
-    <!-- <field name="general_terms_facet" type="string" indexed="true" stored="true" multiValued="true" docValues="true" /> -->
-    <!-- <field name="genre_terms_facet" type="string" indexed="true" stored="true" multiValued="true" docValues="true" /> -->
-    <!-- <field name="form_terms_facet" type="string" indexed="true" stored="true" multiValued="true" docValues="true" /> -->
-    <!-- <field name="formats" type="string" indexed="true" stored="true" multiValued="true"/> -->
-
-    <!-- OLD FIELDS: TO-DO ################################################################################
-         Everything below has yet to be looked at and added to the schema revisions.
-    -->
-    
-    <!-- Commenting out other/default dynamic fields, just to simplify things.
-    <dynamicField name="*_i"  type="sint"    indexed="true"  stored="true"/>
-    <dynamicField name="*_s"  type="string"  indexed="true"  stored="true" multiValued="true"/>
-    <dynamicField name="*_l"  type="slong"   indexed="true"  stored="true"/>
-    <dynamicField name="*_t"  type="text"    indexed="true"  stored="false" multiValued="true"/>
-    <dynamicField name="*_b"  type="boolean" indexed="true"  stored="true"/>
-    <dynamicField name="*_f"  type="sfloat"  indexed="true"  stored="true"/>
-    <dynamicField name="*_d"  type="sdouble" indexed="true"  stored="true"/>
-    <dynamicField name="*_dt" type="date"    indexed="true"  stored="true"/>
-    <dynamicField name="random*" type="random" />
-
-    <dynamicField name="*_facet" type="string" indexed="true" stored="true" multiValued="true" />
-    <dynamicField name="*_display" type="string" indexed="false" stored="true" multiValued="true" />
-    <dynamicField name="*_search" type="string" indexed="true" stored="false" multiValued="true" />
-    <dynamicField name="*_sort" type="norm_string" indexed="true" stored="false"/>
-    <dynamicField name="*spell" type="spell_text" indexed="true" stored="false" multiValued="true"/>
-    -->
-    
   </fields>
 
   <uniqueKey>id</uniqueKey>
-  <defaultSearchField>text</defaultSearchField>
-  <solrQueryParser defaultOperator="OR"/>
 
 </schema>
