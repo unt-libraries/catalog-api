@@ -225,7 +225,7 @@
     <field name="timestamp_of_last_solr_update" type="date" indexed="true" stored="true" default="NOW" multiValued="false" docValues="true"/>
     <field name="suppressed" type="boolean" indexed="true" stored="true" multiValued="false"/>
     <field name="date_added" type="date" indexed="true" stored="true" multiValued="false" docValues="true"/>
-    <field name="_version_" type="long" indexed="true" stored="true"/>
+    <field name="_version_" type="long" indexed="true" stored="true" docValues="true"/>
     <field name="resource_type" type="string" indexed="true" stored="true" multiValued="false" docValues="true"/>
 
     <!-- DISPLAY-ONLY FIELDS ============================================================================== -->
