@@ -105,55 +105,55 @@
     <dynamicField name="*_dt" type="date" indexed="true" stored="true"/>
 
     <field name="text" type="stem_text" indexed="true" stored="true" multiValued="false" />
-    <field name="code" type="string" indexed="true" stored="true" multiValued="false" docValues="true" />
-    <field name="type" type="string" indexed="true" stored="true" multiValued="false" docValues="true" />
-    <field name="label" type="string" indexed="true" stored="true" multiValued="false" docValues="true" />
-    <field name="call_number_type" type="string" indexed="true" stored="true" multiValued="false" docValues="true" />
-    <field name="local_code1" type="long" indexed="true" stored="true" multiValued="false" docValues="true" />
-    <field name="record_revision_number" type="long" indexed="true" stored="true" multiValued="false" docValues="true" />
-    <field name="parent_bib_record_number" type="string" indexed="true" stored="true" multiValued="false" docValues="true" />
+    <field name="code" type="string" indexed="true" stored="true" multiValued="false" docValues="true"/>
+    <field name="type" type="string" indexed="true" stored="true" multiValued="false" docValues="true"/>
+    <field name="label" type="string" indexed="true" stored="true" multiValued="false" docValues="true"/>
+    <field name="call_number_type" type="string" indexed="true" stored="true" multiValued="false" docValues="true"/>
+    <field name="local_code1" type="long" indexed="true" stored="true" multiValued="false" />
+    <field name="record_revision_number" type="long" indexed="true" stored="true" multiValued="false" />
+    <field name="parent_bib_record_number" type="string" indexed="true" stored="true" multiValued="false" docValues="true"/>
     <field name="internal_notes" type="stem_text" indexed="true" stored="true" multiValued="true" />
-    <field name="volume_sort" type="string" indexed="true" stored="true" multiValued="false" docValues="true" />
-    <field name="shelf_status" type="string" indexed="true" stored="true" multiValued="false" docValues="true" />
-    <field name="total_renewal_count" type="long" indexed="true" stored="true" multiValued="false" docValues="true" />
-    <field name="parent_bib_id" type="long" indexed="true" stored="true" multiValued="false" docValues="true" />
-    <field name="id" type="long" indexed="true" stored="true" multiValued="false" docValues="true" />
+    <field name="volume_sort" type="string" indexed="true" stored="true" multiValued="false" docValues="true"/>
+    <field name="shelf_status" type="string" indexed="true" stored="true" multiValued="false" />
+    <field name="total_renewal_count" type="long" indexed="true" stored="true" multiValued="false" />
+    <field name="parent_bib_id" type="long" indexed="true" stored="true" multiValued="false" docValues="true"/>
+    <field name="id" type="long" indexed="true" stored="true" multiValued="false" docValues="true"/>
     <field name="inventory_notes" type="string" indexed="true" stored="true" multiValued="true" />
-    <field name="call_number" type="string" indexed="true" stored="true" multiValued="false" />
+    <field name="call_number" type="string" indexed="true" stored="true" multiValued="false" docValues="true"/>
     <field name="long_messages" type="stem_text" indexed="true" stored="true" multiValued="true" />
-    <field name="call_number_sort" type="string" indexed="true" stored="true" multiValued="false" docValues="true" />
+    <field name="call_number_sort" type="string" indexed="true" stored="true" multiValued="false" docValues="true"/>
     <field name="parent_bib_main_author" type="text" indexed="true" stored="true" multiValued="false" />
-    <field name="record_last_updated_date" type="date" indexed="true" stored="true" multiValued="false" docValues="true" />
-    <field name="location_code" type="string" indexed="true" stored="true" multiValued="false" docValues="true" />
+    <field name="record_last_updated_date" type="date" indexed="true" stored="true" multiValued="false" docValues="true"/>
+    <field name="location_code" type="string" indexed="true" stored="true" multiValued="false" docValues="true"/>
     <field name="public_notes" type="stem_text" indexed="true" stored="true" multiValued="true" />
     <field name="_version_" type="long" indexed="true" stored="true" multiValued="false" docValues="true" />
-    <field name="checkout_date" type="date" indexed="true" stored="true" multiValued="false" docValues="true" />
+    <field name="checkout_date" type="date" indexed="true" stored="true" multiValued="false" docValues="true"/>
     <field name="price" type="string" indexed="true" stored="true" multiValued="false" />
-    <field name="due_date" type="date" indexed="true" stored="true" multiValued="false" docValues="true" />
+    <field name="due_date" type="date" indexed="true" stored="true" multiValued="false" docValues="true"/>
     <field name="parent_bib_publication_year" type="long" indexed="true" stored="true" multiValued="false" />
-    <field name="copy_use_count" type="long" indexed="true" stored="true" multiValued="false" docValues="true" />
+    <field name="copy_use_count" type="long" indexed="true" stored="true" multiValued="false" />
     <field name="copy_number" type="long" indexed="true" stored="true" multiValued="false" docValues="true"/>
-    <field name="barcode" type="string" indexed="true" stored="true" multiValued="false" docValues="true" />
-    <field name="last_checkin_date" type="date" indexed="true" stored="true" multiValued="false" docValues="true" />
+    <field name="barcode" type="string" indexed="true" stored="true" multiValued="false" docValues="true"/>
+    <field name="last_checkin_date" type="date" indexed="true" stored="true" multiValued="false" docValues="true"/>
     <field name="iuse3_count" type="long" indexed="true" stored="true" multiValued="false" />
-    <field name="item_type_code" type="string" indexed="true" stored="true" multiValued="false" docValues="true" />
-    <field name="record_number" type="string" indexed="true" stored="true" multiValued="false" docValues="true" />
-    <field name="suppressed" type="boolean" indexed="true" stored="true" multiValued="false" docValues="true" />
-    <field name="overdue_date" type="date" indexed="true" stored="true" multiValued="false" docValues="true" />
-    <field name="volume" type="text" indexed="true" stored="true" multiValued="false" />
-    <field name="status_code" type="string" indexed="true" stored="true" multiValued="false" docValues="true" />
-    <field name="total_checkout_count" type="long" indexed="true" stored="true" multiValued="false" docValues="true" />
-    <field name="last_year_to_date_checkout_count" type="long" indexed="true" stored="true" multiValued="false" docValues="true" />
-    <field name="internal_use_count" type="long" indexed="true" stored="true" multiValued="false" docValues="true" />
-    <field name="record_creation_date" type="date" indexed="true" stored="true" multiValued="false" docValues="true" />
-    <field name="number_of_renewals" type="long" indexed="true" stored="true" multiValued="false" docValues="true" />
-    <field name="recall_date" type="date" indexed="true" stored="true" multiValued="false" docValues="true" />
-    <field name="call_number_search" type="string" indexed="true" stored="true" multiValued="false" docValues="true" />
-    <field name="flags" type="string" indexed="true" stored="true" multiValued="true" docValues="true" />
-    <field name="inventory_date" type="date" indexed="true" stored="true" multiValued="false" docValues="true" />
-    <field name="year_to_date_checkout_count" type="long" indexed="true" stored="true" multiValued="false" docValues="true" />
+    <field name="item_type_code" type="string" indexed="true" stored="true" multiValued="false" docValues="true"/>
+    <field name="record_number" type="string" indexed="true" stored="true" multiValued="false" docValues="true"/>
+    <field name="suppressed" type="boolean" indexed="true" stored="true" multiValued="false" docValues="true"/>
+    <field name="overdue_date" type="date" indexed="true" stored="true" multiValued="false" docValues="true"/>
+    <field name="volume" type="text" indexed="true" stored="true" multiValued="false"/>
+    <field name="status_code" type="string" indexed="true" stored="true" multiValued="false" docValues="true"/>
+    <field name="total_checkout_count" type="long" indexed="true" stored="true" multiValued="false" docValues="true"/>
+    <field name="last_year_to_date_checkout_count" type="long" indexed="true" stored="true" multiValued="false" docValues="true"/>
+    <field name="internal_use_count" type="long" indexed="true" stored="true" multiValued="false" />
+    <field name="record_creation_date" type="date" indexed="true" stored="true" multiValued="false" docValues="true"/>
+    <field name="number_of_renewals" type="long" indexed="true" stored="true" multiValued="false" />
+    <field name="recall_date" type="date" indexed="true" stored="true" multiValued="false" />
+    <field name="call_number_search" type="string" indexed="true" stored="true" multiValued="false" />
+    <field name="flags" type="string" indexed="true" stored="true" multiValued="true" />
+    <field name="inventory_date" type="date" indexed="true" stored="true" multiValued="false" docValues="true"/>
+    <field name="year_to_date_checkout_count" type="long" indexed="true" stored="true" multiValued="false" docValues="true"/>
     <field name="parent_bib_title" type="text" indexed="true" stored="true" multiValued="false" />
-    <field name="eresource_type" type="string" indexed="true" stored="true" multiValued="false" docValues="true" />
+    <field name="eresource_type" type="string" indexed="true" stored="true" multiValued="false" docValues="true"/>
     <field name="publisher" type="text" indexed="true" stored="true" multiValued="false" />
     <field name="title" type="text" indexed="true" stored="true" multiValued="false" />
     <field name="alternate_titles" type="text" indexed="true" stored="true" multiValued="true" />

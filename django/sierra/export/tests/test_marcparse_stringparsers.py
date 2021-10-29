@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 """
-Tests the blacklight.parsers functions.
+Tests the export.marcparse.stringparsers functions.
 """
 from __future__ import absolute_import
 from __future__ import print_function
@@ -10,7 +10,7 @@ from __future__ import unicode_literals
 import re
 
 import pytest
-from blacklight import parsers
+from export.marcparse import stringparsers as sp
 
 
 # FIXTURES AND TEST DATA
@@ -45,7 +45,7 @@ def test_has_comma_in_middle(data, expected):
     `has_comma_in_middle` should return True if the given string has a
     comma separating two or more words.
     """
-    assert parsers.has_comma_in_middle(data) == expected
+    assert sp.has_comma_in_middle(data) == expected
 
 
 @pytest.mark.parametrize('data, expected', [
@@ -61,7 +61,7 @@ def test_normalize_whitespace(data, expected):
     `normalize_whitespace` should consolidate whitespace throughout the
     input data string.
     """
-    assert parsers.normalize_whitespace(data) == expected
+    assert sp.normalize_whitespace(data) == expected
 
 
 @pytest.mark.parametrize('data, replace_with_space, norm_space, expected', [
@@ -85,7 +85,7 @@ def test_strip_all_punctuation(data, replace_with_space, norm_space, expected):
     `strip_all_punctuation` should strip all punctuation from the input
     data string, replacing with white space (or not) as directed.
     """
-    result = parsers.strip_all_punctuation(
+    result = sp.strip_all_punctuation(
         data, replace_with_space, norm_space)
     assert result == expected
 
@@ -100,7 +100,7 @@ def test_compress_punctuation(data, expected):
     `compress_punctuation` should remove whitespace to the immediate
     left of certain punctuation marks.
     """
-    assert parsers.compress_punctuation(data) == expected
+    assert sp.compress_punctuation(data) == expected
 
 
 @pytest.mark.parametrize('data, expected', [
@@ -128,7 +128,7 @@ def test_normalize_punctuation_periods_need_protection(data, expected):
     assumes that periods need protection, i.e. `periods_protected` is
     False, which is the default.
     """
-    assert parsers.normalize_punctuation(data, False) == expected
+    assert sp.normalize_punctuation(data, False) == expected
 
 
 @pytest.mark.parametrize('data, expected', [
@@ -144,7 +144,7 @@ def test_normalize_punctuation_periods_do_not_need_protection(data, expected):
     assumes that periods do not need protection, i.e.
     `periods_protected` is True.
     """
-    assert parsers.normalize_punctuation(data, True) == expected
+    assert sp.normalize_punctuation(data, True) == expected
 
 
 @pytest.mark.parametrize('data, keep_inner, to_keep_re, to_remove_re, to_protect_re, expected', [
@@ -202,7 +202,7 @@ def test_strip_brackets(data, keep_inner, to_keep_re,
     `strip_brackets` should correctly strip square brackets based on
     the provided keep/remove/protect arguments.
     """
-    assert parsers.strip_brackets(
+    assert sp.strip_brackets(
         data, keep_inner, to_keep_re, to_remove_re, to_protect_re) == expected
 
 
@@ -252,7 +252,7 @@ def test_protect_periods_and_do(data, expected, pp_do):
     In this case, the pp_do fixture strips all periods. So protected
     (i.e. non-structural) periods should not be stripped.
     """
-    assert parsers.protect_periods_and_do(data, pp_do) == expected
+    assert sp.protect_periods_and_do(data, pp_do) == expected
 
 
 @pytest.mark.parametrize('data, gr_on_mm, brackets, expected', [
@@ -282,7 +282,7 @@ def test_deconstruct_bracketed(data, gr_on_mm, brackets, expected):
     `openchar` and `closechar` values.
     """
     oc, cc = brackets
-    assert parsers.deconstruct_bracketed(data, gr_on_mm, oc, cc) == expected
+    assert sp.deconstruct_bracketed(data, gr_on_mm, oc, cc) == expected
 
 
 @pytest.mark.parametrize('data, brackets, stripchars, expected', [
@@ -309,7 +309,7 @@ def test_reconstruct_bracketed(data, brackets, stripchars, expected):
     values, and `stripchars` values.
     """
     oc, cc = brackets
-    assert parsers.reconstruct_bracketed(data, oc, cc, stripchars) == expected
+    assert sp.reconstruct_bracketed(data, oc, cc, stripchars) == expected
 
 
 @pytest.mark.parametrize('data, expected', [
@@ -348,7 +348,7 @@ def test_strip_ends_periods_need_protection(data, expected):
     periods need to be protected, i.e. `periods_protected` is False,
     which is the default.
     """
-    assert parsers.strip_ends(data, False) == expected
+    assert sp.strip_ends(data, False) == expected
 
 
 @pytest.mark.parametrize('data, expected', [
@@ -362,7 +362,7 @@ def test_strip_ends_periods_do_not_need_protection(data, expected):
     periods do not need to be protected, i.e. `periods_protected` is
     True
     """
-    assert parsers.strip_ends(data, True) == expected
+    assert sp.strip_ends(data, True) == expected
 
 
 @pytest.mark.parametrize('data, end, expected', [
@@ -374,7 +374,7 @@ def test_strip_ends_left_or_right(data, end, expected):
     `strip_ends` should correctly strip whitespace and puncutation from
     one end or the other based on the value of `end`.
     """
-    assert parsers.strip_ends(data, end=end) == expected
+    assert sp.strip_ends(data, end=end) == expected
 
 
 @pytest.mark.parametrize('data, strip_mismatched, expected', [
@@ -420,7 +420,7 @@ def test_strip_outer_parentheses(data, strip_mismatched, expected):
     on the left/right of the given `data` string, matching the
     `expected` value.
     """
-    assert parsers.strip_outer_parentheses(data, strip_mismatched) == expected
+    assert sp.strip_outer_parentheses(data, strip_mismatched) == expected
 
 
 @pytest.mark.parametrize('data, expected', [
@@ -445,7 +445,7 @@ def test_strip_ellipses(data, expected):
     `strip ellipses` should correctly strip ellipses (...) from the
     input data string.
     """
-    assert parsers.strip_ellipses(data) == expected
+    assert sp.strip_ellipses(data) == expected
 
 
 @pytest.mark.parametrize('data, expected', [
@@ -465,7 +465,7 @@ def test_strip_wemi(data, expected):
     `strip_wemi` should correctly strip any WEMI entities contained in
     parentheses in the given data string.
     """
-    assert parsers.strip_wemi(data) == expected
+    assert sp.strip_wemi(data) == expected
 
 
 @pytest.mark.parametrize('data, expected', [
@@ -479,7 +479,7 @@ def test_clean(data, expected):
     `clean` should strip ending punctuation, brackets, and ellipses and
     normalize whitespace and punctuation.
     """
-    assert parsers.clean(data) == expected
+    assert sp.clean(data) == expected
 
 
 @pytest.mark.parametrize('data, expected', [
@@ -527,7 +527,7 @@ def test_extract_years(data, expected):
     """
     `extract_years` should extract year-strings from the given data.
     """
-    assert sorted(parsers.extract_years(data, 2025)) == sorted(expected)
+    assert sorted(sp.extract_years(data, 2025)) == sorted(expected)
 
 
 @pytest.mark.parametrize('data, expected', [
@@ -544,7 +544,7 @@ def test_strip_unknown_pub(data, expected):
     `strip_unknown_pub` should strip, e.g., [S.l], [s.n.], and [X not
     identified] from the given publisher-related data.
     """
-    assert parsers.strip_unknown_pub(data) == expected
+    assert sp.strip_unknown_pub(data) == expected
 
 
 @pytest.mark.parametrize('data, expected', [
@@ -566,7 +566,7 @@ def test_split_pdate_and_cdate(data, expected):
     `split_pdate_and_cdate` should split a string (e.g. from a 26X$c)
     into the publication date and copyright date.
     """
-    assert parsers.split_pdate_and_cdate(data) == expected
+    assert sp.split_pdate_and_cdate(data) == expected
 
 
 @pytest.mark.parametrize('data, expected', [
@@ -591,7 +591,7 @@ def test_normalize_cr_symbol(data, expected):
     `normalize_cr_symbol` should replace the appropriate patterns in
     the given string with the appropriate copyright symbol.
     """
-    assert parsers.normalize_cr_symbol(data) == expected
+    assert sp.normalize_cr_symbol(data) == expected
 
 
 @pytest.mark.parametrize('data, first_indicator, expected', [
@@ -616,7 +616,7 @@ def test_person_name(data, first_indicator, expected):
     forename, surname, family name, and person_titles.
     """
     exp_forename, exp_surname, exp_family_name = expected
-    name = parsers.person_name(data, first_indicator)
+    name = sp.person_name(data, first_indicator)
     print(name)
     assert name['forename'] == exp_forename
     assert name['surname'] == exp_surname
@@ -669,7 +669,7 @@ def test_person_title(ptitle, expected):
     `prefix`, `particle`, and `full_title` components.
     """
     exp_prefix, exp_particle, exp_full = expected
-    ptitle = parsers.person_title(ptitle)
+    ptitle = sp.person_title(ptitle)
     print(ptitle)
     assert ptitle['prefix'] == exp_prefix
     assert ptitle['particle'] == exp_particle
@@ -710,7 +710,7 @@ def test_truncator_truncate(data, mn, mx, trunc_patterns, trunc_to_punct, exp):
     the given `trunc_patterns` and `trunc_to_punct` args, should return
     the `expected` result, when passed the given `mn` and `mx` args.
     """
-    truncator = parsers.Truncator(trunc_patterns, trunc_to_punct)
+    truncator = sp.Truncator(trunc_patterns, trunc_to_punct)
     assert truncator.truncate(data, mn, mx) == exp
 
 
@@ -725,8 +725,8 @@ def test_truncator_truncate(data, mn, mx, trunc_patterns, trunc_to_punct, exp):
       ['Pierre', 'Jean', 'Jouve']]),
     ('[music by] Rodgers & [words by] Hammerstein',
      [['Rodgers'], ['Hammerstein']]),
-    ('Béla Bartók ; arranged for junior string orchestra by Gábor Darvas',
-     [['Béla', 'Bartók'], ['Gábor', 'Darvas']]),
+    ('Béla Bartók ; arranged for junior string orchestra by Gábor Darvas',
+     [['Béla', 'Bartók'], ['Gábor', 'Darvas']]),
     ('J.S. Bach', [['J', 'S', 'Bach']]),
     ('JS Bach', [['J', 'S', 'Bach']]),
     ('U.S. Navy\'s Military Sealift Command',
@@ -737,7 +737,7 @@ def test_findnamesinstring(data, expected):
     The `find_names_in_string` function should return the expected
     names.
     """
-    assert parsers.find_names_in_string(data) == expected
+    assert sp.find_names_in_string(data) == expected
 
 
 @pytest.mark.parametrize('sor, heading, only_first, expected', [
@@ -753,7 +753,7 @@ def test_sormatchesnameheading(sor, heading, only_first, expected):
     The `sor_matches_name_heading` function should return the expected
     value given the `sor`, `heading`, and `only_first` input values.
     """
-    result = parsers.sor_matches_name_heading(sor, heading, only_first)
+    result = sp.sor_matches_name_heading(sor, heading, only_first)
     assert result == expected
 
 
@@ -771,4 +771,173 @@ def test_shinglecallnum(callnum, expected):
     The `shingle_callnum` function should return the expected list of
     shingles given the `callnum` value.
     """
-    assert parsers.shingle_callnum(callnum) == expected
+    assert sp.shingle_callnum(callnum) == expected
+
+
+@pytest.mark.parametrize('rel_str, from_sf4, expected', [
+    ('', False, []),
+    ('author', False, ['author']),
+    ('illustrator, author', False, ['illustrator', 'author']),
+    ('editor (work), author (work)', False, ['editor', 'author']),
+    ('editor, author', True, []),
+    ('edt, aut', True, []),
+    ('edt', True, ['editor']),
+    ('aut', True, ['author']),
+])
+def test_extractrelatorterms(rel_str, from_sf4, expected):
+    """
+    The `extract_relator_terms` function should return the expected
+    list of relator terms given the `rel_str` and `from_sf4` params.
+    """
+    assert sp.extract_relator_terms(rel_str, from_sf4) == expected
+
+
+@pytest.mark.parametrize('name_str, expected', [
+    ('Author of The diary of a physician, 1807-1877.', {
+        'heading': 'Author of The diary of a physician, 1807-1877',
+        'forename': 'Author of The diary of a physician',
+        'type': 'person'
+    }),
+    ('Claude, d\'Abbeville, pere, d. 1632.', {
+        'heading': 'Claude, d\'Abbeville, pere, d. 1632',
+        'surname': 'Claude',
+        'person_titles': ['d\'Abbeville', 'pere'],
+        'type': 'person'
+    }),
+    ('Dickinson, David K., author.', {
+        'heading': 'Dickinson, David K.',
+        'forename': 'David K.',
+        'surname': 'Dickinson',
+        'relations': ['author'],
+        'type': 'person'
+    }),
+    ('Hecht, Ben, 1893-1964, writing, direction, production.', {
+        'heading': 'Hecht, Ben, 1893-1964',
+        'forename': 'Ben',
+        'surname': 'Hecht',
+        'relations': ['writing', 'direction', 'production'],
+        'type': 'person'
+    }),
+    ('John, the Baptist, Saint.', {
+        'heading': 'John, the Baptist, Saint',
+        'surname': 'John',
+        'person_titles': ['the Baptist', 'Saint'],
+        'type': 'person'
+    }),
+    ('Charles II, Prince of Wales', {
+        'heading': 'Charles II, Prince of Wales',
+        'surname': 'Charles II',
+        'person_titles': ['Prince of Wales'],
+        'type': 'person'
+    }),
+    ('El-Abiad, Ahmed H., 1926-', {
+        'heading': 'El-Abiad, Ahmed H., 1926-',
+        'surname': 'El-Abiad',
+        'forename': 'Ahmed H.',
+        'type': 'person'
+    }),
+    ('Thomas, Aquinas, Saint, 1225?-1274.', {
+        'heading': 'Thomas, Aquinas, Saint, 1225?-1274',
+        'surname': 'Thomas',
+        'forename': 'Aquinas',
+        'person_titles': ['Saint'],
+        'type': 'person'
+    }),
+    ('Levi, James, fl. 1706-1739.', {
+        'heading': 'Levi, James, fl. 1706-1739',
+        'surname': 'Levi',
+        'forename': 'James',
+        'type': 'person'
+    }),
+    ('Joannes Aegidius, Zamorensis, 1240 or 41-ca. 1316.', {
+        'heading': 'Joannes Aegidius, Zamorensis, 1240 or 41-ca. 1316',
+        'surname': 'Joannes Aegidius',
+        'forename': 'Zamorensis',
+        'type': 'person'
+    }),
+    ('Churchill, Winston, Sir, 1874-1965.', {
+        'heading': 'Churchill, Winston, Sir, 1874-1965',
+        'surname': 'Churchill',
+        'forename': 'Winston',
+        'person_titles': ['Sir'],
+        'type': 'person'
+    }),
+    ('Beethoven, Ludwig van, 1770-1827.', {
+        'heading': 'Beethoven, Ludwig van, 1770-1827',
+        'surname': 'Beethoven',
+        'forename': 'Ludwig van',
+        'type': 'person'
+    }),
+    ('H. D. (Hilda Doolittle), 1886-1961.', {
+        'heading': 'H. D. (Hilda Doolittle), 1886-1961',
+        'forename': 'H. D.',
+        'fuller_form_of_name': 'Hilda Doolittle',
+        'type': 'person'
+    }),
+    ('Fowler, T. M. (Thaddeus Mortimer), 1842-1922.', {
+        'heading': 'Fowler, T. M. (Thaddeus Mortimer), 1842-1922',
+        'forename': 'T. M.',
+        'surname': 'Fowler',
+        'fuller_form_of_name': 'Thaddeus Mortimer',
+        'type': 'person'
+    }),
+    ('United States. Congress (97th, 2nd session : 1982). House.', {
+        'heading_parts': [{'name': 'United States'},
+                          {'name': 'Congress',
+                           'qualifier': '97th, 2nd session : 1982'},
+                          {'name': 'House'}],
+        'is_jurisdiction': False,
+        'type': 'organization'
+    }),
+    ('Cyprus (Archdiocese)', {
+        'heading_parts': [{'name': 'Cyprus',
+                           'qualifier': 'Archdiocese'}],
+        'is_jurisdiction': False,
+        'type': 'organization'
+    }),
+    ('United States. President (1981-1989 : Reagan)', {
+        'heading_parts': [{'name': 'United States'},
+                          {'name': 'President',
+                           'qualifier': '1981-1989 : Reagan'}],
+        'is_jurisdiction': False,
+        'type': 'organization'
+    }),
+    ('New York Public Library', {
+        'heading_parts': [{'name': 'New York Public Library'}],
+        'is_jurisdiction': False,
+        'type': 'organization'
+    }),
+    ('International American Conference (8th : 1938 : Lima, Peru). '
+     'Delegation from Mexico.', {
+         'heading_parts': [{'name': 'International American Conference',
+                           'qualifier': '8th : 1938 : Lima, Peru'},
+                           {'name': 'Delegation from Mexico'}],
+         'is_jurisdiction': False,
+         'type': 'organization'
+     }),
+    ('Paris. Peace Conference, 1919.', {
+        'heading_parts': [{'name': 'Paris'},
+                          {'name': 'Peace Conference, 1919'}],
+        'is_jurisdiction': False,
+        'type': 'organization'
+    }),
+    ('Paris Peace Conference (1919-1920)', {
+        'heading_parts': [{'name': 'Paris Peace Conference',
+                           'qualifier': '1919-1920'}],
+        'is_jurisdiction': False,
+        'type': 'organization'
+    }),
+])
+def test_parsenamestring(name_str, expected):
+    """
+    The `parse_name_string` function should return the expected result
+    when given the provided `name_str`.
+    """
+    val = sp.parse_name_string(name_str)
+    for k, v in val.items():
+        print(k, v)
+        if k in expected:
+            assert v == expected[k]
+        else:
+            assert v is None
+

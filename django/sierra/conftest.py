@@ -232,8 +232,7 @@ def solr_profile_definitions(global_solr_conn):
     generating test data via the *_solr_data_factory fixtures.
     """
     hs_conn = global_solr_conn('haystack')
-    bib_conn = global_solr_conn('bibdata')
-    # marc_conn = global_solr_conn('marc')
+    bib_conn = global_solr_conn(settings.BL_CONN_NAME)
     return {
         'location': {
             'conn': hs_conn,
@@ -265,11 +264,6 @@ def solr_profile_definitions(global_solr_conn):
             'user_fields': tp.BIB_FIELDS,
             'field_gens': tp.BIB_GENS
         },
-        # 'marc': {
-        #     'conn': marc_conn,
-        #     'user_fields': tp.MARC_FIELDS,
-        #     'field_gens': tp.MARC_GENS
-        # }
     }
 
 
@@ -594,6 +588,20 @@ def new_exporter(new_export_instance):
 
 
 @pytest.fixture
+def do_commit():
+    """
+    Pytest fixture. Ensures all indexes for all [grand]children run
+    their `commit_indexes` method to commit changes to Solr.
+    """
+    def _do_commit(exporter):
+        if hasattr(exporter, 'commit_indexes'):
+            exporter.commit_indexes()
+        for child in getattr(exporter, 'children', {}).values():
+            _do_commit(child)
+    return _do_commit
+
+
+@pytest.fixture
 def get_records_from_index(solr_conns, solr_search):
     """
     Pytest fixture that returns a test helper function for getting
@@ -629,9 +637,9 @@ def assert_records_are_indexed(get_records_from_index):
             assert record.pk in results
             result = results[record.pk]
             for field in result.keys():
-                schema_field = index.get_schema_field(field)
-                assert schema_field is not None
-                assert schema_field['stored']
+                sch_field = index.get_schema_field(field)
+                assert sch_field is not None
+                assert sch_field.get('stored') or sch_field.get('docValues')
     return _assert_records_are_indexed
 
 

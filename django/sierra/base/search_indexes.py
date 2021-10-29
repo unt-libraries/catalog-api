@@ -1,12 +1,5 @@
 """
 Contains code for Haystack to build search indexes for Sierra API.
-
-IMPORTANT: All Solr indexes should be managed by Haystack EXCEPT any
-SolrMarc indexes. We don't want Haystack indexing documents or even
-generating schemas for our SolrMarc indexes. But we do want to allow
-Haystack to search them. In order to do that, we have to include a
-BibIndex class with the bare minimum attributes to make it a valid
-Haystack SearchIndex class.
 """
 from __future__ import absolute_import
 from __future__ import unicode_literals
@@ -16,7 +9,7 @@ import logging
 
 import ujson
 from django.core.exceptions import ObjectDoesNotExist
-from export import sierra2marc as s2m
+from export import sierramarc, marcparse
 from haystack import indexes, constants, utils, exceptions
 from six import text_type
 from six.moves import range
@@ -203,92 +196,57 @@ class CustomQuerySetIndex(indexes.SearchIndex):
             return self.prepared_data
 
 
-class SolrmarcIndex(CustomQuerySetIndex):
+class BibIndex(CustomQuerySetIndex, indexes.Indexable):
     """
-    Extends `CustomQuerySetIndex` with a few class attributes for the
-    SolrmarcIndexBackend, for indexing data via Solrmarc. See the
-    `sierra.solr_backend.SolrmarcIndexBackend` docstring for more info.
-    """
+    This uses a pipeline outside of Haystack to convert our Sierra
+    BibRecord data first to MARC format and then to a dictionary for
+    indexing in Solr. It bypasses Haystack fields etc.
 
-    s2marc_class = s2m.S2MarcBatch
-    index_properties = None
-    config_file = None
-    temp_filedir = None
-
-
-class BibIndex(SolrmarcIndex, indexes.Indexable):
-    """
-    WARNING: This is a total hack to force Haystack to register our
-    BibRecord model as being indexed by Haystack. This is the only way
-    to get it to search our non-Haystack-managed SolrMarc index(es).
+    Note: This index is used by our Blacklight-based faceted catalog
+    along with the Catalog API `bib` resource.
     """
     text = indexes.CharField(document=True)
-
+    reserved_fields = {
+        'haystack_id': 'id',
+        'django_ct': None,
+        'django_id': None
+    }
+    to_marc_converter = sierramarc.SierraToMarcConverter()
+    from_marc_pipeline = marcparse.BibDataPipeline()
+    
     def get_model(self):
         return sierra_models.BibRecord
 
-
-class MarcIndex(CustomQuerySetIndex, indexes.Indexable):
-    """
-    Class to index MARC in Solr so that it's searchable by field and
-    subfield.
-    """
-    id = indexes.IntegerField()
-    text = indexes.CharField(document=True)
-    record_number = indexes.FacetCharField()
-    leader = indexes.FacetCharField(stored=False)
-    mf_001 = indexes.FacetCharField(stored=False)
-    mf_003 = indexes.FacetCharField(stored=False)
-    mf_005 = indexes.FacetCharField(stored=False)
-    mf_007 = indexes.FacetCharField(stored=False)
-    mf_008 = indexes.FacetCharField(stored=False)
-    json = indexes.FacetCharField()
-
-    def __init__(self, queryset=None, using=None):
-        super(MarcIndex, self).__init__(queryset=queryset, using=using)
-        for mf in range(10, 1000):
-            fname = 'mf_{:03d}'.format(mf)
-            setattr(self, fname, indexes.FacetCharField(stored=False))
-            for sf in ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd',
-                       'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r',
-                       's', 't', 'u', 'v', 'w', 'x', 'y', 'z']:
-                sfname = 'sf_{:03d}{}'.format(mf, sf)
-                setattr(self, sfname, indexes.FacetCharField(stored=False))
-
-    def get_model(self):
-        return sierra_models.BibRecord
-
-    def prepare_id(self, obj):
-        return int(obj.pk)
-
-    def prepare_record_number(self, obj):
-        return obj.record_metadata.get_iii_recnum(True)
-
-    def prepare(self, obj):
-        self.prepared_data = super(MarcIndex, self).prepare(obj)
+    def get_qualified_id(self, record):
         try:
-            record = s2m.S2MarcBatch(obj).to_marc()[0]
-        except IndexError:
-            pass
-        else:
-            self.prepared_data['json'] = record.as_json()
-            self.prepared_data['leader'] = record.leader
-            for field in record.get_fields():
-                mf_name = 'mf_{}'.format(field.tag)
-                if field.is_control_field():
-                    self.prepared_data[mf_name] = field.data
-                else:
-                    data = self.prepared_data.get(mf_name, [])
-                    data.append(text_type(field)[6:])
-                    self.prepared_data[mf_name] = data
-                    sf = field.subfields
-                    for s_tag, s_data in [sf[n:n + 2]
-                                          for n in range(0, len(sf), 2)]:
-                        sf_name = 'sf_{}{}'.format(field.tag, s_tag)
-                        data = self.prepared_data.get(sf_name, [])
-                        data.append(s_data)
-                        self.prepared_data[sf_name] = data
+            return record.get_iii_recnum(False)
+        except AttributeError:
+            return record.record_metadata.get_iii_recnum(False)
 
+    def log_error(self, obj_str, err):
+        self.last_batch_errors.append((obj_str, err))
+
+    def full_prepare(self, obj):
+        marc_records = self.to_marc_converter.to_marc([obj])
+        errors = []
+
+        if self.to_marc_converter.errors:
+            errors.extend(self.to_marc_converter.errors)
+        elif not marc_records or len(marc_records) != 1:
+            id_ = self.get_qualified_id(obj)
+            msg = 'Record {}: Unknown problem converting MARC.'.format(id_)
+            errors.append(msg)
+        else:
+            marc = marc_records[0]
+            try:
+                self.prepared_data = self.from_marc_pipeline.do(obj, marc)
+            except Exception as e:
+                id_ = self.get_qualified_id(obj)
+                errors.append('Record {}: {}'.format(id_, e))
+        if errors:
+            for error in errors:
+                self.log_error('WARNING', error)
+            raise exceptions.SkipDocument()
         return self.prepared_data
 
 

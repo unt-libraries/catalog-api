@@ -40,7 +40,6 @@ for setting in required:
 PROJECT_DIR = '{}'.format(Path(__file__).ancestor(3))
 
 # Path to the directory where user-initiated downloads are stored.
-# Temporary MARC files get stored here before being loaded by SolrMarc.
 # Be sure to create this directory if it doesn't exist.
 MEDIA_ROOT = get_env_variable('MEDIA_ROOT')
 
@@ -300,16 +299,6 @@ HAYSTACK_CONNECTIONS = {
         'EXCLUDED_INDEXES': ['base.search_indexes.ItemIndex'],
         'TIMEOUT': 60 * 20,
     },
-    'bibdata': {
-        'ENGINE': 'sierra.solr_backend.SolrmarcEngine',
-        'URL': solr_bibdata_url,
-        'TIMEOUT': 60 * 20,
-    },
-    # 'marc': {
-    #     'ENGINE': 'sierra.solr_backend.CustomSolrEngine',
-    #     'URL': solr_marc_url,
-    #     'TIMEOUT': 60 * 20,
-    # },
     'discover-01': {
         'ENGINE': 'sierra.solr_backend.CustomSolrEngine',
         'URL': solr_d01_url,
@@ -320,23 +309,14 @@ HAYSTACK_CONNECTIONS = {
         'URL': solr_d02_url,
         'TIMEOUT': 60 * 20,
     },
-    # 'bl-suggest': {
-    #     'ENGINE': 'sierra.solr_backend.CustomSolrEngine',
-    #     'URL': solr_bls_url,
-    #     'TIMEOUT': 60 * 20,
-    # }
 }
 
 # BL_CONN_NAME: the name of the connection / Solr core you're using for
 # the current Blacklight deployment.
 BL_CONN_NAME = 'discover-02'
-# BL_SUGGEST_CONN_NAME: the name of the connection / Solr core you're
-# using for the current Blacklight auto-suggest index.
-# BL_SUGGEST_CONN_NAME = 'bl-suggest'
-BL_SUGGEST_CONN_NAME = ''
 
 # HAYSTACK_LIMIT_TO_REGISTERED_MODELS, set to False to allow Haystack
-# to search our SolrMarc indexes, which are not model-based
+# to search our Discover indexes, which are not model-based
 HAYSTACK_LIMIT_TO_REGISTERED_MODELS = False
 
 # HAYSTACK_ID_FIELD, change default haystack-internal id
@@ -415,9 +395,7 @@ TASK_LOG_LABEL = 'Scheduler'
 # should use.
 EXPORTER_HAYSTACK_CONNECTIONS = {
     'ItemsToSolr': 'haystack',
-    'BibsToSolr:BIBS': 'bibdata',
-    # 'BibsToSolr:MARC': 'marc',
-    'BibsToSolr:MARC': '',
+    'BibsToSolr': BL_CONN_NAME,
     'LocationsToSolr': 'haystack',
     'ItypesToSolr': 'haystack',
     'ItemStatusesToSolr': 'haystack',
@@ -452,19 +430,10 @@ EXPORTER_METADATA_TYPE_REGISTRY = [
     'LocationsToSolr', 'ItypesToSolr', 'ItemStatusesToSolr',
 ]
 
-# The path (relative or absolute) to the command that runs SolrMarc.
-SOLRMARC_COMMAND = get_env_variable('SOLRMARC_COMMAND',
-                                    '../../solr/solrmarc/indexfile.sh')
-# The name of the properties file to use when running SolrMarc.
-SOLRMARC_CONFIG_FILE = get_env_variable('SOLRMARC_CONFIG_FILE',
-                                        'dev_config.properties')
-
 # This maps DRF views to haystack connections. Only needed for views
 # that don't use the default connection.
 REST_VIEWS_HAYSTACK_CONNECTIONS = {
-    'Bibs': 'bibdata',
-    # 'Marc': 'marc',
-    'Marc': '',
+    'Bibs': BL_CONN_NAME,
 }
 
 # This specifies which installed apps have user permissions settings
@@ -493,3 +462,4 @@ ADMIN_ACCESS = get_env_variable('ADMIN_ACCESS', True)
 TESTING = False
 
 MARCDATA = marcdata
+
