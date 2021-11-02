@@ -63,7 +63,7 @@ ITEM_RULES = {
                 'mwww', 'w433a', 'w4422', 'w4438', 'w4fil', 'w4m', 'w4mai',
                 'w4mau', 'w4mav', 'w4mbg', 'w4mfb', 'w4mft', 'w4mla', 'w4moc',
                 'w4mov', 'w4mr1', 'w4mr2', 'w4mr3', 'w4mrb', 'w4mrf', 'w4mrs',
-                'w4mrx', 'w4mwf', 'xmus'
+                'w4mrx', 'w4mwf', 'xmau', 'xmus'
             ),
             'Special Collections': ('pwww', 'w4spc', 'w4spe', 'w4srf', 'xspc',
                                     'xspe'),
