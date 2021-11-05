@@ -5,243 +5,325 @@ from collections import OrderedDict
 from collections.abc import Sequence
 
 import django.db.models.query
-from six import iteritems
-from utils import solr
+from django.conf import settings
+from utils import camel_case, helpers
 
 # set up logger, for debugging
 logger = logging.getLogger('sierra.custom')
 
 
+class SimpleSerializerException(Exception):
+    pass
+
+
+class SimpleField(object):
+    """
+    A simplified base field type for SimpleSerializer.
+    """
+    class ValidationError(SimpleSerializerException):
+        pass
+
+    data_type = None
+    def __init__(self, name, derived=False, source=None, order_source=None,
+                 filter_source=None, keyword_source=None, writeable=False,
+                 orderable=False, filterable=False):
+        self.name = name
+        self.camelcase_name = self.name_to_camelcase(name)
+        self.public_name = name
+        source = source or (name if not derived else None)
+        order_source = order_source or (source if orderable else None)
+        filter_source = filter_source or (source if filterable else None)
+        keyword_source = keyword_source or filter_source
+        self.sources = {
+            'main': source, 
+            'order': order_source,
+            'filter': filter_source,
+            'keyword': keyword_source
+        }
+        self.writeable = writeable
+        self.orderable = orderable
+        self.filterable = filterable
+
+    def name_to_camelcase(self, name):
+        if name.startswith('_'):
+            return name
+        return camel_case.render.underscoreToCamel(name)
+
+    @classmethod
+    def cast_one_to_python(cls, value):
+        """
+        Cast one atomic value to the correct Python type.
+
+        Default behavior is to try casting to the type in the
+        `data_type` attribute.
+
+        Override this in a subclass if you need custom behavior for a
+        given field or type of field.
+        """
+        return cls.data_type(value) if callable(cls.data_type) else value
+
+    @classmethod
+    def cast_to_python(cls, value):
+        """
+        Cast a value (may be one or many) to the correct Py type.
+        """
+        err_msg = ("Could not convert value '{{}}' to type "
+                   "{}.".format(cls.data_type))
+        if isinstance(value, (list, tuple)):
+            try:
+                return [cls.cast_one_to_python(v) for v in value]
+            except ValueError:
+                for v in value:
+                    try:
+                        cls.cast_one_to_python(v)
+                    except ValueError:
+                        raise cls.ValidationError(err_msg.format(v))
+        try:
+            return cls.cast_one_to_python(value)
+        except ValueError:
+            raise cls.ValidationError(err_msg.format(value))
+
+    def present(self, source_obj_data):
+        """
+        Present a data value for this field from the source obj data.
+
+        Default behavior is to try to get the value from the obj data
+        (dict) using the `source` attribute, and then to cast that to
+        the appropriate type.
+
+        Override this in a subclass if you need custom behavior for a
+        given field or type of field.
+        """
+        value = source_obj_data.get(self.sources['main'])
+        if value is not None:
+            return self.cast_to_python(value)
+        return value
+
+    def parse_from_client(self, value, client_data):
+        """
+        Parse (and clean/validate) the given value from the client.
+
+        Data from the client will match the presentation format.
+
+        Default behavior is to cast the supplied value to python.
+
+        Override this in a subclass if you need custom behavior for a
+        given field or type of field. Raise a cls.ValidationError if
+        the data is invalid.
+        """
+        return self.cast_to_python(value)
+
+    def compile_source_fields(self, value, client_data):
+        source = self.sources.get('main')
+        if source is not None:
+            return {source: value}
+        return {}
+
+    def apply_filter_to_qset(self, qval, op, negate, qset):
+        which_source = 'keyword' if op == 'keywords' else 'filter'
+        source = self.sources.get(which_source)
+        if op == 'isnull':
+            qval = helpers.cast_to_boolean(qval)
+        elif op == 'matches':
+            qval = str(qval)
+        elif op != 'keywords':
+            qval = self.cast_to_python(qval)
+        if source is not None:
+            criterion = {'__'.join((source, op)): qval}
+            if negate:
+                return qset.exclude(**criterion)
+            return qset.filter(**criterion)
+        return qset
+
+    def emit_orderby_criteria(self, desc=False):
+        source = self.sources.get('order')
+        if source is not None:
+            return [''.join(('-' if desc else '', source))]
+        return []
+
+
+class SimpleObjectInterface(object):
+    """
+    A simple internal-object interface for SimpleSerializer.
+    """
+    class DefaultType(dict):
+        def save(self, *args, **kwargs):
+            msg = ('SimpleObjectInterface.DefaultType does not implement '
+                   'saving. Please specify a different type if you need to '
+                   'be able to save the object.')
+            raise NotImplementedError(msg)
+
+    obj_type = DefaultType
+
+    def __init__(self, obj_type=None):
+        if obj_type is not None:
+            self.obj_type = obj_type
+
+    def get_obj_data(self, obj):
+        return obj if hasattr(obj, 'items') else getattr(obj, '__dict__', {})
+
+    def make_obj_from_data(self, obj_data):
+        if isinstance(self.obj_type, dict):
+            return self.obj_type(obj_data)
+        return self.obj_type(**obj_data)
+
+    def obj_is_many(self, obj):
+        many_types = (list, tuple, Sequence, django.db.models.query.QuerySet)
+        return isinstance(obj, many_types)
+
+    def save_obj(self, obj, save_args, save_kwargs):
+       obj.save(*save_args, **save_kwargs)
+
+
 class SimpleSerializer(object):
     """
-    A simplified "serializer" base class that works quickly with basic
-    dict and dict-like objects that don't require a lot of fuss.
-    Subclass this class, define a dict of valid fields to be serialized
-    (where keys are fieldnames and values are dicts of settings) plus
-    optional process_[fieldname] methods to parse the field values for
-    rendering. If you want your fields always to appear in the specifed
-    order when serialized, be sure fields is an OrderedDict.
-
-    Since my use-case involves serialization straight to/from Solr,
-    that's what this class assumes, but it shouldn't be hard to tweak
-    it to work with other backends.
-
-    A word about the dicts of settings: You can set up whatever
-    settings you want based on your needs. Here are the few that I'm
-    using.
-
-    type: the Python type for the object stored in the field. Used in
-    the Haystack filter to do basic type-based normalization operations
-    on incoming data.
-
-    source: specifies the name of the field in the source data, in case
-    you want to have a fieldname in the serialized output that differs
-    from the source. If this is not included, it defaults to using the
-    fields dict element as the name of the field in the source data.
-
-    writable: boolean value that indicates whether or not the field is
-    writable. When de-serializing data (from client input to source),
-    it checks the provided data against the source to make sure there
-    are no differences for fields where writable is False. If writable
-    is not provided, it defaults to False.
-
-    derived: boolean value that indicates whether or not the field is
-    stored on the object. If True, the field is derived and therefore
-    not stored on the object. When True, you should specify a "process"
-    method for the field on the serializer that derives the value. This
-    is essentially equivalent to DRF serializers' "method" fields. If
-    derived is not provided, it defaults to False.
+    A simplified "serializer" base class that works quickly with ...
     """
-    fields = OrderedDict()
+    fields = []
+    camelcase_fieldnames = settings.REST_FRAMEWORK['CAMELCASE_FIELDNAMES']
+    obj_interface = SimpleObjectInterface()
 
     def __init__(self, instance=None, data=None, context=None):
-        self.context = context or {}
         self.object = instance
-        self.init_data = data
+        self.raw_client_data = data
+        self.context = context or {}
         self._data = None
-        self._errors = None
+        self.errors = []
+        self.set_up_field_lookup()
 
-    def render_field_name(self, field_name):
-        """
-        Override this method to render field names differently than
-        they are stored and referenced in/on the serializer class; for
-        instance, you may want to render field names as camel case for
-        JSON output but otherwise store and reference field names using
-        snake case.
-        """
-        return field_name
+    @classmethod
+    def set_up_field_lookup(cls):
+        if not hasattr(cls, 'field_lookup'):
+            cls.field_lookup = {f.name: f for f in cls.fields}
+            if cls.camelcase_fieldnames:
+                for f in cls.fields:
+                    f.public_name = f.camelcase_name
+                    cls.field_lookup[f.camelcase_name] = f
 
-    def restore_field_name(self, field_name):
-        """
-        Override this method to specify the reverse function for
-        restoring a field name from the version rendered via the
-        render_file_name method. For instance, restoring a field
-        provided in camel case back to snake case.
-        """
-        return field_name
+    def do_present_field(self, f, obj_data):
+        method = 'present_{}'.format(f.name)
+        present = getattr(self, method, f.present)
+        return present(obj_data)
 
-    def obj_is_sequence(self, obj):
-        return isinstance(obj, (list, tuple, Sequence,
-                                django.db.models.query.QuerySet))
+    def do_parse_field_from_client(self, f, client_data):
+        method = 'parse_{}_from_client'.format(f.name)
+        parse = getattr(self, method, f.parse_from_client)
+        return parse(client_data.get(f.public_name), client_data)
 
-    def to_native(self, obj=None):
+    def do_convert_field_to_internal(self, f, client_data):
+        method = 'convert_{}_to_internal_fields'.format(f.name)
+        to_internal = getattr(self, method, f.compile_source_fields)
+        return to_internal(new_val, client_data)
+
+    def do_emit_field_orderby_criteria(self, f, desc=False):
+        method = 'emit_{}_orderby_criteria'.format(f.name)
+        emit = getattr(self, method, f.emit_orderby_criteria)
+        return emit(desc)
+
+    def do_apply_field_filter_to_qset(self, f, qval, op, negate, qset):
+        method = 'apply_{}_filter_to_qset'.format(f.name)
+        apply_filter = getattr(self, method, f.apply_filter_to_qset)
+        return apply_filter(qval, op, negate, qset)
+
+    def do_apply_orderby_to_qset(self, fields, direction, qset):
+        method = 'apply_{}_orderby_to_qset'.format(f.name)
+        apply_orderby = getattr(self, method, f.apply_orderby_to_qset)
+        return apply_orderby(direction, qset)
+
+    def try_field_data_from_client(self, f, client_data):
+        old_ser_data = self.data or {}
+        old_val = old_ser_data.get(f.public_name)
+        new_val = self.do_parse_field_from_client(f, client_data)
+        if new_val != old_val:
+            if not f.writable:
+                logger.info('{}|{}|{}'.format(f.name, old_val, new_val))
+                msg = '{} is not a writable field.'.format(f.public_name)
+                raise f.ValidationError(msg)
+            return self.do_convert_field_to_internal(f, new_val, client_data)
+
+    def prepare_for_serialization(self, obj_data):
+        """
+        Run preparation or setup for serializing obj_data.
+
+        This runs once for each object before serializing fields.
+        Override in a subclass if you need to do special setup.
+        """
+        return obj_data
+
+    def to_representation(self, obj):
         """
         Serializes an object (or sequence of objects) based on field
         specifications.
         """
-        obj = obj or self.object
-        data = obj
-
-        if self.obj_is_sequence(obj):
+        if self.obj_interface.obj_is_many(obj):
             data = []
             for o in obj:
-                data.append(self.to_native(o))
+                data.append(self.to_representation(o))
             return data
 
         data = OrderedDict()
         if obj is not None:
-            # obj could be dict-like or have attributes
-            if hasattr(obj, 'iteritems'):
-                obj_dict = obj
-            else:
-                obj_dict = getattr(obj, '__dict__', {})
-
-            for fname, fsettings in iteritems(self.fields):
-                obj_fname = fsettings.get('source', fname)
-                dtype = fsettings.get('type', None)
-                derived = fsettings.get('derived', False)
-                value = None if derived else obj_dict.get(obj_fname, None)
-
-                process_type = getattr(self, 'process_{}_type'
-                                             ''.format(dtype), None)
-                if process_type is not None:
-                    value = process_type(value, obj)
-
-                process = getattr(self, 'process_{}'.format(fname), None)
-                if process is not None:
-                    value = process(value, obj)
-
-                data[self.render_field_name(fname)] = value
+            obj_data = self.obj_interface.get_obj_data(obj)
+            obj_data = self.prepare_for_serialization(obj_data)
+            for f in self.fields:
+                data[f.public_name] = self.do_present_field(f, obj_data)
         return data
 
-    def perform_validation(self, data):
-        """
-        Runs all validation routines on client-provided data. Note that
-        your class may provide validate_{} and validate_type_{} methods
-        to validate field data and field type data, respectively. These
-        methods should write errors to self._errors and return
-        validated and cleaned data, appropriate for plugging back into
-        the data used to create the deserialized object.
-        """
-        obj = self.object or {}
+    def prevalidate_client_data(self, client_data):
+        errors = []
+        if client_data is None:
+            errors.append('No input provided.')
+        elif not hasattr(data, 'items'):
+            msg = 'Input must be a single dict-like object.'
+            if isinstance(client_data, (list, tuple)):
+                msg = '{} (Batch additions/updates not supported.)'.format(msg)
+            errors.append(msg)
+        return errors
 
-        for fname, fsettings in iteritems(self.fields):
-            old_val = self.data.get(self.render_field_name(fname))
-            new_val = data.get(self.render_field_name(fname))
-            writable = fsettings.get('writable', False)
-            ftype = fsettings.get('type', None)
-            type_validator = getattr(self, 'validate_type_{}'
-                                           ''.format(ftype), None)
-            validator = getattr(self, 'validate_{}'.format(fname), None)
-
-            if new_val is not None:
-                if type_validator is not None:
-                    new_val = type_validator(data, obj, fsettings)
-                if validator is not None:
-                    new_val = validator(data, obj, fsettings)
-                data[fname] = new_val
-
-            if not writable and new_val != old_val:
-                logger.info('{}|{}|{}'.format(fname, old_val, new_val))
-                self._errors.append('{} is not a writable field.'
-                                    ''.format(self.render_field_name(fname)))
-        if not self._errors:
-            return data
-
-    def restore_object(self, data, instance=None):
-        """
-        The data parameter should be a dictionary of attributes that
-        needs to be converted into an object instance, useful for
-        saving/storing. Override this method to control how
-        deserialized objects get instantiated.
-
-        Note that the method provided here assumes you're going from an
-        abstract resource to Solr, where you may have fields in Solr
-        that aren't on the object. Fields not on the object need to be
-        added from the Solr doc before it's written back to Solr so
-        that no data is lost.
-        """
-        if not hasattr(data, 'iteritems') and not hasattr(data, 'items'):
-            self._errors.append('Input must be a single object.')
-            data = None
-        else:
-            new_obj_data = {}
-            old_obj = self.object
-
-            # obj could be dict-like or have attributes
-            if hasattr(old_obj, 'iteritems'):
-                old_obj_dict = old_obj
-            else:
-                old_obj_dict = getattr(old_obj, '__dict__', {})
-
-            for fname, fsettings in iteritems(self.fields):
-                # we only want to populate the field on the object if
-                # it's not a derived field
-                if not fsettings.get('derived', False):
-                    obj_fname = fsettings.get('source', fname)
-                    new_val = data.get(self.render_field_name(fname), None)
-                    new_obj_data[obj_fname] = new_val
-
-            populated_fields = list(new_obj_data.keys())
-            for obj_fname, obj_val in iteritems(old_obj_dict):
-                if obj_fname not in populated_fields:
-                    new_obj_data[obj_fname] = obj_val
-
-        return solr.Result(new_obj_data)
-
-    def from_native(self, data):
-        self._errors = []
-        if data is not None:
-            attrs = self.perform_validation(data)
-        else:
-            self._errors.append('No input provided.')
-
-        if not self._errors:
-            return self.restore_object(attrs, instance=getattr(self, 'object',
-                                                               None))
+    def to_internal_value(self, client_data):
+        obj_has_changed = False
+        new_obj_data = {}
+        self.errors = self.prevalidate_client_data(client_data)
+        if len(self.errors) == 0:
+            new_obj_data = self.obj_interface.get_obj_data(self.object).copy()
+            for f in self.fields:
+                try:
+                    new_vals = self.try_field_data_from_client(f, client_data)
+                except f.ValidationError as e:
+                    msg = 'Field `{}` did not validate: {}'.format(fn, e)
+                    self.errors.append(msg)
+                else:
+                    if len(self.errors) == 0 and new_vals is not None:
+                        new_obj_data.update(new_vals)
+                        obj_has_changed = True
+        return new_obj_data if obj_has_changed else None
 
     def is_valid(self):
-        return not self.errors
+        num_errors = len(self.errors)
+        if self.raw_client_data is not None:
+            self.errors = []
+            data = self.to_internal_value(self.raw_client_data)
+            num_errors = len(self.errors)
+            if num_errors == 0:
+                if data is not None:
+                    self.object = self.obj_interface.make_obj_from_data(data)
+                self._data = None
+                self.raw_client_data = None
+        return num_errors > 0
 
     @property
     def data(self):
         if self._data is None:
-            self._data = self.to_native(self.object)
+            if self.object is not None:
+                self._data = self.to_representation(self.object)
         return self._data
 
-    @property
-    def errors(self):
-        if self._errors is None:
-            errors = []
-            data = getattr(self, 'init_data', self.data)
-            if isinstance(data, (list, tuple)):
-                errors.append('Batch additions/updates not supported. Can '
-                              'only add/update one object at a time.')
-            self.object = self.from_native(data)
-            errors.extend(self._errors)
-        return self._errors
-
-    def save(self, **kwargs):
-        """
-        The object your saving should have a save method on it.
-        Override this as needed based on whatever type of object you're
-        serializing.
-        """
-        self._data = None
-        self.object.save(**kwargs)
+    def save(self, *args, **kwargs):
+        self.obj_interface.save_obj(self.object, args, kwargs)
 
     def replace_data(self, data):
-        self.init_data = data
+        self.raw_client_data = data
+        self.errors = []
 
 
 class SimpleSerializerWithLookups(SimpleSerializer):
@@ -287,19 +369,14 @@ class SimpleSerializerWithLookups(SimpleSerializer):
         else:
             objects = [self.instance]
         keys = [getattr(obj, key_field) for obj in objects]
-        return model.objects.filter(
-            **{'{}__in'.format(match_field):
-               keys}).prefetch_related(*prefetch)
+        qset = model.objects.filter(**{'{}__in'.format(match_field): keys})
+        return qset.prefetch_related(*prefetch)
 
     def cache_lookup(self, fname, values):
         self._lookup_cache[fname] = values
 
     def get_lookup_value(self, fname, lookup_code):
-        try:
-            ret_val = self._lookup_cache[fname][lookup_code]
-        except KeyError:
-            ret_val = ''
-        return ret_val
+        return self._lookup_cache.get(fname, {}).get(lookup_code, '')
 
     def cache_field(self, fname, pk, value):
         if fname in self._db_cache:
@@ -313,7 +390,8 @@ class SimpleSerializerWithLookups(SimpleSerializer):
         else:
             return None
 
-    def to_native(self, obj=None):
-        if self.obj_is_sequence(obj):
+    def to_representation(self, obj):
+        if self.obj_interface.obj_is_many(obj):
             self.cache_all()
-        return super(SimpleSerializerWithLookups, self).to_native(obj)
+        return super().to_representation(obj)
+

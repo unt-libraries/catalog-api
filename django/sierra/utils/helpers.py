@@ -65,6 +65,11 @@ def get_varfield_vals(vf_set, tag, marc_tags=['*'], many=False,
     return values
 
 
+def cast_to_boolean(val, false_strings=None):
+    false_strings = false_strings or set(['false', 'f', '0', 'null'])
+    return not (str(val).lower() in false_strings or not bool(val))
+
+
 class CallNumberError(Exception):
     pass
 

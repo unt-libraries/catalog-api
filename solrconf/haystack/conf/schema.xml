@@ -111,13 +111,12 @@
     <field name="call_number_type" type="string" indexed="true" stored="true" multiValued="false" docValues="true"/>
     <field name="local_code1" type="long" indexed="true" stored="true" multiValued="false" />
     <field name="record_revision_number" type="long" indexed="true" stored="true" multiValued="false" />
-    <field name="parent_bib_record_number" type="string" indexed="true" stored="true" multiValued="false" docValues="true"/>
     <field name="internal_notes" type="stem_text" indexed="true" stored="true" multiValued="true" />
     <field name="volume_sort" type="string" indexed="true" stored="true" multiValued="false" docValues="true"/>
     <field name="shelf_status" type="string" indexed="true" stored="true" multiValued="false" />
     <field name="total_renewal_count" type="long" indexed="true" stored="true" multiValued="false" />
-    <field name="parent_bib_id" type="long" indexed="true" stored="true" multiValued="false" docValues="true"/>
-    <field name="id" type="long" indexed="true" stored="true" multiValued="false" docValues="true"/>
+    <field name="parent_bib_id" type="string" indexed="true" stored="true" multiValued="false" docValues="true"/>
+    <field name="id" type="string" indexed="true" stored="true" multiValued="false" docValues="true"/>
     <field name="inventory_notes" type="string" indexed="true" stored="true" multiValued="true" />
     <field name="call_number" type="string" indexed="true" stored="true" multiValued="false" docValues="true"/>
     <field name="long_messages" type="stem_text" indexed="true" stored="true" multiValued="true" />
@@ -137,7 +136,6 @@
     <field name="last_checkin_date" type="date" indexed="true" stored="true" multiValued="false" docValues="true"/>
     <field name="iuse3_count" type="long" indexed="true" stored="true" multiValued="false" />
     <field name="item_type_code" type="string" indexed="true" stored="true" multiValued="false" docValues="true"/>
-    <field name="record_number" type="string" indexed="true" stored="true" multiValued="false" docValues="true"/>
     <field name="suppressed" type="boolean" indexed="true" stored="true" multiValued="false" docValues="true"/>
     <field name="overdue_date" type="date" indexed="true" stored="true" multiValued="false" docValues="true"/>
     <field name="volume" type="text" indexed="true" stored="true" multiValued="false"/>

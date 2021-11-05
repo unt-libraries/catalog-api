@@ -312,10 +312,9 @@ class ItemStatusIndex(MetadataBaseIndex):
 
 class ItemIndex(CustomQuerySetIndex, indexes.Indexable):
     type_name = 'Item'
-    id = indexes.IntegerField()
+    id = indexes.FacetCharField()
     text = indexes.CharField(document=True, use_template=False)
     type = indexes.FacetCharField()
-    record_number = indexes.FacetCharField()
     parent_bib_id = indexes.IntegerField()
     parent_bib_record_number = indexes.CharField()
     parent_bib_title = indexes.CharField()
@@ -384,22 +383,12 @@ class ItemIndex(CustomQuerySetIndex, indexes.Indexable):
         return self.type_name
 
     def prepare_id(self, obj):
-        return int(obj.pk)
-
-    def prepare_record_number(self, obj):
-        return obj.record_metadata.get_iii_recnum(True)
+        return obj.record_metadata.get_iii_recnum(False)
 
     def prepare_parent_bib_id(self, obj):
         try:
             bib = obj.bibrecorditemrecordlink_set.all()[0].bib_record
-            return bib.record_metadata.id
-        except IndexError:
-            return None
-
-    def prepare_parent_bib_record_number(self, obj):
-        try:
-            bib = obj.bibrecorditemrecordlink_set.all()[0].bib_record
-            return bib.record_metadata.get_iii_recnum(True)
+            return bib.record_metadata.get_iii_recnum(False)
         except IndexError:
             return None
 
@@ -594,10 +583,9 @@ class ItemIndex(CustomQuerySetIndex, indexes.Indexable):
 class ElectronicResourceIndex(CustomQuerySetIndex, indexes.Indexable):
     type_name = 'eResource'
     h_lists = {}
-    id = indexes.IntegerField()
+    id = indexes.FacetCharField()
     text = indexes.CharField(document=True, use_template=False)
     type = indexes.FacetCharField()
-    record_number = indexes.FacetCharField()
     eresource_type = indexes.FacetCharField(null=True)
     publisher = indexes.CharField(null=True)
     title = indexes.CharField(null=True)
@@ -622,13 +610,10 @@ class ElectronicResourceIndex(CustomQuerySetIndex, indexes.Indexable):
         return sierra_models.ResourceRecord
 
     def prepare_id(self, obj):
-        return int(obj.pk)
+        return obj.record_metadata.get_iii_recnum(False)
 
     def prepare_type(self, obj):
         return self.type_name
-
-    def prepare_record_number(self, obj):
-        return obj.record_metadata.get_iii_recnum(True)
 
     def prepare_eresource_type(self, obj):
         ret_val = None
@@ -711,20 +696,20 @@ class ElectronicResourceIndex(CustomQuerySetIndex, indexes.Indexable):
     def prepare_holdings(self, obj):
         ret_val = []
         data_map = []
-        rec_num = obj.record_metadata.get_iii_recnum(True)
+        rec_num = obj.record_metadata.get_iii_recnum(False)
 
         for h in obj.holding_records.all():
             try:
-                h_rec_num = h.record_metadata.get_iii_recnum(True)
+                h_rec_num = h.record_metadata.get_iii_recnum(False)
                 bib_vf = h.bibrecord_set.all()[0].record_metadata.\
                     varfield_set.all()
             except IndexError:
                 pass
             else:
-                title = helpers.get_varfield_vals(bib_vf, 't', '245',
-                                                  cm_kw_params={
-                                                      'subfields': 'a'},
-                                                  content_method='display_field_content')
+                title = helpers.get_varfield_vals(
+                    bib_vf, 't', '245', cm_kw_params={'subfields': 'a'},
+                    content_method='display_field_content'
+                )
                 ret_val.append(title)
                 data_map.append(h_rec_num)
 

@@ -43,10 +43,6 @@ def get_api_root(request):
             'href': APIUris.get_uri('bibs-list', req=request,
                                     absolute=True)
         },
-        # 'marc': {
-        #     'href': APIUris.get_uri('marc-list', req=request,
-        #                             absolute=True)
-        # },
         'items': {
             'href': APIUris.get_uri('items-list', req=request,
                                     absolute=True)
@@ -127,20 +123,6 @@ class ItemList(SimpleGetMixin, SimpleView):
     """
     queryset = solr.Queryset().filter(type='Item')
     serializer_class = serializers.ItemSerializer
-    ordering = ['call_number', 'barcode', 'id', 'record_number',
-                'parent_bib_id', 'parent_bib_record_number', 'volume',
-                'copy_number', 'checkout_date']
-    filter_fields = ['record_number', 'call_number', 'volume', 'volume_sort',
-                     'copy_number', 'barcode', 'long_messages', 'internal_notes',
-                     'public_notes', 'local_code1', 'number_of_renewals', 'item_type_code',
-                     'price', 'internal_use_count', 'iuse3_count', 'total_checkout_count',
-                     'total_renewal_count', 'year_to_date_checkout_count',
-                     'last_year_to_date_checkout_count', 'location_code', 'status_code',
-                     'due_date', 'checkout_date', 'last_checkin_date', 'overdue_date',
-                     'recall_date', 'record_creation_date', 'record_last_updated_date',
-                     'record_revision_number', 'suppressed', 'parent_bib_record_number',
-                     'parent_bib_title', 'parent_bib_main_author',
-                     'parent_bib_publication_year', 'call_number_type']
     resource_name = 'items'
 
 
@@ -211,42 +193,6 @@ class BibDetail(SimpleGetMixin, SimpleView):
             return obj
 
 
-class MarcList(SimpleGetMixin, SimpleView):
-    """
-    Paginated list of MARC records. Use the 'limit' and 'offset' query
-    parameters for paging.
-    """
-    # queryset = solr.Queryset(using=
-    #              settings.REST_VIEWS_HAYSTACK_CONNECTIONS['Marc'])
-    queryset = []
-    serializer_class = serializers.MarcSerializer
-    resource_name = 'marc'
-    filter_fields = ['record_number', '/^(mf_)?\\d{3}$/',
-                     '/^(sf_)?\\d{3}[a-z0-9]$/']
-    filter_class = filters.MarcFilter
-
-
-class MarcDetail(SimpleGetMixin, SimpleView):
-    """
-    Retrieve one MARC record.
-    """
-    # queryset = solr.Queryset(using=
-    #              settings.REST_VIEWS_HAYSTACK_CONNECTIONS['Marc'])
-    queryset = []
-    serializer_class = serializers.MarcSerializer
-    resource_name = 'marc'
-    multi = False
-
-    def get_object(self):
-        queryset = self.get_queryset()
-        try:
-            obj = queryset.filter(id=self.kwargs['id'])[0]
-        except IndexError:
-            raise Http404
-        else:
-            return obj
-
-
 class EResourceList(SimpleGetMixin, SimpleView):
     """
     Paginated list of eresources. Use the 'limit' and 'offset' query
@@ -254,14 +200,8 @@ class EResourceList(SimpleGetMixin, SimpleView):
     """
     queryset = solr.Queryset().filter(type='eResource')
     serializer_class = serializers.EResourceSerializer
-    ordering = ['record_number', 'parent_bib_record_number', 'eresource_type',
-                'publisher', 'title', 'alert']
-    filter_fields = ['record_number', 'parent_bib_record_number',
-                     'eresource_type', 'publisher', 'title',
-                     'alternate_titles', 'subjects', 'summary',
-                     'internal_notes', 'public_notes', 'alert', 'holdings',
-                     'suppressed']
     resource_name = 'eresources'
+    filter_class = filters.EResourcesFilter
 
 
 class EResourceDetail(SimpleGetMixin, SimpleView):
@@ -291,8 +231,6 @@ class LocationList(SimpleGetMixin, SimpleView):
     queryset = solr.Queryset().filter(type='Location')
     serializer_class = serializers.LocationSerializer
     resource_name = 'locations'
-    ordering = ['code', 'label']
-    filter_fields = ['code', 'label']
 
 
 class LocationDetail(SimpleGetMixin, SimpleView):
@@ -322,8 +260,6 @@ class ItemTypesList(SimpleGetMixin, SimpleView):
     queryset = solr.Queryset().filter(type='Itype')
     serializer_class = serializers.ItemTypeSerializer
     resource_name = 'itemtypes'
-    ordering = ['code', 'label']
-    filter_fields = ['code', 'label']
 
 
 class ItemTypesDetail(SimpleGetMixin, SimpleView):
@@ -353,8 +289,6 @@ class ItemStatusesList(SimpleGetMixin, SimpleView):
     queryset = solr.Queryset().filter(type='ItemStatus')
     serializer_class = serializers.ItemStatusSerializer
     resource_name = 'itemstatuses'
-    ordering = ['code', 'label']
-    filter_fields = ['code', 'label']
 
 
 class ItemStatusesDetail(SimpleGetMixin, SimpleView):
@@ -454,3 +388,4 @@ class FirstItemPerLocationList(SimpleGetMixin, SimpleView):
         data['_embedded'] = {'items': items}
 
         return data
+

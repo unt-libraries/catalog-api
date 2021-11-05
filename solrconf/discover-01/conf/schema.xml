@@ -197,13 +197,6 @@
       </analyzer>
    </fieldType>
   -->
-
-    <fieldType name="norm_string" class="solr.SortableTextField" sortMissingLast="true" omitNorms="true" uninvertible="true">
-      <analyzer>
-        <tokenizer class="solr.KeywordTokenizerFactory"/>
-        <filter class="solr.ICUFoldingFilterFactory"/>
-      </analyzer>
-    </fieldType>
   </types>
 
   <fields>
@@ -285,7 +278,7 @@
 
     <!-- SORT FIELDS ====================================================================================== -->
     <field name="publication_sort" type="string" indexed="true" stored="false" multiValued="false" docValues="true"/>
-    <field name="author_sort" type="norm_string" indexed="true" stored="false" multiValued="false"/>
+    <field name="author_sort" type="string" indexed="true" stored="false" multiValued="false" docValues="true"/>
     <field name="title_sort" type="string" indexed="true" stored="false" multiValued="false" docValues="true"/>
 
     <!-- FACET FIELDS ===================================================================================== -->

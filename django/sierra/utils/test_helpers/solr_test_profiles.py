@@ -253,16 +253,16 @@ ITEMSTATUS_GENS = (
 
 ITEM_FIELDS = (
     'django_ct', 'django_id', 'id', 'haystack_id', 'type', 'suppressed',
-    'record_revision_number', 'record_number', 'call_number_type',
-    'call_number', 'call_number_search', 'call_number_sort', 'copy_number',
-    'volume', 'volume_sort', 'barcode', 'local_code1', 'location_code',
-    'item_type_code', 'status_code', 'public_notes', 'long_messages', 'price',
-    'copy_use_count', 'internal_use_count', 'iuse3_count', 'number_of_renewals',
+    'record_revision_number', 'call_number_type', 'call_number',
+    'call_number_search', 'call_number_sort', 'copy_number', 'volume',
+    'volume_sort', 'barcode', 'local_code1', 'location_code', 'item_type_code',
+    'status_code', 'public_notes', 'long_messages', 'price', 'copy_use_count',
+    'internal_use_count', 'iuse3_count', 'number_of_renewals',
     'total_renewal_count', 'total_checkout_count',
     'last_year_to_date_checkout_count', 'year_to_date_checkout_count',
     'record_creation_date', 'record_last_updated_date', 'last_checkin_date',
     'due_date', 'checkout_date', 'recall_date', 'overdue_date', 'parent_bib_id',
-    'parent_bib_record_number', 'parent_bib_title', 'parent_bib_main_author',
+    'parent_bib_title', 'parent_bib_main_author',
     'parent_bib_publication_year', 'text'
 )
 
@@ -447,22 +447,30 @@ class Link(object):
         the target isn't, it grabs the first value from the source.
         """
         sv = source_val if isinstance(source_val, list) else [source_val]
-        tv = (target_record.get(target_fname, []) + sv) if multi else sv[0]
+        tv = ((target_record.get(target_fname) or []) + sv) if multi else sv[0]
         target_record[target_fname] = tv
 
     @classmethod
     def from_item_to_bib(cls, item, bib):
-        cls.link(item['id'], bib, 'item_ids', multi=True)
-        cls.link(item['record_number'], bib, 'item_record_numbers', multi=True)
+        item_json = {
+            'i': item['id'],
+            'b': item.get('barcode'),
+            'c': item.get('call_number'),
+            'v': item.get('volume'),
+            'n': item.get('public_notes'),
+            'r': None
+        }
+        cls.link(ujson.dumps(item_json), bib, 'items_json', multi=True)
 
     @classmethod
     def from_bib_to_item(cls, bib, item):
         cls.link(bib['id'], item, 'parent_bib_id')
-        cls.link(bib['record_number'], item, 'parent_bib_record_number')
-        cls.link(bib['full_title'], item, 'parent_bib_title')
-        cls.link(bib['creator'], item, 'parent_bib_main_author')
-        if bib.get('publication_dates', []):
-            pub_year = bib['publication_dates'][0]
+        cls.link(bib['title_display'], item, 'parent_bib_title')
+        if len(bib.get('author_contributor_facet', [])) > 0:
+            author = bib['author_contributor_facet'][0]
+            cls.link(author, item, 'parent_bib_main_author')
+        if len(bib.get('publication_year_range_facet', [])) > 0:
+            pub_year = bib['publication_year_range_facet'][0]
             cls.link(pub_year, item, 'parent_bib_publication_year')
 
     @classmethod
@@ -483,12 +491,10 @@ def choose_and_link_to_parent_bib(bib_rec_pool):
     When the gen runs, it will randomly select one bib record from the
     provided bib_rec_pool set to be the parent bib for the item in
     question. It will automatically create all needed links between
-    that bib record and the item record. I.e., it wil add the item's
-    'id' field value to the bib's 'item_ids' list and the item's
-    'record_number' field value to the bib's 'item_record_numbers'
-    list; it will pull values for each 'parent_' field from the bib and
-    copy it into the corresponding field in the item (e.g. bib
-    'full_title' to item 'parent_bib_title').
+    that bib record and the item record. I.e., it will populate the
+    items_json field on the bib; it will pull values for each 'parent_'
+    field from the bib and copy it into the corresponding field in the
+    item (e.g. bib 'title_display' to item 'parent_bib_title').
 
     A couple of things to note.
 
@@ -520,13 +526,12 @@ def choose_and_link_to_parent_bib(bib_rec_pool):
 
 ITEM_GENS = (
     ('django_ct', GENS.static('base.itemrecord')),
-    ('id', GENS(auto_increment())),
+    ('id', GENS(auto_increment('i', 10000001))),
     ('django_id', GENS(copy_field('id'))),
     ('haystack_id', GENS(join_fields(('django_ct', 'django_id'), '.'))),
     ('type', GENS.static('Item')),
     ('suppressed', GENS.static(False)),
     ('record_revision_number', GENS.static(1)),
-    ('record_number', GENS(auto_increment('i', 10000001))),
     ('call_number_type', GENS.choice(['lc'] * 5 + ['sudoc'] * 2 +
                                      ['dewey'] * 1 + ['other'] * 2)),
     ('call_number', GENS(random_cn)),
@@ -558,15 +563,14 @@ ITEM_GENS = (
     ('recall_date', GENS(sequential_date('recall', 10))),
     ('due_date', GENS(sequential_date('due'))),
     ('overdue_date', GENS(sequential_date('overdue', 33))),
-    ('parent_bib_record_number', None),
     ('parent_bib_title', None),
     ('parent_bib_main_author', None),
     ('parent_bib_publication_year', None),
     ('parent_bib_id', None),
-    ('text', GENS(join_fields(['parent_bib_record_number', 'call_number',
-                               'parent_bib_main_author', 'location_code',
-                               'public_notes', 'parent_bib_publication_year',
-                               'record_number', 'parent_bib_title'])))
+    ('text', GENS(join_fields(['call_number', 'parent_bib_main_author',
+                               'location_code', 'public_notes',
+                               'parent_bib_publication_year',
+                               'parent_bib_title'])))
 )
 
 
@@ -574,7 +578,7 @@ ITEM_GENS = (
 
 ERES_FIELDS = (
     'django_ct', 'django_id', 'id', 'haystack_id', 'type', 'eresource_type',
-    'suppressed', 'record_revision_number', 'record_number', 'title',
+    'suppressed', 'record_revision_number', 'title',
     'alternate_titles', 'subjects', 'summary', 'publisher', 'alert',
     'internal_notes', 'holdings', 'record_creation_date',
     'record_last_updated_date', 'text'
@@ -583,14 +587,13 @@ ERES_FIELDS = (
 
 ERES_GENS = (
     ('django_ct', GENS.static('base.resourcerecord')),
-    ('id', GENS(auto_increment())),
+    ('id', GENS(auto_increment('e', 10000001))),
     ('django_id', GENS(copy_field('id'))),
     ('haystack_id', GENS(join_fields(('django_ct', 'django_id'), '.'))),
     ('type', GENS.static('eResource')),
     ('suppressed', GENS.static(False)),
     ('eresource_type', 'auto'),
     ('record_revision_number', GENS.static(1)),
-    ('record_number', GENS(auto_increment('e', 10000001))),
     ('title', 'auto'),
     ('alternate_titles', 'auto'),
     ('subjects', 'auto'),
@@ -602,7 +605,7 @@ ERES_GENS = (
     ('record_creation_date', 'auto'),
     ('record_last_updated_date', GENS(sequential_date('record_last_updated'))),
     ('text',
-     GENS(join_fields(['title', 'subjects', 'eresource_type', 'record_number',
+     GENS(join_fields(['title', 'subjects', 'eresource_type', 'id',
                        'publisher', 'alternate_titles'])))
 )
 
@@ -747,6 +750,7 @@ BIB_GENS = (
     ('items_json', None),
     ('has_more_items', None),
     ('more_items_json', None),
+    ('urls_json', None),
     ('games_ages_facet', 'auto'),
     ('games_duration_facet', 'auto'),
     ('games_players_facet', 'auto'),
@@ -777,6 +781,7 @@ BIB_GENS = (
     ('main_title_search', GENS(copy_field('title_display'))),
     ('non_truncated_title_display',
      GENS(chance(copy_field('title_display'), 20))),
+    ('main_work_title_json', None),
     ('included_work_titles_json', None),
     ('related_work_titles_json', None),
     ('related_series_titles_json', None),
@@ -815,6 +820,8 @@ BIB_GENS = (
     ('genres_search_exact_headings', GENS(copy_field('genre_heading_facet'))),
     ('genres_search_main_terms', GENS(copy_field('genre_heading_facet'))),
     ('genres_search_all_terms', GENS(copy_field('genre_heading_facet'))),
+    ('serial_continuity_linking_json', None),
+    ('related_resources_linking_json', None),
     ('timestamp_of_last_solr_update', 'auto'),
     ('title_series_facet', GENS(title_series_facet)),
     ('author_contributor_facet', GENS(author_contributor_facet)),
