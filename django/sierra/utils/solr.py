@@ -15,6 +15,8 @@ from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
 from six import iteritems, text_type
 
+from utils.timer import TIMER
+
 # set up logger, for debugging
 logger = logging.getLogger('sierra.custom')
 
@@ -109,11 +111,13 @@ class Queryset(object):
         return self._hits
 
     def _search(self, *args, **kwargs):
+        TIMER.start('SOLR SEARCH')
         kwargs = kwargs or {}
         kwargs.update(self._search_params)
         response = self._conn.search(*args, **kwargs)
         self._full_response = response
         self._hits = response.hits
+        TIMER.end('SOLR SEARCH')
         return response
 
     def _set_cache(self, result, offset=0):

@@ -11,6 +11,9 @@ import pytest
 from django.contrib.auth.models import User
 from pytz import utc
 
+from utils.timer import TIMER
+
+
 # FIXTURES AND TEST DATA
 # ---------------------------------------------------------------------
 # External fixtures used below can be found in
@@ -1885,6 +1888,12 @@ def assemble_api_test_records(assemble_test_records, api_solr_env,
     return _assemble_api_test_records
 
 
+@pytest.fixture(scope='session', autouse=True)
+def session_setup_teardown():
+    yield
+    TIMER.report()
+
+
 # TESTS
 # ---------------------------------------------------------------------
 
@@ -2002,15 +2011,24 @@ def test_standard_resource(resource, api_settings, api_solr_env, api_client,
     same data object. Data objects should have fields matching the
     associated view serializer's `fields` attribute.
     """
+    timer_label = resource.upper()
+    TIMER.enabled = True
+    TIMER.end('TEARDOWN/STARTUP')
+    TIMER.start('{} GET LIST'.format(timer_label))
     list_resp = api_client.get('{}{}/'.format(API_ROOT, resource))
+    TIMER.end('{} GET LIST'.format(timer_label))
     objects = list_resp.data['_embedded'][resource]
     ref_obj = pick_reference_object_having_link(objects, 'self')
+    TIMER.start('{} GET DETAIL'.format(timer_label))
     detail_resp = api_client.get(ref_obj['_links']['self']['href'])
     detail_obj = detail_resp.data
+    TIMER.end('{} GET DETAIL'.format(timer_label))
     assert ref_obj == detail_obj
 
     serializer = detail_resp.renderer_context['view'].get_serializer()
     assert_data_is_from_serializer(detail_obj, serializer)
+    TIMER.start('TEARDOWN/STARTUP')
+    TIMER.enabled = False
 
 
 @pytest.mark.parametrize('resource, links',
@@ -2024,13 +2042,17 @@ def test_standard_resource_links(resource, links, api_settings, api_solr_env,
     Accessing linked resources from standard resources (via _links)
     should return the expected resource(s).
     """
+    TIMER.enabled = True
+    TIMER.end('TEARDOWN/STARTUP')
+    TIMER.start('{} GET LIST'.format(resource.upper()))
     resp = api_client.get('{}{}/'.format(API_ROOT, resource))
+    TIMER.end('{} GET LIST'.format(resource.upper()))
     objects = resp.data['_embedded'][resource]
     for linked_resource, field in links.items():
         ref_obj = pick_reference_object_having_link(objects, field)
-        print(ref_obj)
+        TIMER.start('{} GET LINKED {}'.format(resource.upper(), field.upper()))
         lview, lobjs = get_linked_view_and_objects(api_client, ref_obj, field)
-        print(lobjs)
+        TIMER.end('{} GET LINKED {}'.format(resource.upper(), field.upper()))
         assert lview.resource_name == linked_resource
         assert_data_is_from_serializer(lobjs[0], lview.get_serializer())
 
@@ -2038,6 +2060,8 @@ def test_standard_resource_links(resource, links, api_settings, api_solr_env,
         _, rev_objs = get_linked_view_and_objects(api_client, lobjs[0],
                                                   revfield)
         assert ref_obj in rev_objs
+    TIMER.start('TEARDOWN/STARTUP')
+    TIMER.enabled = False
 
 
 @pytest.mark.parametrize('url, err_text', [
@@ -2163,6 +2187,8 @@ def test_list_view_filters(resource, test_data, search, expected, api_settings,
     should return each of the records in `expected` and NONE of the
     records NOT in `expected`.
     """
+    TIMER.enabled = True
+    TIMER.end('TEARDOWN/STARTUP')
     test_ids = set([r[0] for r in test_data])
     expected_ids = set(expected) if expected is not None else set()
     not_expected_ids = test_ids - expected_ids
@@ -2170,20 +2196,28 @@ def test_list_view_filters(resource, test_data, search, expected, api_settings,
     profile = RESOURCE_METADATA[resource]['profile']
     solr_id_field = RESOURCE_METADATA[resource]['solr_id_field']
     api_id_field = RESOURCE_METADATA[resource]['api_id_field']
+    TIMER.start('{} ASSEMBLE RECORDS'.format(resource.upper()))
     erecs, trecs = assemble_api_test_records(profile, solr_id_field, test_data)
+    TIMER.end('{} ASSEMBLE RECORDS'.format(resource.upper()))
 
     # First let's do a quick sanity check to make sure the resource
     # returns the correct num of records before the filter is applied.
+    TIMER.start('{} SANITY CHECK'.format(resource.upper()))
     resource_url = '{}{}/'.format(API_ROOT, resource)
     check_response = api_client.get(resource_url)
     assert check_response.data['totalCount'] == len(erecs) + len(trecs)
+    TIMER.end('{} SANITY CHECK'.format(resource.upper()))
 
+    TIMER.start('{} DO FILTER'.format(resource.upper()))
     response = do_filter_search(resource_url, search, api_client)
+    TIMER.end('{} DO FILTER'.format(resource.upper()))
     if response.status_code != 200:
         raise Exception(response.data['detail'])
     found_ids = set(get_found_ids(api_id_field, response))
     assert all([i in found_ids for i in expected_ids])
     assert all([i not in found_ids for i in not_expected_ids])
+    TIMER.start('TEARDOWN/STARTUP')
+    TIMER.enabled = False
 
 
 @pytest.mark.parametrize('resource, test_data, search, expected',

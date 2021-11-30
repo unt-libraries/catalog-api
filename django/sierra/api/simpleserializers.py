@@ -7,6 +7,7 @@ from collections.abc import Sequence
 import django.db.models.query
 from django.conf import settings
 from utils import camel_case, helpers
+from utils.timer import TIMER
 
 # set up logger, for debugging
 logger = logging.getLogger('sierra.custom')
@@ -256,9 +257,11 @@ class SimpleSerializer(object):
         specifications.
         """
         if self.obj_interface.obj_is_many(obj):
+            TIMER.start('SERIALIZE LIST')
             data = []
             for o in obj:
                 data.append(self.to_representation(o))
+            TIMER.end('SERIALIZE LIST')
             return data
 
         data = OrderedDict()
