@@ -1473,26 +1473,7 @@ PARAMETERS__FILTER_TESTS__STRANGE = (
                                                      ('TEST2', {
                                                       'call_number': 'MT 100.1 .G322 2001'}),
                                                  ), 'callNumber[startswith]=MT100', ['TEST1', 'TEST2']),
-                                                 }, {'UNSURE: startswith int (items/copy_number) | no match, ever':
-                                                     ('items', (
-                                                         ('TEST32', {
-                                                          'copy_number': 32}),
-                                                         ('TEST320', {
-                                                          'copy_number': 320}),
-                                                         ('TEST3', {
-                                                          'copy_number': 3}),
-                                                         ('TEST2', {
-                                                          'copy_number': 2}),
-                                                         ('TEST321', {
-                                                          'copy_number': 321}),
-                                                         ('TEST392', {
-                                                          'copy_number': 392}),
-                                                         ('TEST932', {
-                                                          'copy_number': 932}),
-                                                         ('TEST3092', {
-                                                          'copy_number': 3092}),
-                                                     ), 'copyNumber[startswith]=3', None),
-                                                     }, {'TO_FIX: endswith text (bibs/creator) | matches end of any word':
+                                                 }, {'TO_FIX: endswith text (bibs/creator) | matches end of any word':
                                                          ('bibs', (
                                                              ('TEST1', {
                                                               'creator': 'Person, Test Alpha'}),
@@ -2282,7 +2263,7 @@ def test_standard_resource_links(resource, links, api_settings, api_solr_env,
     ('bibs/?search=none:none', 'undefined field'),
     ('bibs/?suppressed=not', 'expected a boolean'),
     ('bibs/?recordNumber[isnull]=not', 'expected a boolean'),
-    ('items/?copyNumber[range]=[1, 2]', 'input string: " 2"'),
+    ('items/?copyNumber[range]=[1, 2]', 'Invalid Number:  2'),
 ])
 def test_request_error_badquery(url, err_text, api_solr_env, api_client,
                                 api_settings):

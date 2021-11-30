@@ -38,7 +38,7 @@ class HaystackFilter(BaseFilterBackend):
     # searches you want to allow to be performed from the API filters.
     searchtypes = {
         'journals': {
-            'defType': 'synonym_edismax',
+            'defType': 'edismax',
             'qf': 'full_title^10 alternate_titles^10 full_subjects^5 '
                   'related_titles^5 creator^1 contributors^1 '
                   'series_creators^1 publishers^0.5 toc_notes^0.5 '
@@ -56,7 +56,7 @@ class HaystackFilter(BaseFilterBackend):
             'synonyms': 'true'
         },
         'databases': {
-            'defType': 'synonym_edismax',
+            'defType': 'edismax',
             'qf': 'title^10 alternate_titles^10 subjects^5 summary^2 '
                   'holdings^2',
             'pf': 'title^10 alternate_titles^10 subjects^5 summary^5 '
