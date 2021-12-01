@@ -20,14 +20,100 @@ class SimpleSerializerException(Exception):
 class SimpleField(object):
     """
     A simplified base field type for SimpleSerializer.
+
+    Subclass this to implement various field/data types for
+    SimpleSerializer-type serializers. At the very least, you should
+    specify the `data_type` attribute in your subclass, so that it's
+    clear what the underlying Python data type should be for value
+    conversions (from source data, from client-provided data, etc.).
+
+    If you need specialized code for converting to the underlying
+    Python type (beyond just trying to call `cls.data_type(value)`,
+    then override the `cast_one_to_python` method.
+
+    This class provides some flexibility for how a given serializer
+    field should map to the source data, but it's optimized for the
+    common case where there's a one-to-one mapping. (The field name in
+    the source data may or may not be the same as the field name on the
+    serializer). By default it allows for each field instance to have a
+    separate main source field (for getting/saving data), order source
+    field (for sorting), keyword source field (for keyword or text-
+    based searches), and filter field (for non-keyword filters). If you
+    need more granularity than that, such as if your serializer field
+    values are derived from multiple source fields, you should look at
+    overriding the `get_from_source`, `convert_to_source`,
+    `apply_filter_to_qset`, and `emit_orderby_criteria` methods.
+
+    The `present_direct_value` attribute controls whether or not the
+    `present` method will call `cast_to_python`, i.e. when serializing
+    a value from the source object. If True, it bypasses the casting,
+    which is a bit expensive, and returns the value directly from the
+    object. For very simple and common data types (like strings and
+    numeric types) where you're sure the source object already uses the
+    correct type, this avoids a performance penalty that may be small
+    but can add up if you have a lot of fields. (And if you need to
+    override the `present` method, then you can make it work however
+    you want.)
     """
     class ValidationError(SimpleSerializerException):
         pass
 
     data_type = None
+    present_direct_value = True
+
     def __init__(self, name, derived=False, source=None, order_source=None,
                  filter_source=None, keyword_source=None, writeable=False,
-                 orderable=False, filterable=False):
+                 orderable=False, filterable=False, present_direct_value=None):
+        """
+        Initialize a field instance.
+
+        Provide a `name` for the field; by default this will serve both
+        as the public fieldname (in the serialized data) and the name
+        used in your code to refer to that field. If you want to render
+        the fieldname as camelCase but refer to it using snake_case,
+        then just provide the snake case version using `name` and set
+        the `public_name` attribute on the object to be the
+        `camelcase_name`. (The `SimpleSerializer` class takes care of
+        this automatically if you've set the
+        `REST_FRAMEWORK['CAMELCASE_FIELDNAMES']` setting to True.)
+
+        If the field is writeable, pass `writeable=True`. If it can be
+        used for ordering a resource listing, pass `orderable=True`. If
+        it can be used for filtering a resource listing, pass
+        `filterable=True`. All of these default to False.
+        
+        If you need to override the class attribute
+        `present_direct_value` on an instance, then pass that as a
+        kwarg set to True or False. Default is True.
+
+        The `derived` and `*source` kwargs define what fields from the
+        source object are used to implement various field features. If
+        `derived` is True, then it's assumed the field does not tie
+        directly to any fields on the source object. In that case
+        you'll need to make sure to implement a custom `present` method
+        or `present_{field}` method on the serializer. Otherwise, if
+        `derived` is False: `source` is the name of this field on the
+        source object; `order_source` is the name of the source obj
+        field you want to use when sorting a list of resources on this
+        field; `keyword_source` is the name of the source obj field you
+        want to use for 'keywords' filters (i.e. text searches) on this
+        field; and `filter_source` is the name of the source obj field
+        you want to use for non-keyword filters on this field.
+
+        Note that you aren't prevented from passing conflicting values
+        for the `*able` and `*source` kwargs. I.e., you can set
+        `orderable=False` but also set an `order_source`. In these
+        cases it's up to the serializer how to handle it (though, by
+        default, the `SimpleSerializer` class assumes the `*able` value
+        takes precedence). Source fields are also optional and have
+        sensible defaults: if `derived` is False and `source` is not
+        provided, `source` defaults to `name`. (So if your serializer
+        field and source field share a name, you don't have to repeat
+        it.) If e.g. `orderable` is True and `order_source` is not
+        provided, `order_source` defaults to `source`. `filter_source`
+        behaves like `order_source`, but `keyword_source` defaults to
+        `filter_source`, if not provided.
+        """
         self.name = name
         self.camelcase_name = self.name_to_camelcase(name)
         self.public_name = name
@@ -44,10 +130,17 @@ class SimpleField(object):
         self.writeable = writeable
         self.orderable = orderable
         self.filterable = filterable
+        if present_direct_value is not None:
+            self.present_direct_value = present_direct_value
 
     def name_to_camelcase(self, name):
+        """
+        Convert the given str (`name`) to camelCase.
+        """
         if name.startswith('_'):
-            return name
+            suffix = name.lstrip('_')
+            cc_suffix = camel_case.render.underscoreToCamel(suffix)
+            return ''.join(['_' * (len(name) - len(suffix)), cc_suffix])
         return camel_case.render.underscoreToCamel(name)
 
     @classmethod
@@ -88,39 +181,81 @@ class SimpleField(object):
         """
         Present a data value for this field from the source obj data.
 
-        Default behavior is to try to get the value from the obj data
-        (dict) using the `source` attribute, and then to cast that to
-        the appropriate type.
+        Default behavior is to call `get_from_source` to get the value
+        from the source object, and then, if the `present_direct_value`
+        attribute is True, to return the value from the object,
+        directly. Otherwise it tries to cast it to the appropriate
+        type.
 
         Override this in a subclass if you need custom behavior for a
-        given field or type of field.
+        given type of field.
         """
-        value = source_obj_data.get(self.sources['main'])
-        if value is not None:
+        value = self.get_from_source(source_obj_data)
+        if value is not None and not self.present_direct_value:
             return self.cast_to_python(value)
         return value
 
-    def parse_from_client(self, value, client_data):
+    def get_from_source(self, source_obj_data):
         """
-        Parse (and clean/validate) the given value from the client.
+        Get data for this field from the source obj data dict.
 
-        Data from the client will match the presentation format.
-
-        Default behavior is to cast the supplied value to python.
+        Default behavior is to pull the data from the `sources['main']`
+        field.
 
         Override this in a subclass if you need custom behavior for a
-        given field or type of field. Raise a cls.ValidationError if
-        the data is invalid.
+        given type of field, such as if you're compiling a value from
+        multiple source fields.
         """
+        return source_obj_data.get(self.sources.get('main'))
+
+    def parse_from_client(self, client_data):
+        """
+        Parse (and clean/validate) data for this field from the client.
+        
+        `client_data` is a dict or dict-like object containing all data
+        from a client request. It will match the presentation format.
+        Default behavior is to pull the value based on the
+        `public_field` attribute and cast it to python.
+
+        Override this in a subclass if you need custom behavior for a
+        given type of field. (Raise a cls.ValidationError if the data
+        is invalid.)
+        """
+        value = client_data.get(self.public_field)
         return self.cast_to_python(value)
 
-    def compile_source_fields(self, value, client_data):
+    def convert_to_source(self, value, client_data):
+        """
+        Convert the given (client) value to the source data format.
+
+        This is the inverse of `get_from_source`. The return value
+        should be a dict mapping source fields to data values each
+        should contain. Default behavior is to assume you're loading
+        data back to the `source['main']` field.
+
+        Override this in a subclass if you need custom behavior for a
+        given type of field, such as if your serializer field converts
+        to multiple source fields.
+        """
         source = self.sources.get('main')
-        if source is not None:
-            return {source: value}
-        return {}
+        return {} if source is None else {source: value}
 
     def apply_filter_to_qset(self, qval, op, negate, qset):
+        """
+        Apply a filter to the supplied queryset (`qset`).
+        
+        This is responsible for parsing the query value (`qval`) that
+        the client provides based on the operator (`op` and `negate`).
+        It should apply the filter using the django-style queryset
+        interface and then return the filtered qset. `negate` is
+        expected to be a boolean and should trigger an `exclude` type
+        filter if True.
+
+        Default behavior assumes that you're using the filter backend:
+        `api.filters.SimpleQSetFilterBackend`. If you need different
+        behavior for a given type of field, override this in a
+        subclass.
+        """
         which_source = 'keyword' if op == 'keywords' else 'filter'
         source = self.sources.get(which_source)
         if op == 'isnull':
@@ -137,6 +272,16 @@ class SimpleField(object):
         return qset
 
     def emit_orderby_criteria(self, desc=False):
+        """
+        Return a list of orderby criteria for ordering this field.
+
+        Assume the orderby criteria will be applied to a django-style
+        queryset using the `orderby` method. Default behavior is to
+        use the `sources['order']` field as the basis for ordering.
+
+        Override this in a subclass if you need custom behavior for a
+        given type of field.
+        """
         source = self.sources.get('order')
         if source is not None:
             return [''.join(('-' if desc else '', source))]
@@ -178,7 +323,27 @@ class SimpleObjectInterface(object):
 
 class SimpleSerializer(object):
     """
-    A simplified "serializer" base class that works quickly with ...
+    A "serializer" base class meant to simplify and streamline things
+    for our use-cases, designed to be used with `SimpleField` fields
+    and `SimpleView` views.
+
+    Subclass this and set the `fields` class attribute to a list of
+    `SimpleField` objects representing your serializer fields. Fields
+    get serialized in the order you set.
+
+    If needed, implement a custom SimpleObjectInterface class and set
+    an instance of that to be the `obj_interface` attribute. Do this if
+    you need to customize how the serializer interacts with objects for
+    getting and saving data; if you have writeable fields and need to
+    be able to save objects, you should at least override the default
+    `obj_type` for your interface class to define how to save.
+
+    If you need to override how any specific field instances handle
+    data conversions, you should subclass the applicable `SimpleField`
+    class(es) and override the appropriate method(s).
+
+    Override `prepare_for_serialization` if you need to implement any
+    pre-serialization code to prep object data before it's serialized.
     """
     fields = []
     camelcase_fieldnames = settings.REST_FRAMEWORK['CAMELCASE_FIELDNAMES']
@@ -201,46 +366,16 @@ class SimpleSerializer(object):
                     f.public_name = f.camelcase_name
                     cls.field_lookup[f.camelcase_name] = f
 
-    def do_present_field(self, f, obj_data):
-        method = 'present_{}'.format(f.name)
-        present = getattr(self, method, f.present)
-        return present(obj_data)
-
-    def do_parse_field_from_client(self, f, client_data):
-        method = 'parse_{}_from_client'.format(f.name)
-        parse = getattr(self, method, f.parse_from_client)
-        return parse(client_data.get(f.public_name), client_data)
-
-    def do_convert_field_to_internal(self, f, client_data):
-        method = 'convert_{}_to_internal_fields'.format(f.name)
-        to_internal = getattr(self, method, f.compile_source_fields)
-        return to_internal(new_val, client_data)
-
-    def do_emit_field_orderby_criteria(self, f, desc=False):
-        method = 'emit_{}_orderby_criteria'.format(f.name)
-        emit = getattr(self, method, f.emit_orderby_criteria)
-        return emit(desc)
-
-    def do_apply_field_filter_to_qset(self, f, qval, op, negate, qset):
-        method = 'apply_{}_filter_to_qset'.format(f.name)
-        apply_filter = getattr(self, method, f.apply_filter_to_qset)
-        return apply_filter(qval, op, negate, qset)
-
-    def do_apply_orderby_to_qset(self, fields, direction, qset):
-        method = 'apply_{}_orderby_to_qset'.format(f.name)
-        apply_orderby = getattr(self, method, f.apply_orderby_to_qset)
-        return apply_orderby(direction, qset)
-
     def try_field_data_from_client(self, f, client_data):
         old_ser_data = self.data or {}
         old_val = old_ser_data.get(f.public_name)
-        new_val = self.do_parse_field_from_client(f, client_data)
+        new_val = f.parse_from_client(client_data)
         if new_val != old_val:
             if not f.writable:
                 logger.info('{}|{}|{}'.format(f.name, old_val, new_val))
                 msg = '{} is not a writable field.'.format(f.public_name)
                 raise f.ValidationError(msg)
-            return self.do_convert_field_to_internal(f, new_val, client_data)
+            return f.convert_to_source(new_val, client_data)
 
     def prepare_for_serialization(self, obj_data):
         """
@@ -269,7 +404,7 @@ class SimpleSerializer(object):
             obj_data = self.obj_interface.get_obj_data(obj)
             obj_data = self.prepare_for_serialization(obj_data)
             for f in self.fields:
-                data[f.public_name] = self.do_present_field(f, obj_data)
+                data[f.public_name] = f.present(obj_data)
         return data
 
     def prevalidate_client_data(self, client_data):

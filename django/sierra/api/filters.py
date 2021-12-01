@@ -156,9 +156,7 @@ class SimpleQSetFilterBackend(BaseFilterBackend):
             except FilterValidationError as e:
                 validation_errors.append(str(e))
             try:
-                qset = serializer.do_apply_field_filter_to_qset(
-                    field, val, op, negate, qset
-                )
+                qset = field.apply_filter_to_qset(val, op, negate, qset)
             except field.ValidationError as e:
                 validation_errors.append(str(e))
         if len(validation_errors) > 0:
@@ -189,9 +187,7 @@ class SimpleQSetFilterBackend(BaseFilterBackend):
                        "resource.".format(fname))
                 validation_errors.append(msg)
             try:
-                criteria.extend(
-                    serializer.do_emit_field_orderby_criteria(field, desc)
-                )
+                criteria.extend(field.emit_orderby_criteria(desc))
             except field.ValidationError as e:
                 msg = 'Field `{}`: {}'.format(fname, str(e))
                 validation_errors.append(msg)

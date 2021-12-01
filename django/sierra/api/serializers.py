@@ -25,6 +25,7 @@ logger = logging.getLogger('sierra.custom')
 
 class SimpleBoolField(SimpleField):
     data_type = bool
+    present_direct_value = False
     false_strings = set(['false', 'f', '0', 'null', 'n', 'no', 'not'])
 
     @classmethod
@@ -69,6 +70,7 @@ class SimpleDateTimeField(SimpleField):
 
 class SimpleJSONField(SimpleField):
     data_type = dict
+    present_direct_value = False
 
     @classmethod
     def cast_one_to_python(cls, val):
@@ -84,27 +86,74 @@ class APIUserSerializer(SimpleSerializer):
             obj_data['apiuser'] = obj.apiuser
             return obj_data
 
+    class PermissionsField(SimpleStrField):
+        def present(self, obj_data):
+            permissions = ujson.decode(obj_data['apiuser'].permissions)
+            new_permissions = {}
+            for key, val in permissions.items():
+                new_permissions[render.underscoreToCamel(key)] = val
+            return new_permissions
+
     fields = [
         SimpleStrField('username'),
         SimpleStrField('first_name'),
         SimpleStrField('last_name'),
         SimpleStrField('email'),
-        SimpleStrField('permissions')
+        PermissionsField('permissions')
     ]
     obj_interface = APIUserObjInterface()
 
-    def present_permissions(self, obj_data):
-        permissions = ujson.decode(obj_data['apiuser'].permissions)
-        new_permissions = {}
-        for key, val in permissions.items():
-            new_permissions[render.underscoreToCamel(key)] = val
-        return new_permissions
-
 
 class ItemSerializer(SimpleSerializerWithLookups):
+    class CallNumberField(SimpleStrField):
+        def apply_filter_to_qset(self, qval, op, negate, qset):
+            if op != 'isnull':
+                qval = helpers.NormalizedCallNumber(qval, 'search').normalize()
+            return super().apply_filter_to_qset(qval, op, negate, qset)
+
+    class LinksField(SimpleField):
+        def present(self, obj_data):
+            """
+            Generates links for each item. Doesn't use reverse URL lookups
+            because those get really slow when you have lots of objects.
+            I implemented my own reverse URL lookup (sort of) in api.urls,
+            which is much faster.
+            """
+            req = obj_data['__context'].get('request', None)
+            view = obj_data['__context'].get('view', None)
+
+            ret = OrderedDict()
+            if req is not None and view is not None:
+                ret['self'] = {
+                    'href': APIUris.get_uri('items-detail', req=req,
+                                            absolute=True, v=view.api_version,
+                                            id=obj_data.get('id'))
+                }
+                ret['parentBib'] = {
+                    'href': APIUris.get_uri('bibs-detail', req=req,
+                                            absolute=True, v=view.api_version,
+                                            id=obj_data.get('parent_bib_id'))
+                }
+                ret['location'] = {
+                    'href': APIUris.get_uri('locations-detail', req=req,
+                                            absolute=True, v=view.api_version,
+                                            code=obj_data.get('location_code'))
+                }
+                ret['itemtype'] = {
+                    'href': APIUris.get_uri('itemtypes-detail', req=req,
+                                            absolute=True, v=view.api_version,
+                                            code=obj_data.get('item_type_code'))
+                }
+                ret['itemstatus'] = {
+                    'href': APIUris.get_uri('itemstatuses-detail', req=req,
+                                            absolute=True, v=view.api_version,
+                                            code=obj_data.get('status_code'))
+                }
+            return ret
+
     obj_interface = SimpleObjectInterface(solr.Result)
     fields = [
-        SimpleField('_links', derived=True),
+        LinksField('_links', derived=True),
         SimpleStrField('id', orderable=True, filterable=True),
         SimpleStrField('record_number', source='id', orderable=True,
                        filterable=True),
@@ -114,10 +163,10 @@ class ItemSerializer(SimpleSerializerWithLookups):
         SimpleStrField('parent_bib_title', filterable=True),
         SimpleStrField('parent_bib_main_author', filterable=True),
         SimpleStrField('parent_bib_publication_year', filterable=True),
-        SimpleStrField('call_number', filterable=True, orderable=True,
-                       filter_source='call_number_search',
-                       keyword_source='call_number_search',
-                       order_source='call_number_sort'),
+        CallNumberField('call_number', filterable=True, orderable=True,
+                        filter_source='call_number_search',
+                        keyword_source='call_number_search',
+                        order_source='call_number_sort'),
         SimpleStrField('call_number_type', filterable=True),
         SimpleStrField('call_number_sort', orderable=True),
         SimpleStrField('call_number_search'),
@@ -172,79 +221,53 @@ class ItemSerializer(SimpleSerializerWithLookups):
         self.cache_lookup('status', lookups['ItemStatus'])
         self.cache_lookup('item_type', lookups['Itype'])
 
-    def present_location(self, obj_data):
-        """
-        Returns a location's label based on the obj's location_code.
-        """
-        return self.get_lookup_value('location', obj_data.get('location_code'))
-
-    def present_status(self, obj_data):
-        """
-        Returns a status label based on the status_code.
-        """
-        value = obj_data.get('status_code')
-        if value == '-' and obj_data.get('due_date') is not None:
-            return 'CHECKED OUT'
+    def prepare_for_serialization(self, obj_data):
+        obj_data['__context'] = self.context
+        lcode = obj_data.get('location_code')
+        obj_data['location'] = self.get_lookup_value('location', lcode)
+        st_code = obj_data.get('status_code')
+        if st_code == '-' and obj_data.get('due_date') is not None:
+            obj_data['status'] = 'CHECKED OUT'
         else:
-            return self.get_lookup_value('status', value)
-
-    def present_item_type(self, obj_data):
-        """
-        Returns item_type label based on item_type_code.
-        """
-        item_type_code = obj_data.get('item_type_code')
-        return self.get_lookup_value('item_type', item_type_code)
-
-    def present__links(self, obj_data):
-        """
-        Generates links for each item. Doesn't use reverse URL lookups
-        because those get really slow when you have lots of objects.
-        I implemented my own reverse URL lookup (sort of) in api.urls,
-        which is much faster.
-        """
-        req = self.context.get('request', None)
-        view = self.context.get('view', None)
-
-        ret = OrderedDict()
-        if req is not None and view is not None:
-            ret['self'] = {
-                'href': APIUris.get_uri('items-detail', req=req, absolute=True,
-                                        v=view.api_version,
-                                        id=obj_data.get('id'))
-            }
-            ret['parentBib'] = {
-                'href': APIUris.get_uri('bibs-detail', req=req, absolute=True,
-                                        v=view.api_version,
-                                        id=obj_data.get('parent_bib_id'))
-            }
-            ret['location'] = {
-                'href': APIUris.get_uri('locations-detail', req=req,
-                                        absolute=True, v=view.api_version,
-                                        code=obj_data.get('location_code'))
-            }
-            ret['itemtype'] = {
-                'href': APIUris.get_uri('itemtypes-detail', req=req,
-                                        absolute=True, v=view.api_version,
-                                        code=obj_data.get('item_type_code'))
-            }
-            ret['itemstatus'] = {
-                'href': APIUris.get_uri('itemstatuses-detail', req=req,
-                                        absolute=True, v=view.api_version,
-                                        code=obj_data.get('status_code'))
-            }
-        return ret
-
-    def apply_call_number_filter_to_qset(self, qval, op, negate, qset):
-        if op != 'isnull':
-            qval = helpers.NormalizedCallNumber(qval, 'search').normalize()
-        f = self.field_lookup['call_number']
-        return f.apply_filter_to_qset(qval, op, negate, qset)
+            obj_data['status'] = self.get_lookup_value('status', st_code)
+        itype_code = obj_data.get('item_type_code')
+        obj_data['item_type'] = self.get_lookup_value('item_type', itype_code)
+        return obj_data
 
 
 class BibSerializer(SimpleSerializer):
+    class LinksField(SimpleField):
+        def present(self, obj_data):
+            req = obj_data['__context'].get('request')
+            view = obj_data['__context'].get('view')
+            obj_id = obj_data.get('id')
+            ret = OrderedDict()
+            if req is not None and view is not None:
+                ret['self'] = {
+                    'href': APIUris.get_uri(
+                        'bibs-detail', req=req, absolute=True,
+                        v=view.api_version, id=obj_id
+                    )
+                }
+                items = obj_data.get('__items_json') or []
+                items.extend(obj_data.get('__more_items_json') or [])
+                if len(items) > 0:
+                    ret['items'] = [{
+                        'href': APIUris.get_uri(
+                            'items-detail', req=req, absolute=True,
+                            v=view.api_version, id=item['i']
+                        )
+                    } for item in items]
+            return ret
+
+    class PreppedJSONField(SimpleJSONField):
+        def present(self, obj_data):
+            prepped_fname = ''.join(['__', self.name])
+            return obj_data.get(prepped_fname, super().present(obj_data))
+
     obj_interface = SimpleObjectInterface(solr.Result)
     fields = [
-        SimpleField('_links', derived=True),
+        LinksField('_links', derived=True),
         SimpleStrField('id', orderable=True, filterable=True),
         SimpleStrField('record_number', source='id', orderable=True,
                        filterable=True),
@@ -267,9 +290,9 @@ class BibSerializer(SimpleSerializer):
         SimpleStrField('games_players_facet', filterable=True),
         SimpleStrField('thumbnail_url'),
         SimpleJSONField('urls_json'),
-        SimpleJSONField('items_json'),
+        PreppedJSONField('items_json'),
         SimpleBoolField('has_more_items', orderable=True, filterable=True),
-        SimpleJSONField('more_items_json'),
+        PreppedJSONField('more_items_json'),
         SimpleStrField('call_numbers_display'),
         SimpleStrField('sudocs_display'),
         SimpleStrField('lccns_display'),
@@ -345,56 +368,33 @@ class BibSerializer(SimpleSerializer):
         SimpleStrField('library_has_display'),
     ]
 
-    def __init__(self, instance=None, data=None, context=None):
-        self.reset_cached_json()
-        super().__init__(instance, data, context)
-
-    def reset_cached_json(self):
-        self.items_from_json = None
-        self.more_items_from_json = None
-
     def prepare_for_serialization(self, obj_data):
-        self.reset_cached_json()
+        obj_data['__context'] = self.context
+        items_json = self.field_lookup['items_json']
+        more_items_json = self.field_lookup['more_items_json']
+        obj_data['__items_json'] = items_json.present(obj_data)
+        obj_data['__more_items_json'] = more_items_json.present(obj_data)
         return obj_data
-
-    def present_items_json(self, obj_data):
-        if self.items_from_json is None:
-            f = self.field_lookup['items_json']
-            self.items_from_json = f.present(obj_data)
-        return self.items_from_json
-
-    def present_more_items_json(self, obj_data):
-        if self.more_items_from_json is None:
-            f = self.field_lookup['more_items_json']
-            self.more_items_from_json = f.present(obj_data)
-        return self.more_items_from_json
-
-    def present__links(self, obj_data):
-        req = self.context.get('request')
-        view = self.context.get('view')
-        obj_id = obj_data.get('id')
-        ret = OrderedDict()
-        if req is not None and view is not None:
-            ret['self'] = {
-                'href': APIUris.get_uri('bibs-detail', req=req, absolute=True,
-                                        v=view.api_version, id=obj_id)
-            }
-            items = self.present_items_json(obj_data) or []
-            items.extend(self.present_more_items_json(obj_data) or [])
-            if len(items) > 0:
-                ret['items'] = [{
-                    'href': APIUris.get_uri(
-                        'items-detail', req=req, absolute=True,
-                        v=view.api_version, id=item['i']
-                    )
-                } for item in items]
-        return ret
 
 
 class EResourceSerializer(SimpleSerializerWithLookups):
+    class LinksField(SimpleField):
+        def present(self, obj_data):
+            req = obj_data['__context'].get('request')
+            view = obj_data['__context'].get('view')
+            ret = OrderedDict()
+            if req is not None and view is not None:
+                ret['self'] = {
+                    'href': APIUris.get_uri(
+                        'eresources-detail', req=req, absolute=True,
+                        v=view.api_version, id=obj_data.get('id')
+                    )
+                }
+            return ret
+
     obj_interface = SimpleObjectInterface(solr.Result)
     fields = [
-        SimpleField('_links', derived=True),
+        LinksField('_links', derived=True),
         SimpleStrField('id', orderable=True, filterable=True),
         SimpleStrField('record_number', source='id',
                        orderable=True, filterable=True),
@@ -415,46 +415,46 @@ class EResourceSerializer(SimpleSerializerWithLookups):
         SimpleBoolField('suppressed', filterable=True),
     ]
 
-    def present__links(self, obj_data):
-        req = self.context.get('request', None)
-        view = self.context.get('view', None)
-        ret = OrderedDict()
-        if req is not None and view is not None:
-            ret['self'] = {
-                'href': APIUris.get_uri(
-                    'eresources-detail', req=req, absolute=True,
-                    v=view.api_version, id=obj_data.get('id')
-                )
-            }
-        return ret
+    def prepare_for_serialization(self, obj_data):
+        obj_data['__context'] = self.context
+        return obj_data
 
 
 class ItemCodeSerializer(SimpleSerializer):
+    class LinksField(SimpleField):
+        def present(self, obj_data):
+            req = obj_data['__context'].get('request', None)
+            view = obj_data['__context'].get('view', None)
+            code = obj_data.get('code')
+            detail_uri_str = obj_data['__detail_uri_str']
+            fk = obj_data['__foreign_key_field_name']
+            ret = OrderedDict()
+            if req is not None and view is not None:
+                ret['self'] = {
+                    'href': APIUris.get_uri(
+                        detail_uri_str, req=req, absolute=True,
+                        v=view.api_version, code=code
+                    )
+                }
+                items_url = APIUris.get_uri(
+                    'items-list', req=req, absolute=True, v=view.api_version
+                )
+                ret['items'] = {'href': '{}?{}={}'.format(items_url, fk, code)}
+            return ret
+
     foreign_key_field_name = None
     detail_uri_str = ''
     fields = [
-        SimpleField('_links', derived=True),
+        LinksField('_links', derived=True),
         SimpleStrField('code', orderable=True, filterable=True),
         SimpleStrField('label', orderable=True, filterable=True)
     ]
 
-    def present__links(self, obj_data):
-        req = self.context.get('request', None)
-        view = self.context.get('view', None)
-        code = obj_data.get('code')
-        fk = self.foreign_key_field_name
-        ret = OrderedDict()
-        if req is not None and view is not None:
-            ret['self'] = {
-                'href': APIUris.get_uri(
-                    self.detail_uri_str, req=req, absolute=True,
-                    v=view.api_version, code=code
-                )
-            }
-            items_url = APIUris.get_uri('items-list', req=req, absolute=True,
-                                        v=view.api_version)
-            ret['items'] = {'href': '{}?{}={}'.format(items_url, fk, code)}
-        return ret
+    def prepare_for_serialization(self, obj_data):
+        obj_data['__context'] = self.context
+        obj_data['__detail_uri_str'] = self.detail_uri_str
+        obj_data['__foreign_key_field_name'] = self.foreign_key_field_name
+        return obj_data
 
 
 class LocationSerializer(ItemCodeSerializer):
