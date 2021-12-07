@@ -346,12 +346,12 @@ class FirstItemPerLocationList(SimpleGetMixin, SimpleView):
     filtered result set.
     """
     facet_field = 'location_code'
-    queryset = solr.Queryset().filter(type='Item').search('*:*',
-                                                          params={'facet': 'true', 'facet.field': facet_field,
-                                                                  'facet.sort': 'index', 'facet.mincount': 1})
+    queryset = solr.Queryset().filter(type='Item').search(
+        '*:*', params={'facet': 'true', 'facet.field': facet_field,
+                       'facet.sort': 'index', 'facet.mincount': 1}
+    )
     serializer_class = serializers.ItemSerializer
     resource_name = 'firstitemperlocation'
-    filter_fields = ['call_number', 'call_number_type', 'barcode']
 
     def get_page_data(self, queryset, request):
         ff = self.facet_field
@@ -370,15 +370,14 @@ class FirstItemPerLocationList(SimpleGetMixin, SimpleView):
                                        req=request, absolute=True)
             items.append({
                 '_links': {'self': {'href': item_uri}},
-                'id': facet_qs[0].get('id', None),
+                'id': facet_qs[0].get('id'),
                 'parentBibRecordNumber':
-                    facet_qs[0].get('parent_bib_record_number', None),
-                'parentBibTitle': facet_qs[0].get('parent_bib_title', None),
-                'recordNumber':
-                    facet_qs[0].get('record_number', None),
-                'callNumber': facet_qs[0].get('call_number', None),
-                'callNumberType': facet_qs[0].get('call_number_type', None),
-                'barcode': facet_qs[0].get('barcode', None),
+                    facet_qs[0].get('parent_bib_record_number'),
+                'parentBibTitle': facet_qs[0].get('parent_bib_title'),
+                'recordNumber': facet_qs[0].get('id'),
+                'callNumber': facet_qs[0].get('call_number'),
+                'callNumberType': facet_qs[0].get('call_number_type'),
+                'barcode': facet_qs[0].get('barcode'),
                 'locationCode': key,
             })
 

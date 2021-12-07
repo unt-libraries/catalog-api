@@ -14,6 +14,8 @@ from shelflist.exporters import ItemsToSolr
 from shelflist.search_indexes import ShelflistItemIndex
 from six import text_type
 from six.moves import range
+from utils.timer import TIMER
+
 
 # FIXTURES AND TEST DATA
 # Fixtures used in the below tests can be found in ...
@@ -310,31 +312,37 @@ PARAMETERS__FIRSTITEMPERLOCATION = (
         (TESTDATA__FIRSTITEMPERLOCATION,
          'callNumber[startswith]=BB 12&callNumberType=lc',
          ['atest2', 'btest1', 'ctest1']),
-     }, {'LC call number type | A match at one location':
-         (TESTDATA__FIRSTITEMPERLOCATION,
-          'callNumber[startswith]=BC&callNumberType=lc',
-          ['atest3']),
-         }, {'LC call number type | No matches':
-             (TESTDATA__FIRSTITEMPERLOCATION,
-              'callNumber[startswith]=D&callNumberType=lc',
-              None),
-             }, {'SUDOC call number type | A match at two locations':
-                 (TESTDATA__FIRSTITEMPERLOCATION,
-                  'callNumber[startswith]=BB&callNumberType=sudoc',
-                  ['atest4', 'btest4']),
-                 }, {'DEWEY call number type | A match at one location':
-                     (TESTDATA__FIRSTITEMPERLOCATION,
-                      'callNumber[startswith]=900&callNumberType=dewey',
-                      ['ctest3']),
-                     }, {'OTHER call number type | A match at one location':
-                         (TESTDATA__FIRSTITEMPERLOCATION,
-                          'callNumber[startswith]=C&callNumberType=other',
-                          ['ctest2']),
-                         }, {'BARCODE | A match at two locations':
-                             (TESTDATA__FIRSTITEMPERLOCATION,
-                              'barcode=3',
-                              ['atest3', 'btest1']),
-                             },
+    },
+    {'LC call number type | A match at one location':
+        (TESTDATA__FIRSTITEMPERLOCATION,
+         'callNumber[startswith]=BC&callNumberType=lc',
+         ['atest3']),
+    },
+    {'LC call number type | No matches':
+        (TESTDATA__FIRSTITEMPERLOCATION,
+         'callNumber[startswith]=D&callNumberType=lc',
+         None),
+    },
+    {'SUDOC call number type | A match at two locations':
+        (TESTDATA__FIRSTITEMPERLOCATION,
+         'callNumber[startswith]=BB&callNumberType=sudoc',
+         ['atest4', 'btest4']),
+    },
+    {'DEWEY call number type | A match at one location':
+        (TESTDATA__FIRSTITEMPERLOCATION,
+         'callNumber[startswith]=900&callNumberType=dewey',
+         ['ctest3']),
+    },
+    {'OTHER call number type | A match at one location':
+        (TESTDATA__FIRSTITEMPERLOCATION,
+         'callNumber[startswith]=C&callNumberType=other',
+         ['ctest2']),
+    },
+    {'BARCODE | A match at two locations':
+        (TESTDATA__FIRSTITEMPERLOCATION,
+         'barcode=3',
+         ['atest3', 'btest1']),
+    },
 )
 
 
@@ -429,33 +437,31 @@ def derive_updated_resource():
     directly as a PUT request to update the resource via the API.
     """
     def _get_new_val(old_val, field_type):
-        if field_type == 'str':
+        if field_type == str:
             return text_type('{} TEST').format((old_val or ''))
-        if field_type == 'int':
+        if field_type == int:
             return (old_val or 0) + 1
-        if field_type == 'bool':
+        if field_type == bool:
             return not bool(old_val)
-        if field_type == 'datetime':
+        if field_type == datetime:
             return '9999-01-01T00:00:00Z'
         return None
 
     def _derive_updated_resource(old_item, serializer, solr_profile,
                                  which_fields=None):
         new_item = {}
-        for fname, fopts in serializer.fields.items():
-            rendered_fname = serializer.render_field_name(fname)
-            old_val = old_item[rendered_fname]
-            solr_fname = fopts.get('source', fname)
-            if (which_fields is None) or (rendered_fname in which_fields):
-                field = solr_profile.fields.get(solr_fname, {})
-                if field.get('multi', False):
+        for f in serializer.fields:
+            old_val = old_item[f.public_name]
+            if (which_fields is None) or (f.public_name in which_fields):
+                solr_field = solr_profile.fields.get(f.sources['main'], {})
+                if solr_field.get('multi', False):
                     old_val = old_val or [None]
-                    new_val = [_get_new_val(o, fopts['type']) for o in old_val]
+                    new_val = [_get_new_val(o, f.data_type) for o in old_val]
                 else:
-                    new_val = _get_new_val(old_val, fopts['type'])
+                    new_val = _get_new_val(old_val, f.data_type)
             else:
                 new_val = old_val
-            new_item[rendered_fname] = new_val
+            new_item[f.public_name] = new_val
         return new_item
     return _derive_updated_resource
 
@@ -470,10 +476,9 @@ def filter_serializer_fields_by_opt():
     """
     def _filter_serializer_fields_by_opt(serializer, attr, value):
         fields = []
-        for fname, fopts in serializer.fields.items():
-            rendered_fname = serializer.render_field_name(fname)
-            if fopts.get(attr, None) == value:
-                fields.append(rendered_fname)
+        for f in serializer.fields:
+            if getattr(f, attr, None) == value:
+                fields.append(f.public_name)
         return fields
     return _filter_serializer_fields_by_opt
 
@@ -509,13 +514,19 @@ def send_api_data(apiuser_with_custom_defaults, simple_sig_auth_credentials):
     return _send_api_data
 
 
+@pytest.fixture(scope='session', autouse=True)
+def session_setup_teardown():
+    yield
+    TIMER.report()
+
+
 # TESTS
 # ---------------------------------------------------------------------
 
 def test_shelflistitem_resource(api_settings, get_shelflist_urls,
                                 shelflist_solr_env, api_client,
                                 pick_reference_object_having_link,
-                                assert_obj_fields_match_serializer):
+                                assert_data_is_from_serializer):
     """
     The shelflistitem resource should should have a list view and
     detail view; it should have objects available in an "_embedded"
@@ -533,7 +544,7 @@ def test_shelflistitem_resource(api_settings, get_shelflist_urls,
     assert ref_obj == detail_obj
 
     serializer = detail_resp.renderer_context['view'].get_serializer()
-    assert_obj_fields_match_serializer(detail_obj, serializer)
+    assert_data_is_from_serializer(detail_obj, serializer)
 
 
 @pytest.mark.parametrize('resource, linked_resource, link_field, '
@@ -549,7 +560,7 @@ def test_shelflistitem_links(resource, linked_resource, link_field,
                              rev_link_field, api_settings, api_client,
                              get_shelflist_urls, shelflist_solr_env,
                              pick_reference_object_having_link,
-                             assert_obj_fields_match_serializer,
+                             assert_data_is_from_serializer,
                              get_linked_view_and_objects):
     """
     Accessing linked resources (i.e. via the `_links` field in the JSON
@@ -566,7 +577,7 @@ def test_shelflistitem_links(resource, linked_resource, link_field,
     lview, lobjs = get_linked_view_and_objects(api_client, ref_obj,
                                                link_field)
     assert lview.resource_name == linked_resource
-    assert_obj_fields_match_serializer(lobjs[0], lview.get_serializer())
+    assert_data_is_from_serializer(lobjs[0], lview.get_serializer())
     _, rev_objs = get_linked_view_and_objects(api_client, lobjs[0],
                                               rev_link_field)
     assert ref_obj in rev_objs
@@ -584,7 +595,7 @@ def test_shelflistitem_list_view_filters(test_data, search, expected,
     """
     Given the provided `test_data` records: requesting the given
     `resource` using the provided search filter parameters (`search`)
-    should return each of the records in `expected` and NONE of the
+    s_data_is_from of the records in `expected` and NONE of the
     records NOT in `expected`.
     """
     test_ids = set([r[0] for r in test_data])
@@ -595,8 +606,7 @@ def test_shelflistitem_list_view_filters(test_data, search, expected,
     loc_erecs = [r for r in erecs if r['location_code'] == loc]
     for test_id, data in test_data:
         data['location_code'] = loc
-    _, trecs = assemble_shelflist_test_records(test_data,
-                                               id_field='record_number')
+    _, trecs = assemble_shelflist_test_records(test_data)
 
     # First let's do a quick sanity check to make sure the resource
     # returns the correct num of records before the filter is applied.
@@ -605,7 +615,7 @@ def test_shelflistitem_list_view_filters(test_data, search, expected,
     assert check_response.data['totalCount'] == len(loc_erecs) + len(trecs)
 
     response = do_filter_search(url, search, api_client)
-    found_ids = set(get_found_ids('record_number', response))
+    found_ids = set(get_found_ids('id', response))
     assert all([i in found_ids for i in expected_ids])
     assert all([i not in found_ids for i in not_expected_ids])
 
@@ -630,7 +640,7 @@ def test_shelflistitem_view_orderby(order_by, api_settings, shelflist_solr_env,
     test_url = '{}?orderBy={}'.format(list(sl_urls.values())[0], order_by)
     response = api_client.get(test_url)
     assert response.status_code == 400
-    assert 'not a valid field for ordering' in response.data['detail']
+    assert 'cannot be used for ordering' in response.data['detail']
 
 
 def test_shelflistitem_row_order(api_settings, shelflist_solr_env,
@@ -653,7 +663,7 @@ def test_shelflistitem_row_order(api_settings, shelflist_solr_env,
     response = api_client.get(url)
     total = response.data['totalCount']
     found_ids = get_found_ids('id', response)
-    row_numbers = get_found_ids('row_number', response)
+    row_numbers = get_found_ids('rowNumber', response)
     assert found_ids == manifest
     assert row_numbers == [num for num in range(0, total)]
 
@@ -666,7 +676,7 @@ def test_shelflistitem_putpatch_requires_auth(api_settings,
     fail without authentication. A 403 status code should be returned,
     and the item should NOT be updated.
     """
-    test_lcode, test_id = '1test', 99999999
+    test_lcode, test_id = '1test', 'i99999999'
     _, _, trecs = assemble_custom_shelflist(test_lcode, [(test_id, {})])
     url = '{}{}'.format(get_shelflist_urls(trecs)[test_lcode], test_id)
     before = api_client.get(url)
@@ -680,18 +690,18 @@ def test_shelflistitem_putpatch_requires_auth(api_settings,
 
 @pytest.mark.django_db
 @pytest.mark.parametrize('method', ['put', 'patch'])
-def test_shelflistitem_update_err_nonwritable(method, api_settings,
-                                              assemble_custom_shelflist,
-                                              shelflist_solr_env,
-                                              filter_serializer_fields_by_opt,
-                                              derive_updated_resource,
-                                              send_api_data,
-                                              get_shelflist_urls, api_client):
+def test_shelflistitem_update_err_nonwriteable(method, api_settings,
+                                               assemble_custom_shelflist,
+                                               shelflist_solr_env,
+                                               filter_serializer_fields_by_opt,
+                                               derive_updated_resource,
+                                               send_api_data,
+                                               get_shelflist_urls, api_client):
     """
-    Attempting to update nonwritable fields raises an error,
-    '... is not a writable field'. The item should NOT be updated.
+    Attempting to update nonwriteable fields raises an error,
+    '... is not a writeable field'. The item should NOT be updated.
     """
-    test_lcode, test_id = '1test', 99999999
+    test_lcode, test_id = '1test', 'i99999999'
     _, _, trecs = assemble_custom_shelflist(test_lcode, [(test_id, {})])
     url = '{}{}'.format(get_shelflist_urls(trecs)[test_lcode], test_id)
     before = api_client.get(url)
@@ -704,40 +714,44 @@ def test_shelflistitem_update_err_nonwritable(method, api_settings,
     elif method == 'patch':
         req_body = jsonpatch.make_patch(before.data, try_item)
 
-    unwritable = filter_serializer_fields_by_opt(serializer, 'writable', False)
+    unwrtable = filter_serializer_fields_by_opt(serializer, 'writeable', False)
     resp = send_api_data(api_client, url, req_body, method)
     after = api_client.get(url)
 
     assert resp.status_code == 400
     assert before.data == after.data
-    for fname in unwritable:
-        msg = '{} is not a writable field'.format(fname)
+    for fname in unwrtable:
+        msg = '{} is not a writeable field'.format(fname)
         assert msg in resp.data['detail']
 
 
 @pytest.mark.django_db
 @pytest.mark.parametrize('method', ['put', 'patch'])
 def test_shelflistitem_update_items(method, api_settings,
-                                    assemble_custom_shelflist,
+                                    assemble_custom_shelflist, redis_obj,
                                     shelflist_solr_env,
                                     filter_serializer_fields_by_opt,
                                     derive_updated_resource, send_api_data,
                                     get_shelflist_urls, api_client):
     """
-    Updating writable fields on shelflistitems should update/save the
-    resource: it should update the writable fields that were changed
+    Updating writeable fields on shelflistitems should update/save the
+    resource: it should update the writeable fields that were changed
     and keep all other fields exactly the same.
     """
-    test_lcode, test_id = '1test', 99999999
+    test_lcode, test_id = '1test', 'i99999999'
     _, _, trecs = assemble_custom_shelflist(test_lcode, [(test_id, {})])
+    index = ShelflistItemIndex()
+    manifest = index.get_location_manifest(test_lcode)
+    redis_key = '{}:{}'.format(REDIS_SHELFLIST_PREFIX, test_lcode)
+    redis_obj(redis_key).set(manifest)
     url = '{}{}'.format(get_shelflist_urls(trecs)[test_lcode], test_id)
     before = api_client.get(url)
     serializer = before.renderer_context['view'].get_serializer()
-    writable = filter_serializer_fields_by_opt(serializer, 'writable', True)
-    unwritable = filter_serializer_fields_by_opt(serializer, 'writable', False)
+    wrtable = filter_serializer_fields_by_opt(serializer, 'writeable', True)
+    unwrtable = filter_serializer_fields_by_opt(serializer, 'writeable', False)
     profile = shelflist_solr_env.profiles['shelflistitem']
     try_item = derive_updated_resource(before.data, serializer, profile,
-                                       which_fields=writable)
+                                       which_fields=wrtable)
 
     if method == 'put':
         req_body = ujson.dumps(try_item)
@@ -755,11 +769,11 @@ def test_shelflistitem_update_items(method, api_settings,
     print(try_item)
     print((after.data))
 
-    for fname in writable:
+    for fname in wrtable:
         assert after.data[fname] == try_item[fname]
         assert after.data[fname] != before.data[fname]
 
-    for fname in unwritable:
+    for fname in unwrtable:
         assert after.data[fname] == try_item[fname]
         assert after.data[fname] == before.data[fname]
 
@@ -782,18 +796,18 @@ def test_shelflistitem_put_data_missing_fields(fname_solr, fname_api,
     A PUT request should replace the item being updated with the item
     in the request body. In other words: if a field isn't provided in
     the PUT request body, the field is set to None/null. This results
-    in an error if the field previously had data and is not writable.
+    in an error if the field previously had data and is not writeable.
     """
-    test_lcode, test_id = '1test', 99999999
+    test_lcode, test_id = '1test', 'i99999999'
     test_data = [(test_id, {fname_solr: start_val})]
     _, _, trecs = assemble_custom_shelflist(test_lcode, test_data)
     url = '{}{}'.format(get_shelflist_urls(trecs)[test_lcode], test_id)
     before = api_client.get(url)
     serializer = before.renderer_context['view'].get_serializer()
     profile = shelflist_solr_env.profiles['shelflistitem']
-    writable = filter_serializer_fields_by_opt(serializer, 'writable', True)
+    wrtable = filter_serializer_fields_by_opt(serializer, 'writeable', True)
     try_item = derive_updated_resource(before.data, serializer, profile,
-                                       which_fields=writable)
+                                       which_fields=wrtable)
     del(try_item[fname_api])
     req_body = ujson.dumps(try_item)
     resp = send_api_data(api_client, url, req_body, 'put')
@@ -802,7 +816,7 @@ def test_shelflistitem_put_data_missing_fields(fname_solr, fname_api,
     if expect_error:
         assert resp.status_code == 400
         assert before.data == after.data
-        msg = '{} is not a writable field'.format(fname_api)
+        msg = '{} is not a writeable field'.format(fname_api)
         assert msg in resp.data['detail']
     else:
         assert resp.status_code == 200
@@ -838,7 +852,7 @@ def test_shelflist_firstitemperlocation_list(test_data, search, expected,
 
     index = ShelflistItemIndex()
     for test_lcode, data in test_data_by_location.items():
-        assemble_custom_shelflist(test_lcode, data, id_field='record_number')
+        assemble_custom_shelflist(test_lcode, data)
         manifest = index.get_location_manifest(test_lcode)
         redis_key = '{}:{}'.format(REDIS_SHELFLIST_PREFIX, test_lcode)
         redis_obj(redis_key).set(manifest)
@@ -846,6 +860,7 @@ def test_shelflist_firstitemperlocation_list(test_data, search, expected,
     resource_url = '{}firstitemperlocation/'.format(API_ROOT)
     rsp = do_filter_search(resource_url, search, api_client)
     rsp_items = rsp.data['_embedded']['items']
+    print(rsp_items)
 
     if expected is None:
         for item in rsp_items:
@@ -859,3 +874,4 @@ def test_shelflist_firstitemperlocation_list(test_data, search, expected,
                                                     item['id'])
             assert item['rowNumber'] == exp_row
             assert item['_links']['shelflistItem']['href'].endswith(exp_sli)
+

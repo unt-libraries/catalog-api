@@ -67,6 +67,10 @@ class SimpleDateTimeField(SimpleField):
             raise ValueError(msg)
         raise ValueError('Unknown datetime conversion.')
 
+    def convert_to_source(self, value, client_data):
+        dt_str = value.strftime('%Y-%m-%dT%H:%M:%SZ')
+        return super().convert_to_source(dt_str, client_data)
+
 
 class SimpleJSONField(SimpleField):
     data_type = dict
@@ -75,6 +79,13 @@ class SimpleJSONField(SimpleField):
     @classmethod
     def cast_one_to_python(cls, val):
         return ujson.loads(val)
+
+
+class CallNumberField(SimpleStrField):
+    def apply_filter_to_qset(self, qval, op, negate, qset):
+        if op != 'isnull':
+            qval = helpers.NormalizedCallNumber(qval, 'search').normalize()
+        return super().apply_filter_to_qset(qval, op, negate, qset)
 
 
 class APIUserSerializer(SimpleSerializer):
@@ -105,12 +116,6 @@ class APIUserSerializer(SimpleSerializer):
 
 
 class ItemSerializer(SimpleSerializerWithLookups):
-    class CallNumberField(SimpleStrField):
-        def apply_filter_to_qset(self, qval, op, negate, qset):
-            if op != 'isnull':
-                qval = helpers.NormalizedCallNumber(qval, 'search').normalize()
-            return super().apply_filter_to_qset(qval, op, negate, qset)
-
     class LinksField(SimpleField):
         def present(self, obj_data):
             """

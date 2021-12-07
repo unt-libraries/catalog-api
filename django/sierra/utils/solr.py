@@ -58,12 +58,14 @@ class Result(dict):
         self.__dict__ = self
 
     def save(self, url=None, using='default', **kwargs):
+        TIMER.start('SOLR SAVE')
         conn = connect(url, using)
         try:
             del(self['_version_'])
         except KeyError:
             pass
         conn.add([self], **kwargs)
+        TIMER.end('SOLR SAVE')
 
 
 class Queryset(object):

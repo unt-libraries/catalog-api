@@ -221,8 +221,10 @@ class SimpleField(object):
         given type of field. (Raise a cls.ValidationError if the data
         is invalid.)
         """
-        value = client_data.get(self.public_field)
-        return self.cast_to_python(value)
+        value = client_data.get(self.public_name)
+        if value is not None:
+            return self.cast_to_python(value)
+        return value
 
     def convert_to_source(self, value, client_data):
         """
@@ -306,7 +308,8 @@ class SimpleObjectInterface(object):
             self.obj_type = obj_type
 
     def get_obj_data(self, obj):
-        return obj if hasattr(obj, 'items') else getattr(obj, '__dict__', {})
+        data = obj if hasattr(obj, 'items') else getattr(obj, '__dict__', {})
+        return data.copy()
 
     def make_obj_from_data(self, obj_data):
         if isinstance(self.obj_type, dict):
@@ -368,12 +371,12 @@ class SimpleSerializer(object):
 
     def try_field_data_from_client(self, f, client_data):
         old_ser_data = self.data or {}
-        old_val = old_ser_data.get(f.public_name)
+        old_val = f.parse_from_client(old_ser_data)
         new_val = f.parse_from_client(client_data)
         if new_val != old_val:
-            if not f.writable:
+            if not f.writeable:
                 logger.info('{}|{}|{}'.format(f.name, old_val, new_val))
-                msg = '{} is not a writable field.'.format(f.public_name)
+                msg = '{} is not a writeable field.'.format(f.public_name)
                 raise f.ValidationError(msg)
             return f.convert_to_source(new_val, client_data)
 
@@ -411,7 +414,7 @@ class SimpleSerializer(object):
         errors = []
         if client_data is None:
             errors.append('No input provided.')
-        elif not hasattr(data, 'items'):
+        elif not hasattr(client_data, 'items'):
             msg = 'Input must be a single dict-like object.'
             if isinstance(client_data, (list, tuple)):
                 msg = '{} (Batch additions/updates not supported.)'.format(msg)
@@ -419,21 +422,23 @@ class SimpleSerializer(object):
         return errors
 
     def to_internal_value(self, client_data):
+        TIMER.start('TRY UPDATE FROM CLIENT')
         obj_has_changed = False
         new_obj_data = {}
         self.errors = self.prevalidate_client_data(client_data)
         if len(self.errors) == 0:
-            new_obj_data = self.obj_interface.get_obj_data(self.object).copy()
+            new_obj_data = self.obj_interface.get_obj_data(self.object)
             for f in self.fields:
                 try:
                     new_vals = self.try_field_data_from_client(f, client_data)
                 except f.ValidationError as e:
-                    msg = 'Field `{}` did not validate: {}'.format(fn, e)
+                    msg = 'Field `{}` did not validate: {}'.format(f.name, e)
                     self.errors.append(msg)
                 else:
                     if len(self.errors) == 0 and new_vals is not None:
                         new_obj_data.update(new_vals)
                         obj_has_changed = True
+        TIMER.end('TRY UPDATE FROM CLIENT')
         return new_obj_data if obj_has_changed else None
 
     def is_valid(self):
@@ -447,7 +452,7 @@ class SimpleSerializer(object):
                     self.object = self.obj_interface.make_obj_from_data(data)
                 self._data = None
                 self.raw_client_data = None
-        return num_errors > 0
+        return num_errors == 0
 
     @property
     def data(self):
