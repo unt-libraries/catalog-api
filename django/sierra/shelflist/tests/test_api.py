@@ -14,7 +14,6 @@ from shelflist.exporters import ItemsToSolr
 from shelflist.search_indexes import ShelflistItemIndex
 from six import text_type
 from six.moves import range
-from utils.timer import TIMER
 
 
 # FIXTURES AND TEST DATA
@@ -512,12 +511,6 @@ def send_api_data(apiuser_with_custom_defaults, simple_sig_auth_credentials):
         api_client.credentials()
         return resp
     return _send_api_data
-
-
-@pytest.fixture(scope='session', autouse=True)
-def session_setup_teardown():
-    yield
-    TIMER.report()
 
 
 # TESTS

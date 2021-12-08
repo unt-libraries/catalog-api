@@ -7,7 +7,6 @@ from collections.abc import Sequence
 import django.db.models.query
 from django.conf import settings
 from utils import camel_case, helpers
-from utils.timer import TIMER
 
 # set up logger, for debugging
 logger = logging.getLogger('sierra.custom')
@@ -395,11 +394,9 @@ class SimpleSerializer(object):
         specifications.
         """
         if self.obj_interface.obj_is_many(obj):
-            TIMER.start('SERIALIZE LIST')
             data = []
             for o in obj:
                 data.append(self.to_representation(o))
-            TIMER.end('SERIALIZE LIST')
             return data
 
         data = OrderedDict()
@@ -422,7 +419,6 @@ class SimpleSerializer(object):
         return errors
 
     def to_internal_value(self, client_data):
-        TIMER.start('TRY UPDATE FROM CLIENT')
         obj_has_changed = False
         new_obj_data = {}
         self.errors = self.prevalidate_client_data(client_data)
@@ -438,7 +434,6 @@ class SimpleSerializer(object):
                     if len(self.errors) == 0 and new_vals is not None:
                         new_obj_data.update(new_vals)
                         obj_has_changed = True
-        TIMER.end('TRY UPDATE FROM CLIENT')
         return new_obj_data if obj_has_changed else None
 
     def is_valid(self):
