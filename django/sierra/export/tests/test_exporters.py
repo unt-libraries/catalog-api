@@ -1124,9 +1124,9 @@ def test_ertosolr_export_returns_h_lists(basic_exporter_class, record_sets,
     vals = exporter.export_records(records)
     assert 'h_lists' in vals
     for rec in records:
-        er_recnum = rec.record_metadata.get_iii_recnum(True)
+        er_recnum = rec.record_metadata.get_iii_recnum(False)
         assert er_recnum in vals['h_lists']
-        exp_holdings = [h.record_metadata.get_iii_recnum(True)
+        exp_holdings = [h.record_metadata.get_iii_recnum(False)
                         for h in rec.holding_records.all()]
         assert vals['h_lists'][er_recnum] == exp_holdings
 
@@ -1145,7 +1145,7 @@ def test_ertosolr_delete_returns_deletions(basic_exporter_class, record_sets,
 
     vals = exporter.delete_records(records)
     assert 'deletions' in vals
-    exp_deletions = [r.get_iii_recnum(True) for r in records]
+    exp_deletions = [r.get_iii_recnum(False) for r in records]
     assert vals['deletions'] == exp_deletions
 
 

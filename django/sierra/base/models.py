@@ -508,7 +508,7 @@ class RecordMetadata(ReadOnlyModel):
         rn = int(self.record_num)
         full_rec_num = '{}{}'.format(self.record_type, self.record_num)
         if use_check_digit:
-            check_digit = (sum([(rn / (10 ** i) % 10) * (i + 2)
+            check_digit = int(sum([(rn / (10 ** i) % 10) * (i + 2)
                                 for i in range(0, 6)])
                            + (rn / (10 ** 6)) * 8) % 11
             if check_digit == 10:

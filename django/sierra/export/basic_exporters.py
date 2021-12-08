@@ -138,7 +138,7 @@ class EResourcesToSolr(ToSolrExporter):
 
     def delete_records(self, records):
         self.indexes['EResources'].do_delete(records)
-        return {'deletions': [r.get_iii_recnum(True) for r in records]}
+        return {'deletions': [r.get_iii_recnum(False) for r in records]}
 
     def commit_to_redis(self, vals):
         self.log('Info', 'Committing EResource updates to Redis...')
