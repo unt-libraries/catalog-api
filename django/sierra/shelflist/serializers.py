@@ -87,6 +87,9 @@ class ShelflistItemSerializer(SimpleSerializerWithLookups):
     ]
 
     def cache_all_lookups(self):
+        self.refresh_status()
+
+    def refresh_status(self):
         qs = solr.Queryset().filter(type='ItemStatus').only('code', 'label')
         results = [i for i in qs]
         lookup = {}
