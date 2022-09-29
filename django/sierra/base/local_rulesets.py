@@ -51,7 +51,7 @@ ITEM_RULES = {
                 'jlf', 'lwww', 's', 's1fdc', 's1ndc', 'smls', 'spe', 'szmp',
                 'szzov', 'szzrf', 'szzrs', 'szzsd', 'w', 'w1fdc', 'w1grs',
                 'w1ia', 'w1mdc', 'w1mls', 'w1ndc', 'w1upr', 'w3', 'w3big',
-                'w3grn', 'w3mfa', 'w3per', 'wlbig', 'wlmic', 'wlper', 'x',
+                'w3grn', 'w3mfa', 'w3per', 'wlbig', 'wllok', 'wlmic', 'x',
                 'xmic'
             ),
             'Government Documents': (
@@ -61,10 +61,10 @@ ITEM_RULES = {
             ),
             'Media Library': ('czm', 'czmrf', 'czmrs', 'czwww', 'xmed'),
             'Music Library': (
-                'mwww', 'w433a', 'w4422', 'w4438', 'w4fil', 'w4m', 'w4mai',
-                'w4mau', 'w4mav', 'w4mbg', 'w4mfb', 'w4mft', 'w4mla', 'w4moc',
-                'w4mov', 'w4mr1', 'w4mr2', 'w4mr3', 'w4mrb', 'w4mrf', 'w4mrs',
-                'w4mrx', 'w4mwf', 'xmau', 'xmus'
+                'mwww', 'w433a', 'w4422', 'w4438', 'w4fil', 'w4lok', 'w4m',
+                'w4mai', 'w4mau', 'w4mav', 'w4mbg', 'w4mfb', 'w4mft', 'w4mla',
+                'w4moc', 'w4mov', 'w4mr1', 'w4mr2', 'w4mr3', 'w4mrb', 'w4mrf',
+                'w4mrs', 'w4mrx', 'w4mwf', 'xmau', 'xmus'
             ),
             'Special Collections': ('pwww', 'w4spc', 'w4spe', 'w4srf', 'xspc',
                                     'xspe'),
@@ -79,18 +79,19 @@ ITEM_RULES = {
             False: (
                 'czmrf', 'czmrs', 'czwww', 'd', 'dcare', 'dfic', 'djuv',
                 'dmed', 'dref', 'dresv', 'fip', 'frsco', 'gwww', 'hscfw',
-                'ill', 'jlf', 'kmats', 'kmatt', 'kpacs', 'kpeb', 'law', 'lawcl',
-                'lawh', 'lawrf', 'lawrs', 'lawtx', 'lawww', 'libr', 'lwww',
-                'mwww', 'pwww', 'rzzrf', 'rzzrs', 'sdai', 'sdbi', 'sdmp',
-                'sdov', 'sdtov', 'sdvf', 'sdzmr', 'sdzrf', 'sdzrs', 'sdzsd',
-                'spe', 'spec', 'swr', 'szmp', 'szzov', 'szzrf', 'szzrs',
-                'szzsd', 'tamc', 'test', 'twu', 'txsha', 'unt', 'w1grs',
-                'w1gwt', 'w1ia', 'w1ind', 'w1idl', 'w1prs', 'w2awt', 'w2lan',
-                'w3dai', 'w3lab', 'w3mfa', 'w3per', 'w433a', 'w4422', 'w4438',
-                'w4fil', 'w4mai', 'w4mav', 'w4mbg', 'w4mfb', 'w4mla', 'w4moc',
-                'w4mr1', 'w4mr2', 'w4mr3', 'w4mrb', 'w4mrf', 'w4mrs', 'w4mrx',
-                'w4mts', 'w4mwf', 'w4mwr', 'w4spc', 'w4spe', 'w4srf', 'wgrc',
-                'wlmic', 'wlper', 'xprsv', 'xspc', 'xspe', 'xts'
+                'ill', 'jlf', 'kmats', 'kmatt', 'kpacs', 'kpeb', 'law',
+                'lawcl', 'lawh', 'lawrf', 'lawrs', 'lawtx', 'lawww', 'libr',
+                'lwww', 'mwww', 'pwww', 'rzzrf', 'rzzrs', 'sdai', 'sdbi',
+                'sdmp', 'sdov', 'sdtov', 'sdvf', 'sdzmr', 'sdzrf', 'sdzrs',
+                'sdzsd', 'spe', 'spec', 'swr', 'szmp', 'szzov', 'szzrf',
+                'szzrs', 'szzsd', 'tamc', 'test', 'twu', 'txsha', 'unt',
+                'w1grs', 'w1gwt', 'w1ia', 'w1ind', 'w1idl', 'w1prs', 'w2awt',
+                'w2lan', 'w3dai', 'w3lab', 'w3mfa', 'w3per', 'w433a', 'w4422',
+                'w4438', 'w4fil', 'w4lok', 'w4mai', 'w4mav', 'w4mbg', 'w4mfb',
+                'w4mla', 'w4moc', 'w4mr1', 'w4mr2', 'w4mr3', 'w4mrb', 'w4mrf',
+                'w4mrs', 'w4mrx', 'w4mts', 'w4mwf', 'w4mwr', 'w4spc', 'w4spe',
+                'w4srf', 'wgrc', 'wllok', 'wlmic', 'xprsv', 'xspc', 'xspe',
+                'xts'
             )
         }, multi=False)),
         ('item_status_id', r.reverse_mapping({
