@@ -33,7 +33,9 @@ ITEM_RULES = {
         ('location_id', r.StrPatternMap({
             r'^w': 'w',
             r'^czm': 'czm',
-            r'^f': 'frsco',
+            r'^frsco': 'frsco',
+            r'^fip': 'fip',
+            r'^fl': 'fl',
             r'^s': 's',
             r'^r': 'r',
             r'(^x|^jlf$)': 'x'
@@ -51,13 +53,15 @@ ITEM_RULES = {
                 'jlf', 'lwww', 's', 's1fdc', 's1ndc', 'smls', 'spe', 'szmp',
                 'szzov', 'szzrf', 'szzrs', 'szzsd', 'w', 'w1fdc', 'w1grs',
                 'w1ia', 'w1mdc', 'w1mls', 'w1ndc', 'w1upr', 'w3', 'w3big',
-                'w3grn', 'w3mfa', 'w3per', 'wlbig', 'wllok', 'wlmic', 'x',
-                'xmic'
+                'w3grn', 'w3per', 'wlbig', 'wllok', 'wlmic', 'x', 'xmic'
             ),
             'Government Documents': (
                 'gwww', 'sd', 'sd1dc', 'sdai', 'sdbi', 'sdcd', 'sdmc', 'sdmp',
                 'sdnb', 'sdndc', 'sdov', 'sdtov', 'sdtx', 'sdus', 'sdvf',
                 'sdzmr', 'sdzrf', 'sdzrs', 'sdzsd', 'xdmic', 'xdmp', 'xdoc'
+            ),
+            'Frisco Collection': (
+                'fip', 'fl', 'flrs', 'frsco', 'flmak', 'flind'
             ),
             'Media Library': ('czm', 'czmrf', 'czmrs', 'czwww', 'xmed'),
             'Music Library': (
@@ -68,7 +72,8 @@ ITEM_RULES = {
             ),
             'Special Collections': ('pwww', 'w4spc', 'w4spe', 'w4srf', 'xspc',
                                     'xspe'),
-            'The Spark (Makerspace)': ('rmak', 'w1mak')
+            'The Spark (Makerspace)': ('rmak', 'w1mak', 'w1ind', 'flmak',
+                                       'flind')
         }))
     ]),
 
@@ -78,20 +83,20 @@ ITEM_RULES = {
         ('location_id', r.reverse_mapping({
             False: (
                 'czmrf', 'czmrs', 'czwww', 'd', 'dcare', 'dfic', 'djuv',
-                'dmed', 'dref', 'dresv', 'fip', 'frsco', 'gwww', 'hscfw',
-                'ill', 'jlf', 'kmats', 'kmatt', 'kpacs', 'kpeb', 'law',
-                'lawcl', 'lawh', 'lawrf', 'lawrs', 'lawtx', 'lawww', 'libr',
-                'lwww', 'mwww', 'pwww', 'rzzrf', 'rzzrs', 'sdai', 'sdbi',
-                'sdmp', 'sdov', 'sdtov', 'sdvf', 'sdzmr', 'sdzrf', 'sdzrs',
-                'sdzsd', 'spe', 'spec', 'swr', 'szmp', 'szzov', 'szzrf',
-                'szzrs', 'szzsd', 'tamc', 'test', 'twu', 'txsha', 'unt',
-                'w1grs', 'w1gwt', 'w1ia', 'w1ind', 'w1idl', 'w1prs', 'w2awt',
-                'w2lan', 'w3dai', 'w3lab', 'w3mfa', 'w3per', 'w433a', 'w4422',
-                'w4438', 'w4fil', 'w4lok', 'w4mai', 'w4mav', 'w4mbg', 'w4mfb',
-                'w4mla', 'w4moc', 'w4mr1', 'w4mr2', 'w4mr3', 'w4mrb', 'w4mrf',
-                'w4mrs', 'w4mrx', 'w4mts', 'w4mwf', 'w4mwr', 'w4spc', 'w4spe',
-                'w4srf', 'wgrc', 'wllok', 'wlmic', 'xprsv', 'xspc', 'xspe',
-                'xts'
+                'dmed', 'dref', 'dresv', 'fip', 'flind', 'flrs', 'frsco',
+                'gwww', 'hscfw', 'ill', 'jlf', 'kmats', 'kmatt', 'kpacs',
+                'kpeb', 'law', 'lawcl', 'lawh', 'lawrf', 'lawrs', 'lawtx',
+                'lawww', 'libr', 'lwww', 'mwww', 'pwww', 'rzzrf', 'rzzrs',
+                'sdai', 'sdbi', 'sdmp', 'sdov', 'sdtov', 'sdvf', 'sdzmr',
+                'sdzrf', 'sdzrs', 'sdzsd', 'spe', 'spec', 'swr', 'szmp',
+                'szzov', 'szzrf', 'szzrs', 'szzsd', 'tamc', 'test', 'twu',
+                'txsha', 'unt', 'w1grs', 'w1gwt', 'w1ia', 'w1ind', 'w1idl',
+                'w1ix', 'w2awt', 'w2lan', 'w3dai', 'w3lab', 'w3per', 'w433a',
+                'w4422', 'w4438', 'w4fil', 'w4lok', 'w4mai', 'w4mav', 'w4mbg',
+                'w4mfb', 'w4mla', 'w4moc', 'w4mr1', 'w4mr2', 'w4mr3', 'w4mrb',
+                'w4mrf', 'w4mrs', 'w4mrx', 'w4mts', 'w4mwf', 'w4mwr', 'w4spc',
+                'w4spe', 'w4srf', 'wgrc', 'wllok', 'wlmic', 'xprsv', 'xspc',
+                'xspe', 'xts'
             )
         }, multi=False)),
         ('item_status_id', r.reverse_mapping({

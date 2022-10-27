@@ -2492,6 +2492,17 @@ def test_todscpipeline_getpubinfo_pub_search(ldr_07, fparams, expected,
        'shelf_facet': None}
     ),
 
+    # fl, flmak / a bib location with multiple collections, no items
+    ( (('fl', 'Frisco Landing Library'),
+       ('flmak', 'Frisco Landing The Spark')),
+      tuple(),
+      tuple(),
+      {'access_facet': ['At the Library'],
+       'collection_facet': ['Frisco Collection', 'The Spark (Makerspace)'],
+       'building_facet': ['Frisco Landing Library'],
+       'shelf_facet': ['Frisco Landing The Spark'],}
+    ),
+
     # w, lwww / online-only item with bib location in same collection
     ( (('w', 'Willis Library'),),
       (('lwww', 'UNT ONLINE RESOURCES'),),
@@ -2563,6 +2574,7 @@ def test_todscpipeline_getpubinfo_pub_search(ldr_07, fparams, expected,
     'all bib and item locations are unknown',
     'r, lwww / online-only item with bib location in different collection',
     'r, lwww / two different bib locations, no items',
+    'fl, flmak / a bib location with multiple collections, no items',
     'w, lwww / online-only item with bib location in same collection',
     'x, xdoc / Remote Storage, bib loc is x',
     'sd, xdoc / Remote Storage, bib loc is not x',
