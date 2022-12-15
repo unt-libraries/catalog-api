@@ -293,6 +293,36 @@ class ResourceTypeDeterminer(object):
         ('journal', 'digital'): (('ejournal',), ()),
         ('manuscript', 'print'): (('manuscript',), ('paper',)),
     }
+    
+    # Update 12/14/2022 -- Added some game platform variations, mainly
+    # for specifying unique capitalization. For new-style Media game
+    # call numbers, the platform is in all caps, so from now on we will
+    # normalize both kinds (old and new) to lower case and then make a
+    # display-friendly value with value.title(). However, several game
+    # platforms include abbreviations or other unusual capitalization.
+    # This is mainly a way to map those to standard display values.
+    game_platform_variations = {
+        '3ds': '3DS',
+        'ds': 'DS',
+        'gamecube': 'GameCube',
+        'game cube': 'GameCube',
+        'nes': 'NES',
+        'new 3ds': 'New 3DS',
+        'ps': 'PS',
+        'ps1': 'PS',
+        'playstation': 'PS',
+        'ps2': 'PS2',
+        'ps3': 'PS3',
+        'ps3 move': 'PS3 Move',
+        'ps4': 'PS4',
+        'ps4 deluxe': 'PS4 Deluxe',
+        'ps4 vr': 'PS4 VR',
+        'ps5': 'PS5',
+        'psp': 'PSP',
+        'psvita': 'PSVita',
+        'ps vita': 'PSVita',
+        'snes': 'SNES',
+    }
 
     format_labels = {
         'game_handheld_cartridge': 'Game Cartridge',
@@ -301,6 +331,7 @@ class ResourceTypeDeterminer(object):
         'game_handheld_cdrom': 'Game CD-ROM',
         'game_console_cdrom': 'Game CD-ROM',
         'game_computer_cdrom': 'Game CD-ROM',
+        'tarot': 'Tarot Cards',
         'online': 'Online',
         'digital': 'Digital File',
         'digital_device': 'Digital Device',
@@ -385,6 +416,7 @@ class ResourceTypeDeterminer(object):
         'vhs': ['VHS Tapes'],
         'slide': ['Slides'],
         'game_tabletop': ['Tabletop Games'],
+        'tarot': ['Tarot Cards'],
         'manuscript': ['Manuscripts'],
         'archive': ['Archival Collections'],
         'record_78rpm': ['78 RPM Records'],
@@ -531,12 +563,38 @@ class ResourceTypeDeterminer(object):
 
     def process_software(self, obj, base_type, rtypes, fmts):
         def determine_game_platforms(obj):
+            # Update 12/14/2022 -- Media Library is updating the call
+            # number pattern for their games collection. During the
+            # transition, both old- and new-style call numbers may
+            # appear, so we just need to handle both patterns (see
+            # below). I'm also adding the ability to normalize platform
+            # names, since there are variations (PSVita vs PsVita), and
+            # de-duplicate.
+
             platforms = []
+            norm_platforms = set()
             for cn in self.get_callnums_from_obj(obj):
-                if cn.lower().startswith('game'):
-                    cn_parts = cn.split(' ', 2)
-                    if len(cn_parts) == 3:
-                        platforms.append(cn_parts[2])
+                norm_cn = cn.lower()
+                norm_platform = ''
+
+                # Old-style call numbers: "Game 12345 Switch".
+                if norm_cn.startswith('game'):
+                    try:
+                        norm_platform = norm_cn.split(' ', 2)[2]
+                    except IndexError:
+                        pass
+
+                # New-style call numbers: "ABC 2016 GAME SWITCH"
+                elif ' game ' in norm_cn:
+                    norm_platform = norm_cn.split(' game ', 1)[1]
+
+                if norm_platform and norm_platform not in norm_platforms:
+                    platform = self.game_platform_variations.get(
+                        norm_platform,
+                        norm_platform.title()
+                    )
+                    norm_platforms.add(norm_platform)
+                    platforms.append(platform)
             return platforms
 
         def determine_software_type(obj):
@@ -567,8 +625,24 @@ class ResourceTypeDeterminer(object):
         return rtypes, fmts
 
     def process_object(self, obj, base_type, rtypes, fmts):
-        cns = (cn for cn in self.get_callnums_from_obj(obj))
-        if any((cn.lower().startswith('boardgame') for cn in cns)):
+        # Update 12/14/2022 -- Media Library is updating the call number
+        # pattern for their games collections. Old-style call numbers
+        # start with 'Boardgame' and new ones end with ' GAME'. There
+        # are also now Tarot card sets, which are a sub-category of
+        # tabletop games.
+        is_tabletop = False
+        is_tarot = False
+        for cn in self.get_callnums_from_obj(obj):
+            norm_cn = cn.lower()
+            if norm_cn.startswith('boardgame') or norm_cn.endswith(' game'):
+                is_tabletop = True
+            if norm_cn.endswith(' tarot'):
+                is_tabletop = True
+                is_tarot = True
+
+        if is_tabletop:
+            if is_tarot:
+                fmts.add('tarot')
             return ['game', 'tabletop'], fmts
         if 'w4spe' in self.get_bib_location_codes_from_obj(obj):
             return ['object'], fmts
