@@ -208,9 +208,11 @@ def test_itemrules_incollections(loc_code, expected, item_rules, mocker):
 @pytest.mark.parametrize('loc_code, itype_id, item_status_id, expected', [
     ('czm', 1, '-', True),
     ('czmrf', 1, '-', False),
-    ('fl', 1, '-', True),
+    # ('fl', 1, '-', True),
+    ('fl', 1, '-', False),
     ('flrs', 1, '-', False),
-    ('flmak', 103, '-', True),
+    # ('flmak', 103, '-', True),
+    ('flmak', 103, '-', False),
     ('flind', 105, '-', False),
     ('flix', 105, '-', False),
     ('x', 7, '-', True),

@@ -97,7 +97,11 @@ ITEM_RULES = {
                 'w4mbg', 'w4mfb', 'w4mla', 'w4moc', 'w4mr1', 'w4mr2', 'w4mr3',
                 'w4mrb', 'w4mrf', 'w4mrs', 'w4mrx', 'w4mts', 'w4mwf', 'w4mwr',
                 'w4spc', 'w4spe', 'w4srf', 'wgrc', 'wllok', 'wlmic', 'xprsv',
-                'xspc', 'xspe', 'xts'
+                'xspc', 'xspe', 'xts',
+                # REMOVE THIS ON 2/14/2023
+                'fl',
+                # REMOVE THIS ONCE SPARK COURIER IS SET UP
+                'flmak'
             )
         }, multi=False)),
         ('item_status_id', r.reverse_mapping({
