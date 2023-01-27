@@ -108,6 +108,18 @@ ITEM_RULES = {
         ('itype_id', r.reverse_mapping({
             False: (20, 29, 69, 74, 112)
         }, multi=False)),
+        (('itype_id', 'location_id'), r.reverse_mapping({
+            False: (
+                # Spark / Makerspace (*mak) has several ITYPEs that are
+                # not holdable so should be non-requestable.
+                (39, 'flmak'), (39, 'rmak'), (39, 'w1mak'),
+                (85, 'flmak'), (85, 'rmak'), (85, 'w1mak'),
+                (93, 'flmak'), (93, 'rmak'), (93, 'w1mak'),
+                (104, 'flmak'), (104, 'rmak'), (104, 'w1mak'),
+                (105, 'flmak'), (105, 'rmak'), (105, 'w1mak'),
+                (114, 'flmak'), (114, 'rmak'), (114, 'w1mak')
+            )
+        }, multi=False)),
     ], default=True),
 
     # `is_requestable_through_aeon` is True if an item is available to
