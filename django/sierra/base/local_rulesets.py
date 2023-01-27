@@ -100,8 +100,6 @@ ITEM_RULES = {
                 'xspc', 'xspe', 'xts',
                 # REMOVE THIS ON 2/14/2023
                 'fl',
-                # REMOVE THIS ONCE SPARK COURIER IS SET UP
-                'flmak'
             )
         }, multi=False)),
         ('item_status_id', r.reverse_mapping({
