@@ -98,8 +98,6 @@ ITEM_RULES = {
                 'w4mrb', 'w4mrf', 'w4mrs', 'w4mrx', 'w4mts', 'w4mwf', 'w4mwr',
                 'w4spc', 'w4spe', 'w4srf', 'wgrc', 'wllok', 'wlmic', 'xprsv',
                 'xspc', 'xspe', 'xts',
-                # REMOVE THIS ON 2/14/2023
-                'fl',
             )
         }, multi=False)),
         ('item_status_id', r.reverse_mapping({
