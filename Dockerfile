@@ -1,7 +1,7 @@
 FROM python:3.10-buster
 
 RUN apt-get update -qq && \
-    apt-get install -y libpq-dev python-dev mariadb-client netcat openjdk-11-jre
+    apt-get install -y libpq-dev python-dev mariadb-client netcat
 
 ARG userid=999
 ARG groupid=999
