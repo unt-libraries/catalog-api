@@ -1784,54 +1784,6 @@ def test_bdpipeline_getpubinfo_pub_search(ldr_07, fparams, expected,
        'shelf_facet': ['Willis Library-3rd Floor']}
      ),
 
-<<<<<<< HEAD:django/sierra/blacklight/tests/test_sierra2marc.py
-                             # sd, gwww, sdus, rst, xdoc / multiple items at multiple locations
-                             # NOTE: The library where the Gov Docs collection lives was Eagle
-                             # Commons Library but was changed to Sycamore Library 8/2021. To
-                             # avoid confusion and to avoid having to update our test fixtures
-                             # that still use Eagle Commons, I've changed names of the s*
-                             # locations, below. Because of the "s Eagle Commons Library" test
-                             # fixture, the building_facet is still "Eagle Commons Library,"
-                             # even though the name has changed, in reality.
-                             # This is fine.
-                             ((('sd', 'X Government Documents'),),
-                              (('gwww', 'GOVT ONLINE RESOURCES'),
-                                 ('sdus', 'X US Documents'),
-                                 ('rst', 'Discovery Park Library Storage'),
-                                 ('xdoc', 'Government Documents Remote Storage'),),
-                                 tuple(),
-                                 {'access_facet': ['Online', 'At the Library'],
-                                  'collection_facet': ['Government Documents', 'Discovery Park Library'],
-                                  'building_facet': ['Eagle Commons Library', 'Discovery Park Library',
-                                                     'Remote Storage'],
-                                  'shelf_facet': ['X US Documents',
-                                                  'Discovery Park Library Storage']}
-                              ),
-                         ], ids=[
-                             'czm / same bib and item location',
-                             'czm / bib loc exists, but no items',
-                             'czm / all items are suppressed',
-                             'czm / unknown bib location and one unknown item location',
-                             'w3 / one suppressed item, one unsuppressed item, diff locs',
-                             'w3 / one suppressed item, one unsuppressed item, same locs',
-                             'all bib and item locations are unknown',
-                             'r, lwww / online-only item with bib location in different collection',
-                             'r, lwww / two different bib locations, no items',
-                             'fl, flmak / a bib location with multiple collections, no items',
-                             'w, lwww / online-only item with bib location in same collection',
-                             'x, xdoc / Remote Storage, bib loc is x',
-                             'sd, xdoc / Remote Storage, bib loc is not x',
-                             'w, lwww, w3 / bib with online and physical locations',
-                             'sd, gwww, sdus, rst, xdoc / multiple items at multiple locations',
-                         ])
-def test_todscpipeline_getaccessinfo(bib_locations, item_locations,
-                                     sup_item_locations, expected,
-                                     bl_sierra_test_record,
-                                     todsc_pipeline_class,
-                                     update_test_bib_inst,
-                                     get_or_make_location_instances,
-                                     assert_bundle_matches_expected):
-=======
      # sd, gwww, sdus, rst, xdoc / multiple items at multiple locations
      # NOTE: The library where the Gov Docs collection lives was Eagle
      # Commons Library but was changed to Sycamore Library 8/2021. To
@@ -1864,6 +1816,7 @@ def test_todscpipeline_getaccessinfo(bib_locations, item_locations,
      'all bib and item locations are unknown',
      'r, lwww / online-only item with bib location in different collection',
      'r, lwww / two different bib locations, no items',
+     'fl, flmak / a bib location with multiple collections, no items',
      'w, lwww / online-only item with bib location in same collection',
      'x, xdoc / Remote Storage, bib loc is x',
      'sd, xdoc / Remote Storage, bib loc is not x',
