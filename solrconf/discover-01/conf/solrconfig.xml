@@ -35,7 +35,7 @@
        that you fully re-index after changing this setting as it can
        affect both how text is indexed and queried.
   -->
-  <luceneMatchVersion>8.10</luceneMatchVersion>
+  <luceneMatchVersion>9.3</luceneMatchVersion>
 
   <!-- <lib/> directives can be used to instruct Solr to load any Jars
        identified and use them to resolve any "plugins" specified in
@@ -72,9 +72,9 @@
        The examples below can be used to load some solr-contribs along
        with their external dependencies.
     -->
-  <lib dir="${solr.install.dir:../../../..}/contrib/analysis-extras/lib/" regex="icu4j-\d.*\.jar" />
-  <lib dir="${solr.install.dir:../../../..}/contrib/analysis-extras/lucene-libs/" regex="lucene-analyzers-icu-\d.*\.jar" />
-  <lib dir="${solr.install.dir:../../../..}/dist/" regex="solr-analysis-extras\d.*\.jar" />
+  <lib dir="${solr.install.dir:../../../..}/modules/analysis-extras/lib/" regex="icu4j-\d.*\.jar" />
+  <lib dir="${solr.install.dir:../../../..}/modules/analysis-extras/lib/" regex="lucene-analysis-icu-\d.*\.jar" />
+  <lib dir="${solr.install.dir:../../../..}/modules/analysis-extras/lib/" regex="solr-analysis-extras-\d.*\.jar" />
 
   <!-- Data Directory
 
