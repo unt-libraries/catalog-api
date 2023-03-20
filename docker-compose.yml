@@ -72,7 +72,7 @@ services:
     command: solr-fg
 
   redis-celery-dev:
-    image: redis:6.2
+    image: redis:7.0.9
     volumes:
       - ${REDIS_CELERY_DEV_DATA_DDPATH}:/project/data
       - ${REDIS_CELERY_DEV_LOGS_DDPATH}:/project/logs
@@ -84,7 +84,7 @@ services:
     command: redis-server ${REDIS_CELERY_CONF_FILE:---dir /project/data --logfile /project/logs/log.txt --appendonly yes}
 
   redis-celery-test:
-    image: redis:6.2
+    image: redis:7.0.9
     volumes:
       - ${REDIS_CELERY_TEST_DATA_DDPATH}:/project/data
       - ${REDIS_CELERY_TEST_LOGS_DDPATH}:/project/logs
@@ -97,7 +97,7 @@ services:
     command: redis-server ${REDIS_CELERY_CONF_FILE:---dir /project/data --logfile /project/logs/log.txt --appendonly no}
 
   redis-appdata-dev:
-    image: redis:6.2
+    image: redis:7.0.9
     volumes:
       - ${REDIS_APPDATA_DEV_DATA_DDPATH}:/project/data
       - ${REDIS_APPDATA_DEV_LOGS_DDPATH}:/project/logs
@@ -109,7 +109,7 @@ services:
     command: redis-server ${REDIS_APPDATA_CONF_FILE:---dir /project/data --logfile /project/logs/log.txt --appendonly yes}
 
   redis-appdata-test:
-    image: redis:6.2
+    image: redis:7.0.9
     volumes:
       - ${REDIS_APPDATA_TEST_DATA_DDPATH}:/project/data
       - ${REDIS_APPDATA_TEST_LOGS_DDPATH}:/project/logs
