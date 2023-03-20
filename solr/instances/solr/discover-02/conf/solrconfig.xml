@@ -1995,6 +1995,7 @@
       <str name="fl">
          id, 
          score,
+         date_added,
          author_json,
          contributors_json,
          isbn_numbers,
@@ -2169,6 +2170,7 @@
        <str name="fl">
          id, 
          score,
+         date_added,
          author_json,
          contributors_json,
          isbn_numbers,

@@ -32,7 +32,9 @@ ITEM_RULES = {
         ('location_id', r.StrPatternMap({
             r'^w': 'w',
             r'^czm': 'czm',
-            r'^f': 'frsco',
+            r'^frsco': 'frsco',
+            r'^fip': 'fip',
+            r'^fl': 'fl',
             r'^s': 's',
             r'^r': 'r',
             r'(^x|^jlf$)': 'x'
@@ -50,24 +52,27 @@ ITEM_RULES = {
                 'jlf', 'lwww', 's', 's1fdc', 's1ndc', 'smls', 'spe', 'szmp',
                 'szzov', 'szzrf', 'szzrs', 'szzsd', 'w', 'w1fdc', 'w1grs',
                 'w1ia', 'w1mdc', 'w1mls', 'w1ndc', 'w1upr', 'w3', 'w3big',
-                'w3grn', 'w3mfa', 'w3per', 'wlbig', 'wlmic', 'wlper', 'x',
-                'xmic'
+                'w3grn', 'w3per', 'wlbig', 'wllok', 'wlmic', 'x', 'xmic'
             ),
             'Government Documents': (
                 'gwww', 'sd', 'sd1dc', 'sdai', 'sdbi', 'sdcd', 'sdmc', 'sdmp',
                 'sdnb', 'sdndc', 'sdov', 'sdtov', 'sdtx', 'sdus', 'sdvf',
                 'sdzmr', 'sdzrf', 'sdzrs', 'sdzsd', 'xdmic', 'xdmp', 'xdoc'
             ),
+            'Frisco Collection': (
+                'fip', 'fl', 'flrs', 'frsco', 'flmak', 'flind', 'flix'
+            ),
             'Media Library': ('czm', 'czmrf', 'czmrs', 'czwww', 'xmed'),
             'Music Library': (
-                'mwww', 'w433a', 'w4422', 'w4438', 'w4fil', 'w4m', 'w4mai',
-                'w4mau', 'w4mav', 'w4mbg', 'w4mfb', 'w4mft', 'w4mla', 'w4moc',
-                'w4mov', 'w4mr1', 'w4mr2', 'w4mr3', 'w4mrb', 'w4mrf', 'w4mrs',
-                'w4mrx', 'w4mwf', 'xmau', 'xmus'
+                'mwww', 'w433a', 'w4422', 'w4438', 'w4fil', 'w4lok', 'w4m',
+                'w4mai', 'w4mau', 'w4mav', 'w4mbg', 'w4mfb', 'w4mft', 'w4mla',
+                'w4moc', 'w4mov', 'w4mr1', 'w4mr2', 'w4mr3', 'w4mrb', 'w4mrf',
+                'w4mrs', 'w4mrx', 'w4mwf', 'xmau', 'xmus'
             ),
             'Special Collections': ('pwww', 'w4spc', 'w4spe', 'w4srf', 'xspc',
                                     'xspe'),
-            'The Spark (Makerspace)': ('rmak', 'w1mak')
+            'The Spark (Makerspace)': ('rmak', 'w1mak', 'w1ind', 'flmak',
+                                       'flind', 'flix')
         }))
     ]),
 
@@ -76,20 +81,22 @@ ITEM_RULES = {
     'is_requestable_through_catalog': r.Ruleset([
         ('location_id', r.reverse_mapping({
             False: (
+                # THESE ARE ****NOT**** REQUESTABLE!
                 'czmrf', 'czmrs', 'czwww', 'd', 'dcare', 'dfic', 'djuv',
-                'dmed', 'dref', 'dresv', 'fip', 'frsco', 'gwww', 'hscfw',
-                'ill', 'jlf', 'kmats', 'kmatt', 'kpacs', 'kpeb', 'law', 'lawcl',
-                'lawh', 'lawrf', 'lawrs', 'lawtx', 'lawww', 'libr', 'lwww',
-                'mwww', 'pwww', 'rzzrf', 'rzzrs', 'sdai', 'sdbi', 'sdmp',
-                'sdov', 'sdtov', 'sdvf', 'sdzmr', 'sdzrf', 'sdzrs', 'sdzsd',
-                'spe', 'spec', 'swr', 'szmp', 'szzov', 'szzrf', 'szzrs',
-                'szzsd', 'tamc', 'test', 'twu', 'txsha', 'unt', 'w1grs',
-                'w1gwt', 'w1ia', 'w1ind', 'w1idl', 'w1prs', 'w2awt', 'w2lan',
-                'w3dai', 'w3lab', 'w3mfa', 'w3per', 'w433a', 'w4422', 'w4438',
-                'w4fil', 'w4mai', 'w4mav', 'w4mbg', 'w4mfb', 'w4mla', 'w4moc',
-                'w4mr1', 'w4mr2', 'w4mr3', 'w4mrb', 'w4mrf', 'w4mrs', 'w4mrx',
-                'w4mts', 'w4mwf', 'w4mwr', 'w4spc', 'w4spe', 'w4srf', 'wgrc',
-                'wlmic', 'wlper', 'xprsv', 'xspc', 'xspe', 'xts'
+                'dmed', 'dref', 'dresv', 'fip', 'flind', 'flix', 'flrs',
+                'frsco', 'gwww', 'hscfw', 'ill', 'jlf', 'kmats', 'kmatt',
+                'kpacs', 'kpeb', 'law', 'lawcl', 'lawh', 'lawrf', 'lawrs',
+                'lawtx', 'lawww', 'libr', 'lwww', 'mwww', 'pwww', 'rzzrf',
+                'rzzrs', 'sdai', 'sdbi', 'sdmp', 'sdov', 'sdtov', 'sdvf',
+                'sdzmr', 'sdzrf', 'sdzrs', 'sdzsd', 'spe', 'spec', 'swr',
+                'szmp', 'szzov', 'szzrf', 'szzrs', 'szzsd', 'tamc', 'test',
+                'twu', 'txsha', 'unt', 'w1grs', 'w1gwt', 'w1ia', 'w1ind',
+                'w1idl', 'w1ix', 'w2awt', 'w2lan', 'w3dai', 'w3lab', 'w3per',
+                'w433a', 'w4422', 'w4438', 'w4fil', 'w4lok', 'w4mai', 'w4mav',
+                'w4mbg', 'w4mfb', 'w4mla', 'w4moc', 'w4mr1', 'w4mr2', 'w4mr3',
+                'w4mrb', 'w4mrf', 'w4mrs', 'w4mrx', 'w4mts', 'w4mwf', 'w4mwr',
+                'w4spc', 'w4spe', 'w4srf', 'wgrc', 'wllok', 'wlmic', 'xprsv',
+                'xspc', 'xspe', 'xts',
             )
         }, multi=False)),
         ('item_status_id', r.reverse_mapping({
@@ -97,6 +104,18 @@ ITEM_RULES = {
         }, multi=False)),
         ('itype_id', r.reverse_mapping({
             False: (20, 29, 69, 74, 112)
+        }, multi=False)),
+        (('itype_id', 'location_id'), r.reverse_mapping({
+            False: (
+                # Spark / Makerspace (*mak) has several ITYPEs that are
+                # not holdable so should be non-requestable.
+                (39, 'flmak'), (39, 'rmak'), (39, 'w1mak'),
+                (85, 'flmak'), (85, 'rmak'), (85, 'w1mak'),
+                (93, 'flmak'), (93, 'rmak'), (93, 'w1mak'),
+                (104, 'flmak'), (104, 'rmak'), (104, 'w1mak'),
+                (105, 'flmak'), (105, 'rmak'), (105, 'w1mak'),
+                (114, 'flmak'), (114, 'rmak'), (114, 'w1mak')
+            )
         }, multi=False)),
     ], default=True),
 
@@ -285,6 +304,36 @@ class ResourceTypeDeterminer(object):
         ('journal', 'digital'): (('ejournal',), ()),
         ('manuscript', 'print'): (('manuscript',), ('paper',)),
     }
+    
+    # Update 12/14/2022 -- Added some game platform variations, mainly
+    # for specifying unique capitalization. For new-style Media game
+    # call numbers, the platform is in all caps, so from now on we will
+    # normalize both kinds (old and new) to lower case and then make a
+    # display-friendly value with value.title(). However, several game
+    # platforms include abbreviations or other unusual capitalization.
+    # This is mainly a way to map those to standard display values.
+    game_platform_variations = {
+        '3ds': '3DS',
+        'ds': 'DS',
+        'gamecube': 'GameCube',
+        'game cube': 'GameCube',
+        'nes': 'NES',
+        'new 3ds': 'New 3DS',
+        'ps': 'PS',
+        'ps1': 'PS',
+        'playstation': 'PS',
+        'ps2': 'PS2',
+        'ps3': 'PS3',
+        'ps3 move': 'PS3 Move',
+        'ps4': 'PS4',
+        'ps4 deluxe': 'PS4 Deluxe',
+        'ps4 vr': 'PS4 VR',
+        'ps5': 'PS5',
+        'psp': 'PSP',
+        'psvita': 'PSVita',
+        'ps vita': 'PSVita',
+        'snes': 'SNES',
+    }
 
     format_labels = {
         'game_handheld_cartridge': 'Game Cartridge',
@@ -293,6 +342,7 @@ class ResourceTypeDeterminer(object):
         'game_handheld_cdrom': 'Game CD-ROM',
         'game_console_cdrom': 'Game CD-ROM',
         'game_computer_cdrom': 'Game CD-ROM',
+        'tarot': 'Tarot Cards',
         'online': 'Online',
         'digital': 'Digital File',
         'digital_device': 'Digital Device',
@@ -377,6 +427,7 @@ class ResourceTypeDeterminer(object):
         'vhs': ['VHS Tapes'],
         'slide': ['Slides'],
         'game_tabletop': ['Tabletop Games'],
+        'tarot': ['Tarot Cards'],
         'manuscript': ['Manuscripts'],
         'archive': ['Archival Collections'],
         'record_78rpm': ['78 RPM Records'],
@@ -524,12 +575,38 @@ class ResourceTypeDeterminer(object):
 
     def process_software(self, obj, base_type, rtypes, fmts):
         def determine_game_platforms(obj):
+            # Update 12/14/2022 -- Media Library is updating the call
+            # number pattern for their games collection. During the
+            # transition, both old- and new-style call numbers may
+            # appear, so we just need to handle both patterns (see
+            # below). I'm also adding the ability to normalize platform
+            # names, since there are variations (PSVita vs PsVita), and
+            # de-duplicate.
+
             platforms = []
+            norm_platforms = set()
             for cn in self.get_callnums_from_obj(obj):
-                if cn.lower().startswith('game'):
-                    cn_parts = cn.split(' ', 2)
-                    if len(cn_parts) == 3:
-                        platforms.append(cn_parts[2])
+                norm_cn = cn.lower()
+                norm_platform = ''
+
+                # Old-style call numbers: "Game 12345 Switch".
+                if norm_cn.startswith('game'):
+                    try:
+                        norm_platform = norm_cn.split(' ', 2)[2]
+                    except IndexError:
+                        pass
+
+                # New-style call numbers: "ABC 2016 GAME SWITCH"
+                elif ' game ' in norm_cn:
+                    norm_platform = norm_cn.split(' game ', 1)[1]
+
+                if norm_platform and norm_platform not in norm_platforms:
+                    platform = self.game_platform_variations.get(
+                        norm_platform,
+                        norm_platform.title()
+                    )
+                    norm_platforms.add(norm_platform)
+                    platforms.append(platform)
             return platforms
 
         def determine_software_type(obj):
@@ -560,8 +637,24 @@ class ResourceTypeDeterminer(object):
         return rtypes, fmts
 
     def process_object(self, obj, base_type, rtypes, fmts):
-        cns = (cn for cn in self.get_callnums_from_obj(obj))
-        if any((cn.lower().startswith('boardgame') for cn in cns)):
+        # Update 12/14/2022 -- Media Library is updating the call number
+        # pattern for their games collections. Old-style call numbers
+        # start with 'Boardgame' and new ones end with ' GAME'. There
+        # are also now Tarot card sets, which are a sub-category of
+        # tabletop games.
+        is_tabletop = False
+        is_tarot = False
+        for cn in self.get_callnums_from_obj(obj):
+            norm_cn = cn.lower()
+            if norm_cn.startswith('boardgame') or norm_cn.endswith(' game'):
+                is_tabletop = True
+            if norm_cn.endswith(' tarot'):
+                is_tabletop = True
+                is_tarot = True
+
+        if is_tabletop:
+            if is_tarot:
+                fmts.add('tarot')
             return ['game', 'tabletop'], fmts
         if 'w4spe' in self.get_bib_location_codes_from_obj(obj):
             return ['object'], fmts
