@@ -1828,7 +1828,6 @@ def test_bdpipeline_getaccessinfo(bib_locations, item_locations,
                                   sierra_test_record, update_test_bib_inst,
                                   get_or_make_location_instances,
                                   assert_bundle_matches_expected):
->>>>>>> solr-upgrade:django/sierra/export/tests/test_marcparse_pipeline.py
     """
     BibDataPipeline.get_access_info should return the expected access,
     collection, building, and shelf facet values based on the
