@@ -1,0 +1,168 @@
+<?xml version="1.0" ?>
+<!--
+ Licensed to the Apache Software Foundation (ASF) under one or more
+ contributor license agreements.  See the NOTICE file distributed with
+ this work for additional information regarding copyright ownership.
+ The ASF licenses this file to You under the Apache License, Version 2.0
+ (the "License"); you may not use this file except in compliance with
+ the License.  You may obtain a copy of the License at
+
+     http://www.apache.org/licenses/LICENSE-2.0
+
+ Unless required by applicable law or agreed to in writing, software
+ distributed under the License is distributed on an "AS IS" BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License.
+-->
+
+<schema name="haystack" version="1.6">
+  <types>
+    <fieldType name="string" class="solr.StrField" sortMissingLast="true" omitNorms="true" uninvertible="false"/>
+    <fieldType name="boolean" class="solr.BoolField" sortMissingLast="true" omitNorms="true" uninvertible="false"/>
+    <fieldType name="integer" class="solr.IntPointField" sortMissingLast="true" omitNorms="true" uninvertible="false"/>
+    <fieldType name="long" class="solr.LongPointField" sortMissingLast="true" omitNorms="true" uninvertible="false"/>
+    <fieldType name="float" class="solr.FloatPointField" sortMissingLast="true" omitNorms="true" uninvertible="false"/>
+    <fieldType name="double" class="solr.DoublePointField" sortMissingLast="true" omitNorms="true" uninvertible="false"/>
+    <fieldType name="date" class="solr.DatePointField" sortMissingLast="true" omitNorms="true" uninvertible="false"/>
+
+    <fieldType name="text" class="solr.TextField" positionIncrementGap="100" uninvertible="false">
+      <analyzer type="index">
+        <tokenizer class="solr.WhitespaceTokenizerFactory"/>
+        <filter class="solr.WordDelimiterGraphFilterFactory"
+                generateWordParts="1"
+                generateNumberParts="1"
+                catenateWords="1"
+                catenateNumbers="0"
+                catenateAll="1"
+                splitOnCaseChange="1"
+                preserveOriginal="1"/>
+        <filter class="solr.FlattenGraphFilterFactory"/>
+        <filter class="solr.ICUFoldingFilterFactory"/>
+        <filter class="solr.RemoveDuplicatesTokenFilterFactory"/>
+      </analyzer>
+      <analyzer type="query">
+        <tokenizer class="solr.WhitespaceTokenizerFactory"/>
+        <filter class="solr.WordDelimiterGraphFilterFactory"
+                generateWordParts="1"
+                generateNumberParts="1"
+                catenateWords="1"
+                catenateNumbers="0"
+                catenateAll="1"
+                splitOnCaseChange="1"
+                preserveOriginal="1"/>
+        <filter class="solr.ICUFoldingFilterFactory"/>
+        <filter class="solr.RemoveDuplicatesTokenFilterFactory"/>
+      </analyzer>
+    </fieldType>
+
+    <fieldType name="stem_text" class="solr.TextField" positionIncrementGap="100" uninvertible="false">
+      <analyzer type="index">
+        <tokenizer class="solr.WhitespaceTokenizerFactory"/>
+        <filter class="solr.WordDelimiterGraphFilterFactory"
+                generateWordParts="1"
+                generateNumberParts="1"
+                catenateWords="1"
+                catenateNumbers="0"
+                catenateAll="1"
+                splitOnCaseChange="1"
+                preserveOriginal="1"/>
+        <filter class="solr.FlattenGraphFilterFactory"/>
+        <filter class="solr.ICUFoldingFilterFactory"/>
+        <filter class="solr.PorterStemFilterFactory"/>
+        <filter class="solr.RemoveDuplicatesTokenFilterFactory"/>
+      </analyzer>
+      <analyzer type="query">
+        <tokenizer class="solr.WhitespaceTokenizerFactory"/>
+        <filter class="solr.WordDelimiterGraphFilterFactory"
+                generateWordParts="1"
+                generateNumberParts="1"
+                catenateWords="1"
+                catenateNumbers="0"
+                catenateAll="1"
+                splitOnCaseChange="1"
+                preserveOriginal="1"/>
+        <filter class="solr.ICUFoldingFilterFactory"/>
+        <filter class="solr.PorterStemFilterFactory"/>
+        <filter class="solr.RemoveDuplicatesTokenFilterFactory"/>
+      </analyzer>
+    </fieldType>
+  </types>
+
+  <fields>
+    <!-- general -->
+    <field name="haystack_id" type="string" indexed="true" stored="true" multiValued="false" required="true" docValues="true"/>
+    <field name="django_ct" type="string" indexed="true" stored="true" multiValued="false"/>
+    <field name="django_id" type="string" indexed="true" stored="true" multiValued="false"/>
+
+    <dynamicField name="*_i"  type="integer"    indexed="true"  stored="true"/>
+    <dynamicField name="*_s"  type="string"  indexed="true"  stored="true"/>
+    <dynamicField name="*_l"  type="long"   indexed="true"  stored="true"/>
+    <dynamicField name="*_t"  type="text"    indexed="true"  stored="true"/>
+    <dynamicField name="*_b"  type="boolean" indexed="true"  stored="true"/>
+    <dynamicField name="*_f"  type="float"  indexed="true"  stored="true"/>
+    <dynamicField name="*_d"  type="double" indexed="true"  stored="true"/>
+    <dynamicField name="*_dt" type="date" indexed="true" stored="true"/>
+
+    <field name="text" type="stem_text" indexed="true" stored="true" multiValued="false" />
+    <field name="code" type="string" indexed="true" stored="true" multiValued="false" docValues="true"/>
+    <field name="type" type="string" indexed="true" stored="true" multiValued="false" docValues="true"/>
+    <field name="label" type="string" indexed="true" stored="true" multiValued="false" docValues="true"/>
+    <field name="call_number_type" type="string" indexed="true" stored="true" multiValued="false" docValues="true"/>
+    <field name="local_code1" type="long" indexed="true" stored="true" multiValued="false" />
+    <field name="record_revision_number" type="long" indexed="true" stored="true" multiValued="false" />
+    <field name="internal_notes" type="stem_text" indexed="true" stored="true" multiValued="true" />
+    <field name="volume_sort" type="string" indexed="true" stored="true" multiValued="false" docValues="true"/>
+    <field name="shelf_status" type="string" indexed="true" stored="true" multiValued="false" />
+    <field name="total_renewal_count" type="long" indexed="true" stored="true" multiValued="false" />
+    <field name="parent_bib_id" type="string" indexed="true" stored="true" multiValued="false" docValues="true"/>
+    <field name="id" type="string" indexed="true" stored="true" multiValued="false" docValues="true"/>
+    <field name="inventory_notes" type="string" indexed="true" stored="true" multiValued="true" />
+    <field name="call_number" type="string" indexed="true" stored="true" multiValued="false" docValues="true"/>
+    <field name="long_messages" type="stem_text" indexed="true" stored="true" multiValued="true" />
+    <field name="call_number_sort" type="string" indexed="true" stored="true" multiValued="false" docValues="true"/>
+    <field name="parent_bib_main_author" type="text" indexed="true" stored="true" multiValued="false" />
+    <field name="record_last_updated_date" type="date" indexed="true" stored="true" multiValued="false" docValues="true"/>
+    <field name="location_code" type="string" indexed="true" stored="true" multiValued="false" docValues="true"/>
+    <field name="public_notes" type="stem_text" indexed="true" stored="true" multiValued="true" />
+    <field name="_version_" type="long" indexed="true" stored="true" multiValued="false" docValues="true" />
+    <field name="checkout_date" type="date" indexed="true" stored="true" multiValued="false" docValues="true"/>
+    <field name="price" type="string" indexed="true" stored="true" multiValued="false" />
+    <field name="due_date" type="date" indexed="true" stored="true" multiValued="false" docValues="true"/>
+    <field name="parent_bib_publication_year" type="long" indexed="true" stored="true" multiValued="false" />
+    <field name="copy_use_count" type="long" indexed="true" stored="true" multiValued="false" />
+    <field name="copy_number" type="long" indexed="true" stored="true" multiValued="false" docValues="true"/>
+    <field name="barcode" type="string" indexed="true" stored="true" multiValued="false" docValues="true"/>
+    <field name="last_checkin_date" type="date" indexed="true" stored="true" multiValued="false" docValues="true"/>
+    <field name="iuse3_count" type="long" indexed="true" stored="true" multiValued="false" />
+    <field name="item_type_code" type="string" indexed="true" stored="true" multiValued="false" docValues="true"/>
+    <field name="suppressed" type="boolean" indexed="true" stored="true" multiValued="false" docValues="true"/>
+    <field name="overdue_date" type="date" indexed="true" stored="true" multiValued="false" docValues="true"/>
+    <field name="volume" type="text" indexed="true" stored="true" multiValued="false"/>
+    <field name="status_code" type="string" indexed="true" stored="true" multiValued="false" docValues="true"/>
+    <field name="total_checkout_count" type="long" indexed="true" stored="true" multiValued="false" docValues="true"/>
+    <field name="last_year_to_date_checkout_count" type="long" indexed="true" stored="true" multiValued="false" docValues="true"/>
+    <field name="internal_use_count" type="long" indexed="true" stored="true" multiValued="false" />
+    <field name="record_creation_date" type="date" indexed="true" stored="true" multiValued="false" docValues="true"/>
+    <field name="number_of_renewals" type="long" indexed="true" stored="true" multiValued="false" />
+    <field name="recall_date" type="date" indexed="true" stored="true" multiValued="false" />
+    <field name="call_number_search" type="string" indexed="true" stored="true" multiValued="false" />
+    <field name="flags" type="string" indexed="true" stored="true" multiValued="true" />
+    <field name="inventory_date" type="date" indexed="true" stored="true" multiValued="false" docValues="true"/>
+    <field name="year_to_date_checkout_count" type="long" indexed="true" stored="true" multiValued="false" docValues="true"/>
+    <field name="parent_bib_title" type="text" indexed="true" stored="true" multiValued="false" />
+    <field name="eresource_type" type="string" indexed="true" stored="true" multiValued="false" docValues="true"/>
+    <field name="publisher" type="text" indexed="true" stored="true" multiValued="false" />
+    <field name="title" type="text" indexed="true" stored="true" multiValued="false" />
+    <field name="alternate_titles" type="text" indexed="true" stored="true" multiValued="true" />
+    <field name="subjects" type="stem_text" indexed="true" stored="true" multiValued="true" />
+    <field name="summary" type="stem_text" indexed="true" stored="true" multiValued="false" />
+    <field name="alert" type="text" indexed="true" stored="true" multiValued="false" />
+    <field name="holdings" type="text" indexed="true" stored="true" multiValued="true" />
+    <field name="external_url" type="string" indexed="false" stored="true" multiValued="false" />
+  </fields>
+
+  <!-- field to use to determine and enforce document uniqueness. -->
+  <uniqueKey>haystack_id</uniqueKey>
+
+</schema>

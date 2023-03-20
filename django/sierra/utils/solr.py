@@ -15,6 +15,7 @@ from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
 from six import iteritems, text_type
 
+
 # set up logger, for debugging
 logger = logging.getLogger('sierra.custom')
 

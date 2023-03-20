@@ -1,3 +1,7 @@
+"""
+Contains DRF views for the shelflist app.
+"""
+
 from __future__ import absolute_import
 
 import logging
@@ -5,7 +9,7 @@ from collections import OrderedDict
 
 from api import views as api_views
 from api.simpleviews import SimpleView, SimpleGetMixin, SimplePatchMixin, \
-    SimplePutMixin
+                            SimplePutMixin
 from django.http import Http404
 from rest_framework import permissions
 from rest_framework.decorators import api_view
@@ -43,10 +47,6 @@ class ShelflistItemList(SimpleGetMixin, SimpleView):
     the page number.
     """
     serializer_class = serializers.ShelflistItemSerializer
-    ordering = None
-    filter_fields = ['call_number', 'call_number_type', 'barcode',
-                     'status_code', 'shelf_status', 'suppressed',
-                     'inventory_notes', 'flags', 'due_date', 'inventory_date']
     resource_name = 'shelflistItems'
 
     def get_queryset(self):
@@ -96,8 +96,7 @@ class ItemDetail(api_views.ItemDetail):
 
 class FirstItemPerLocationList(api_views.FirstItemPerLocationList):
     def get_page_data(self, queryset, request):
-        data = super(FirstItemPerLocationList, self).get_page_data(queryset,
-                                                                   request)
+        data = super().get_page_data(queryset, request)
         for item in data['_embedded']['items']:
             l_code = item['locationCode']
             this_id = item['id']
@@ -108,5 +107,5 @@ class FirstItemPerLocationList(api_views.FirstItemPerLocationList):
             }
             r = RedisObject('shelflistitem_manifest', l_code)
             item['rowNumber'] = r.get_index(this_id)
-
         return data
+

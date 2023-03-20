@@ -232,8 +232,7 @@ def solr_profile_definitions(global_solr_conn):
     generating test data via the *_solr_data_factory fixtures.
     """
     hs_conn = global_solr_conn('haystack')
-    bib_conn = global_solr_conn('bibdata')
-    # marc_conn = global_solr_conn('marc')
+    bib_conn = global_solr_conn(settings.BL_CONN_NAME)
     return {
         'location': {
             'conn': hs_conn,
@@ -265,11 +264,6 @@ def solr_profile_definitions(global_solr_conn):
             'user_fields': tp.BIB_FIELDS,
             'field_gens': tp.BIB_GENS
         },
-        # 'marc': {
-        #     'conn': marc_conn,
-        #     'user_fields': tp.MARC_FIELDS,
-        #     'field_gens': tp.MARC_GENS
-        # }
     }
 
 
@@ -594,6 +588,20 @@ def new_exporter(new_export_instance):
 
 
 @pytest.fixture
+def do_commit():
+    """
+    Pytest fixture. Ensures all indexes for all [grand]children run
+    their `commit_indexes` method to commit changes to Solr.
+    """
+    def _do_commit(exporter):
+        if hasattr(exporter, 'commit_indexes'):
+            exporter.commit_indexes()
+        for child in getattr(exporter, 'children', {}).values():
+            _do_commit(child)
+    return _do_commit
+
+
+@pytest.fixture
 def get_records_from_index(solr_conns, solr_search):
     """
     Pytest fixture that returns a test helper function for getting
@@ -629,9 +637,9 @@ def assert_records_are_indexed(get_records_from_index):
             assert record.pk in results
             result = results[record.pk]
             for field in result.keys():
-                schema_field = index.get_schema_field(field)
-                assert schema_field is not None
-                assert schema_field['stored']
+                sch_field = index.get_schema_field(field)
+                assert sch_field is not None
+                assert sch_field.get('stored') or sch_field.get('docValues')
     return _assert_records_are_indexed
 
 
@@ -802,16 +810,16 @@ def pick_reference_object_having_link():
 
 
 @pytest.fixture(scope='function')
-def assert_obj_fields_match_serializer():
+def assert_data_is_from_serializer():
     """
     Pytest fixture. Returns a helper function that asserts that the
-    given `obj` conforms to the given `serializer` -- all fields on the
-    serializer are represented on the object.
+    given `data` conforms to the given `serializer` -- all fields in
+    the data are serializer fields.
     """
-    def _assert_obj_fields_match_serializer(obj, serializer):
-        for field_name in serializer.fields:
-            assert serializer.render_field_name(field_name) in obj
-    return _assert_obj_fields_match_serializer
+    def _assert_data_is_from_serializer(data, serializer):
+        for fname in data.keys():
+            assert fname in serializer.field_lookup
+    return _assert_data_is_from_serializer
 
 
 @pytest.fixture(scope='function')
@@ -875,7 +883,8 @@ def do_filter_search():
     response.
     """
     def _do_filter_search(resource_url, search, client):
-        q = '&'.join(['='.join([six.moves.urllib.parse.quote_plus(v) for v in pair.split('=')])
+        quote = six.moves.urllib.parse.quote_plus
+        q = '&'.join(['='.join([quote(v) for v in pair.split('=')])
                       for pair in search.split('&')])
         return client.get('{}?{}'.format(resource_url, q))
     return _do_filter_search
@@ -886,12 +895,11 @@ def get_found_ids():
     """
     Returns a list of values for identifying test records, in order,
     from the given `response` object. (Usually the response will come
-    from calling `do_filter_search`.) `solr_id_field` is the name of
-    that ID field as it exists in Solr.
+    from calling `do_filter_search`.) `api_id_field` is the name of
+    API field you want to use for identifying each unique record.
     """
-    def _get_found_ids(solr_id_field, response, max_found=None):
+    def _get_found_ids(api_id_field, response, max_found=None):
         serializer = response.renderer_context['view'].get_serializer()
-        api_id_field = serializer.render_field_name(solr_id_field)
         max_found = response.data.get('totalCount', max_found)
         data = list(response.data.get('_embedded', {'data': []}).values())[0]
         # reality check: FAIL if there's any data returned on a different

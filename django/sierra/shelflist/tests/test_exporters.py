@@ -171,9 +171,9 @@ def test_itemstosolr_exps_keep_user_fields(exporter_class, new_exporter,
     for record in records:
         pre_result = pre_results[record.pk]
         post_result = post_results[record.pk]
-        recnum = record.record_metadata.get_iii_recnum(True)
-        assert pre_result['record_number'] != post_result['record_number']
-        assert post_result['record_number'] == recnum
+        recnum = record.record_metadata.get_iii_recnum(False)
+        assert pre_result['id'] != post_result['id']
+        assert post_result['id'] == recnum
         for uf in ufields:
             assert pre_result.get(uf, None) == post_result.get(uf, None)
 
@@ -278,20 +278,20 @@ def test_itemstosolr_shelflist_manifests(exporter_class, new_exporter,
     # `id`, `call_number_sort`, `volume_sort`, and `copy_number`.
     # When manifests are created, items should be sorted in that order.
     items = {
-        '1_1_1': (1, '1', '1', 1),
-        '1_1_2': (2, '1', '1', 2),
-        '1_2_1': (3, '1', '2', 1),
-        '1_2_2': (4, '1', '2', 2),
-        '2_1_1': (5, '2', '1', 1),
-        '2_1_2': (6, '2', '1', 2),
-        '2_1_3': (7, '2', '1', 3),
-        '3_1_1': (8, '3', '1', 1),
-        '3_1_2': (9, '3', '1', 2),
-        '3_1_3': (10, '3', '1', 3),
-        '3_2_1': (11, '3', '2', 1),
-        '3_2_2': (12, '3', '2', 2),
-        '4_1_1': (13, '4', '1', 1),
-        '4_2_1': (14, '4', '2', 1),
+        '1_1_1': ('1', '1', '1', 1),
+        '1_1_2': ('2', '1', '1', 2),
+        '1_2_1': ('3', '1', '2', 1),
+        '1_2_2': ('4', '1', '2', 2),
+        '2_1_1': ('5', '2', '1', 1),
+        '2_1_2': ('6', '2', '1', 2),
+        '2_1_3': ('7', '2', '1', 3),
+        '3_1_1': ('8', '3', '1', 1),
+        '3_1_2': ('9', '3', '1', 2),
+        '3_1_3': ('10', '3', '1', 3),
+        '3_2_1': ('11', '3', '2', 1),
+        '3_2_2': ('12', '3', '2', 2),
+        '4_1_1': ('13', '4', '1', 1),
+        '4_2_1': ('14', '4', '2', 1),
     }
 
     # Add some pre-existing shelflistitem-manifest data to Redis.

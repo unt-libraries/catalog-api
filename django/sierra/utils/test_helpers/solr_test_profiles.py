@@ -18,18 +18,17 @@ from utils.test_helpers import solr_factories as sf
 GLOBAL_UNIQUE_FIELDS = ('django_id', 'code', 'id', 'record_number')
 SOLR_TYPES = {
     'string': {'pytype': text_type, 'emtype': 'string'},
-    'norm_string': {'pytype': text_type, 'emtype': 'string'},
-    'alphaOnlySort': {'pytype': text_type, 'emtype': 'string'},
-    'text_en': {'pytype': text_type, 'emtype': 'text'},
-    'text': {'pytype': text_type, 'emtype': 'text'},
-    'textNoStem': {'pytype': text_type, 'emtype': 'text'},
-    'stem_text': {'pytype': text_type, 'emtype': 'text'},
-    'long': {'pytype': int, 'emtype': 'int'},
-    'slong': {'pytype': int, 'emtype': 'int'},
-    'int': {'pytype': int, 'emtype': 'int'},
-    'integer': {'pytype': int, 'emtype': 'int'},
-    'date': {'pytype': datetime.datetime, 'emtype': 'date'},
     'boolean': {'pytype': bool, 'emtype': 'boolean'},
+    'integer': {'pytype': int, 'emtype': 'int'},
+    'long': {'pytype': int, 'emtype': 'int'},
+    'date': {'pytype': datetime.datetime, 'emtype': 'date'},
+    'text': {'pytype': text_type, 'emtype': 'text'},
+    'cn_norm': {'pytype': text_type, 'emtype': 'string'},
+    'stem_text': {'pytype': text_type, 'emtype': 'text'},
+    'full_heading_text': {'pytype': text_type, 'emtype': 'string'},
+    'heading_term_text': {'pytype': text_type, 'emtype': 'string'},
+    'heading_term_text_stem': {'pytype': text_type, 'emtype': 'string'},
+    'norm_string': {'pytype': text_type, 'emtype': 'string'},
 }
 
 LETTERS_UPPER = list('ABCDEFGHIJKLMNOPQRSTUVWXYZ')
@@ -218,8 +217,9 @@ def url_like(record):
 
 # CODES (includes Location, Itype, and ItemStatus)
 
-CODE_FIELDS = ('django_ct', 'django_id', 'haystack_id', 'code', 'label',
-               'type', 'text')
+CODE_FIELDS = (
+    'django_ct', 'django_id', 'haystack_id', 'code', 'label', 'type', 'text'
+)
 LOCATION_GENS = (
     ('django_ct', GENS.static('base.location')),
     ('django_id', GENS(auto_increment())),
@@ -251,19 +251,20 @@ ITEMSTATUS_GENS = (
 
 # ITEMS
 
-ITEM_FIELDS = ('django_ct', 'django_id', 'id', 'haystack_id', 'type',
-               'suppressed', 'record_revision_number', 'record_number',
-               'call_number_type', 'call_number', 'call_number_search',
-               'call_number_sort', 'copy_number', 'volume', 'volume_sort',
-               'barcode', 'local_code1', 'location_code', 'item_type_code', 'status_code',
-               'public_notes', 'long_messages', 'price', 'copy_use_count',
-               'internal_use_count', 'iuse3_count', 'number_of_renewals',
-               'total_renewal_count', 'total_checkout_count',
-               'last_year_to_date_checkout_count', 'year_to_date_checkout_count',
-               'record_creation_date', 'record_last_updated_date', 'last_checkin_date',
-               'due_date', 'checkout_date', 'recall_date', 'overdue_date',
-               'parent_bib_id', 'parent_bib_record_number', 'parent_bib_title',
-               'parent_bib_main_author', 'parent_bib_publication_year', 'text')
+ITEM_FIELDS = (
+    'django_ct', 'django_id', 'id', 'haystack_id', 'type', 'suppressed',
+    'record_revision_number', 'call_number_type', 'call_number',
+    'call_number_search', 'call_number_sort', 'copy_number', 'volume',
+    'volume_sort', 'barcode', 'local_code1', 'location_code', 'item_type_code',
+    'status_code', 'public_notes', 'long_messages', 'price', 'copy_use_count',
+    'internal_use_count', 'iuse3_count', 'number_of_renewals',
+    'total_renewal_count', 'total_checkout_count',
+    'last_year_to_date_checkout_count', 'year_to_date_checkout_count',
+    'record_creation_date', 'record_last_updated_date', 'last_checkin_date',
+    'due_date', 'checkout_date', 'recall_date', 'overdue_date', 'parent_bib_id',
+    'parent_bib_title', 'parent_bib_main_author',
+    'parent_bib_publication_year', 'text'
+)
 
 # Item-field specific gen functions
 
@@ -446,22 +447,30 @@ class Link(object):
         the target isn't, it grabs the first value from the source.
         """
         sv = source_val if isinstance(source_val, list) else [source_val]
-        tv = (target_record.get(target_fname, []) + sv) if multi else sv[0]
+        tv = ((target_record.get(target_fname) or []) + sv) if multi else sv[0]
         target_record[target_fname] = tv
 
     @classmethod
     def from_item_to_bib(cls, item, bib):
-        cls.link(item['id'], bib, 'item_ids', multi=True)
-        cls.link(item['record_number'], bib, 'item_record_numbers', multi=True)
+        item_json = {
+            'i': item['id'],
+            'b': item.get('barcode'),
+            'c': item.get('call_number'),
+            'v': item.get('volume'),
+            'n': item.get('public_notes'),
+            'r': None
+        }
+        cls.link(ujson.dumps(item_json), bib, 'items_json', multi=True)
 
     @classmethod
     def from_bib_to_item(cls, bib, item):
         cls.link(bib['id'], item, 'parent_bib_id')
-        cls.link(bib['record_number'], item, 'parent_bib_record_number')
-        cls.link(bib['full_title'], item, 'parent_bib_title')
-        cls.link(bib['creator'], item, 'parent_bib_main_author')
-        if bib.get('publication_dates', []):
-            pub_year = bib['publication_dates'][0]
+        cls.link(bib['title_display'], item, 'parent_bib_title')
+        if len(bib.get('author_contributor_facet', [])) > 0:
+            author = bib['author_contributor_facet'][0]
+            cls.link(author, item, 'parent_bib_main_author')
+        if len(bib.get('publication_year_range_facet', [])) > 0:
+            pub_year = bib['publication_year_range_facet'][0]
             cls.link(pub_year, item, 'parent_bib_publication_year')
 
     @classmethod
@@ -482,12 +491,10 @@ def choose_and_link_to_parent_bib(bib_rec_pool):
     When the gen runs, it will randomly select one bib record from the
     provided bib_rec_pool set to be the parent bib for the item in
     question. It will automatically create all needed links between
-    that bib record and the item record. I.e., it wil add the item's
-    'id' field value to the bib's 'item_ids' list and the item's
-    'record_number' field value to the bib's 'item_record_numbers'
-    list; it will pull values for each 'parent_' field from the bib and
-    copy it into the corresponding field in the item (e.g. bib
-    'full_title' to item 'parent_bib_title').
+    that bib record and the item record. I.e., it will populate the
+    items_json field on the bib; it will pull values for each 'parent_'
+    field from the bib and copy it into the corresponding field in the
+    item (e.g. bib 'title_display' to item 'parent_bib_title').
 
     A couple of things to note.
 
@@ -519,13 +526,12 @@ def choose_and_link_to_parent_bib(bib_rec_pool):
 
 ITEM_GENS = (
     ('django_ct', GENS.static('base.itemrecord')),
-    ('id', GENS(auto_increment())),
+    ('id', GENS(auto_increment('i', 10000001))),
     ('django_id', GENS(copy_field('id'))),
     ('haystack_id', GENS(join_fields(('django_ct', 'django_id'), '.'))),
     ('type', GENS.static('Item')),
     ('suppressed', GENS.static(False)),
     ('record_revision_number', GENS.static(1)),
-    ('record_number', GENS(auto_increment('i', 10000001))),
     ('call_number_type', GENS.choice(['lc'] * 5 + ['sudoc'] * 2 +
                                      ['dewey'] * 1 + ['other'] * 2)),
     ('call_number', GENS(random_cn)),
@@ -557,37 +563,37 @@ ITEM_GENS = (
     ('recall_date', GENS(sequential_date('recall', 10))),
     ('due_date', GENS(sequential_date('due'))),
     ('overdue_date', GENS(sequential_date('overdue', 33))),
-    ('parent_bib_record_number', None),
     ('parent_bib_title', None),
     ('parent_bib_main_author', None),
     ('parent_bib_publication_year', None),
     ('parent_bib_id', None),
-    ('text', GENS(join_fields(['parent_bib_record_number', 'call_number',
-                               'parent_bib_main_author', 'location_code',
-                               'public_notes', 'parent_bib_publication_year',
-                               'record_number', 'parent_bib_title'])))
+    ('text', GENS(join_fields(['call_number', 'parent_bib_main_author',
+                               'location_code', 'public_notes',
+                               'parent_bib_publication_year',
+                               'parent_bib_title'])))
 )
 
 
 # ERESOURCES
 
-ERES_FIELDS = ('django_ct', 'django_id', 'id', 'haystack_id', 'type',
-               'eresource_type', 'suppressed', 'record_revision_number', 'record_number',
-               'title', 'alternate_titles', 'subjects', 'summary', 'publisher', 'alert',
-               'internal_notes', 'holdings', 'record_creation_date',
-               'record_last_updated_date', 'text')
+ERES_FIELDS = (
+    'django_ct', 'django_id', 'id', 'haystack_id', 'type', 'eresource_type',
+    'suppressed', 'record_revision_number', 'title',
+    'alternate_titles', 'subjects', 'summary', 'publisher', 'alert',
+    'internal_notes', 'holdings', 'record_creation_date',
+    'record_last_updated_date', 'text'
+)
 
 
 ERES_GENS = (
     ('django_ct', GENS.static('base.resourcerecord')),
-    ('id', GENS(auto_increment())),
+    ('id', GENS(auto_increment('e', 10000001))),
     ('django_id', GENS(copy_field('id'))),
     ('haystack_id', GENS(join_fields(('django_ct', 'django_id'), '.'))),
     ('type', GENS.static('eResource')),
     ('suppressed', GENS.static(False)),
     ('eresource_type', 'auto'),
     ('record_revision_number', GENS.static(1)),
-    ('record_number', GENS(auto_increment('e', 10000001))),
     ('title', 'auto'),
     ('alternate_titles', 'auto'),
     ('subjects', 'auto'),
@@ -598,29 +604,55 @@ ERES_GENS = (
     ('holdings', 'auto'),
     ('record_creation_date', 'auto'),
     ('record_last_updated_date', GENS(sequential_date('record_last_updated'))),
-    ('text', GENS(join_fields(['title', 'subjects', 'eresource_type',
-                              'record_number', 'publisher',
-                               'alternate_titles'])))
+    ('text',
+     GENS(join_fields(['title', 'subjects', 'eresource_type', 'id',
+                       'publisher', 'alternate_titles'])))
 )
 
 
 # BIBS
 
-BIB_FIELDS = ('django_ct', 'django_id', 'id', 'haystack_id', 'suppressed',
-              'record_number', 'material_type', 'formats', 'languages', 'isbn_numbers',
-              'issn_numbers', 'lccn_number', 'oclc_numbers', 'dewey_call_numbers',
-              'loc_call_numbers', 'sudoc_numbers', 'other_call_numbers',
-              'main_call_number', 'main_call_number_sort', 'main_title', 'subtitle',
-              'statement_of_responsibility', 'full_title', 'title_sort',
-              'alternate_titles', 'uniform_title', 'related_titles', 'corporations',
-              'meetings', 'people', 'creator', 'creator_sort', 'contributors',
-              'author_title_search', 'imprints', 'publishers', 'publication_country',
-              'publication_dates', 'publication_places', 'physical_characteristics',
-              'context_notes', 'summary_notes', 'toc_notes', 'era_terms', 'form_terms',
-              'general_terms', 'genre_terms', 'geographic_terms', 'other_terms',
-              'topic_terms', 'full_subjects', 'series', 'series_exact',
-              'series_creators', 'urls', 'url_labels', 'timestamp', 'item_ids',
-              'item_record_numbers', 'text')
+BIB_FIELDS = (
+    'id', 'timestamp_of_last_solr_update', 'suppressed', 'date_added',
+    'resource_type', 'items_json', 'has_more_items', 'more_items_json',
+    'thumbnail_url', 'urls_json', 'call_numbers_display', 'sudocs_display',
+    'isbns_display', 'issns_display', 'lccns_display', 'oclc_numbers_display',
+    'isbn_numbers', 'issn_numbers', 'lccn_number', 'oclc_numbers',
+    'all_standard_numbers', 'all_control_numbers',
+    'other_standard_numbers_display', 'other_control_numbers_display',
+    'publication_year_display', 'creation_display', 'publication_display',
+    'distribution_display', 'manufacture_display', 'copyright_display',
+    'publication_sort', 'publication_year_range_facet', 'access_facet',
+    'building_facet', 'shelf_facet', 'collection_facet', 'resource_type_facet',
+    'media_type_facet', 'metadata_facets_search', 'games_ages_facet',
+    'games_duration_facet', 'games_players_facet', 'call_numbers_search',
+    'sudocs_search', 'standard_numbers_search', 'control_numbers_search',
+    'publication_places_search', 'publishers_search',
+    'publication_dates_search', 'publication_date_notes', 'author_json',
+    'contributors_json', 'meetings_json', 'author_sort',
+    'author_contributor_facet', 'meeting_facet', 'author_search',
+    'contributors_search', 'meetings_search', 'responsibility_search',
+    'responsibility_display', 'title_display', 'non_truncated_title_display',
+    'included_work_titles_json', 'related_work_titles_json',
+    'related_series_titles_json', 'variant_titles_notes', 'main_title_search',
+    'main_work_title_json', 'included_work_titles_search',
+    'related_work_titles_search', 'related_series_titles_search',
+    'variant_titles_search', 'title_series_facet', 'title_sort',
+    'summary_notes', 'toc_notes', 'physical_description', 'physical_medium',
+    'geospatial_data', 'audio_characteristics', 'projection_characteristics',
+    'video_characteristics', 'digital_file_characteristics',
+    'graphic_representation', 'performance_medium', 'performers',
+    'language_notes', 'dissertation_notes', 'notes', 'subject_headings_json',
+    'genre_headings_json', 'subject_heading_facet', 'genre_heading_facet',
+    'topic_facet', 'era_facet', 'region_facet', 'genre_facet',
+    'subjects_search_exact_headings', 'subjects_search_main_terms',
+    'subjects_search_all_terms', 'genres_search_exact_headings',
+    'genres_search_main_terms', 'genres_search_all_terms', 'languages',
+    'record_boost', 'serial_continuity_linking_json',
+    'related_resources_linking_json', 'editions_display', 'editions_search',
+    'library_has_display', 'audience', 'creator_demographics',
+    'curriculum_objectives', 'arrangement_of_materials', 'system_details'
+)
 
 
 # Bib-field specific gen functions
@@ -638,33 +670,6 @@ def oclc_number(record):
     return random.randint(10000000, 9999999999)
 
 
-def pick_main_call_number(record):
-    cntypes = ('dewey_call', 'loc_call', 'sudoc', 'other_call')
-    cns = {}
-    for cntype in cntypes:
-        for cn in record.get('{}_numbers'.format(cntype), []):
-            cns[cn] = cntype
-    if cns:
-        main_cn = random.choice(list(cns.keys()))
-        main_cntype = cns[main_cn].split('_')[0]
-        if main_cntype == 'loc':
-            main_cntype = 'lc'
-        record['__main_cntype'] = main_cntype
-        return main_cn
-
-
-def main_call_number_sort(record):
-    if record.get('main_call_number', None):
-        val = cn_for_sort('main_call_number', record['__main_cntype'])(record)
-        del(record['__main_cntype'])
-        return val
-
-
-def full_title(record):
-    main_title, subtitle = record['main_title'], record.get('subtitle', '')
-    return ' : '.join([part for part in (main_title, subtitle) if part])
-
-
 def sortable_text_field(fieldname):
     def gens(record):
         try:
@@ -676,41 +681,8 @@ def sortable_text_field(fieldname):
     return gens
 
 
-def agent(name_gen, name_type):
-    add_to = 'people' if name_type == 'person' else '{}s'.format(name_type)
-
-    def gen(record):
-        name = name_gen(record)
-        record[add_to] = record.get(add_to, None) or []
-        record[add_to].append(name)
-        return name
-    return gen
-
-
-def random_agent(person_weight=8, corp_weight=1, meeting_weight=1):
-    def gen(record):
-        ntype = random.choice(['person'] * person_weight +
-                              ['corporation'] * corp_weight +
-                              ['meeting'] * meeting_weight)
-        ngen = person_name_heading_like if ntype == 'person' else org_name_like
-        return agent(ngen, ntype)(record)
-    return gen
-
-
 def statement_of_resp(record):
     return 'by {}'.format(record.get('creator', 'Unknown'))
-
-
-def imprints(record):
-    fieldnames = ('publishers', 'publication_dates', 'publication_places')
-    pub_parts = [record.get(fname, []) for fname in fieldnames]
-    num_imprints = max(*[len(p) for p in pub_parts])
-    imprints = []
-    for i in range(0, num_imprints):
-        name, date, place = (p[i] if i < len(p) else None for p in pub_parts)
-        name_date = ', '.join([p for p in (name, date) if p])
-        imprints.append(' : '.join([p for p in (place, name_date) if p]))
-    return imprints
 
 
 def subjects(record):
@@ -725,144 +697,135 @@ def subjects(record):
     return subjects
 
 
+def _combine_fields(record, fields):
+    """
+    Combine values from multiple fields into one list of values;
+    handles multi- and non-multi-valued fields, and deduplicates
+    values.
+    """
+    values = set()
+    for field in fields:
+        val = record.get(field, None)
+        if val is not None:
+            if isinstance(val, (list, set, tuple)):
+                values |= set(val)
+            else:
+                values.add(val)
+    return list(values) if values else None
+
+
+def title_series_facet(record):
+    fields = ('included_work_titles_search', 'related_work_titles_search',
+              'related_series_titles_search')
+    return _combine_fields(record, fields)
+
+
+def author_contributor_facet(record):
+    fields = ('author_search', 'contributors_search')
+    return _combine_fields(record, fields)
+
+
+def subjects_search_all_terms(record):
+    fields = ('topic_facet', 'region_facet', 'era_facet')
+    return _combine_fields(record, fields)
+
+
+def random_agent(person_weight=8, corp_weight=1, meeting_weight=1):
+    def gen(record):
+        rval = ''
+        nametype = random.choice(['person'] * person_weight +
+                                 ['corporation'] * corp_weight +
+                                 ['meeting'] * meeting_weight)
+        if nametype == 'person':
+            rval = person_name_heading_like(record)
+        else:
+            rval = org_name_like(record)
+        print(rval)
+        return rval
+    return gen
+
+
 BIB_GENS = (
-    ('django_ct', GENS.static('base.bibrecord')),
-    ('id', GENS(auto_increment())),
-    ('django_id', GENS(copy_field('id'))),
-    ('haystack_id', GENS(join_fields(('django_ct', 'django_id'), '.'))),
-    ('suppressed', GENS.static(False)),
-    ('record_number', GENS(auto_increment('b', 10000001))),
-    ('material_type', GENS.type('string', mn=5, mx=15,
-                                alphabet=LETTERS_UPPER)),
-    ('formats', 'auto'),
+    ('id', GENS(auto_increment('b', 10000001))),
+    ('items_json', None),
+    ('has_more_items', None),
+    ('more_items_json', None),
+    ('urls_json', None),
+    ('games_ages_facet', 'auto'),
+    ('games_duration_facet', 'auto'),
+    ('games_players_facet', 'auto'),
     ('languages', 'auto'),
+    ('publication_year_range_facet',
+     GENS(multi(GENS.type('int', mn=1000, mx=9999), 1, 5))),
     ('isbn_numbers', GENS(chance(multi(isbn_number, 1, 5), 66))),
     ('issn_numbers', GENS(chance(multi(issn_number, 1, 5), 33))),
-    ('lccn_number', GENS(chance(GENS.type('int', mn=100000, mx=999999999999),
-                                80))),
+    ('lccn_number', GENS(chance(GENS.type('int', mn=10000, mx=99999), 80))),
     ('oclc_numbers', GENS(chance(multi(oclc_number, 1, 2), 75))),
-    ('dewey_call_numbers', GENS(chance(multi(dewey_cn, 1, 2), 20))),
-    ('loc_call_numbers', GENS(chance(multi(lc_cn, 1, 2), 80))),
-    ('sudoc_numbers', GENS(chance(multi(sudoc_cn, 1, 2), 20))),
-    ('other_call_numbers', GENS(chance(multi(other_cn, 1, 2), 30))),
-    ('main_call_number', GENS(pick_main_call_number)),
-    ('main_call_number_sort', GENS(main_call_number_sort)),
-    ('main_title', GENS(title_like)),
-    ('subtitle', GENS(chance(title_like, 40))),
-    ('full_title', GENS(full_title)),
-    ('title_sort', GENS(sortable_text_field('full_title'))),
-    ('alternate_titles', GENS(chance(multi(title_like, 1, 3), 20))),
-    ('uniform_title', GENS(chance(title_like), 30)),
-    ('related_titles', GENS(chance(multi(title_like, 1, 5), 50))),
-    ('corporations', None),
-    ('meetings', None),
-    ('people', None),
-    ('creator', GENS(random_agent(8, 1, 1))),
-    ('creator_sort', GENS(sortable_text_field('creator'))),
-    ('contributors', GENS(chance(multi(random_agent(6, 3, 1), 1, 5), 75))),
-    ('statement_of_responsibility', GENS(chance(statement_of_resp, 80))),
-    ('author_title_search', GENS(join_fields(['creator', 'main_title']))),
-    ('publishers', GENS(chance(multi(org_name_like, 1, 3), 70))),
-    ('publication_dates', GENS(chance(multi(year_like, 1, 3), 90))),
-    ('publication_places', GENS(chance(multi(place_like, 1, 3), 60))),
-    ('publication_country', GENS(chance(place_like), 60)),
-    ('imprints', GENS(imprints)),
-    ('physical_characteristics', GENS(multi(sentence_like, 1, 4))),
-    ('context_notes', GENS(chance(multi(sentence_like, 1, 4), 50))),
+    ('isbns_display', GENS(copy_field('isbn_numbers'))),
+    ('issns_display', GENS(copy_field('issn_numbers'))),
+    ('lccns_display', GENS(copy_field('lccn_number'))),
+    ('oclc_numbers_display', GENS(copy_field('oclc_numbers'))),
+    ('all_standard_numbers', GENS(copy_field('isbn_numbers'))),
+    ('all_control_numbers', GENS(copy_field('oclc_numbers'))),
+    ('other_standard_numbers_display',
+     GENS(chance(multi(isbn_number, 1, 2), 20))),
+    ('other_control_numbers_display',
+     GENS(chance(multi(oclc_number, 1, 2), 20))),
+    ('standard_numbers_search', GENS(copy_field('isbns_display'))),
+    ('control_numbers_search', GENS(copy_field('oclc_numbers_display'))),
+    ('call_numbers_display', GENS(multi(lc_cn, 1, 2))),
+    ('sudocs_display', GENS(chance(multi(sudoc_cn, 1, 2), 20))),
+    ('call_numbers_search', GENS(copy_field('call_numbers_display'))),
+    ('sudocs_search', GENS(copy_field('sudocs_display'))),
+    ('title_display', GENS(title_like)),
+    ('main_title_search', GENS(copy_field('title_display'))),
+    ('non_truncated_title_display',
+     GENS(chance(copy_field('title_display'), 20))),
+    ('main_work_title_json', None),
+    ('included_work_titles_json', None),
+    ('related_work_titles_json', None),
+    ('related_series_titles_json', None),
+    ('included_work_titles_search',
+     GENS(chance(multi(title_like, 1, 3), 50))),
+    ('related_work_titles_search',
+     GENS(chance(multi(title_like, 1, 3), 20))),
+    ('related_series_titles_search', GENS(chance(multi(title_like, 1, 3), 20))),
+    ('variant_titles_notes', GENS(chance(multi(title_like, 1, 3), 20))),
+    ('variant_titles_search', GENS(copy_field('variant_titles_search'))),
+    ('title_sort', GENS(sortable_text_field('title_display'))),
+    ('author_json', None),
+    ('contributors_json', None),
+    ('meetings_json', None),
+    ('author_search', GENS(random_agent(8, 1, 1))),
+    ('author_sort', GENS(lambda r: r['author_search'][0].lower())),
+    ('contributors_search',
+     GENS(chance(multi(random_agent(6, 3, 1), 1, 5), 75))),
+    ('meetings_search', GENS(chance(multi(org_name_like, 1, 3), 25))),
+    ('responsibility_display', GENS(chance(statement_of_resp, 80))),
+    ('responsibility_search', GENS(copy_field('responsibility_display'))),
     ('summary_notes', GENS(chance(multi(sentence_like, 1, 4), 50))),
     ('toc_notes', GENS(chance(multi(sentence_like, 1, 4), 50))),
-    ('era_terms', GENS(chance(multi(year_range_like, 1, 2), 25))),
-    ('form_terms', GENS(chance(multi(keyword_like, 1, 2), 25))),
-    ('general_terms', GENS(chance(multi(keyword_like, 1, 2), 25))),
-    ('genre_terms', GENS(chance(multi(keyword_like, 1, 2), 40))),
-    ('geographic_terms', GENS(chance(multi(place_like, 1, 2), 30))),
-    ('other_terms', GENS(chance(multi(keyword_like, 1, 2), 25))),
-    ('topic_terms', GENS(multi(keyword_like, 1, 5))),
-    ('full_subjects', GENS(subjects)),
-    ('series', GENS(chance(multi(title_like, 1, 3), 50))),
-    ('series_exact', GENS(copy_field('series'))),
-    ('series_creators', GENS(chance(multi(person_name_heading_like, 1, 3),
-                                    50))),
-    ('urls', GENS(chance(multi(url_like, 1, 3), 75))),
-    ('url_labels', None),
-    ('timestamp', 'auto'),
-    ('item_ids', None),
-    ('item_record_numbers', None),
-    ('text', GENS(join_fields(['haystack_id', 'record_number', 'material_type',
-                              'formats', 'languages', 'isbn_numbers',
-                               'issn_numbers', 'lccn_number', 'oclc_numbers',
-                               'dewey_call_numbers', 'loc_call_numbers',
-                               'sudoc_numbers', 'other_call_numbers',
-                               'main_call_number',
-                               'statement_of_responsibility', 'full_title',
-                               'alternate_titles', 'uniform_title',
-                               'related_titles', 'corporations', 'meetings',
-                               'people', 'imprints', 'publishers',
-                               'publication_country', 'publication_dates',
-                               'publication_places', 'physical_characteristics',
-                               'context_notes', 'summary_notes', 'toc_notes',
-                               'full_subjects', 'series', 'series_creators',
-                               'url_labels'])))
+    ('subject_headings_json', None),
+    ('genre_headings_json', None),
+    ('subject_heading_facet', GENS(subjects)),
+    ('genre_heading_facet', GENS(chance(multi(keyword_like, 1, 2), 40))),
+    ('topic_facet', GENS(multi(keyword_like, 1, 5))),
+    ('era_facet', GENS(chance(multi(year_range_like, 1, 2), 25))),
+    ('region_facet', GENS(chance(multi(keyword_like, 1, 2), 25))),
+    ('genre_facet', GENS(copy_field('genre_heading_facet'))),
+    ('subjects_search_exact_headings',
+     GENS(copy_field('subject_heading_facet'))),
+    ('subjects_search_main_terms', GENS(copy_field('topic_facet'))),
+    ('subjects_search_all_terms', GENS(subjects_search_all_terms)),
+    ('genres_search_exact_headings', GENS(copy_field('genre_heading_facet'))),
+    ('genres_search_main_terms', GENS(copy_field('genre_heading_facet'))),
+    ('genres_search_all_terms', GENS(copy_field('genre_heading_facet'))),
+    ('serial_continuity_linking_json', None),
+    ('related_resources_linking_json', None),
+    ('timestamp_of_last_solr_update', 'auto'),
+    ('title_series_facet', GENS(title_series_facet)),
+    ('author_contributor_facet', GENS(author_contributor_facet)),
+    ('meeting_facet', GENS(copy_field('meetings_search'))),
+    ('suppressed', GENS.static(False)),
 )
 
-
-# MARC -- Note that this does not currently generate realistic data for
-# the MARC index, only basic stub records. Generating realistic data is
-# going to be difficult and time-consuming, and at this point the MARC
-# index is still not really used for any public services, so it's not
-# super important.
-#
-# The major things that are missing for this data to be considered
-# complete are: 1) searchable dynamic fields for MARC fields and
-# subfields, and 2) basing the data on an existing BIB record in the
-# bib index.
-
-MARC_FIELDS = ('django_ct', 'django_id', 'id', 'haystack_id', 'record_number',
-               'json', 'timestamp')
-
-
-def marc_json(record):
-    first, middle, last = _make_person_name_parts()
-    years = year_range_like(record)
-    data = {
-        'fields': {
-            '001': random.randint(10000, 99999999),
-            '003': 'OCoLC',
-            '050': {
-                'subfields': [
-                    {'a': lc_cn(record)}
-                ],
-                'ind1': ' ',
-                'ind2': ' '
-            },
-            '100': {
-                'subfields': [
-                    {'a': '{}, {} {},'.format(last, first, middle)},
-                    {'d': '{}.'.format(years)}
-                ],
-                'ind1': str(random.randint(1, 9)),
-                'ind2': str(random.randint(1, 9))
-            },
-            '245': {
-                'subfields': [
-                    {'a': '{} :'.format(title_like(record))},
-                    {'b': '{} /'.format(title_like(record))},
-                    {'c': 'by {} {} {}.'.format(first, middle, last)}
-                ],
-                'ind1': str(random.randint(1, 9)),
-                'ind2': str(random.randint(1, 9))
-            }
-        }
-    }
-    return ujson.dumps(data)
-
-
-MARC_GENS = (
-    ('django_ct', GENS.static('base.bibrecord')),
-    ('id', GENS(auto_increment())),
-    ('django_id', GENS(copy_field('id'))),
-    ('haystack_id', GENS(join_fields(('django_ct', 'django_id'), '.'))),
-    ('record_number', GENS(auto_increment('b', 10000001))),
-    ('json', GENS(marc_json)),
-    ('timestamp', 'auto'),
-)

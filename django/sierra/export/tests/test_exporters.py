@@ -1,13 +1,14 @@
 """
-Tests classes derived from `export.exporter.Exporter`.
+Tests the `export.exporter` (and children) classes.
 """
 from __future__ import absolute_import
 
-import datetime
+from datetime import datetime, timedelta
 
 import pytest
+import pytz
 from six import text_type
-from six.moves import range
+from six.moves import range, zip
 
 # FIXTURES AND TEST DATA
 # Fixtures used in the below tests can be found in
@@ -69,61 +70,364 @@ def test_exporter_class_versions(et_code, category, new_exporter,
 
 @pytest.mark.exports
 @pytest.mark.get_records
-@pytest.mark.basic
-@pytest.mark.parametrize('et_code, rset_code, filter_code', [
-    ('BibsToSolr', 'bib_set', 'record_range'),
-    ('EResourcesToSolr', 'eres_set', 'record_range'),
-    ('ItemsToSolr', 'item_set', 'record_range'),
-    ('ItemStatusesToSolr', 'istatus_set', 'full_export'),
-    ('ItypesToSolr', 'itype_set', 'full_export'),
-    ('LocationsToSolr', 'location_set', 'full_export'),
-    ('ItemsBibsToSolr', 'item_set', 'record_range'),
-    ('BibsAndAttachedToSolr', 'bib_set', 'record_range'),
-    ('BibsAndAttachedToSolr', 'er_bib_set', 'record_range'),
-    ('BibsAndAttachedToSolr', 'bib_set', 'updated_date_range'),
-    ('BibsAndAttachedToSolr', 'er_bib_set', 'updated_date_range'),
-    ('ItemsBibsToSolr', 'item_set', 'location'),
-    ('BibsAndAttachedToSolr', 'bib_set', 'location'),
-    ('BibsAndAttachedToSolr', 'bib_set', 'last_export'),
-    ('BibsAndAttachedToSolr', 'er_bib_set', 'last_export'),
+@pytest.mark.parametrize('et_code, rset_code', [
+    ('BibsToSolr', 'bib_set'),
+    ('EResourcesToSolr', 'eres_set'),
+    ('ItemsToSolr', 'item_set'),
+    ('BibsAndAttachedToSolr', 'bib_set'),
+    ('BibsAndAttachedToSolr', 'er_bib_set'),
 ])
-def test_basic_export_get_records(et_code, rset_code, filter_code,
-                                  basic_exporter_class,
-                                  record_sets, new_exporter):
+def test_basic_export_get_records_rn_range(et_code, rset_code,
+                                           basic_exporter_class,
+                                           record_sets, new_exporter):
     """
-    For Basic Exporter classes that get data from Sierra, the
-    `get_records` method should return the expected recordset.
+    For basic exporter classes that get data from Sierra, the
+    `get_records` method should return the expected recordset, when
+    using the `record_range` filter type.
     """
     qset = record_sets[rset_code].order_by('pk')
     expected_recs = [r for r in qset]
-    expclass = basic_exporter_class(et_code)
 
     opts = {}
-    if filter_code == 'record_range':
-        start_rnum = expected_recs[0].record_metadata.get_iii_recnum(False)
-        end_rnum = expected_recs[-1].record_metadata.get_iii_recnum(False)
-        opts = {'record_range_from': start_rnum, 'record_range_to': end_rnum}
-    elif filter_code == 'updated_date_range':
-        ref_date = expected_recs[0].record_metadata.record_last_updated_gmt
-        opts = {'date_range_from': ref_date - datetime.timedelta(days=1),
-                'date_range_to': ref_date + datetime.timedelta(days=1)}
-    elif filter_code == 'last_export':
-        ref_date = expected_recs[0].record_metadata.record_last_updated_gmt
-        last_exp = new_exporter(expclass, 'full_export', 'success')
-        last_exp.instance.timestamp = ref_date - datetime.timedelta(seconds=1)
-        last_exp.instance.save()
-    elif filter_code == 'location':
-        links = expected_recs[0].bibrecorditemrecordlink_set.all()
-        lcodes = list(set([l.item_record.location_id for l in links]))
-        opts = {'location_code': lcodes}
+    start_rnum = expected_recs[0].record_metadata.get_iii_recnum(False)
+    end_rnum = expected_recs[-1].record_metadata.get_iii_recnum(False)
+    opts = {'record_range_from': start_rnum, 'record_range_to': end_rnum}
 
-    exporter = new_exporter(expclass, filter_code, 'waiting', options=opts)
+    expclass = basic_exporter_class(et_code)
+    exporter = new_exporter(expclass, 'record_range', 'waiting', options=opts)
     records = exporter.get_records()
+    assert set(records) == set(expected_recs)
 
-    if filter_code in ('location', 'updated_date_range', 'last_export'):
-        assert expected_recs[0].pk in [r.pk for r in records]
-    else:
-        assert set(records) == set(expected_recs)
+
+@pytest.mark.exports
+@pytest.mark.get_records
+@pytest.mark.parametrize('et_code, rstart, rend, bdate, idates, '
+                         'bib_exp_in_rset, items_exp_in_rset', [
+    ('BibsToSolr', (2020, 8, 14), (2020, 8, 16),
+     (2020, 8, 15), [(2019, 9, 1), (2020, 8, 13)], True, [False, False]),
+    ('BibsToSolr', (2020, 8, 14), (2020, 8, 16),
+     (2020, 8, 15), [(2020, 8, 15), (2020, 8, 15)], True, [False, False]),
+
+    # For bib-centric exporters, a bib should be included in the
+    # recordset that `get_records` returns if any attached items have
+    # been updated within the query range, even if the bib itself has
+    # not.
+    ('BibsToSolr', (2020, 8, 14), (2020, 8, 16),
+     (2019, 9, 1), [(2020, 8, 15), (2020, 8, 13)], True, [False, False]),
+    ('BibsToSolr', (2020, 8, 14), (2020, 8, 16),
+     (2019, 9, 1), [(2020, 8, 15), (2020, 8, 15)], True, [False, False]),
+    ('BibsToSolr', (2020, 8, 14), (2020, 8, 16),
+     (2019, 9, 1), [(2020, 8, 13), (2019, 8, 15)], False, [False, False]),
+
+    # For exporters that grab attached records, the original recordset
+    # that `get_records` returns does not include the attached records.
+    # They are fetched during export.
+    ('BibsAndAttachedToSolr', (2020, 8, 14), (2020, 8, 16),
+     (2020, 8, 15), [(2019, 9, 1), (2020, 8, 13)], True, [False, False]),
+    ('BibsAndAttachedToSolr', (2020, 8, 14), (2020, 8, 16),
+     (2020, 8, 15), [(2020, 8, 15), (2020, 8, 15)], True, [False, False]),
+    ('BibsAndAttachedToSolr', (2020, 8, 14), (2020, 8, 16),
+     (2019, 9, 1), [(2020, 8, 15), (2020, 8, 13)], True, [False, False]),
+    ('BibsAndAttachedToSolr', (2020, 8, 14), (2020, 8, 16),
+     (2019, 9, 1), [(2020, 8, 15), (2020, 8, 15)], True, [False, False]),
+    ('BibsAndAttachedToSolr', (2020, 8, 14), (2020, 8, 16),
+     (2019, 9, 1), [(2020, 8, 13), (2019, 8, 15)], False, [False, False]),
+
+    # For item-centric exporters, an item should be included in the
+    # recordset that `get_records` returns if the parent bib has
+    # been updated within the query range, even if the item itself has
+    # not.
+    ('ItemsToSolr', (2020, 8, 14), (2020, 8, 16),
+     (2020, 8, 15), [(2019, 9, 1), (2020, 8, 13)], False, [True, True]),
+    ('ItemsToSolr', (2020, 8, 14), (2020, 8, 16),
+     (2020, 8, 15), [(2020, 8, 15), (2020, 8, 15)], False, [True, True]),
+    ('ItemsToSolr', (2020, 8, 14), (2020, 8, 16),
+     (2019, 9, 1), [(2020, 8, 15), (2020, 8, 13)], False, [True, False]),
+    ('ItemsToSolr', (2020, 8, 14), (2020, 8, 16),
+     (2019, 9, 1), [(2020, 8, 15), (2020, 8, 15)], False, [True, True]),
+    ('ItemsToSolr', (2020, 8, 14), (2020, 8, 16),
+     (2019, 9, 1), [(2020, 8, 13), (2019, 8, 15)], False, [False, False]),
+    ('ItemsBibsToSolr', (2020, 8, 14), (2020, 8, 16),
+     (2020, 8, 15), [(2019, 9, 1), (2020, 8, 13)], False, [True, True]),
+    ('ItemsBibsToSolr', (2020, 8, 14), (2020, 8, 16),
+     (2020, 8, 15), [(2020, 8, 15), (2020, 8, 15)], False, [True, True]),
+    ('ItemsBibsToSolr', (2020, 8, 14), (2020, 8, 16),
+     (2019, 9, 1), [(2020, 8, 15), (2020, 8, 13)], False, [True, False]),
+    ('ItemsBibsToSolr', (2020, 8, 14), (2020, 8, 16),
+     (2019, 9, 1), [(2020, 8, 15), (2020, 8, 15)], False, [True, True]),
+    ('ItemsBibsToSolr', (2020, 8, 14), (2020, 8, 16),
+     (2019, 9, 1), [(2020, 8, 13), (2019, 8, 15)], False, [False, False]),
+])
+def test_basic_export_get_records_updated_range(et_code, rstart, rend, bdate,
+                                                idates, bib_exp_in_rset,
+                                                items_exp_in_rset,
+                                                sierra_test_record,
+                                                setattr_model_instance,
+                                                add_items_to_bib,
+                                                basic_exporter_class,
+                                                new_exporter):
+    """
+    For basic exporter classes that get data from Sierra, when using
+    using the `updated_date_range` filter type, the `get_records`
+    method should return a recordset that either has or does not have
+    the test bib and items, based on `bib_exp_in_rset` and
+    `items_exp_in_rset`.
+    """
+    bib = sierra_test_record('bib_no_items')
+    setattr_model_instance(bib.record_metadata, 'record_last_updated_gmt',
+                           datetime(*bdate, tzinfo=pytz.utc))
+    item_info = []
+    for idate in idates:
+        item_info.append({
+            'record_metadata': {
+                'record_last_updated_gmt': datetime(*idate, tzinfo=pytz.utc)
+            }
+        })
+    bib = add_items_to_bib(bib, item_info)
+
+    expclass = basic_exporter_class(et_code)
+    exp = new_exporter(expclass, 'updated_date_range', 'waiting', options={
+        'date_range_from': datetime(*rstart, tzinfo=pytz.utc),
+        'date_range_to': datetime(*rend, tzinfo=pytz.utc)
+    })
+    pks = [r.pk for r in exp.get_records()]
+    item_links = bib.bibrecorditemrecordlink_set.all()
+    assert (bib.pk in pks) == bib_exp_in_rset
+    for link, expected in zip(item_links, items_exp_in_rset):
+        assert (link.item_record.pk in pks) == expected
+
+
+@pytest.mark.exports
+@pytest.mark.get_records
+@pytest.mark.parametrize('et_code, last_dt, bdate, idates, bib_exp_in_rset, '
+                         'items_exp_in_rset', [
+
+    # This should behave like `updated_date_range` tests; see comments
+    # on the previous test's parameters for details.
+    ('BibsToSolr', (2020, 8, 14, 1, 15, 0),
+     (2020, 8, 15), [(2019, 9, 1), (2020, 8, 13)], True, [False, False]),
+    ('BibsToSolr', (2020, 8, 14, 1, 15, 0),
+     (2020, 8, 15), [(2020, 8, 15), (2020, 8, 15)], True, [False, False]),
+    ('BibsToSolr', (2020, 8, 14, 1, 15, 0),
+     (2019, 9, 1), [(2020, 8, 15), (2020, 8, 13)], True, [False, False]),
+    ('BibsToSolr', (2020, 8, 14, 1, 15, 0),
+     (2019, 9, 1), [(2020, 8, 15), (2020, 8, 15)], True, [False, False]),
+    ('BibsToSolr', (2020, 8, 14, 1, 15, 0),
+     (2019, 9, 1), [(2020, 8, 13), (2019, 8, 15)], False, [False, False]),
+    ('BibsAndAttachedToSolr', (2020, 8, 14, 1, 15, 0),
+     (2020, 8, 15), [(2019, 9, 1), (2020, 8, 13)], True, [False, False]),
+    ('BibsAndAttachedToSolr', (2020, 8, 14, 1, 15, 0),
+     (2020, 8, 15), [(2020, 8, 15), (2020, 8, 15)], True, [False, False]),
+    ('BibsAndAttachedToSolr', (2020, 8, 14, 1, 15, 0),
+     (2019, 9, 1), [(2020, 8, 15), (2020, 8, 13)], True, [False, False]),
+    ('BibsAndAttachedToSolr', (2020, 8, 14, 1, 15, 0),
+     (2019, 9, 1), [(2020, 8, 15), (2020, 8, 15)], True, [False, False]),
+    ('BibsAndAttachedToSolr', (2020, 8, 14, 1, 15, 0),
+     (2019, 9, 1), [(2020, 8, 13), (2019, 8, 15)], False, [False, False]),
+    ('ItemsToSolr', (2020, 8, 14, 1, 15, 0),
+     (2020, 8, 15), [(2019, 9, 1), (2020, 8, 13)], False, [True, True]),
+    ('ItemsToSolr', (2020, 8, 14, 1, 15, 0),
+     (2020, 8, 15), [(2020, 8, 15), (2020, 8, 15)], False, [True, True]),
+    ('ItemsToSolr', (2020, 8, 14, 1, 15, 0),
+     (2019, 9, 1), [(2020, 8, 15), (2020, 8, 13)], False, [True, False]),
+    ('ItemsToSolr', (2020, 8, 14, 1, 15, 0),
+     (2019, 9, 1), [(2020, 8, 15), (2020, 8, 15)], False, [True, True]),
+    ('ItemsToSolr', (2020, 8, 14, 1, 15, 0),
+     (2019, 9, 1), [(2020, 8, 13), (2019, 8, 15)], False, [False, False]),
+    ('ItemsBibsToSolr', (2020, 8, 14, 1, 15, 0),
+     (2020, 8, 15), [(2019, 9, 1), (2020, 8, 13)], False, [True, True]),
+    ('ItemsBibsToSolr', (2020, 8, 14, 1, 15, 0),
+     (2020, 8, 15), [(2020, 8, 15), (2020, 8, 15)], False, [True, True]),
+    ('ItemsBibsToSolr', (2020, 8, 14, 1, 15, 0),
+     (2019, 9, 1), [(2020, 8, 15), (2020, 8, 13)], False, [True, False]),
+    ('ItemsBibsToSolr', (2020, 8, 14, 1, 15, 0),
+     (2019, 9, 1), [(2020, 8, 15), (2020, 8, 15)], False, [True, True]),
+    ('ItemsBibsToSolr', (2020, 8, 14, 1, 15, 0),
+     (2019, 9, 1), [(2020, 8, 13), (2019, 8, 15)], False, [False, False]),
+])
+def test_basic_export_get_records_last_export(et_code, last_dt, bdate, idates,
+                                              bib_exp_in_rset,
+                                              items_exp_in_rset,
+                                              sierra_test_record,
+                                              setattr_model_instance,
+                                              add_items_to_bib,
+                                              basic_exporter_class,
+                                              new_exporter):
+    """
+    For basic exporter classes that get data from Sierra, when using
+    using the `last_export` filter type, the `get_records` method
+    should return a recordset that either has or does not have the test
+    bib and items, based on `bib_exp_in_rset` and `items_exp_in_rset`.
+    """
+    bib = sierra_test_record('bib_no_items')
+    setattr_model_instance(bib.record_metadata, 'record_last_updated_gmt',
+                           datetime(*bdate, tzinfo=pytz.utc))
+    item_info = []
+    for idate in idates:
+        item_info.append({
+            'record_metadata': {
+                'record_last_updated_gmt': datetime(*idate, tzinfo=pytz.utc)
+            }
+        })
+    bib = add_items_to_bib(bib, item_info)
+
+    expclass = basic_exporter_class(et_code)
+    last_exp_timestamp = datetime(*last_dt, tzinfo=pytz.utc)
+    last_exp = new_exporter(expclass, 'full_export', 'success')
+    last_exp.instance.timestamp = last_exp_timestamp
+    last_exp.instance.save()
+    exp = new_exporter(expclass, 'last_export', 'waiting', options={})
+    pks = [r.pk for r in exp.get_records()]
+    item_links = bib.bibrecorditemrecordlink_set.all()
+    assert (bib.pk in pks) == bib_exp_in_rset
+    for link, expected in zip(item_links, items_exp_in_rset):
+        assert (link.item_record.pk in pks) == expected
+
+
+@pytest.mark.exports
+@pytest.mark.get_records
+@pytest.mark.parametrize('et_code, test_lcodes, which_loc, bib_lcodes, '
+                         'item_lcodes, bib_exp_in_rset, items_exp_in_rset',
+[
+    ('BibsToSolr', ['w4m'], 'item', ['w'], ['w4m', 'w3'],
+     True, [False, False]),
+    ('BibsToSolr', ['w4m'], 'bib', ['w'], ['w4m', 'w4m'],
+     False, [False, False]),
+    ('BibsToSolr', ['x'], 'item', ['x'], ['w4m', 'w4m'],
+     False, [False, False]),
+    ('BibsToSolr', ['x'], 'bib', ['x'], ['w4m', 'w4m'],
+     True, [False, False]),
+    ('BibsToSolr', ['w4m', 'x'], 'item', ['r', 's'], ['w4m', 'w4m'],
+     True, [False, False]),
+    ('BibsToSolr', ['w', 'x'], 'both', ['w', 'x'], ['xdoc', 'w4m'],
+     True, [False, False]),
+    ('BibsToSolr', ['xdoc'], 'both', ['w', 'x'], ['xdoc', 'w4m'],
+     True, [False, False]),
+    ('BibsToSolr', ['r', 's'], 'both', ['w', 'x'], ['xdoc', 'w3'],
+     False, [False, False]),
+    ('BibsToSolr', ['w', 'x'], 'bib', ['r', 's'], ['w4m', 'xdoc'],
+     False, [False, False]),
+    ('BibsAndAttachedToSolr', ['w4m'], 'item', ['w'], ['w4m', 'w4m'],
+     True, [False, False]),
+    ('BibsAndAttachedToSolr', ['w4m'], 'bib', ['w'], ['w4m', 'w4m'],
+     False, [False, False]),
+    ('BibsAndAttachedToSolr', ['x'], 'item', ['x'], ['w4m', 'w4m'],
+     False, [False, False]),
+    ('BibsAndAttachedToSolr', ['x'], 'bib', ['x'], ['w4m', 'w4m'],
+     True, [False, False]),
+    ('BibsAndAttachedToSolr', ['w4m', 'x'], 'item', ['r', 's'], ['w4m', 'w4m'],
+     True, [False, False]),
+    ('BibsAndAttachedToSolr', ['w', 'x'], 'both', ['w', 'x'], ['xdoc', 'w4m'],
+     True, [False, False]),
+    ('BibsAndAttachedToSolr', ['xdoc'], 'both', ['w', 'x'], ['xdoc', 'w4m'],
+     True, [False, False]),
+    ('BibsAndAttachedToSolr', ['r', 's'], 'both', ['w', 'x'], ['xdoc', 'w3'],
+     False, [False, False]),
+    ('BibsAndAttachedToSolr', ['w', 'x'], 'bib', ['r', 's'], ['w4m', 'xdoc'],
+     False, [False, False]),
+    ('ItemsToSolr', ['w4m'], 'item', ['w'], ['w4m', 'w3'],
+     False, [True, False]),
+    ('ItemsToSolr', ['w4m'], 'bib', ['w'], ['w4m', 'w4m'],
+     False, [False, False]),
+    ('ItemsToSolr', ['x'], 'item', ['x'], ['w4m', 'w4m'],
+     False, [False, False]),
+    ('ItemsToSolr', ['x'], 'bib', ['x'], ['w4m', 'w4m'],
+     False, [True, True]),
+    ('ItemsToSolr', ['w4m', 'x'], 'item', ['r', 's'], ['w4m', 'w4m'],
+     False, [True, True]),
+    ('ItemsToSolr', ['w', 'x'], 'both', ['w', 'x'], ['xdoc', 'w4m'],
+     False, [True, True]),
+    ('ItemsToSolr', ['xdoc'], 'both', ['w', 'x'], ['xdoc', 'w4m'],
+     False, [True, False]),
+    ('ItemsToSolr', ['x', 'xdoc'], 'both', ['w', 'x'], ['xdoc', 'w4m'],
+     False, [True, True]),
+    ('ItemsToSolr', ['r', 's'], 'both', ['w', 'x'], ['xdoc', 'w3'],
+     False, [False, False]),
+    ('ItemsToSolr', ['w', 'x'], 'bib', ['r', 's'], ['w4m', 'xdoc'],
+     False, [False, False]),
+    ('ItemsBibsToSolr', ['w4m'], 'item', ['w'], ['w4m', 'w3'],
+     False, [True, False]),
+    ('ItemsBibsToSolr', ['w4m'], 'bib', ['w'], ['w4m', 'w4m'],
+     False, [False, False]),
+    ('ItemsBibsToSolr', ['x'], 'item', ['x'], ['w4m', 'w4m'],
+     False, [False, False]),
+    ('ItemsBibsToSolr', ['x'], 'bib', ['x'], ['w4m', 'w4m'],
+     False, [True, True]),
+    ('ItemsBibsToSolr', ['w4m', 'x'], 'item', ['r', 's'], ['w4m', 'w4m'],
+     False, [True, True]),
+    ('ItemsBibsToSolr', ['w', 'x'], 'both', ['w', 'x'], ['xdoc', 'w4m'],
+     False, [True, True]),
+    ('ItemsBibsToSolr', ['xdoc'], 'both', ['w', 'x'], ['xdoc', 'w4m'],
+     False, [True, False]),
+    ('ItemsBibsToSolr', ['x', 'xdoc'], 'both', ['w', 'x'], ['xdoc', 'w4m'],
+     False, [True, True]),
+    ('ItemsBibsToSolr', ['r', 's'], 'both', ['w', 'x'], ['xdoc', 'w3'],
+     False, [False, False]),
+    ('ItemsBibsToSolr', ['w', 'x'], 'bib', ['r', 's'], ['w4m', 'xdoc'],
+     False, [False, False]),
+])
+def test_basic_export_get_records_location(et_code, test_lcodes, which_loc,
+                                           bib_lcodes, item_lcodes,
+                                           bib_exp_in_rset, items_exp_in_rset,
+                                           sierra_test_record,
+                                           get_or_make_location_instances,
+                                           add_items_to_bib,
+                                           add_locations_to_bib,
+                                           basic_exporter_class, new_exporter):
+    """
+    For basic exporter classes that get data from Sierra, when using
+    using the `location` filter type and the provided options, the
+    `get_records` method should return a recordset that either has or
+    does not have the test bib and items, based on `bib_exp_in_rset`
+    and `items_exp_in_rset`.
+    """
+    bib = sierra_test_record('bib_no_items')
+    blocs = get_or_make_location_instances([{'code': lc} for lc in bib_lcodes])
+    ilocs = get_or_make_location_instances([{'code': lc} for lc in item_lcodes])
+    item_info = [{'attrs': {'location_id': lc}} for lc in item_lcodes]
+    bib = add_locations_to_bib(add_items_to_bib(bib, item_info), blocs, True)    
+
+    expclass = basic_exporter_class(et_code)
+    exp = new_exporter(expclass, 'location', 'waiting', options={
+        'which_location': which_loc,
+        'location_code': test_lcodes
+    })
+    pks = [r.pk for r in exp.get_records()]
+    item_links = bib.bibrecorditemrecordlink_set.all()
+    assert (bib.pk in pks) == bib_exp_in_rset
+    for link, expected in zip(item_links, items_exp_in_rset):
+        assert (link.item_record.pk in pks) == expected
+
+
+@pytest.mark.exports
+@pytest.mark.get_records
+@pytest.mark.basic
+@pytest.mark.parametrize('et_code', [
+    'BibsToSolr', 
+    'BibsToSolr', 
+    'EResourcesToSolr',
+    'ItemsToSolr',
+    'ItemStatusesToSolr',
+    'ItypesToSolr',
+    'LocationsToSolr',
+    'ItemsBibsToSolr',
+    'BibsAndAttachedToSolr',
+    'BibsAndAttachedToSolr',
+    'ItemsBibsToSolr',
+])
+def test_basic_export_get_records_full_export(et_code, basic_exporter_class,
+                                              new_exporter):
+    """
+    For exporter classes that get data from Sierra, the `get_records`
+    method with export type `full_export` should return a recordset
+    with all available records for that exporter.
+    """
+    expclass = basic_exporter_class(et_code)
+    exporter = new_exporter(expclass, 'full_export', 'waiting', options={})
+    expected_qset = exporter.model.objects.all()
+    expected_recs = [r for r in expected_qset]
+    records = exporter.get_records()
+    assert set(records) == set(expected_recs)
 
 
 @pytest.mark.exports
@@ -195,19 +499,18 @@ def test_allmdtosolr_export_get_deletions(batch_exporter_class, record_sets,
 @pytest.mark.exports
 @pytest.mark.do_export
 @pytest.mark.basic
-@pytest.mark.parametrize('et_code, rset_code, rectypes, do_reindex', [
-    # ('BibsToSolr', 'bib_set', ('bib', 'marc'), False),
-    ('BibsToSolr', 'bib_set', ('bib',), False),
-    ('EResourcesToSolr', 'eres_set', ('eresource',), False),
-    ('ItemsToSolr', 'item_set', ('item',), False),
-    ('ItemStatusesToSolr', 'istatus_set', ('itemstatus',), True),
-    ('ItypesToSolr', 'itype_set', ('itype',), True),
-    ('LocationsToSolr', 'location_set', ('location',), True),
+@pytest.mark.parametrize('et_code, rset_code, rtype, do_reindex', [
+    ('BibsToSolr', 'bib_set', 'bib', False),
+    ('EResourcesToSolr', 'eres_set', 'eresource', False),
+    ('ItemsToSolr', 'item_set', 'item', False),
+    ('ItemStatusesToSolr', 'istatus_set', 'itemstatus', True),
+    ('ItypesToSolr', 'itype_set', 'itype', True),
+    ('LocationsToSolr', 'location_set', 'location', True),
 ])
-def test_basic_tosolr_export_records(et_code, rset_code, rectypes, do_reindex,
+def test_basic_tosolr_export_records(et_code, rset_code, rtype, do_reindex,
                                      basic_exporter_class, record_sets,
                                      new_exporter, solr_conns, solr_search,
-                                     basic_solr_assembler,
+                                     basic_solr_assembler, do_commit,
                                      assert_records_are_indexed,
                                      assert_records_are_not_indexed):
     """
@@ -222,6 +525,10 @@ def test_basic_tosolr_export_records(et_code, rset_code, rectypes, do_reindex,
     expclass = basic_exporter_class(et_code)
     exporter = new_exporter(expclass, 'full_export', 'waiting')
     records = record_sets[rset_code]
+    index = [ind for ind in exporter.indexes.values()][0]
+    assert len(exporter.indexes.values()) == 1
+
+    id_field = index.reserved_fields['haystack_id']
 
     # Do some setup to put some meaningful data into the index first.
     # We want some records that overlap with the incoming record set
@@ -231,41 +538,42 @@ def test_basic_tosolr_export_records(et_code, rset_code, rectypes, do_reindex,
     only_new = records[num_existing:]
     old_rec_pks = [text_type(pk) for pk in range(99991, 99995)]
     only_old_rec_data = [(pk, {}) for pk in old_rec_pks]
-    data = only_old_rec_data + [(r.pk, {}) for r in overlap_recs]
-    for rtype in rectypes:
-        basic_solr_assembler.load_static_test_data(rtype, data,
-                                                   id_field='django_id')
+
+    overlap_rec_data = []
+    for r in overlap_recs:
+        overlap_rec_data.append((index.get_qualified_id(r), {}))
+
+    data = only_old_rec_data + overlap_rec_data
+    basic_solr_assembler.load_static_test_data(rtype, data, id_field=id_field)
 
     # Check the setup to make sure existing records are indexed and new
     # records are not.
-    for index in exporter.indexes.values():
-        conn = solr_conns[getattr(index, 'using', 'default')]
-        results = solr_search(conn, '*')
-        only_old = [r for r in results if r['django_id'] in old_rec_pks]
-        assert len(only_old) == len(old_rec_pks)
-        assert_records_are_indexed(index, overlap_recs, results=results)
-        assert_records_are_not_indexed(index, only_new, results=results)
+    conn = solr_conns[getattr(index, 'using', 'default')]
+    results = solr_search(conn, '*')
+    only_old = [r for r in results if r[id_field] in old_rec_pks]
+    assert len(only_old) == len(old_rec_pks)
+    assert_records_are_indexed(index, overlap_recs, results=results)
+    assert_records_are_not_indexed(index, only_new, results=results)
 
     exporter.export_records(records)
-    exporter.commit_indexes()
+    do_commit(exporter)
 
-    for i, index in enumerate(exporter.indexes.values()):
-        conn = solr_conns[getattr(index, 'using', 'default')]
-        results = solr_search(conn, '*')
-        only_old = [r for r in results if r['django_id'] in old_rec_pks]
-        assert len(only_old) == 0 if do_reindex else len(old_rec_pks)
-        assert_records_are_indexed(index, overlap_recs, results=results)
-        if exporter.is_active:
-            assert_records_are_indexed(index, only_new, results=results)
-        else:
-            assert_records_are_not_indexed(index, only_new, results=results)
+    conn = solr_conns[getattr(index, 'using', 'default')]
+    results = solr_search(conn, '*')
+    only_old = [r for r in results if r[id_field] in old_rec_pks]
+    assert len(only_old) == 0 if do_reindex else len(old_rec_pks)
+    assert_records_are_indexed(index, overlap_recs, results=results)
+    if exporter.is_active:
+        assert_records_are_indexed(index, only_new, results=results)
+    else:
+        assert_records_are_not_indexed(index, only_new, results=results)
 
 
 @pytest.mark.exports
 @pytest.mark.do_export
 @pytest.mark.batch
 def test_allmdtosolr_export_records(batch_exporter_class, record_sets,
-                                    new_exporter,
+                                    new_exporter, do_commit,
                                     assert_all_exported_records_are_indexed):
     """
     The `AllMetadataToSolr` `export_records` method should load the
@@ -282,24 +590,23 @@ def test_allmdtosolr_export_records(batch_exporter_class, record_sets,
     expclass = batch_exporter_class('AllMetadataToSolr')
     exporter = new_exporter(expclass, 'full_export', 'waiting')
     exporter.export_records(records)
+    do_commit(exporter)
     for key, child in exporter.children.items():
-        child.commit_indexes()
         assert_all_exported_records_are_indexed(child, records[key])
 
 
 @pytest.mark.deletions
 @pytest.mark.do_export
 @pytest.mark.basic
-@pytest.mark.parametrize('et_code, rset_code, rectypes', [
-    # ('BibsToSolr', 'bib_del_set', ('bib', 'marc')),
-    ('BibsToSolr', 'bib_del_set', ('bib',)),
-    ('EResourcesToSolr', 'eres_del_set', ('eresource',)),
-    ('ItemsToSolr', 'item_del_set', ('item',)),
+@pytest.mark.parametrize('et_code, rset_code, rtype', [
+    ('BibsToSolr', 'bib_del_set', 'bib'),
+    ('EResourcesToSolr', 'eres_del_set', 'eresource'),
+    ('ItemsToSolr', 'item_del_set', 'item'),
 ])
-def test_basic_tosolr_delete_records(et_code, rset_code, rectypes,
+def test_basic_tosolr_delete_records(et_code, rset_code, rtype,
                                      basic_exporter_class, record_sets,
                                      new_exporter, basic_solr_assembler,
-                                     assert_records_are_indexed,
+                                     assert_records_are_indexed, do_commit,
                                      assert_deleted_records_are_not_indexed):
     """
     For basic ToSolrExporter classes that have loaded data into Solr,
@@ -307,25 +614,26 @@ def test_basic_tosolr_delete_records(et_code, rset_code, rectypes,
     appropriate index or indexes.
     """
     records = record_sets[rset_code]
-    data = [(r.id, {'record_number': r.get_iii_recnum()}) for r in records]
-    for rtype in rectypes:
-        basic_solr_assembler.load_static_test_data(rtype, data)
-
     expclass = basic_exporter_class(et_code)
     exporter = new_exporter(expclass, 'full_export', 'waiting')
+    index = [ind for ind in exporter.indexes.values()][0]
+    assert len(exporter.indexes.values()) == 1
 
-    for index in exporter.indexes.values():
-        assert_records_are_indexed(index, records)
+    id_field = index.reserved_fields['haystack_id']
+    
+    data = [(index.get_qualified_id(r), {}) for r in records]
+    basic_solr_assembler.load_static_test_data(rtype, data, id_field=id_field)
+    assert_records_are_indexed(index, records)
 
     exporter.delete_records(records)
-    exporter.commit_indexes()
+    do_commit(exporter)
     assert_deleted_records_are_not_indexed(exporter, records)
 
 
 @pytest.mark.exceptions
 def test_tosolr_index_update_errors(basic_exporter_class, record_sets,
                                     new_exporter, setattr_model_instance,
-                                    assert_records_are_indexed,
+                                    assert_records_are_indexed, do_commit,
                                     assert_records_are_not_indexed):
     """
     When updating indexes via a ToSolrExporter, if one record causes an
@@ -348,7 +656,7 @@ def test_tosolr_index_update_errors(basic_exporter_class, record_sets,
     exporter.indexes['Items'].prepare_location_code = prepare_location_code
     setattr_model_instance(records[0], 'location_id', invalid_loc_code)
     exporter.export_records(records)
-    exporter.commit_indexes()
+    do_commit(exporter)
 
     assert_records_are_not_indexed(exporter.indexes['Items'], [records[0]])
     assert_records_are_indexed(exporter.indexes['Items'], records[1:])
@@ -364,7 +672,7 @@ def test_tosolr_index_update_errors(basic_exporter_class, record_sets,
     ('BibsAndAttachedToSolr', 'er_bib_set')
 ])
 def test_attached_solr_export_records(et_code, rset_code, basic_exporter_class,
-                                      record_sets, new_exporter,
+                                      record_sets, new_exporter, do_commit,
                                       assert_all_exported_records_are_indexed):
     """
     For AttachedRecordExporter classes that load data into Solr, the
@@ -377,22 +685,20 @@ def test_attached_solr_export_records(et_code, rset_code, basic_exporter_class,
     expclass = basic_exporter_class(et_code)
     exporter = new_exporter(expclass, 'full_export', 'waiting')
     exporter.export_records(records)
-    for child in exporter.children.values():
-        child.commit_indexes()
+    do_commit(exporter)
     assert_all_exported_records_are_indexed(exporter, records)
 
 
 @pytest.mark.deletions
 @pytest.mark.do_export
-@pytest.mark.parametrize('et_code, rset_code, rectypes', [
-    ('ItemsBibsToSolr', 'item_del_set', ('item',)),
-    # ('BibsAndAttachedToSolr', 'bib_del_set', ('bib', 'marc')),
-    ('BibsAndAttachedToSolr', 'bib_del_set', ('bib',)),
+@pytest.mark.parametrize('et_code, rset_code, rtype', [
+    ('ItemsBibsToSolr', 'item_del_set', 'item'),
+    ('BibsAndAttachedToSolr', 'bib_del_set', 'bib'),
 ])
-def test_attached_solr_delete_records(et_code, rset_code, rectypes,
+def test_attached_solr_delete_records(et_code, rset_code, rtype,
                                       basic_exporter_class, record_sets,
                                       new_exporter, basic_solr_assembler,
-                                      assert_records_are_indexed,
+                                      assert_records_are_indexed, do_commit,
                                       assert_deleted_records_are_not_indexed):
     """
     For Exporter classes that have loaded data into Solr, the
@@ -400,19 +706,19 @@ def test_attached_solr_delete_records(et_code, rset_code, rectypes,
     index or indexes.
     """
     records = record_sets[rset_code]
-    data = [(r.id, {'record_number': r.get_iii_recnum()}) for r in records]
-    for rtype in rectypes:
-        basic_solr_assembler.load_static_test_data(rtype, data)
-
     expclass = basic_exporter_class(et_code)
     exporter = new_exporter(expclass, 'full_export', 'waiting')
+    index = [ind for ind in exporter.main_child.indexes.values()][0]
+    assert len(exporter.main_child.indexes.values()) == 1
 
-    for index in exporter.main_child.indexes.values():
-        assert_records_are_indexed(index, records)
+    id_field = index.reserved_fields['haystack_id']
+    
+    data = [(index.get_qualified_id(r), {}) for r in records]
+    basic_solr_assembler.load_static_test_data(rtype, data, id_field=id_field)
+    assert_records_are_indexed(index, records)
 
     exporter.delete_records(records)
-    for child in exporter.children.values():
-        child.commit_indexes()
+    do_commit(exporter)
     assert_deleted_records_are_not_indexed(exporter, records)
 
 
@@ -818,9 +1124,9 @@ def test_ertosolr_export_returns_h_lists(basic_exporter_class, record_sets,
     vals = exporter.export_records(records)
     assert 'h_lists' in vals
     for rec in records:
-        er_recnum = rec.record_metadata.get_iii_recnum(True)
+        er_recnum = rec.record_metadata.get_iii_recnum(False)
         assert er_recnum in vals['h_lists']
-        exp_holdings = [h.record_metadata.get_iii_recnum(True)
+        exp_holdings = [h.record_metadata.get_iii_recnum(False)
                         for h in rec.holding_records.all()]
         assert vals['h_lists'][er_recnum] == exp_holdings
 
@@ -839,7 +1145,7 @@ def test_ertosolr_delete_returns_deletions(basic_exporter_class, record_sets,
 
     vals = exporter.delete_records(records)
     assert 'deletions' in vals
-    exp_deletions = [r.get_iii_recnum(True) for r in records]
+    exp_deletions = [r.get_iii_recnum(False) for r in records]
     assert vals['deletions'] == exp_deletions
 
 

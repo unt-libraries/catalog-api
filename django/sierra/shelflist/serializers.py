@@ -1,13 +1,17 @@
+"""
+Contains DRF serializer classes for the shelflist app.
+"""
+
 from __future__ import absolute_import
 
 import logging
 from collections import OrderedDict
 
 from api import serializers as api_serializers
-from api.simpleserializers import SimpleSerializerWithLookups
+from api.simpleserializers import SimpleField, SimpleObjectInterface,\
+                                  SimpleSerializerWithLookups
 from api.uris import APIUris
 from utils import solr
-from utils.camel_case import render, parser
 from utils.redisobjs import RedisObject
 
 from .uris import ShelflistAPIUris
@@ -17,36 +21,70 @@ logger = logging.getLogger('sierra.custom')
 
 
 class ShelflistItemSerializer(SimpleSerializerWithLookups):
-    fields = OrderedDict()
-    fields['_links'] = {'type': 'str', 'derived': True}
-    fields['id'] = {'type': 'int'}
-    fields['record_number'] = {'type': 'str'}
-    fields['row_number'] = {'type': 'int', 'derived': True}
-    fields['call_number'] = {'type': 'str'}
-    fields['call_number_type'] = {'type': 'str'}
-    fields['volume'] = {'type': 'str'}
-    fields['copy_number'] = {'type': 'int'}
-    fields['barcode'] = {'type': 'str'}
-    fields['status'] = {'type': 'str', 'derived': True}
-    fields['due_date'] = {'type': 'datetime'}
-    fields['suppressed'] = {'type': 'bool'}
-    fields['datetime_created'] = {'type': 'datetime',
-                                  'source': 'record_creation_date'}
-    fields['datetime_updated'] = {'type': 'datetime',
-                                  'source': 'record_last_updated_date'}
-    fields['shelf_status'] = {'type': 'str', 'writable': True}
-    fields['inventory_notes'] = {'type': 'str', 'writable': True}
-    fields['inventory_date'] = {'type': 'datetime', 'writable': True}
-    fields['flags'] = {'type': 'str', 'writable': True}
+    class LinksField(SimpleField):
+        def present(self, obj_data):
+            req = obj_data['__context'].get('request', None)
+            view = obj_data['__context'].get('view', None)
 
-    def render_field_name(self, field_name):
-        ret_val = field_name
-        if field_name[0] != '_':
-            ret_val = render.underscoreToCamel(field_name)
-        return ret_val
+            ret = OrderedDict()
+            if req is not None and view is not None:
+                ret['self'] = {
+                    'href': ShelflistAPIUris.get_uri(
+                        'shelflistitems-detail', req=req, absolute=True,
+                        v=view.api_version, code=obj_data.get('location_code'),
+                        id=obj_data.get('id')
+                    )
+                }
+                ret['item'] = {
+                    'href': APIUris.get_uri(
+                        'items-detail', req=req, absolute=True,
+                        v=view.api_version, id=obj_data.get('id')
+                    )
+                }
+                ret['location'] = {
+                    'href': APIUris.get_uri(
+                        'locations-detail', req=req, absolute=True,
+                        v=view.api_version, code=obj_data.get('location_code')
+                    )
+                }
+            return ret
 
-    def restore_field_name(self, field_name):
-        return parser.camel_to_underscore(field_name)
+    class RowNumberField(api_serializers.SimpleIntField):
+        def present(self, obj_data):
+            r = RedisObject('shelflistitem_manifest',
+                            obj_data.get('location_code'))
+            return r.get_index(obj_data.get('id'))
+
+    obj_interface = SimpleObjectInterface(solr.Result)
+    fields = [
+        LinksField('_links', derived=True),
+        api_serializers.SimpleStrField('id', filterable=True),
+        api_serializers.SimpleStrField('record_number', source='id',
+                                       filterable=True),
+        RowNumberField('row_number', derived=True), 
+        api_serializers.CallNumberField('call_number', filterable=True,
+                                        filter_source='call_number_search'),
+        api_serializers.SimpleStrField('call_number_type', filterable=True),
+        api_serializers.SimpleStrField('volume', filterable=True),
+        api_serializers.SimpleIntField('copy_number', filterable=True),
+        api_serializers.SimpleStrField('barcode', filterable=True),
+        api_serializers.SimpleStrField('status'),
+        api_serializers.SimpleStrField('status_code', filterable=True),
+        api_serializers.SimpleDateTimeField('due_date', filterable=True),
+        api_serializers.SimpleBoolField('suppressed', filterable=True),
+        api_serializers.SimpleDateTimeField('datetime_created',
+                                            source='record_creation_date'),
+        api_serializers.SimpleDateTimeField('datetime_updated',
+                                            source='record_last_updated_date'),
+        api_serializers.SimpleStrField('shelf_status', writeable=True,
+                                       filterable=True),
+        api_serializers.SimpleStrField('inventory_notes', writeable=True,
+                                       filterable=True),
+        api_serializers.SimpleDateTimeField('inventory_date', writeable=True,
+                                            filterable=True),
+        api_serializers.SimpleStrField('flags', writeable=True,
+                                       filterable=True),
+    ]
 
     def cache_all_lookups(self):
         self.refresh_status()
@@ -54,7 +92,6 @@ class ShelflistItemSerializer(SimpleSerializerWithLookups):
     def refresh_status(self):
         qs = solr.Queryset().filter(type='ItemStatus').only('code', 'label')
         results = [i for i in qs]
-
         lookup = {}
         for r in results:
             try:
@@ -66,78 +103,69 @@ class ShelflistItemSerializer(SimpleSerializerWithLookups):
                     pass
         self.cache_lookup('status', lookup)
 
-    def process_row_number(self, value, obj):
-        r = RedisObject('shelflistitem_manifest', obj.location_code)
-        return r.get_index(obj.id)
-
-    def process_status(self, value, obj):
-        '''
-        Returns a status label based on the status_code.
-        '''
-        value = getattr(obj, 'status_code', None)
-        if value == '-' and getattr(obj, 'due_date', None) is not None:
-            return 'CHECKED OUT'
+    def prepare_for_serialization(self, obj_data):
+        obj_data['__context'] = self.context
+        st_code = obj_data.get('status_code')
+        if st_code == '-' and obj_data.get('due_date') is not None:
+            obj_data['status'] = 'CHECKED OUT'
         else:
-            return self.get_lookup_value('status', value)
-
-    def process__links(self, value, obj):
-        req = self.context.get('request', None)
-        view = self.context.get('view', None)
-        obj_id = getattr(obj, 'id', None)
-        l_code = getattr(obj, 'location_code', None)
-
-        ret = OrderedDict()
-        if req is not None and view is not None:
-            ret['self'] = {
-                'href': ShelflistAPIUris.get_uri('shelflistitems-detail',
-                                                 req=req, absolute=True,
-                                                 v=view.api_version,
-                                                 code=l_code, id=obj_id)
-            }
-            ret['item'] = {
-                'href': APIUris.get_uri('items-detail', req=req, absolute=True,
-                                        v=view.api_version, id=obj_id)
-            }
-            ret['location'] = {
-                'href': APIUris.get_uri('locations-detail', req=req,
-                                        absolute=True, v=view.api_version,
-                                        code=l_code)
-            }
-
-        return ret
+            obj_data['status'] = self.get_lookup_value('status', st_code)
+        return obj_data
 
 
 class ItemSerializer(api_serializers.ItemSerializer):
-    def process__links(self, value, obj):
-        req = self.context.get('request', None)
-        view = self.context.get('view', None)
-        obj_id = getattr(obj, 'id', None)
-        l_code = getattr(obj, 'location_code', None)
+    class LinksField(api_serializers.ItemSerializer.LinksField):
+        def present(self, obj_data):
+            req = obj_data['__context'].get('request')
+            view = obj_data['__context'].get('view')
+            ret = super().present(obj_data)
+            if req is not None and view is not None:
+                ret['shelflistItem'] = {
+                    'href': ShelflistAPIUris.get_uri(
+                        'shelflistitems-detail', req=req, absolute=True,
+                        v=view.api_version, code=obj_data.get('location_code'),
+                        id=obj_data.get('id')
+                    )
+                }
+            return ret
 
-        ret = super(ItemSerializer, self).process__links(value, obj)
-        if req is not None and view is not None:
-            ret['shelflistItem'] = {
-                'href': ShelflistAPIUris.get_uri('shelflistitems-detail',
-                                                 req=req, absolute=True,
-                                                 v=view.api_version,
-                                                 code=l_code, id=obj_id)
-            }
-
-        return ret
+    @classmethod
+    def set_up_field_lookup(cls):
+        if not hasattr(cls, 'field_lookup'):
+            new_fields = []
+            for f in cls.fields:
+                if f.name == '_links':
+                    new_fields.append(cls.LinksField('_links', derived=True))
+                else:
+                    new_fields.append(f)
+            cls.fields = new_fields
+            super().set_up_field_lookup()
 
 
 class LocationSerializer(api_serializers.LocationSerializer):
-    def process__links(self, value, obj):
-        req = self.context.get('request', None)
-        view = self.context.get('view', None)
-        code = getattr(obj, 'code', None)
+    class LinksField(api_serializers.LocationSerializer.LinksField):
+        def present(self, obj_data):
+            req = obj_data['__context'].get('request')
+            view = obj_data['__context'].get('view')
+            ret = super().present(obj_data)
+            if req is not None and view is not None:
+                ret['shelflist'] = {
+                    'href': ShelflistAPIUris.get_uri(
+                        'shelflistitems-list', req=req, absolute=True,
+                        v=view.api_version, code=obj_data.get('code')
+                    )
+                }
+            return ret
 
-        ret = super(LocationSerializer, self).process__links(value, obj)
-        if req is not None and view is not None:
-            ret['shelflist'] = {
-                'href': ShelflistAPIUris.get_uri('shelflistitems-list',
-                                                 req=req, absolute=True,
-                                                 v=view.api_version, code=code)
-            }
+    @classmethod
+    def set_up_field_lookup(cls):
+        if not hasattr(cls, 'field_lookup'):
+            new_fields = []
+            for f in cls.fields:
+                if f.name == '_links':
+                    new_fields.append(cls.LinksField('_links', derived=True))
+                else:
+                    new_fields.append(f)
+            cls.fields = new_fields
+            super().set_up_field_lookup()
 
-        return ret

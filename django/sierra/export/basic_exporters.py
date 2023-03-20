@@ -91,6 +91,12 @@ class ItemsToSolr(ToSolrExporter):
     select_related = ['record_metadata', 'record_metadata__record_type',
                       'location', 'itype', 'item_status']
 
+    def get_records(self, prefetch=True):
+        self.options['other_updated_rtype_paths'] = [
+            'bibrecorditemrecordlink__bib_record'
+        ]
+        return super(ItemsToSolr, self).get_records(prefetch)
+
 
 class EResourcesToSolr(ToSolrExporter):
     """
@@ -132,7 +138,7 @@ class EResourcesToSolr(ToSolrExporter):
 
     def delete_records(self, records):
         self.indexes['EResources'].do_delete(records)
-        return {'deletions': [r.get_iii_recnum(True) for r in records]}
+        return {'deletions': [r.get_iii_recnum(False) for r in records]}
 
     def commit_to_redis(self, vals):
         self.log('Info', 'Committing EResource updates to Redis...')
@@ -345,63 +351,13 @@ class HoldingUpdate(CompoundMixin, Exporter):
         self.commit_to_redis(vals)
 
 
-class BibsDownloadMarc(Exporter):
-    """
-    This exporter is now deprecated--please do not use.
-
-    Previously this defined processes that convert Sierra bib records
-    to MARC, but now that is handled through a custom Solr backend for
-    Haystack.
-
-    `BibsDownloadMarc` will be removed in the version 1.5.
-    """
-    max_rec_chunk = 2000
-    parallel = False
-    model = sierra_models.BibRecord
-    prefetch_related = [
-        'record_metadata__varfield_set',
-        'bibrecorditemrecordlink_set',
-        'bibrecorditemrecordlink_set__item_record',
-        'bibrecorditemrecordlink_set__item_record__record_metadata',
-        'bibrecorditemrecordlink_set__item_record__record_metadata'
-        '__record_type',
-        'bibrecordproperty_set',
-        'bibrecordproperty_set__material__materialpropertyname_set',
-        'bibrecordproperty_set__material__materialpropertyname_set'
-        '__iii_language',
-    ]
-    select_related = ['record_metadata', 'record_metadata__record_type']
-
-    def _warn(self):
-        msg = ('The `BibsDownloadMarc` exporter is deprecated and will be '
-               'removed in version 1.5.')
-        self.log('Warning', msg)
-
-    def __init__(self, *args, **kwargs):
-        super(BibsDownloadMarc, self).__init__(*args, **kwargs)
-        self._warn()
-
-    def export_records(self, records):
-        batch = S2MarcBatch(records)
-        out_recs = batch.to_marc()
-        try:
-            filename = batch.to_file(out_recs, append=False)
-        except IOError as e:
-            raise IOError('Error writing to output file: {}'.format(e))
-        else:
-            for e in batch.errors:
-                self.log('Warning', 'Record {}: {}'.format(e.id, e.msg))
-        return {'marcfile': filename}
-
-
 class BibsToSolr(ToSolrExporter):
     """
     Defines processes that export Sierra/MARC bibs out to Solr.
     """
     Index = ToSolrExporter.Index
     index_config = (
-        Index('Bibs', indexes.BibIndex, SOLR_CONNS['BibsToSolr:BIBS']),
-        # Index('MARC', indexes.MarcIndex, SOLR_CONNS['BibsToSolr:MARC'])
+        Index('Bibs', indexes.BibIndex, SOLR_CONNS['BibsToSolr']),
     )
     model = sierra_models.BibRecord
     deletion_filter = [
@@ -412,25 +368,32 @@ class BibsToSolr(ToSolrExporter):
     ]
     max_rec_chunk = 2000
     prefetch_related = [
+        'record_metadata__controlfield_set',
         'record_metadata__varfield_set',
+        'record_metadata__leaderfield_set',
         'bibrecorditemrecordlink_set',
         'bibrecorditemrecordlink_set__item_record',
+        'bibrecorditemrecordlink_set__item_record__location',
+        'bibrecorditemrecordlink_set__item_record__location__locationname_set',
         'bibrecorditemrecordlink_set__item_record__record_metadata',
         'bibrecorditemrecordlink_set__item_record__record_metadata'
         '__record_type',
+        'bibrecorditemrecordlink_set__item_record__record_metadata'
+        '__varfield_set',
         'bibrecordproperty_set',
         'bibrecordproperty_set__material__materialpropertyname_set',
         'bibrecordproperty_set__material__materialpropertyname_set'
         '__iii_language',
+        'locations',
+        'locations__locationname_set',
     ]
     select_related = ['record_metadata', 'record_metadata__record_type']
-    is_active = False
 
-    def export_records(self, records):
-        pass
-
-    def delete_records(self, records):
-        pass
+    def get_records(self, prefetch=True):
+        self.options['other_updated_rtype_paths'] = [
+            'bibrecorditemrecordlink__item_record'
+        ]
+        return super(BibsToSolr, self).get_records(prefetch)
 
 
 class ItemsBibsToSolr(AttachedRecordExporter):
@@ -476,3 +439,4 @@ class BibsAndAttachedToSolr(AttachedRecordExporter):
     children_config = (Child('BibsToSolr'), ItemChild('ItemsToSolr'))
     model = sierra_models.BibRecord
     max_rec_chunk = 500
+

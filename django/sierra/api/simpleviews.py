@@ -31,8 +31,8 @@ class SimpleView(views.APIView):
     filter_class = load_class(
         settings.REST_FRAMEWORK['DEFAULT_FILTER_BACKENDS'][0])
     serializer_class = None
-    ordering = []
-    filter_fields = []
+    disabled_orderby = set()
+    disabled_filters = set()
     api_version = 1
     resource_name = 'resources'
     multi = True
@@ -64,17 +64,17 @@ class SimpleView(views.APIView):
 
         url = request.build_absolute_uri()
 
-        content = {'status': 200,
-                   'details': 'The resource at {} was updated with the '
-                   'fields or sub-resource content provided in the request.'
-                   ''.format(url),
-                   'links': {
-                       'self': {
-                           'href': url,
-                           'id': self.get_object_id(obj)
-                       }
-                   }
-                   }
+        content = {
+            'status': 200,
+            'details': 'The resource at {} was updated with the fields or sub-'
+                       'resource content provided in the request.'.format(url),
+            'links': {
+                'self': {
+                    'href': url,
+                    'id': self.get_object_id(obj)
+                 }
+            }
+        }
 
         return Response(content, status=status.HTTP_200_OK)
 
@@ -163,8 +163,9 @@ class SimpleGetMixin(object):
             prev_offset = offset - limit if offset - limit >= 0 else 0
         if prev_offset is None:
             return None
-        return six.moves.urllib.parse.unquote(replace_query_param(url, params['offset_qp'],
-                                                                  prev_offset))
+        unquote = six.moves.urllib.parse.unquote
+        return unquote(replace_query_param(url, params['offset_qp'],
+                                           prev_offset))
 
     def get_next_page_url(self, url, page):
         """
@@ -180,8 +181,9 @@ class SimpleGetMixin(object):
             next_offset = page['offset'] + page['limit']
         if next_offset is None:
             return None
-        return six.moves.urllib.parse.unquote(replace_query_param(url, params['offset_qp'],
-                                                                  next_offset))
+        unquote = six.moves.urllib.parse.unquote
+        return unquote(replace_query_param(url, params['offset_qp'],
+                                           next_offset))
 
     def get_page_data(self, queryset, request):
         """
@@ -228,8 +230,11 @@ class SimpleGetMixin(object):
             data = self.get_page_data(queryset, request)
         else:
             obj = self.get_object()
-            data = self.get_serializer(instance=obj, force_refresh=True,
-                                       context={'request': request, 'view': self}).data
+            data = self.get_serializer(
+                instance=obj,
+                force_refresh=True,
+                context={'request': request, 'view': self}
+            ).data
         return Response(data)
 
 
@@ -265,3 +270,4 @@ class SimplePatchMixin(object):
 
         ret_val = self.update_object(request, new_data)
         return ret_val
+
