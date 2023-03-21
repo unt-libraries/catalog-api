@@ -1,2 +1,2 @@
-django-debug-toolbar==3.2.2
-sqlparse==0.4.2
+django-debug-toolbar==3.8.1
+sqlparse==0.4.3
