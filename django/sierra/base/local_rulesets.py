@@ -524,8 +524,15 @@ class ResourceTypeDeterminer(object):
         for cn, _ in obj.get_call_numbers():
             yield cn
 
+        def _item_sort_key(link):
+            if link.items_display_order is None:
+                display_order = float('inf')
+            else:
+                display_order = link.items_display_order
+            return (display_order, link.item_record.record_metadata.record_num)
+
         item_links = [l for l in obj.bibrecorditemrecordlink_set.all()]
-        for link in sorted(item_links, key=lambda l: l.items_display_order):
+        for link in sorted(item_links, key=_item_sort_key):
             item = link.item_record
             if not item.is_suppressed:
                 for cn, _ in item.get_call_numbers():
