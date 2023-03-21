@@ -18,7 +18,7 @@ from django.core.exceptions import ObjectDoesNotExist
 
 # FIXTURES AND TEST DATA
 
-pytestmark = pytest.mark.django_db
+pytestmark = pytest.mark.django_db(databases=['sierra'])
 
 
 def get_sierra_models():

@@ -10,7 +10,7 @@ from django.conf import settings
 
 # FIXTURES AND TEST DATA
 
-# pytestmark = pytest.mark.django_db
+# pytestmark = pytest.mark.django_db(databases=['sierra'])
 
 
 @pytest.fixture(scope='function')

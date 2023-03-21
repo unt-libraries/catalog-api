@@ -20,7 +20,7 @@ import pytest
 # django/sierra/shelflist/tests/conftest.py:
 #    shelflist_solr_assembler
 
-pytestmark = pytest.mark.django_db
+pytestmark = pytest.mark.django_db(databases=['default', 'sierra'])
 
 
 @pytest.fixture

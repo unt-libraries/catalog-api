@@ -13,7 +13,7 @@ from base import models as m
 # django/sierra/conftest.py:
 #    model_instance
 
-pytestmark = pytest.mark.django_db
+pytestmark = pytest.mark.django_db(databases=['sierra'])
 
 
 def get_attached_name_models():

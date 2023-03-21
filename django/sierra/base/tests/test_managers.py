@@ -13,7 +13,7 @@ from django.utils import timezone as tz
 # django/sierra/base/tests/conftest.py:
 #    global_model_instance
 
-pytestmark = pytest.mark.django_db
+pytestmark = pytest.mark.django_db(databases=['sierra'])
 
 DEFAULT_TZ = tz.get_default_timezone()
 

@@ -23,7 +23,7 @@ from sierra import routers
 # The `settings` fixture used in a few tests is the one built into
 # pytest-django.
 
-pytestmark = pytest.mark.django_db
+pytestmark = pytest.mark.django_db(databases=['default', 'sierra'])
 
 
 SIERRA_TEST_MODEL_CLASS = bm.FixfldTypeMyuser

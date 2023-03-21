@@ -28,7 +28,17 @@ from utils.test_helpers import solr_test_profiles as tp
 #     solr_search
 #     installed_test_class
 
-pytestmark = pytest.mark.django_db
+# pytestmark = pytest.mark.django_db(databases=['sierra'])
+# NOTE 3/21/2023: Removing `pytest.mark.django_db` here seems to fix an
+# issue introduced by upgrading from 'pytest-django' 4.2.0 to 4.5.2,
+# which caused the second test below to fail. Part of that test is to
+# ensure database records created using a module-scoped factory persist
+# between tests -- this is what the `django_db_blocker.unblock()` in
+# that fixture does. However, it seems that `pytest.mark.django_db` is
+# automatically clearing the database now, whereas it didn't before.
+# Fortunately, the django_db mark is apparently unnecessary -- probably
+# because I'm manually unblocking? Whatever the case, tests pass like
+# this.
 
 TEST_MODEL_CLASS = bm.FixfldTypeMyuser
 
@@ -134,6 +144,7 @@ def test_model_instance_fixtures(glob_count, model_instance,
     new_loc_instance_exists = len(tmodel.objects.filter(code=loc_code)) == 1
 
     print(tmodel.objects.all())
+    print(global_model_instance.obj_cache)
 
     assert not loc_instance_exists
     assert not glob_instance_exists

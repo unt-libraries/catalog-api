@@ -14,7 +14,7 @@ from export.marcparse import fieldparsers as fp, renderers as rend
 
 
 # FIXTURES AND TEST DATA
-pytestmark = pytest.mark.django_db
+pytestmark = pytest.mark.django_db(databases=['sierra'])
 
 
 # TESTS

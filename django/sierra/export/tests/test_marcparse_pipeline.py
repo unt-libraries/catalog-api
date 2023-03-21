@@ -19,7 +19,7 @@ from export import sierramarc as sm
 from export.marcparse import pipeline as pl
 
 # FIXTURES AND TEST DATA
-pytestmark = pytest.mark.django_db
+pytestmark = pytest.mark.django_db(databases=['sierra'])
 
 
 @pytest.fixture
