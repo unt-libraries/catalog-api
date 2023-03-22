@@ -387,9 +387,11 @@ def test_bdpipeline_getiteminfo_ids(sierra_test_record, update_test_bib_inst,
     bib = update_test_bib_inst(bib, items=[{}, {'is_suppressed': True}, {}])
     val = pipeline.do(bib, None, ['item_info'])
 
-    items = [l.item_record for l in bib.bibrecorditemrecordlink_set.all()]
-    expected = [{'i': str(item.record_metadata.record_num)} for item in items
-                if not item.is_suppressed]
+    links = bib.bibrecorditemrecordlink_set.all().order_by(
+        'items_display_order', 'item_record__record_metadata__record_num'
+    )
+    expected = [{'i': str(link.item_record.record_metadata.record_num)}
+                for link in links if not link.item_record.is_suppressed]
     assert_json_matches_expected(val['items_json'], expected)
 
 
@@ -693,13 +695,13 @@ def test_bdpipeline_getiteminfo_requesting(f856s, items_info, expected_r,
       (('b', None, ['102']), 1),
       (('b', None, ['103']), None),
       (('b', None, ['104']), 4)],
-     ['100', '101', '103', '102', '104']),
+     ['101', '102', '104', '100', '103']),
     ([(('b', None, ['100']), None),
       (('b', None, ['101']), None),
       (('b', None, ['102']), None),
       (('b', None, ['103']), None),
       (('b', None, ['104']), 0)],
-     ['100', '101', '102', '103', '104']),
+     ['104', '100', '101', '102', '103']),
     ([(('b', None, ['100']), 1),
       (('b', None, ['101']), 0),
       (('b', None, ['102']), 3),
@@ -718,8 +720,10 @@ def test_bdpipeline_sorteditems(items_info, exp_order, sierra_test_record,
     have a null value (i.e. `None`) for that field. When this happens,
     it's unlikely the sort order will match what's in Sierra. But, in
     order to give it a useful fallback, if the display order is null
-    then it will default to 0 and use the item record ID as a secondary
-    sort.
+    then it will default to float('inf') and use the item record num as
+    a secondary sort. This matches what happens in Sierra: items that
+    have an `items_display_order` value sort first, in order; items
+    without one then display, sorted in record num order.
     """
     pipeline = pl.BibDataPipeline()
     bib = sierra_test_record('bib_no_items')

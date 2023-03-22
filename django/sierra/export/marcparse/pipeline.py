@@ -207,23 +207,28 @@ class BibDataPipeline(object):
         unpredictable.
 
         This is meant to address these issues. 1) For null values, it
-        defaults to 0, causing these items to display first. 2) It adds
-        the item record number as a secondary sort, so groups of items
-        with the same display_order value sort by record number. All
-        else being equal, record number order is a good default order,
-        because it will put things in the order in which they were
-        created.
+        defaults to float('inf'), causing these items to display last.
+        2) It adds the item record number as a secondary sort, so
+        groups of items with the same display_order value sort by
+        record number. All else being equal, record number order is a
+        good default order, because it will put things in the order in
+        which they were created. Note that this algorithm matches how
+        Sierra handles these, both in the staff app and in the WebPAC.
 
-        Note that we're sorting in Python rather than using a simple
+        Also, we're sorting in Python here rather than using a simple
         `order_by` call, to avoid unnecessary database access.
         """
+        def _items_sort_key(link):
+            if link.items_display_order is None:
+                display_order = float('inf')
+            else:
+                display_order = link.items_display_order
+            return (display_order, link.item_record.record_metadata.record_num)
+
         if self.r and self._sorted_items is None:
             self._sorted_items = [l.item_record for l in sorted(
                 self.r.bibrecorditemrecordlink_set.all(),
-                key=lambda l: (
-                    l.items_display_order or 0,
-                    l.item_record.record_metadata.record_num
-                )
+                key=_items_sort_key
             )]
         return self._sorted_items
 
