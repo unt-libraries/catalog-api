@@ -10,9 +10,6 @@ if STATIC_ROOT is None:
 
 DEBUG = False
 
-# SolrMarc
-SOLRMARC_CONFIG_FILE = 'production_config.properties'
-
 # The logging setup from base.py will be used by default, but you can set
 # up your own loggers here, if you'd like, to override the default setup.
 #

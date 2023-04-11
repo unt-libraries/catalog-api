@@ -21,11 +21,11 @@ def get_env_variable(var_name, default=None):
 
 
 def raise_setting_error(setting):
-    raise ImproperlyConfigured('The {} setting is not set.'.format(setting))
+    raise ImproperlyConfigured(f'The {setting} setting is not set.')
 
 
 # Use dotenv to load env variables from a .env file
-dotenv.load_dotenv('{}/.env'.format(Path(__file__).ancestor(1)))
+dotenv.load_dotenv(f'{Path(__file__).ancestor(1)}/.env')
 
 # Check required settings
 required = ['SIERRA_DB_USER', 'SIERRA_DB_PASSWORD', 'SIERRA_DB_HOST',
@@ -37,7 +37,7 @@ for setting in required:
         raise_setting_error(setting)
 
 
-PROJECT_DIR = '{}'.format(Path(__file__).ancestor(3))
+PROJECT_DIR = str(Path(__file__).ancestor(3))
 
 # Path to the directory where user-initiated downloads are stored.
 # Be sure to create this directory if it doesn't exist.
@@ -235,13 +235,13 @@ LOGGING = {
         'file': {
             'level': 'ERROR',
             'class': 'logging.FileHandler',
-            'filename': '{}/sierra.log'.format(LOG_FILE_DIR),
+            'filename': f'{LOG_FILE_DIR}/sierra.log',
             'formatter': 'datetime'
         },
         'export_file': {
             'level': 'INFO',
             'class': 'logging.FileHandler',
-            'filename': '{}/exporter.log'.format(LOG_FILE_DIR),
+            'filename': f'{LOG_FILE_DIR}/exporter.log',
             'mode': 'a',
             'formatter': 'datetime'
         },
@@ -274,15 +274,11 @@ LOGGING = {
 
 SOLR_PORT = get_env_variable('SOLR_PORT', '8983')
 SOLR_HOST = get_env_variable('SOLR_HOST', '127.0.0.1')
+solr_base_url = f'http://{SOLR_HOST}:{SOLR_PORT}/solr'
 solr_haystack_url = get_env_variable('SOLR_HAYSTACK_URL',
-                                     'http://{}:{}/solr/haystack'.format(SOLR_HOST, SOLR_PORT))
-solr_bibdata_url = get_env_variable('SOLR_BIBDATA_URL',
-                                    'http://{}:{}/solr/bibdata'.format(SOLR_HOST, SOLR_PORT))
-solr_marc_url = get_env_variable('SOLR_MARC_URL',
-                                 'http://{}:{}/solr/marc'.format(SOLR_HOST, SOLR_PORT))
-solr_d01_url = 'http://{}:{}/solr/discover-01'.format(SOLR_HOST, SOLR_PORT)
-solr_d02_url = 'http://{}:{}/solr/discover-02'.format(SOLR_HOST, SOLR_PORT)
-solr_bls_url = 'http://{}:{}/solr/bl-suggest'.format(SOLR_HOST, SOLR_PORT)
+                                     f'{solr_base_url}/haystack')
+solr_d01_url = f'{solr_base_url}/discover-01'
+solr_d02_url = f'{solr_base_url}/discover-02'
 
 # HAYSTACK_CONNECTIONS, a required setting for Haystack
 HAYSTACK_CONNECTIONS = {
@@ -346,8 +342,7 @@ REST_FRAMEWORK = {
 # CELERY settings
 REDIS_CELERY_PORT = get_env_variable('REDIS_CELERY_PORT', '6379')
 REDIS_CELERY_HOST = get_env_variable('REDIS_CELERY_HOST', '127.0.0.1')
-redis_celery_url = 'redis://{}:{}/0'.format(REDIS_CELERY_HOST,
-                                            REDIS_CELERY_PORT)
+redis_celery_url = f'redis://{REDIS_CELERY_HOST}:{REDIS_CELERY_PORT}/0'
 CELERY_BROKER_URL = redis_celery_url
 CELERY_BROKER_TRANSPORT_OPTIONS = {
     'visibility_timeout': 3600,
@@ -462,4 +457,3 @@ ADMIN_ACCESS = get_env_variable('ADMIN_ACCESS', True)
 TESTING = False
 
 MARCDATA = marcdata
-

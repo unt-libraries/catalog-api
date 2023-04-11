@@ -52,8 +52,7 @@ DATABASES = {
 # CELERY settings
 REDIS_CELERY_PORT = get_env_variable('TEST_REDIS_CELERY_PORT', '6279')
 REDIS_CELERY_HOST = get_env_variable('TEST_REDIS_CELERY_HOST', '127.0.0.1')
-redis_celery_url = 'redis://{}:{}/0'.format(REDIS_CELERY_HOST,
-                                            REDIS_CELERY_PORT)
+redis_celery_url = f'redis://{REDIS_CELERY_HOST}:{REDIS_CELERY_PORT}/0'
 CELERY_BROKER_URL = redis_celery_url
 CELERY_RESULT_BACKEND = redis_celery_url
 CELERY_WORKER_SEND_TASK_EVENTS = True
@@ -68,13 +67,13 @@ REDIS_CONNECTION = {
 # Solr settings
 SOLR_PORT = get_env_variable('TEST_SOLR_PORT', '8883')
 SOLR_HOST = get_env_variable('TEST_SOLR_HOST', '127.0.0.1')
+solr_base_url = f'http://{SOLR_HOST}:{SOLR_PORT}/solr'
 solr_haystack_url = get_env_variable('SOLR_HAYSTACK_URL',
-                                     'http://{}:{}/solr/haystack'.format(SOLR_HOST, SOLR_PORT))
-solr_d01_url = 'http://{}:{}/solr/discover-01'.format(SOLR_HOST, SOLR_PORT)
-solr_d02_url = 'http://{}:{}/solr/discover-02'.format(SOLR_HOST, SOLR_PORT)
+                                     f'{solr_base_url}/haystack')
+solr_d01_url = f'{solr_base_url}/discover-01'
+solr_d02_url = f'{solr_base_url}/discover-02'
 
 HAYSTACK_CONNECTIONS['default']['URL'] = solr_haystack_url
 HAYSTACK_CONNECTIONS['haystack']['URL'] = solr_haystack_url
 HAYSTACK_CONNECTIONS['discover-01']['URL'] = solr_d01_url
 HAYSTACK_CONNECTIONS['discover-02']['URL'] = solr_d02_url
-
