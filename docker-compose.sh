@@ -13,5 +13,4 @@ source ./docker-compose.env
 USERID=$(id -u)
 GROUPID=$(id -g)
 set +o allexport
-docker-compose "$@"
-
+docker compose "$@"
