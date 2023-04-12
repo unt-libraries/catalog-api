@@ -72,7 +72,7 @@ services:
     command: solr-fg
 
   redis-celery-dev:
-    image: redis:7.0.9
+    image: redis:7.0.10
     volumes:
       - ${REDIS_CELERY_DEV_DATA_DDPATH}:/project/data
       - ${REDIS_CELERY_DEV_LOGS_DDPATH}:/project/logs
@@ -81,10 +81,10 @@ services:
     networks:
       - development
     user: ${USERID}:${GROUPID}
-    command: redis-server ${REDIS_CELERY_CONF_FILE:---dir /project/data --logfile /project/logs/log.txt --appendonly yes}
+    command: redis-server ${REDIS_CELERY_CONF_FILE:---dir /project/data --logfile /project/logs/log.txt --appendonly yes ${REDIS_CELERY_DEV_PW_ARG:-}}
 
   redis-celery-test:
-    image: redis:7.0.9
+    image: redis:7.0.10
     volumes:
       - ${REDIS_CELERY_TEST_DATA_DDPATH}:/project/data
       - ${REDIS_CELERY_TEST_LOGS_DDPATH}:/project/logs
@@ -94,10 +94,10 @@ services:
       - testing
       - development
     user: ${USERID}:${GROUPID}
-    command: redis-server ${REDIS_CELERY_CONF_FILE:---dir /project/data --logfile /project/logs/log.txt --appendonly no}
+    command: redis-server ${REDIS_CELERY_CONF_FILE:---dir /project/data --logfile /project/logs/log.txt --appendonly no ${REDIS_CELERY_TEST_PW_ARG:-}}
 
   redis-appdata-dev:
-    image: redis:7.0.9
+    image: redis:7.0.10
     volumes:
       - ${REDIS_APPDATA_DEV_DATA_DDPATH}:/project/data
       - ${REDIS_APPDATA_DEV_LOGS_DDPATH}:/project/logs
@@ -106,10 +106,10 @@ services:
     networks:
       - development
     user: ${USERID}:${GROUPID}
-    command: redis-server ${REDIS_APPDATA_CONF_FILE:---dir /project/data --logfile /project/logs/log.txt --appendonly yes}
+    command: redis-server ${REDIS_APPDATA_CONF_FILE:---dir /project/data --logfile /project/logs/log.txt --appendonly yes ${REDIS_APPDATA_DEV_PW_ARG:-}}
 
   redis-appdata-test:
-    image: redis:7.0.9
+    image: redis:7.0.10
     volumes:
       - ${REDIS_APPDATA_TEST_DATA_DDPATH}:/project/data
       - ${REDIS_APPDATA_TEST_LOGS_DDPATH}:/project/logs
@@ -118,7 +118,7 @@ services:
     networks:
       - testing
     user: ${USERID}:${GROUPID}
-    command: redis-server ${REDIS_APPDATA_CONF_FILE:---dir /project/data --logfile /project/logs/log.txt --appendonly no}
+    command: redis-server ${REDIS_APPDATA_CONF_FILE:---dir /project/data --logfile /project/logs/log.txt --appendonly no ${REDIS_APPDATA_TEST_PW_ARG:-}}
 
   app:
     build:

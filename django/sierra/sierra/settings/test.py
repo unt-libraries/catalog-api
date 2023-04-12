@@ -52,7 +52,12 @@ DATABASES = {
 # CELERY settings
 REDIS_CELERY_PORT = get_env_variable('TEST_REDIS_CELERY_PORT', '6279')
 REDIS_CELERY_HOST = get_env_variable('TEST_REDIS_CELERY_HOST', '127.0.0.1')
-redis_celery_url = f'redis://{REDIS_CELERY_HOST}:{REDIS_CELERY_PORT}/0'
+REDIS_CELERY_PASSWORD = get_env_variable('TEST_REDIS_CELERY_PASSWORD')
+if REDIS_CELERY_PASSWORD:
+    rc_pw = f':{REDIS_CELERY_PASSWORD}@'
+else:
+    rc_pw = ''
+redis_celery_url = f'redis://{rc_pw}{REDIS_CELERY_HOST}:{REDIS_CELERY_PORT}/0'
 CELERY_BROKER_URL = redis_celery_url
 CELERY_RESULT_BACKEND = redis_celery_url
 CELERY_WORKER_SEND_TASK_EVENTS = True
@@ -61,7 +66,8 @@ CELERY_WORKER_SEND_TASK_EVENTS = True
 REDIS_CONNECTION = {
     'host': get_env_variable('TEST_REDIS_APPDATA_HOST', '127.0.0.1'),
     'port': get_env_variable('TEST_REDIS_APPDATA_PORT', '6280'),
-    'db': get_env_variable('TEST_REDIS_APPDATA_DATABASE', 0)
+    'db': get_env_variable('TEST_REDIS_APPDATA_DATABASE', 0),
+    'password': get_env_variable('TEST_REDIS_APPDATA_PASSWORD')
 }
 
 # Solr settings

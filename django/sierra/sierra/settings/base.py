@@ -342,7 +342,12 @@ REST_FRAMEWORK = {
 # CELERY settings
 REDIS_CELERY_PORT = get_env_variable('REDIS_CELERY_PORT', '6379')
 REDIS_CELERY_HOST = get_env_variable('REDIS_CELERY_HOST', '127.0.0.1')
-redis_celery_url = f'redis://{REDIS_CELERY_HOST}:{REDIS_CELERY_PORT}/0'
+REDIS_CELERY_PASSWORD = get_env_variable('REDIS_CELERY_PASSWORD')
+if REDIS_CELERY_PASSWORD:
+    rc_pw = f':{REDIS_CELERY_PASSWORD}@'
+else:
+    rc_pw = ''
+redis_celery_url = f'redis://{rc_pw}{REDIS_CELERY_HOST}:{REDIS_CELERY_PORT}/0'
 CELERY_BROKER_URL = redis_celery_url
 CELERY_BROKER_TRANSPORT_OPTIONS = {
     'visibility_timeout': 3600,
@@ -447,7 +452,8 @@ API_PERMISSIONS = [
 REDIS_CONNECTION = {
     'host': get_env_variable('REDIS_APPDATA_HOST', '127.0.0.1'),
     'port': get_env_variable('REDIS_APPDATA_PORT', '6380'),
-    'db': get_env_variable('REDIS_APPDATA_DATABASE', 0)
+    'db': get_env_variable('REDIS_APPDATA_DATABASE', 0),
+    'password': get_env_variable('REDIS_APPDATA_PASSWORD')
 }
 
 # Do we allow access to the admin interface on /admin URL?
