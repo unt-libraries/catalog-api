@@ -638,7 +638,7 @@ def test_shelflistitem_view_orderby(order_by, api_settings, shelflist_solr_env,
 
 def test_shelflistitem_row_order(api_settings, shelflist_solr_env,
                                  get_shelflist_urls, api_client, redis_obj,
-                                 get_found_ids):
+                                 get_found_ids, settings):
     """
     The `shelflistitems` list view should list items in the same order
     that the shelflist manifest for that location lists them. The
@@ -647,7 +647,8 @@ def test_shelflistitem_row_order(api_settings, shelflist_solr_env,
     recs = shelflist_solr_env.records['shelflistitem']
     loc = recs[0]['location_code']
     loc_recs = [r for r in recs if r['location_code'] == loc]
-    index = ShelflistItemIndex()
+    using = settings.REST_VIEWS_HAYSTACK_CONNECTIONS['ShelflistItems']
+    index = ShelflistItemIndex(using=using)
     manifest = index.get_location_manifest(loc)
     redis_key = '{}:{}'.format(REDIS_SHELFLIST_PREFIX, loc)
     redis_obj(redis_key).set(manifest)
@@ -725,7 +726,7 @@ def test_shelflistitem_update_items(method, api_settings,
                                     shelflist_solr_env,
                                     filter_serializer_fields_by_opt,
                                     derive_updated_resource, send_api_data,
-                                    get_shelflist_urls, api_client):
+                                    get_shelflist_urls, api_client, settings):
     """
     Updating writeable fields on shelflistitems should update/save the
     resource: it should update the writeable fields that were changed
@@ -733,7 +734,8 @@ def test_shelflistitem_update_items(method, api_settings,
     """
     test_lcode, test_id = '1test', 'i99999999'
     _, _, trecs = assemble_custom_shelflist(test_lcode, [(test_id, {})])
-    index = ShelflistItemIndex()
+    using = settings.REST_VIEWS_HAYSTACK_CONNECTIONS['ShelflistItems']
+    index = ShelflistItemIndex(using=using)
     manifest = index.get_location_manifest(test_lcode)
     redis_key = '{}:{}'.format(REDIS_SHELFLIST_PREFIX, test_lcode)
     redis_obj(redis_key).set(manifest)
@@ -824,7 +826,7 @@ def test_shelflist_firstitemperlocation_list(test_data, search, expected,
                                              api_settings, redis_obj,
                                              assemble_custom_shelflist,
                                              api_client, get_found_ids,
-                                             do_filter_search):
+                                             do_filter_search, settings):
     """
     The `firstitemperlocation` resource is basically a custom filter
     for `items` that submits a facet-query to Solr asking for the first
@@ -843,7 +845,8 @@ def test_shelflist_firstitemperlocation_list(test_data, search, expected,
         recs = test_data_by_location.get(lcode, []) + [(test_id, rec)]
         test_data_by_location[lcode] = recs
 
-    index = ShelflistItemIndex()
+    using = settings.REST_VIEWS_HAYSTACK_CONNECTIONS['ShelflistItems']
+    index = ShelflistItemIndex(using=using)
     for test_lcode, data in test_data_by_location.items():
         assemble_custom_shelflist(test_lcode, data)
         manifest = index.get_location_manifest(test_lcode)
@@ -867,4 +870,3 @@ def test_shelflist_firstitemperlocation_list(test_data, search, expected,
                                                     item['id'])
             assert item['rowNumber'] == exp_row
             assert item['_links']['shelflistItem']['href'].endswith(exp_sli)
-

@@ -275,33 +275,70 @@ LOGGING = {
 SOLR_PORT = get_env_variable('SOLR_PORT', '8983')
 SOLR_HOST = get_env_variable('SOLR_HOST', '127.0.0.1')
 solr_base_url = f'http://{SOLR_HOST}:{SOLR_PORT}/solr'
-solr_haystack_url = get_env_variable('SOLR_HAYSTACK_URL',
-                                     f'{solr_base_url}/haystack')
-solr_d01_url = f'{solr_base_url}/discover-01'
-solr_d02_url = f'{solr_base_url}/discover-02'
+
+SOLR_HAYSTACK_URL_FOR_UPDATE = get_env_variable(
+    'SOLR_HAYSTACK_UPDATE_URL',
+    f'{solr_base_url}/haystack'
+)
+SOLR_HAYSTACK_URL_FOR_SEARCH = get_env_variable(
+    'SOLR_HAYSTACK_SEARCH_URL',
+    f'{solr_base_url}/haystack'
+)
+SOLR_DISCOVER01_URL_FOR_UPDATE = get_env_variable(
+    'SOLR_DISCOVER01_UPDATE_URL',
+    f'{solr_base_url}/discover-01'
+)
+SOLR_DISCOVER01_URL_FOR_SEARCH = get_env_variable(
+    'SOLR_DISCOVER01_SEARCH_URL',
+    f'{solr_base_url}/discover-01'
+)
+SOLR_DISCOVER02_URL_FOR_UPDATE = get_env_variable(
+    'SOLR_DISCOVER02_UPDATE_URL',
+    f'{solr_base_url}/discover-02'
+)
+SOLR_DISCOVER02_URL_FOR_SEARCH = get_env_variable(
+    'SOLR_DISCOVER02_SEARCH_URL',
+    f'{solr_base_url}/discover-02'
+)
 
 # HAYSTACK_CONNECTIONS, a required setting for Haystack
 HAYSTACK_CONNECTIONS = {
     'default': {
         'ENGINE': 'sierra.solr_backend.CustomSolrEngine',
-        'URL': solr_haystack_url,
+        'URL': SOLR_HAYSTACK_URL_FOR_UPDATE,
         'EXCLUDED_INDEXES': ['base.search_indexes.ItemIndex'],
         'TIMEOUT': 60 * 20,
     },
-    'haystack': {
+    'haystack|update': {
         'ENGINE': 'sierra.solr_backend.CustomSolrEngine',
-        'URL': solr_haystack_url,
+        'URL': SOLR_HAYSTACK_URL_FOR_UPDATE,
         'EXCLUDED_INDEXES': ['base.search_indexes.ItemIndex'],
         'TIMEOUT': 60 * 20,
     },
-    'discover-01': {
+    'haystack|search': {
         'ENGINE': 'sierra.solr_backend.CustomSolrEngine',
-        'URL': solr_d01_url,
+        'URL': SOLR_HAYSTACK_URL_FOR_SEARCH,
+        'EXCLUDED_INDEXES': ['base.search_indexes.ItemIndex'],
         'TIMEOUT': 60 * 20,
     },
-    'discover-02': {
+    'discover-01|update': {
         'ENGINE': 'sierra.solr_backend.CustomSolrEngine',
-        'URL': solr_d02_url,
+        'URL': SOLR_DISCOVER01_URL_FOR_UPDATE,
+        'TIMEOUT': 60 * 20,
+    },
+    'discover-01|search': {
+        'ENGINE': 'sierra.solr_backend.CustomSolrEngine',
+        'URL': SOLR_DISCOVER01_URL_FOR_SEARCH,
+        'TIMEOUT': 60 * 20,
+    },
+    'discover-02|update': {
+        'ENGINE': 'sierra.solr_backend.CustomSolrEngine',
+        'URL': SOLR_DISCOVER02_URL_FOR_UPDATE,
+        'TIMEOUT': 60 * 20,
+    },
+    'discover-02|search': {
+        'ENGINE': 'sierra.solr_backend.CustomSolrEngine',
+        'URL': SOLR_DISCOVER02_URL_FOR_SEARCH,
         'TIMEOUT': 60 * 20,
     },
 }
@@ -394,14 +431,14 @@ TASK_LOG_LABEL = 'Scheduler'
 # This maps Exporter jobs to the haystack connection names that each
 # should use.
 EXPORTER_HAYSTACK_CONNECTIONS = {
-    'ItemsToSolr': 'haystack',
-    'BibsToSolr': BL_CONN_NAME,
-    'LocationsToSolr': 'haystack',
-    'ItypesToSolr': 'haystack',
-    'ItemStatusesToSolr': 'haystack',
-    'EResourcesToSolr': 'haystack',
-    'HoldingUpdate': 'haystack',
-    'AllMetadataToSolr': 'haystack',
+    'ItemsToSolr': 'haystack|update',
+    'BibsToSolr': f'{BL_CONN_NAME}|update',
+    'LocationsToSolr': 'haystack|update',
+    'ItypesToSolr': 'haystack|update',
+    'ItemStatusesToSolr': 'haystack|update',
+    'EResourcesToSolr': 'haystack|update',
+    'HoldingUpdate': 'haystack|update',
+    'AllMetadataToSolr': 'haystack|update',
 }
 
 # MAX_RC is max_rec_chunk, and MAX_DC is max_del_chunk. The below
@@ -433,7 +470,16 @@ EXPORTER_METADATA_TYPE_REGISTRY = [
 # This maps DRF views to haystack connections. Only needed for views
 # that don't use the default connection.
 REST_VIEWS_HAYSTACK_CONNECTIONS = {
-    'Bibs': BL_CONN_NAME,
+    'Items': 'haystack|search',
+    'Bibs': f'{BL_CONN_NAME}|search',
+    'EResources': 'haystack|search',
+    'Locations': 'haystack|search',
+    'ItemTypes': 'haystack|search',
+    'ItemStatuses': 'haystack|search',
+    # Since ShelflistItems have an updatable component, we want those
+    # always to search/update the UPDATE Solr node. As far as views are
+    # concerned, the SEARCH nodes are read-only.
+    'ShelflistItems': 'haystack|update',
 }
 
 # This specifies which installed apps have user permissions settings

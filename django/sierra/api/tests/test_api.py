@@ -17,7 +17,7 @@ from pytz import utc
 # External fixtures used below can be found in
 # django/sierra/conftest.py:
 #     api_solr_env
-#     basic_solr_assembler
+#     api_solr_assembler
 #     api_client
 #     pick_reference_object_having_link
 #     assert_data_is_from_serializer
@@ -1866,7 +1866,7 @@ def api_settings(settings):
 
 @pytest.fixture(scope='function')
 def assemble_api_test_records(assemble_test_records, api_solr_env,
-                              basic_solr_assembler):
+                              api_solr_assembler):
     """
     Pytest fixture. Returns a helper function that assembles & loads a
     set of test records (for one test) into the api_solr_env test-data
@@ -1882,7 +1882,7 @@ def assemble_api_test_records(assemble_test_records, api_solr_env,
     def _assemble_api_test_records(profile, id_field, test_data):
         return assemble_test_records(profile, id_field, test_data,
                                      env=api_solr_env,
-                                     assembler=basic_solr_assembler)
+                                     assembler=api_solr_assembler)
     return _assemble_api_test_records
 
 

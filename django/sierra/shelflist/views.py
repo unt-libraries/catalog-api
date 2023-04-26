@@ -10,6 +10,7 @@ from collections import OrderedDict
 from api import views as api_views
 from api.simpleviews import SimpleView, SimpleGetMixin, SimplePatchMixin, \
                             SimplePutMixin
+from django.conf import settings
 from django.http import Http404
 from rest_framework import permissions
 from rest_framework.decorators import api_view
@@ -50,18 +51,29 @@ class ShelflistItemList(SimpleGetMixin, SimpleView):
     resource_name = 'shelflistItems'
 
     def get_queryset(self):
-        return solr.Queryset().filter(type='Item',
-                                      location_code=self.kwargs['code']).order_by('call_number_type', 'call_number_sort', 'volume_sort', 'copy_number')
+        return solr.Queryset(
+            using=settings.REST_VIEWS_HAYSTACK_CONNECTIONS['ShelflistItems']
+        ).filter(
+            type='Item',
+            location_code=self.kwargs['code']
+        ).order_by(
+            'call_number_type',
+            'call_number_sort',
+            'volume_sort',
+            'copy_number'
+        )
 
 
 # Add SimplePutMixin, SimplePatchMixin before SimpleGetMixin to enable
-# Put/Patch behavior. Disabled for now for security in production.
+# Put/Patch behavior.
 class ShelflistItemDetail(SimplePutMixin, SimplePatchMixin, SimpleGetMixin,
                           SimpleView):
     """
     Retrieve one item.
     """
-    queryset = solr.Queryset().filter(type='Item')
+    queryset = solr.Queryset(
+            using=settings.REST_VIEWS_HAYSTACK_CONNECTIONS['ShelflistItems']
+    ).filter(type='Item')
     serializer_class = serializers.ShelflistItemSerializer
     multi = False
     parser_classes = (JSONPatchParser, JSONParser)

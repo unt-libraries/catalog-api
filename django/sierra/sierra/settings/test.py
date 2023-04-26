@@ -71,15 +71,42 @@ REDIS_CONNECTION = {
 }
 
 # Solr settings
-SOLR_PORT = get_env_variable('TEST_SOLR_PORT', '8883')
-SOLR_HOST = get_env_variable('TEST_SOLR_HOST', '127.0.0.1')
-solr_base_url = f'http://{SOLR_HOST}:{SOLR_PORT}/solr'
-solr_haystack_url = get_env_variable('SOLR_HAYSTACK_URL',
-                                     f'{solr_base_url}/haystack')
-solr_d01_url = f'{solr_base_url}/discover-01'
-solr_d02_url = f'{solr_base_url}/discover-02'
+SOLR_PORT_FOR_UPDATE = get_env_variable('TEST_SOLR_PORT_FOR_UPDATE', '8883')
+SOLR_PORT_FOR_SEARCH = get_env_variable('TEST_SOLR_PORT_FOR_SEARCH', '8884')
+SOLR_HOST_FOR_UPDATE = get_env_variable('TEST_SOLR_HOST_FOR_UPDATE', '127.0.0.1')
+SOLR_HOST_FOR_SEARCH = get_env_variable('TEST_SOLR_HOST_FOR_SEARCH', '127.0.0.1')
+solr_base_url_for_update = f'http://{SOLR_HOST_FOR_UPDATE}:{SOLR_PORT_FOR_UPDATE}/solr'
+solr_base_url_for_search = f'http://{SOLR_HOST_FOR_SEARCH}:{SOLR_PORT_FOR_SEARCH}/solr'
 
-HAYSTACK_CONNECTIONS['default']['URL'] = solr_haystack_url
-HAYSTACK_CONNECTIONS['haystack']['URL'] = solr_haystack_url
-HAYSTACK_CONNECTIONS['discover-01']['URL'] = solr_d01_url
-HAYSTACK_CONNECTIONS['discover-02']['URL'] = solr_d02_url
+SOLR_HAYSTACK_URL_FOR_UPDATE = get_env_variable(
+    'TEST_SOLR_HAYSTACK_UPDATE_URL',
+    f'{solr_base_url_for_update}/haystack'
+)
+SOLR_HAYSTACK_URL_FOR_SEARCH = get_env_variable(
+    'TEST_SOLR_HAYSTACK_SEARCH_URL',
+    f'{solr_base_url_for_search}/haystack'
+)
+SOLR_DISCOVER01_URL_FOR_UPDATE = get_env_variable(
+    'TEST_SOLR_DISCOVER01_UPDATE_URL',
+    f'{solr_base_url_for_update}/discover-01'
+)
+SOLR_DISCOVER01_URL_FOR_SEARCH = get_env_variable(
+    'TEST_SOLR_DISCOVER01_SEARCH_URL',
+    f'{solr_base_url_for_search}/discover-01'
+)
+SOLR_DISCOVER02_URL_FOR_UPDATE = get_env_variable(
+    'TEST_SOLR_DISCOVER02_UPDATE_URL',
+    f'{solr_base_url_for_update}/discover-02'
+)
+SOLR_DISCOVER02_URL_FOR_SEARCH = get_env_variable(
+    'TEST_SOLR_DISCOVER02_SEARCH_URL',
+    f'{solr_base_url_for_search}/discover-02'
+)
+
+HAYSTACK_CONNECTIONS['default']['URL'] = SOLR_HAYSTACK_URL_FOR_UPDATE
+HAYSTACK_CONNECTIONS['haystack|update']['URL'] = SOLR_HAYSTACK_URL_FOR_UPDATE
+HAYSTACK_CONNECTIONS['haystack|search']['URL'] = SOLR_HAYSTACK_URL_FOR_SEARCH
+HAYSTACK_CONNECTIONS['discover-01|update']['URL'] = SOLR_DISCOVER01_URL_FOR_UPDATE
+HAYSTACK_CONNECTIONS['discover-01|search']['URL'] = SOLR_DISCOVER01_URL_FOR_SEARCH
+HAYSTACK_CONNECTIONS['discover-02|update']['URL'] = SOLR_DISCOVER02_URL_FOR_UPDATE
+HAYSTACK_CONNECTIONS['discover-02|search']['URL'] = SOLR_DISCOVER02_URL_FOR_SEARCH

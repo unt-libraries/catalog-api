@@ -82,7 +82,7 @@ def rows_to_data(rows):
 
 
 def set_item_fields(locations, data={}, default={}, batch_size=1000,
-                    using='haystack', verbose=True, auto_notes=True):
+                    using='haystack|update', verbose=True, auto_notes=True):
     """
     Set fields on a batch of shelflist items in Solr and reload them.
 

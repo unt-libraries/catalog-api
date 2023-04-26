@@ -13,6 +13,7 @@ import ujson
 from dateutil import parser as dateparser
 from utils import solr, helpers
 from utils.camel_case import render
+from django.conf import settings
 
 from .simpleserializers import SimpleField, SimpleObjectInterface,\
                                SimpleSerializer, SimpleSerializerWithLookups
@@ -116,6 +117,8 @@ class APIUserSerializer(SimpleSerializer):
 
 
 class ItemSerializer(SimpleSerializerWithLookups):
+    _lookup_conn = settings.REST_VIEWS_HAYSTACK_CONNECTIONS['ItemStatuses']
+
     class LinksField(SimpleField):
         def present(self, obj_data):
             """
@@ -213,7 +216,9 @@ class ItemSerializer(SimpleSerializerWithLookups):
     def cache_all_lookups(self):
         types = ['Location', 'ItemStatus', 'Itype']
         lookups = {t: {} for t in types}
-        qs = solr.Queryset(page_by=1000).filter(type__in=types)
+        qs = solr.Queryset(
+            using=self._lookup_conn, page_by=1000
+        ).filter(type__in=types)
         for r in qs.only('type', 'code', 'label'):
             try:
                 lookups[r['type']][r['code']] = r['label']

@@ -14,7 +14,7 @@ from six.moves import range, zip
 # Fixtures used in the below tests can be found in
 # django/sierra/base/tests/conftest.py:
 #    sierra_records_by_recnum_range, sierra_full_object_set,
-#    record_sets, new_exporter, redis_obj, basic_solr_assembler,
+#    record_sets, new_exporter, redis_obj, export_solr_assembler,
 #    setattr_model_instance, derive_exporter_class,
 #    assert_all_exported_records_are_indexed,
 #    assert_deleted_records_are_not_indexed,
@@ -510,7 +510,7 @@ def test_allmdtosolr_export_get_deletions(batch_exporter_class, record_sets,
 def test_basic_tosolr_export_records(et_code, rset_code, rtype, do_reindex,
                                      basic_exporter_class, record_sets,
                                      new_exporter, solr_conns, solr_search,
-                                     basic_solr_assembler, do_commit,
+                                     export_solr_assembler, do_commit,
                                      assert_records_are_indexed,
                                      assert_records_are_not_indexed):
     """
@@ -544,7 +544,7 @@ def test_basic_tosolr_export_records(et_code, rset_code, rtype, do_reindex,
         overlap_rec_data.append((index.get_qualified_id(r), {}))
 
     data = only_old_rec_data + overlap_rec_data
-    basic_solr_assembler.load_static_test_data(rtype, data, id_field=id_field)
+    export_solr_assembler.load_static_test_data(rtype, data, id_field=id_field)
 
     # Check the setup to make sure existing records are indexed and new
     # records are not.
@@ -605,7 +605,7 @@ def test_allmdtosolr_export_records(batch_exporter_class, record_sets,
 ])
 def test_basic_tosolr_delete_records(et_code, rset_code, rtype,
                                      basic_exporter_class, record_sets,
-                                     new_exporter, basic_solr_assembler,
+                                     new_exporter, export_solr_assembler,
                                      assert_records_are_indexed, do_commit,
                                      assert_deleted_records_are_not_indexed):
     """
@@ -622,7 +622,7 @@ def test_basic_tosolr_delete_records(et_code, rset_code, rtype,
     id_field = index.reserved_fields['haystack_id']
     
     data = [(index.get_qualified_id(r), {}) for r in records]
-    basic_solr_assembler.load_static_test_data(rtype, data, id_field=id_field)
+    export_solr_assembler.load_static_test_data(rtype, data, id_field=id_field)
     assert_records_are_indexed(index, records)
 
     exporter.delete_records(records)
@@ -697,7 +697,7 @@ def test_attached_solr_export_records(et_code, rset_code, basic_exporter_class,
 ])
 def test_attached_solr_delete_records(et_code, rset_code, rtype,
                                       basic_exporter_class, record_sets,
-                                      new_exporter, basic_solr_assembler,
+                                      new_exporter, export_solr_assembler,
                                       assert_records_are_indexed, do_commit,
                                       assert_deleted_records_are_not_indexed):
     """
@@ -714,7 +714,7 @@ def test_attached_solr_delete_records(et_code, rset_code, rtype,
     id_field = index.reserved_fields['haystack_id']
     
     data = [(index.get_qualified_id(r), {}) for r in records]
-    basic_solr_assembler.load_static_test_data(rtype, data, id_field=id_field)
+    export_solr_assembler.load_static_test_data(rtype, data, id_field=id_field)
     assert_records_are_indexed(index, records)
 
     exporter.delete_records(records)
@@ -1110,9 +1110,12 @@ def test_compound_final_callback(classname, children, vals,
                                                 status='success')
 
 
+# NOTE: Do not remove 'solr_conns' from the below test's fixture list.
+# It is not used in the test, but this is what assures that Solr gets
+# cleared out when the test finishes.
 @pytest.mark.return_vals
 def test_ertosolr_export_returns_h_lists(basic_exporter_class, record_sets,
-                                         new_exporter):
+                                         new_exporter, solr_conns):
     """
     The EResourcesToSolr exporter `export_records` method should return
     a dict with an `h_lists` key, which has a dict mapping eresources

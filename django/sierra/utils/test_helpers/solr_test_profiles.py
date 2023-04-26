@@ -740,7 +740,6 @@ def random_agent(person_weight=8, corp_weight=1, meeting_weight=1):
             rval = person_name_heading_like(record)
         else:
             rval = org_name_like(record)
-        print(rval)
         return rval
     return gen
 

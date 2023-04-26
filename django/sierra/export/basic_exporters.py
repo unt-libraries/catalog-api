@@ -275,7 +275,8 @@ class HoldingUpdate(CompoundMixin, Exporter):
             # Since export jobs get broken up and run in parallel, we
             # want to hold off on actually committing to Solr and
             # updating Redis until the callback runs.
-            s = solr.Queryset().filter(record_number=er_rec_num)
+            conn = self.children['EResourcesToSolr'].indexes['EResources'].conn
+            s = solr.Queryset(using=conn).filter(record_number=er_rec_num)
             if s.count() > 0:
                 rec_queue = h_vals.get(er_rec_num, {})
                 rec_append_list = rec_queue.get('append', [])
@@ -323,8 +324,9 @@ class HoldingUpdate(CompoundMixin, Exporter):
         er_vals = vals.get('eresources', {})
         rev_handler = redisobjs.RedisObject('reverse_holdings_list', '0')
         reverse_h_list = rev_handler.get()
+        sconn = self.children['EResourcesToSolr'].indexes['EResources'].conn
         for er_rec_num, lists in (h_vals or {}).items():
-            s = solr.Queryset().filter(record_number=er_rec_num)
+            s = solr.Queryset(using=sconn).filter(record_number=er_rec_num)
             try:
                 record = s[0]
             except IndexError:
@@ -439,4 +441,3 @@ class BibsAndAttachedToSolr(AttachedRecordExporter):
     children_config = (Child('BibsToSolr'), ItemChild('ItemsToSolr'))
     model = sierra_models.BibRecord
     max_rec_chunk = 500
-

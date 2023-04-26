@@ -215,10 +215,22 @@ function prepvolume_sierra_db_test {
   fi
 }
 
-# prepvolume_solr_test
-function prepvolume_solr_test {
+# prepvolume_solr_test_for_update
+function prepvolume_solr_test_for_update {
   local volume_was_created=$1
-  local path="$DDPATH/solr_test"
+  local path="$DDPATH/solr_test_for_update"
+  if [[ $volume_was_created ]]; then
+    init_solr_volume "$path"
+    return $?
+  else
+    return 0
+  fi
+}
+
+# prepvolume_solr_test_for_search
+function prepvolume_solr_test_for_search {
+  local volume_was_created=$1
+  local path="$DDPATH/solr_test_for_search"
   if [[ $volume_was_created ]]; then
     init_solr_volume "$path"
     return $?

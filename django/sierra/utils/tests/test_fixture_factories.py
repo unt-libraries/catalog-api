@@ -57,7 +57,7 @@ def test_profile_definitions(global_solr_conn):
     Pytest fixture that returns definitions for Solr profiles, for
     generating test data via the assembler fixtures.
     """
-    hs_conn = global_solr_conn('haystack')
+    hs_conn = global_solr_conn('haystack|search')
     return {
         'location': {
             'conn': hs_conn,
@@ -192,7 +192,7 @@ def test_solr_data_assembler_fixtures(iter_count, test_assembler,
     of tests creates data using a `global_solr_data_assembler` before
     the tests run.
     """
-    conn = global_solr_conn('haystack')
+    conn = global_solr_conn('haystack|search')
     start_num_locrecs_in_solr = len(solr_search(conn, 'type:Location'))
     start_num_itemrecs_in_solr = len(solr_search(conn, 'type:Item'))
 

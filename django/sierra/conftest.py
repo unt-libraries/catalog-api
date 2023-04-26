@@ -226,72 +226,137 @@ def global_solr_data_assembler():
 
 
 @pytest.fixture(scope='module')
-def solr_profile_definitions(global_solr_conn):
+def api_solr_profile_definitions(global_solr_conn):
     """
-    Pytest fixture that returns definitions for Solr profiles, for
-    generating test data via the *_solr_data_factory fixtures.
+    Pytest fixture that returns definitions for Solr profiles used in
+    API tests, for generating test data via the *_solr_data_factory
+    fixtures.
     """
-    hs_conn = global_solr_conn('haystack')
-    bib_conn = global_solr_conn(settings.BL_CONN_NAME)
     return {
         'location': {
-            'conn': hs_conn,
+            'conn': global_solr_conn(
+                settings.REST_VIEWS_HAYSTACK_CONNECTIONS['Locations']
+            ),
             'user_fields': tp.CODE_FIELDS,
             'field_gens': tp.LOCATION_GENS
         },
         'itype': {
-            'conn': hs_conn,
+            'conn': global_solr_conn(
+                settings.REST_VIEWS_HAYSTACK_CONNECTIONS['ItemTypes']
+            ),
             'user_fields': tp.CODE_FIELDS,
             'field_gens': tp.ITYPE_GENS
         },
         'itemstatus': {
-            'conn': hs_conn,
+            'conn': global_solr_conn(
+                settings.REST_VIEWS_HAYSTACK_CONNECTIONS['ItemStatuses']
+            ),
             'user_fields': tp.CODE_FIELDS,
             'field_gens': tp.ITEMSTATUS_GENS
         },
         'item': {
-            'conn': hs_conn,
+            'conn': global_solr_conn(
+                settings.REST_VIEWS_HAYSTACK_CONNECTIONS['Items']
+            ),
             'user_fields': tp.ITEM_FIELDS,
             'field_gens': tp.ITEM_GENS
         },
         'eresource': {
-            'conn': hs_conn,
+            'conn': global_solr_conn(
+                settings.REST_VIEWS_HAYSTACK_CONNECTIONS['EResources']
+            ),
             'user_fields': tp.ERES_FIELDS,
             'field_gens': tp.ERES_GENS
         },
         'bib': {
-            'conn': bib_conn,
+            'conn': global_solr_conn(
+                settings.REST_VIEWS_HAYSTACK_CONNECTIONS['Bibs']
+            ),
             'user_fields': tp.BIB_FIELDS,
             'field_gens': tp.BIB_GENS
         },
     }
 
 
+@pytest.fixture(scope='module')
+def export_solr_profile_definitions(global_solr_conn,
+                                    api_solr_profile_definitions):
+    """
+    Pytest fixture that returns definitions for Solr profiles used in
+    export tests, for generating test data via the *_solr_data_factory
+    fixtures.
+    """
+    pdefs = api_solr_profile_definitions.copy()
+    profiles_to_exporters = {
+        'location': 'LocationsToSolr',
+        'itype': 'ItypesToSolr',
+        'itemstatus': 'ItemStatusesToSolr',
+        'item': 'ItemsToSolr',
+        'eresource': 'EResourcesToSolr',
+        'bib': 'BibsToSolr'
+    }
+    for p_key, e_key in profiles_to_exporters.items():
+        pdefs[p_key]['conn'] = global_solr_conn(
+            settings.EXPORTER_HAYSTACK_CONNECTIONS[e_key]
+        )
+    return pdefs
+
+
 @pytest.fixture(scope='function')
-def basic_solr_assembler(solr_data_assembler, solr_profile_definitions):
+def api_solr_assembler(solr_data_assembler, api_solr_profile_definitions):
     """
     Function-scoped pytest fixture that returns a Solr test data
-    assembler. Records created via this fixture within a test function
-    are deleted when the test function finishes. (For more info about
-    using Solr data assemblers, see the SolrTestDataAssemblerFactory
-    class in utils.test_helpers.fixture_factories.)
+    assembler for API tests. Records created via this fixture within a
+    test function are deleted when the test function finishes. (For
+    more info about using Solr data assemblers, see the
+    SolrTestDataAssemblerFactory class in
+    utils.test_helpers.fixture_factories.)
     """
     return solr_data_assembler(tp.SOLR_TYPES, tp.GLOBAL_UNIQUE_FIELDS,
-                               tp.GENS, solr_profile_definitions)
+                               tp.GENS, api_solr_profile_definitions)
 
 
 @pytest.fixture(scope='module')
-def global_basic_solr_assembler(global_solr_data_assembler,
-                                solr_profile_definitions):
+def global_api_solr_assembler(global_solr_data_assembler,
+                              api_solr_profile_definitions):
     """
     Module-scoped pytest fixture that returns a Solr test data
-    assembler. Records created via this fixture persist while all tests
-    in the module run. (For more info about using Solr data assemblers,
-    see the SolrTestDataAssemblerFactory class in
+    assembler for API tests. Records created via this fixture persist
+    while all tests in the module run. (For more info about using Solr
+    data assemblers, see the SolrTestDataAssemblerFactory class in
     utils.test_helpers.fixture_factories.)
     """
     return global_solr_data_assembler(tp.SOLR_TYPES, tp.GLOBAL_UNIQUE_FIELDS,
-                                      tp.GENS, solr_profile_definitions)
+                                      tp.GENS, api_solr_profile_definitions)
+
+
+@pytest.fixture(scope='function')
+def export_solr_assembler(solr_data_assembler,
+                          export_solr_profile_definitions):
+    """
+    Function-scoped pytest fixture that returns a Solr test data
+    assembler for use in export tests. Records created via this fixture
+    within a test function are deleted when the test function finishes.
+    (For more info about using Solr data assemblers, see the
+    SolrTestDataAssemblerFactory class in
+    utils.test_helpers.fixture_factories.)
+    """
+    return solr_data_assembler(tp.SOLR_TYPES, tp.GLOBAL_UNIQUE_FIELDS,
+                               tp.GENS, export_solr_profile_definitions)
+
+
+@pytest.fixture(scope='module')
+def global_export_solr_assembler(global_solr_data_assembler,
+                                 export_solr_profile_definitions):
+    """
+    Module-scoped pytest fixture that returns a Solr test data
+    assembler for use in export tests. Records created via this fixture
+    persist while all tests in the module run. (For more info about
+    using Solr data assemblers, see the SolrTestDataAssemblerFactory
+    class in utils.test_helpers.fixture_factories.)
+    """
+    return global_solr_data_assembler(tp.SOLR_TYPES, tp.GLOBAL_UNIQUE_FIELDS,
+                                      tp.GENS, export_solr_profile_definitions)
 
 
 @pytest.fixture
@@ -717,14 +782,14 @@ def assert_deleted_records_are_not_indexed(assert_records_are_indexed,
 # API App related fixtures
 
 @pytest.fixture(scope='module')
-def api_solr_env(global_basic_solr_assembler):
+def api_solr_env(global_api_solr_assembler):
     """
     Pytest fixture that generates and populates Solr with some random
     background test data for API integration tests. Fixture is module-
     scoped, so test data is regenerated each time the test module runs,
     NOT between tests.
     """
-    assembler = global_basic_solr_assembler
+    assembler = global_api_solr_assembler
     gens = assembler.gen_factory
     loc_recs = assembler.make('location', 10)
     itype_recs = assembler.make('itype', 10)

@@ -129,22 +129,26 @@ def export_and_monitor(global_new_export_instance, django_db_blocker):
     return _export_and_monitor
 
 
+haystack_conn = settings.EXPORTER_HAYSTACK_CONNECTIONS['ItemsToSolr']
+discover_conn = settings.EXPORTER_HAYSTACK_CONNECTIONS['BibsToSolr']
+
+
 # TESTS
 
 @pytest.mark.parametrize('exp_type, exp_filter, options, num_expected_batches, '
                          'num_expected_chunks, exp_solr_results, wait_limit',
 [
-    ('LocationsToSolr', 'full_export', {}, 1, 1, {'haystack': 131}, 30),
-    ('ItypesToSolr', 'full_export', {}, 1, 1, {'haystack': 100}, 30),
-    ('ItemStatusesToSolr', 'full_export', {}, 1, 1, {'haystack': 22}, 30),
-    ('AllMetadataToSolr', 'full_export', {}, 1, 3, {'haystack': 253}, 30),
-    ('ItemsToSolr', 'full_export', {}, 1, 2, {'haystack': 269}, 30),
-    ('EResourcesToSolr', 'full_export', {}, 1, 2, {'haystack': 1}, 30),
-    ('BibsToSolr', 'full_export', {}, 1, 2, {settings.BL_CONN_NAME: 261}, 30),
+    ('LocationsToSolr', 'full_export', {}, 1, 1, {haystack_conn: 131}, 30),
+    ('ItypesToSolr', 'full_export', {}, 1, 1, {haystack_conn: 100}, 30),
+    ('ItemStatusesToSolr', 'full_export', {}, 1, 1, {haystack_conn: 22}, 30),
+    ('AllMetadataToSolr', 'full_export', {}, 1, 3, {haystack_conn: 253}, 30),
+    ('ItemsToSolr', 'full_export', {}, 1, 2, {haystack_conn: 269}, 30),
+    ('EResourcesToSolr', 'full_export', {}, 1, 2, {haystack_conn: 1}, 30),
+    ('BibsToSolr', 'full_export', {}, 1, 2, {discover_conn: 261}, 30),
     ('ItemsBibsToSolr', 'full_export', {}, 1, 2,
-     {'haystack': 269, settings.BL_CONN_NAME: 260}, 30),
+     {haystack_conn: 269, discover_conn: 260}, 30),
     ('BibsAndAttachedToSolr', 'full_export', {}, 1, 4,
-     {'haystack': 269, settings.BL_CONN_NAME: 261}, 30),
+     {haystack_conn: 269, discover_conn: 261}, 30),
 ])
 def test_export_tasks(exp_type, exp_filter, options, num_expected_chunks,
                       num_expected_batches, exp_solr_results, wait_limit,

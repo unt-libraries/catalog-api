@@ -18,7 +18,7 @@ import pytest
 #    assert_deleted_records_are_not_indexed
 #
 # django/sierra/shelflist/tests/conftest.py:
-#    shelflist_solr_assembler
+#    shelflist_export_solr_assembler
 
 pytestmark = pytest.mark.django_db(databases=['default', 'sierra'])
 
@@ -114,7 +114,7 @@ def test_itemstosolr_records_to_solr(exporter_class, record_sets, new_exporter,
 @pytest.mark.deletions
 @pytest.mark.do_export
 def test_itemstosolr_delete_records(exporter_class, record_sets, new_exporter,
-                                    shelflist_solr_assembler,
+                                    shelflist_export_solr_assembler,
                                     assert_records_are_indexed,
                                     assert_deleted_records_are_not_indexed):
     """
@@ -123,8 +123,9 @@ def test_itemstosolr_delete_records(exporter_class, record_sets, new_exporter,
     """
     records = record_sets['item_del_set']
     data = [(r.id, {'record_number': r.get_iii_recnum()}) for r in records]
-    shelflist_solr_assembler.load_static_test_data('shelflistitem', data,
-                                                   id_field='id')
+    shelflist_export_solr_assembler.load_static_test_data(
+        'shelflistitem', data, id_field='id'
+    )
 
     expclass = exporter_class('ItemsToSolr')
     exporter = new_exporter(expclass, 'full_export', 'waiting')
@@ -139,7 +140,7 @@ def test_itemstosolr_delete_records(exporter_class, record_sets, new_exporter,
 @pytest.mark.exports
 @pytest.mark.do_export
 def test_itemstosolr_exps_keep_user_fields(exporter_class, new_exporter,
-                                           shelflist_solr_assembler,
+                                           shelflist_export_solr_assembler,
                                            sierra_full_object_set,
                                            get_records_from_index):
     """
@@ -152,8 +153,9 @@ def test_itemstosolr_exps_keep_user_fields(exporter_class, new_exporter,
     ufields = ['inventory_date', 'shelf_status', 'flags', 'inventory_notes']
     records = sierra_full_object_set('ItemRecord').order_by('pk')[0:6]
     data = [(r.pk, {'record_number': i}) for i, r in enumerate(records)]
-    shelflist_solr_assembler.load_static_test_data('shelflistitem', data,
-                                                   id_field='id')
+    shelflist_export_solr_assembler.load_static_test_data(
+        'shelflistitem', data, id_field='id'
+    )
     expclass = exporter_class('ItemsToSolr')
     exporter = new_exporter(expclass, 'full_export', 'waiting')
 
@@ -178,13 +180,16 @@ def test_itemstosolr_exps_keep_user_fields(exporter_class, new_exporter,
             assert pre_result.get(uf, None) == post_result.get(uf, None)
 
 
+# NOTE: Do not remove 'solr_conns' from the below test's fixture list.
+# It is not used in the test, but this is what assures that Solr gets
+# cleared out when the test finishes.
 @pytest.mark.shelflist
 @pytest.mark.exports
 @pytest.mark.return_vals
 def test_itemstosolr_export_returns_lcodes(exporter_class,
                                            sierra_full_object_set,
                                            new_exporter,
-                                           setattr_model_instance):
+                                           setattr_model_instance, solr_conns):
     """
     The shelflist app ItemsToSolr `export_records` method should return
     a vals structure containing a `seen_lcodes` list, or list of unique
@@ -209,7 +214,7 @@ def test_itemstosolr_export_returns_lcodes(exporter_class,
 @pytest.mark.return_vals
 def test_itemstosolr_del_returns_lcodes(exporter_class, sierra_full_object_set,
                                         new_exporter,
-                                        shelflist_solr_assembler):
+                                        shelflist_export_solr_assembler):
     """
     The shelflist app ItemsToSolr `delete_records` method should return
     a vals structure containing a `seen_lcodes` list, or list of unique
@@ -225,8 +230,9 @@ def test_itemstosolr_del_returns_lcodes(exporter_class, sierra_full_object_set,
         expected_lcodes.add(lcode)
         data.append((rec.id, {'record_number': rec.get_iii_recnum(),
                      'location_code': lcode}))
-    shelflist_solr_assembler.load_static_test_data('shelflistitem', data,
-                                                   id_field='id')
+    shelflist_export_solr_assembler.load_static_test_data(
+        'shelflistitem', data, id_field='id'
+    )
 
     expclass = exporter_class('ItemsToSolr')
     exporter = new_exporter(expclass, 'full_export', 'waiting')
@@ -261,7 +267,8 @@ def test_itemstosolr_compile_vals(results, expected, exporter_class,
 @pytest.mark.shelflist
 @pytest.mark.callback
 def test_itemstosolr_shelflist_manifests(exporter_class, new_exporter,
-                                         shelflist_solr_assembler, redis_obj):
+                                         shelflist_export_solr_assembler,
+                                         redis_obj):
     """
     The shelflist app ItemsToSolr `final_callback` method should build
     or rebuild the shelflist manifest for each location provided in the
@@ -317,8 +324,9 @@ def test_itemstosolr_shelflist_manifests(exporter_class, new_exporter,
             solr_data.append((pk, {'location_code': lcode,
                              'call_number_sort': cn, 'volume_sort': vol,
                                    'copy_number': copy, 'call_number_type': 'lc'}))
-    shelflist_solr_assembler.load_static_test_data('shelflistitem', solr_data,
-                                                   id_field='id')
+    shelflist_export_solr_assembler.load_static_test_data(
+        'shelflistitem', solr_data, id_field='id'
+    )
 
     # Run `final_callback`, passing the appropriate location codes to
     # update shelflistitem manifests for via vals['seen_lcodes'].
@@ -337,11 +345,15 @@ def test_itemstosolr_shelflist_manifests(exporter_class, new_exporter,
         assert redis_obj(key).get() == expected_shelflist
 
 
+# NOTE: Do not remove 'solr_conns' from the below test's fixture list.
+# It is not used in the test, but this is what assures that Solr gets
+# cleared out when the test finishes.
 @pytest.mark.shelflist
 @pytest.mark.callback
 def test_bibsandattached_updates_shelflist_mf(exporter_class, new_exporter,
                                               sierra_full_object_set,
-                                              setattr_model_instance, mocker):
+                                              setattr_model_instance,
+                                              solr_conns, mocker):
     """
     When BibsAndAttachedToSolr runs and uses the shelflist ItemsToSolr
     as a child, the `final_callback` on ItemsToSolr should be triggered

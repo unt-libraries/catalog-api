@@ -59,13 +59,25 @@ services:
     user: ${USERID}:${GROUPID}
     command: solr-fg
 
-  solr-test:
+  solr-test-for-update:
     image: solr:9.1.1
     volumes:
-      - ${SOLR_TEST_DDPATH}:/var/solr
+      - ${SOLR_TEST_FOR_UPDATE_DDPATH}:/var/solr
       - ${SOLRCONF_PATH}:${SOLRCONF_DOCKER_MOUNT_PATH}
     ports:
-      - "${TEST_SOLR_HOST:-127.0.0.1}:${TEST_SOLR_PORT:-8883}:8983"
+      - "127.0.0.1:${TEST_SOLR_PORT_FOR_UPDATE:-8883}:8983"
+    networks:
+      - testing
+    user: ${USERID}:${GROUPID}
+    command: solr-fg
+
+  solr-test-for-search:
+    image: solr:9.1.1
+    volumes:
+      - ${SOLR_TEST_FOR_SEARCH_DDPATH}:/var/solr
+      - ${SOLRCONF_PATH}:${SOLRCONF_DOCKER_MOUNT_PATH}
+    ports:
+      - "127.0.0.1:${TEST_SOLR_PORT_FOR_SEARCH:-8884}:8983"
     networks:
       - testing
     user: ${USERID}:${GROUPID}
@@ -202,7 +214,8 @@ services:
     depends_on:
       - default-db-test
       - sierra-db-test
-      - solr-test
+      - solr-test-for-update
+      - solr-test-for-search
       - redis-appdata-test
       - celery-worker-test
     volumes:
@@ -212,7 +225,7 @@ services:
     working_dir: ${PROJECT_DOCKER_WORKDIR_PATH}
     networks:
       - testing
-    entrypoint: wait-for-it.sh -t 30 default-db-test:3306 -- wait-for-it.sh -t 30 sierra-db-test:5432 -- wait-for-it.sh -t 30 solr-test:8983 -- wait-for-it.sh -t 30 redis-appdata-test:6379 -- pytest
+    entrypoint: wait-for-it.sh -t 30 default-db-test:3306 -- wait-for-it.sh -t 30 sierra-db-test:5432 -- wait-for-it.sh -t 30 solr-test-for-update:8983 -- wait-for-it.sh -t 30 solr-test-for-search:8983 -- wait-for-it.sh -t 30 redis-appdata-test:6379 -- pytest
 
   live-db-test:
     build:

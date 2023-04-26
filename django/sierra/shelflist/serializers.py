@@ -11,6 +11,7 @@ from api import serializers as api_serializers
 from api.simpleserializers import SimpleField, SimpleObjectInterface,\
                                   SimpleSerializerWithLookups
 from api.uris import APIUris
+from django.conf import settings
 from utils import solr
 from utils.redisobjs import RedisObject
 
@@ -21,6 +22,9 @@ logger = logging.getLogger('sierra.custom')
 
 
 class ShelflistItemSerializer(SimpleSerializerWithLookups):
+    _save_conn = settings.REST_VIEWS_HAYSTACK_CONNECTIONS['ShelflistItems']
+    _lookup_conn = settings.REST_VIEWS_HAYSTACK_CONNECTIONS['ItemStatuses']
+
     class LinksField(SimpleField):
         def present(self, obj_data):
             req = obj_data['__context'].get('request', None)
@@ -90,7 +94,9 @@ class ShelflistItemSerializer(SimpleSerializerWithLookups):
         self.refresh_status()
 
     def refresh_status(self):
-        qs = solr.Queryset().filter(type='ItemStatus').only('code', 'label')
+        qs = solr.Queryset(
+            using=self._lookup_conn
+        ).filter(type='ItemStatus').only('code', 'label')
         results = [i for i in qs]
         lookup = {}
         for r in results:
@@ -111,6 +117,10 @@ class ShelflistItemSerializer(SimpleSerializerWithLookups):
         else:
             obj_data['status'] = self.get_lookup_value('status', st_code)
         return obj_data
+
+    def save(self, *args, **kwargs):
+        kwargs['using'] = self._save_conn
+        super().save(*args, **kwargs)
 
 
 class ItemSerializer(api_serializers.ItemSerializer):
