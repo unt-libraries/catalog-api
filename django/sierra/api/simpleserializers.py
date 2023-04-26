@@ -518,16 +518,13 @@ class SimpleSerializerWithLookups(SimpleSerializer):
         Child classes can implement `refresh_{lookup}` methods for
         refreshing the cache of each lookup from the source.
         """
-        try:
-            return self._lookup_cache[fname][lookup_code]
-        except KeyError:
-            pass
-        try:
-            refresh_lookup = getattr(self, 'refresh_{}'.format(fname))
-        except AttributeError:
-            refresh_lookup = self.cache_all_lookups
-        refresh_lookup()
-        return self._lookup_cache.get(fname, {}).get(lookup_code)
+        val = self._lookup_cache.get(fname, {}).get(lookup_code)
+        if val is None:
+            if lookup_code is None:
+                return None
+            getattr(self, f'refresh_{fname}', 'cache_all_lookups')()
+            val = self._lookup_cache.get(fname, {}).get(lookup_code)
+        return val
 
     def cache_field(self, fname, pk, value):
         if fname in self._db_cache:
@@ -545,4 +542,3 @@ class SimpleSerializerWithLookups(SimpleSerializer):
         if self.obj_interface.obj_is_many(obj):
             self.cache_all()
         return super().to_representation(obj)
-
