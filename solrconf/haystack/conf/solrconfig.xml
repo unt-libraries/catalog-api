@@ -766,6 +766,50 @@
     </lst>
   </requestHandler>
 
+  <!-- Solr Replication
+
+       The SolrReplicationHandler supports replicating indexes from a
+       "leader" used for indexing and "followers" used for queries.
+
+  -->
+
+  <!-- ### UNTL CONFIG NOTE ###
+
+    We use replication in production but not staging or development.
+    The below ReplicationHandler definitions are here to configure
+    replication in production.
+
+    For production nodes, we simply uncomment the appropriate block
+    for each leader and follower, and we add the "leaderUrl" for
+    followers. (This happens automatically via Ansible.) The settings
+    that appear here are otherwise untouched. So you can make changes
+    here and redeploy to get them into production.
+    
+  -->
+
+  <!-- Replication Leader config  -->
+  <!--
+    <requestHandler name="/replication" class="solr.ReplicationHandler">
+      <lst name="leader">
+        <str name="replicateAfter">commit</str>
+      </lst>
+      <int name="maxNumberOfBackups">2</int>
+      <lst name="invariants">
+        <str name="maxWriteMBPerSec">16</str>
+      </lst>
+    </requestHandler>
+  -->
+
+  <!-- Replication Follower config -->
+  <!--
+    <requestHandler name="/replication" class="solr.ReplicationHandler">
+      <lst name="follower">
+        <str name="leaderUrl"></str>
+        <str name="pollInterval">00:01:00</str>
+      </lst>
+    </requestHandler>
+  -->
+
   <!-- Search Components
 
        Search components are registered to SolrCore and used by
