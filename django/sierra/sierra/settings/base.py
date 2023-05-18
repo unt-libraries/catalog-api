@@ -277,27 +277,27 @@ SOLR_HOST = get_env_variable('SOLR_HOST', '127.0.0.1')
 solr_base_url = f'http://{SOLR_HOST}:{SOLR_PORT}/solr'
 
 SOLR_HAYSTACK_URL_FOR_UPDATE = get_env_variable(
-    'SOLR_HAYSTACK_UPDATE_URL',
+    'SOLR_HAYSTACK_URL_FOR_UPDATE',
     f'{solr_base_url}/haystack'
 )
 SOLR_HAYSTACK_URL_FOR_SEARCH = get_env_variable(
-    'SOLR_HAYSTACK_SEARCH_URL',
+    'SOLR_HAYSTACK_URL_FOR_SEARCH',
     f'{solr_base_url}/haystack'
 )
 SOLR_DISCOVER01_URL_FOR_UPDATE = get_env_variable(
-    'SOLR_DISCOVER01_UPDATE_URL',
+    'SOLR_DISCOVER01_URL_FOR_UPDATE',
     f'{solr_base_url}/discover-01'
 )
 SOLR_DISCOVER01_URL_FOR_SEARCH = get_env_variable(
-    'SOLR_DISCOVER01_SEARCH_URL',
+    'SOLR_DISCOVER01_URL_FOR_SEARCH',
     f'{solr_base_url}/discover-01'
 )
 SOLR_DISCOVER02_URL_FOR_UPDATE = get_env_variable(
-    'SOLR_DISCOVER02_UPDATE_URL',
+    'SOLR_DISCOVER02_URL_FOR_UPDATE',
     f'{solr_base_url}/discover-02'
 )
 SOLR_DISCOVER02_URL_FOR_SEARCH = get_env_variable(
-    'SOLR_DISCOVER02_SEARCH_URL',
+    'SOLR_DISCOVER02_URL_FOR_SEARCH',
     f'{solr_base_url}/discover-02'
 )
 
