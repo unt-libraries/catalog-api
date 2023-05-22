@@ -61,7 +61,7 @@ ITEM_RULES = {
                 'sdzmr', 'sdzrf', 'sdzrs', 'sdzsd', 'xdmic', 'xdmp', 'xdoc'
             ),
             'Frisco Collection': (
-                'fip', 'fl', 'flrs', 'frsco', 'flmak', 'flind', 'flix'
+                'fip', 'fl', 'flrs', 'frsco', 'flmak', 'flind', 'flix', 'flgrn'
             ),
             'Media Library': ('czm', 'czmrf', 'czmrs', 'czwww', 'xmed'),
             'Music Library': (
