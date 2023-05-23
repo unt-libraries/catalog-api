@@ -2274,3 +2274,23 @@ def test_callnumbermatches_list(test_data, search, expected, api_settings,
     response = do_filter_search(resource_url, search, api_client)
     assert response.data == expected
 
+
+def test_single_resource_lookup_caching(api_settings,
+                                        assemble_api_test_records,
+                                        api_client):
+    """
+    Resources that use the SimpleSerializerWithLookups class need to
+    perform said lookup correctly even when accessing the single-
+    resource detail view.
+    """
+    items_profile = RESOURCE_METADATA['items']['profile']
+    items_id_field = RESOURCE_METADATA['items']['solr_id_field']
+    locations_profile = RESOURCE_METADATA['locations']['profile']
+    locations_id_field = RESOURCE_METADATA['locations']['solr_id_field']
+    loc_data = [('TLOC', {'label': 'TEST LOCATION'})]
+    item_data = [('i9999999', {'location_code': 'TLOC'})]
+    assemble_api_test_records(locations_profile, locations_id_field, loc_data)
+    assemble_api_test_records(items_profile, items_id_field, item_data)
+    response = api_client.get(f'{API_ROOT}items/i9999999')
+    assert response.data['locationCode'] == 'TLOC'
+    assert response.data['location'] == 'TEST LOCATION'

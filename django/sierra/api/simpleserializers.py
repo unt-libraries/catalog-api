@@ -522,7 +522,7 @@ class SimpleSerializerWithLookups(SimpleSerializer):
         if val is None:
             if lookup_code is None:
                 return None
-            getattr(self, f'refresh_{fname}', 'cache_all_lookups')()
+            getattr(self, f'refresh_{fname}', self.cache_all_lookups)()
             val = self._lookup_cache.get(fname, {}).get(lookup_code)
         return val
 
