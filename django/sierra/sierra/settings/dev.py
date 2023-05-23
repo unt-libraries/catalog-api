@@ -11,6 +11,12 @@ DEBUG = True
 #
 # LOGGING = {}
 
+LOGGING['loggers']['django'] = {
+    'handlers': ['console'],
+    'level': 'INFO',
+    'propagate': False
+}
+
 ALLOWED_HOSTS += ['localhost', '127.0.0.1']
 
 DEBUG_TOOLBAR_PATCH_SETTINGS = False
