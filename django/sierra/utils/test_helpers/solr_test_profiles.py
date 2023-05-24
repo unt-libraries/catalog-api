@@ -527,7 +527,7 @@ def choose_and_link_to_parent_bib(bib_rec_pool):
 ITEM_GENS = (
     ('django_ct', GENS.static('base.itemrecord')),
     ('id', GENS(auto_increment('i', 10000001))),
-    ('django_id', GENS(copy_field('id'))),
+    ('django_id', GENS(auto_increment(start=1))),
     ('haystack_id', GENS(join_fields(('django_ct', 'django_id'), '.'))),
     ('type', GENS.static('Item')),
     ('suppressed', GENS.static(False)),
@@ -588,7 +588,7 @@ ERES_FIELDS = (
 ERES_GENS = (
     ('django_ct', GENS.static('base.resourcerecord')),
     ('id', GENS(auto_increment('e', 10000001))),
-    ('django_id', GENS(copy_field('id'))),
+    ('django_id', GENS(auto_increment(start=1000001))),
     ('haystack_id', GENS(join_fields(('django_ct', 'django_id'), '.'))),
     ('type', GENS.static('eResource')),
     ('suppressed', GENS.static(False)),
