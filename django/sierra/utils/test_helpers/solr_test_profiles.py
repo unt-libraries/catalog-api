@@ -453,7 +453,7 @@ class Link(object):
     @classmethod
     def from_item_to_bib(cls, item, bib):
         item_json = {
-            'i': item['id'],
+            'i': item['id'][1:],
             'b': item.get('barcode'),
             'c': item.get('call_number'),
             'v': item.get('volume'),

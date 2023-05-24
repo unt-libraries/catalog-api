@@ -265,7 +265,7 @@ class BibSerializer(SimpleSerializer):
                     ret['items'] = [{
                         'href': APIUris.get_uri(
                             'items-detail', req=req, absolute=True,
-                            v=view.api_version, id=item['i']
+                            v=view.api_version, id=f"i{item['i']}"
                         )
                     } for item in items]
             return ret
