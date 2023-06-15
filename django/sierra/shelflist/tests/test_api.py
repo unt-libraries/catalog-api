@@ -500,9 +500,14 @@ def send_api_data(apiuser_with_custom_defaults, simple_sig_auth_credentials):
 
     def _send_api_data(api_client, url, req_body, method, content_type=None):
         test_cls = apiuser_with_custom_defaults()
-        api_user = test_cls.objects.create_user('test', 'sec', password='pw',
-                                                email='test@test.com',
-                                                first_name='F', last_name='L')
+        api_user_results = test_cls.objects.filter(user__username='test')
+        if len(api_user_results) > 0:
+            api_user = api_user_results[0]
+        else:
+            api_user = test_cls.objects.create_user(
+                'test', 'sec', password='pw', email='test@test.com',
+                first_name='F', last_name='L'
+            )
         content_type = content_type or content_types[method]
         api_client.credentials(**simple_sig_auth_credentials(api_user,
                                                              req_body))
@@ -771,6 +776,63 @@ def test_shelflistitem_update_items(method, api_settings,
     for fname in unwrtable:
         assert after.data[fname] == try_item[fname]
         assert after.data[fname] == before.data[fname]
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize('method', ['put', 'patch'])
+def test_shelflistitem_delete_data(method, api_settings,
+                                   assemble_custom_shelflist, redis_obj,
+                                   shelflist_solr_env,
+                                   filter_serializer_fields_by_opt,
+                                   derive_updated_resource, send_api_data,
+                                   get_shelflist_urls, api_client, settings):
+    """
+    Updating a writeable field and providing a null value (None) should
+    delete the stored value.
+    """
+    test_lcode, test_id = '1test', 'i99999999'
+    _, _, trecs = assemble_custom_shelflist(test_lcode, [(test_id, {})])
+    using = settings.REST_VIEWS_HAYSTACK_CONNECTIONS['ShelflistItems']
+    index = ShelflistItemIndex(using=using)
+    manifest = index.get_location_manifest(test_lcode)
+    redis_key = '{}:{}'.format(REDIS_SHELFLIST_PREFIX, test_lcode)
+    redis_obj(redis_key).set(manifest)
+    url = '{}{}'.format(get_shelflist_urls(trecs)[test_lcode], test_id)
+    before = api_client.get(url)
+    serializer = before.renderer_context['view'].get_serializer()
+    writeable = filter_serializer_fields_by_opt(serializer, 'writeable', True)
+    unwriteable = filter_serializer_fields_by_opt(
+        serializer, 'writeable', False
+    )
+    profile = shelflist_solr_env.profiles['shelflistitem']
+    item_add_data = derive_updated_resource(before.data, serializer, profile,
+                                            which_fields=writeable)
+    if method == 'put':
+        req_body = ujson.dumps(item_add_data)
+    elif method == 'patch':
+        req_body = jsonpatch.make_patch(before.data, item_add_data)
+    add_resp = send_api_data(api_client, url, req_body, method)
+    item_del_data = derive_updated_resource(before.data, serializer, profile,
+                                            which_fields=[])
+    after_add = api_client.get(url)
+    item_del_data.update({fname: None for fname in writeable})
+    if method == 'put':
+        req_body = ujson.dumps(item_del_data)
+    elif method == 'patch':
+        req_body = jsonpatch.make_patch(after_add.data, item_del_data)
+    del_resp = send_api_data(api_client, url, req_body, method)
+    after_del = api_client.get(url)
+
+    assert del_resp.status_code == 200
+    assert del_resp.data['links']['self']['href'].endswith(url)
+    assert del_resp.data['links']['self']['id'] == test_id
+
+    for fname in writeable:
+        assert not after_del.data[fname]
+        assert after_add.data[fname] != after_del.data[fname]
+
+    for fname in unwriteable:
+        assert before.data[fname] == after_del.data[fname]
 
 
 @pytest.mark.django_db

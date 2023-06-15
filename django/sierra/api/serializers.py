@@ -69,7 +69,7 @@ class SimpleDateTimeField(SimpleField):
         raise ValueError('Unknown datetime conversion.')
 
     def convert_to_source(self, value, client_data):
-        dt_str = value.strftime('%Y-%m-%dT%H:%M:%SZ')
+        dt_str = value.strftime('%Y-%m-%dT%H:%M:%SZ') if value else None
         return super().convert_to_source(dt_str, client_data)
 
 
