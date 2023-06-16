@@ -6,6 +6,7 @@ from __future__ import unicode_literals
 
 import fnmatch
 import logging
+import re
 
 import ujson
 from django.core.exceptions import ObjectDoesNotExist
@@ -402,9 +403,14 @@ class ItemIndex(CustomQuerySetIndex, indexes.Indexable):
     def prepare_parent_bib_main_author(self, obj):
         try:
             bib = obj.bibrecorditemrecordlink_set.all()[0].bib_record
-            return bib.bibrecordproperty_set.all()[0].best_author
+            author = bib.bibrecordproperty_set.all()[0].best_author
         except IndexError:
             return None
+        # A few years ago we added $0 with URIs to many of our "author"
+        # fields in the catalog. Apparently Sierra's 'best_author'
+        # field retains this. Generally we prefer that this be stripped
+        # out.
+        return re.sub(r' https?://\S*', '', author)
 
     def prepare_parent_bib_publication_year(self, obj):
         try:
