@@ -308,12 +308,32 @@ HAYSTACK_CONNECTIONS = {
         'URL': SOLR_HAYSTACK_URL_FOR_UPDATE,
         'EXCLUDED_INDEXES': ['base.search_indexes.ItemIndex'],
         'TIMEOUT': 60 * 20,
+        'MANUAL_REPLICATION': get_env_variable(
+            'SOLR_HAYSTACK_MANUAL_REPLICATION', False
+        ),
+        'REPLICATION_HANDLER': get_env_variable(
+            'SOLR_HAYSTACK_REPLICATION_HANDLER', 'replication'
+        ),
+        'FOLLOWER_URLS': get_env_variable(
+            'SOLR_HAYSTACK_FOLLOWER_URLS',
+            SOLR_HAYSTACK_URL_FOR_SEARCH
+        ).split(','),
     },
     'haystack|update': {
         'ENGINE': 'sierra.solr_backend.CustomSolrEngine',
         'URL': SOLR_HAYSTACK_URL_FOR_UPDATE,
         'EXCLUDED_INDEXES': ['base.search_indexes.ItemIndex'],
         'TIMEOUT': 60 * 20,
+        'MANUAL_REPLICATION': get_env_variable(
+            'SOLR_HAYSTACK_MANUAL_REPLICATION', False
+        ),
+        'REPLICATION_HANDLER': get_env_variable(
+            'SOLR_HAYSTACK_REPLICATION_HANDLER', 'replication'
+        ),
+        'FOLLOWER_URLS': get_env_variable(
+            'SOLR_HAYSTACK_FOLLOWER_URLS',
+            SOLR_HAYSTACK_URL_FOR_SEARCH
+        ).split(','),
     },
     'haystack|search': {
         'ENGINE': 'sierra.solr_backend.CustomSolrEngine',
@@ -325,6 +345,16 @@ HAYSTACK_CONNECTIONS = {
         'ENGINE': 'sierra.solr_backend.CustomSolrEngine',
         'URL': SOLR_DISCOVER01_URL_FOR_UPDATE,
         'TIMEOUT': 60 * 20,
+        'MANUAL_REPLICATION': get_env_variable(
+            'SOLR_DISCOVER01_MANUAL_REPLICATION', False
+        ),
+        'REPLICATION_HANDLER': get_env_variable(
+            'SOLR_DISCOVER01_REPLICATION_HANDLER', 'replication'
+        ),
+        'FOLLOWER_URLS': get_env_variable(
+            'SOLR_DISCOVER01_FOLLOWER_URLS',
+            SOLR_DISCOVER01_URL_FOR_SEARCH
+        ).split(','),
     },
     'discover-01|search': {
         'ENGINE': 'sierra.solr_backend.CustomSolrEngine',
@@ -335,6 +365,16 @@ HAYSTACK_CONNECTIONS = {
         'ENGINE': 'sierra.solr_backend.CustomSolrEngine',
         'URL': SOLR_DISCOVER02_URL_FOR_UPDATE,
         'TIMEOUT': 60 * 20,
+        'MANUAL_REPLICATION': get_env_variable(
+            'SOLR_DISCOVER02_MANUAL_REPLICATION', False
+        ),
+        'REPLICATION_HANDLER': get_env_variable(
+            'SOLR_DISCOVER02_REPLICATION_HANDLER', 'replication'
+        ),
+        'FOLLOWER_URLS': get_env_variable(
+            'SOLR_DISCOVER02_FOLLOWER_URLS',
+            SOLR_DISCOVER02_URL_FOR_SEARCH
+        ).split(','),
     },
     'discover-02|search': {
         'ENGINE': 'sierra.solr_backend.CustomSolrEngine',

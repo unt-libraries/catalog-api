@@ -160,7 +160,7 @@ class CustomQuerySetIndex(indexes.SearchIndex):
         queryset = self.index_queryset() if queryset is None else queryset
         if backend is not None:
             ids_to_delete = [self.get_qualified_id(r) for r in queryset]
-            backend.conn.delete(id=ids_to_delete, commit=commit)
+            backend.delete(ids=ids_to_delete, commit=commit)
 
     def clear(self, using=None, commit=True):
         backend = self.get_backend(using)
@@ -180,7 +180,7 @@ class CustomQuerySetIndex(indexes.SearchIndex):
     def commit(self, using=None):
         backend = self.get_backend(using)
         if backend is not None:
-            backend.conn.commit()
+            backend.commit()
 
     def optimize(self, using=None):
         backend = self.get_backend(using)

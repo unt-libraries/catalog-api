@@ -14,6 +14,7 @@ import pysolr
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
 from six import iteritems, text_type
+import ujson
 
 
 # set up logger, for debugging
@@ -28,6 +29,34 @@ def connect(url=None, using='default', **kwargs):
             raise ImproperlyConfigured('Haystack connection {} does not '
                                        'exist.'.format(using))
     return pysolr.Solr(url, always_commit=True, **kwargs)
+
+
+def commit(leader_conn, using, specify_leader_url=False):
+    """
+    Commit to Solr AND trigger manual replication, if desired.
+
+    This function wraps and is used in place of the usual 'commit'
+    method on the pysolr object. If manual Solr replication is
+    configured for this connection in settings.HAYSTACK_CONNECTIONS,
+    then it triggers each follower to replicate immediately after a
+    commit on the leader. (Otherwise, it only performs the commit.)
+    """
+    leader_conn.commit()
+    if settings.HAYSTACK_CONNECTIONS[using].get('MANUAL_REPLICATION', False):
+        follower_urls = settings.HAYSTACK_CONNECTIONS[using]['FOLLOWER_URLS']
+        handler = settings.HAYSTACK_CONNECTIONS[using]['REPLICATION_HANDLER']
+        lurl = f'&leaderUrl={leader_conn.url}' if specify_leader_url else ''
+        req_path = f'{handler}?command=fetchindex{lurl}'
+        for url in follower_urls:
+            follower_conn = connect(url=url)
+            err_msg = f'Cannot replicate to index at {follower_conn.url}:'
+        try:
+            resp = ujson.loads(follower_conn._send_request('GET', req_path))
+        except pysolr.SolrError as e:
+            raise ImproperlyConfigured(f'{err_msg} {e}')
+        else:
+            if resp['status'] == 'ERROR':
+                raise ImproperlyConfigured(f"{err_msg} {resp['message']}")
 
 
 def format_datetime_for_solr(dt_obj):
@@ -62,7 +91,10 @@ class Result(dict):
             del(self['_version_'])
         except KeyError:
             pass
-        conn.add([self], **kwargs)
+        wants_commit = kwargs.pop('commit', True)
+        conn.add([self], commit=False, **kwargs)
+        if wants_commit:
+            commit(conn, using)
 
 
 class Queryset(object):

@@ -143,7 +143,7 @@ def set_item_fields(locations, data={}, default={}, batch_size=1000,
             qs._conn.add(batch, commit=False)
 
         # A final hard commit after each location
-        qs._conn.commit()
+        solr.commit(qs._conn, using)
 
 
 def clear_inventory_locations(locations, batch_size=1000, using='haystack',
