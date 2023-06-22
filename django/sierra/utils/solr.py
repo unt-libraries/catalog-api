@@ -50,13 +50,15 @@ def commit(leader_conn, using, specify_leader_url=False):
         for url in follower_urls:
             follower_conn = connect(url=url)
             err_msg = f'Cannot replicate to index at {follower_conn.url}:'
-        try:
-            resp = ujson.loads(follower_conn._send_request('GET', req_path))
-        except pysolr.SolrError as e:
-            raise ImproperlyConfigured(f'{err_msg} {e}')
-        else:
-            if resp['status'] == 'ERROR':
-                raise ImproperlyConfigured(f"{err_msg} {resp['message']}")
+            try:
+                resp = ujson.loads(
+                    follower_conn._send_request('GET', req_path)
+                )
+            except pysolr.SolrError as e:
+                raise ImproperlyConfigured(f'{err_msg} {e}')
+            else:
+                if resp['status'] == 'ERROR':
+                    raise ImproperlyConfigured(f"{err_msg} {resp['message']}")
 
 
 def format_datetime_for_solr(dt_obj):
