@@ -48,7 +48,7 @@ services:
     user: ${USERID}:${GROUPID}
 
   solr-dev:
-    image: solr:9.1.1
+    image: solr:9.2.1
     volumes:
       - ${SOLR_DEV_DDPATH}:/var/solr
       - ${SOLRCONF_PATH}:${SOLRCONF_DOCKER_MOUNT_PATH}
@@ -60,7 +60,7 @@ services:
     command: solr-fg
 
   solr-test-for-update:
-    image: solr:9.1.1
+    image: solr:9.2.1
     volumes:
       - ${SOLR_TEST_FOR_UPDATE_DDPATH}:/var/solr
       - ${SOLRCONF_PATH}:${SOLRCONF_DOCKER_MOUNT_PATH}
@@ -72,7 +72,7 @@ services:
     command: solr-fg -Dsolr.disable.allowUrls=true
 
   solr-test-for-search:
-    image: solr:9.1.1
+    image: solr:9.2.1
     volumes:
       - ${SOLR_TEST_FOR_SEARCH_DDPATH}:/var/solr
       - ${SOLRCONF_PATH}:${SOLRCONF_DOCKER_MOUNT_PATH}
