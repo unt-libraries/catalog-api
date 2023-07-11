@@ -913,6 +913,16 @@
                     etagSeed="Solr">
          <cacheControl>max-age=30, public</cacheControl>
        </httpCaching>
+    -->
+
+    <!-- If we want to use this in production, here are the settings.
+         (Uncomment to use.) -->
+
+    <!--
+       <httpCaching lastModifiedFrom="openTime"
+                    etagSeed="Solr">
+         <cacheControl>must-revalidate</cacheControl>
+       </httpCaching>
       -->
   </requestDispatcher>
 
