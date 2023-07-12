@@ -282,7 +282,7 @@
     <field name="title_sort" type="string" indexed="true" stored="false" multiValued="false" docValues="true"/>
 
     <!-- FACET FIELDS ===================================================================================== -->
-    <field name="publication_year_range_facet" type="integer" indexed="true" stored="true" multiValued="true" docValues="false"/>
+    <field name="publication_year_range_facet" type="integer" indexed="true" stored="true" multiValued="true" docValues="true"/>
     <field name="access_facet" type="string" indexed="true" stored="false" multiValued="true" docValues="false"/>
     <field name="building_facet" type="string" indexed="true" stored="false" multiValued="true" docValues="false"/>
     <field name="shelf_facet" type="string" indexed="true" stored="false" multiValued="true" docValues="false"/>
