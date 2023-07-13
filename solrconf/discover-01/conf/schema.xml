@@ -8,7 +8,8 @@
   <types>
     <fieldType name="string" class="solr.StrField" sortMissingLast="true" omitNorms="true" uninvertible="true"/>
     <fieldType name="boolean" class="solr.BoolField" sortMissingLast="true" omitNorms="true" uninvertible="true"/>
-    <fieldType name="integer" class="solr.IntPointField" sortMissingLast="true" omitNorms="true" uninvertible="true"/>
+    <fieldType name="integer" class="solr.IntPointField" sortMissingLast="true" omitNorms="true" uninvertible="false"/>
+    <fieldType name="integer_trie" class="solr.TrieIntField" sortMissingLast="true" omitNorms="true" uninvertible="true"/>
     <fieldType name="long" class="solr.LongPointField" sortMissingLast="true" omitNorms="true" uninvertible="true"/>
     <fieldType name="float" class="solr.FloatPointField" sortMissingLast="true" omitNorms="true" uninvertible="true"/>
     <fieldType name="double" class="solr.DoublePointField" sortMissingLast="true" omitNorms="true" uninvertible="true"/>
@@ -282,7 +283,7 @@
     <field name="title_sort" type="string" indexed="true" stored="false" multiValued="false" docValues="true"/>
 
     <!-- FACET FIELDS ===================================================================================== -->
-    <field name="publication_year_range_facet" type="integer" indexed="true" stored="true" multiValued="true" docValues="true"/>
+    <field name="publication_year_range_facet" type="integer_trie" indexed="true" stored="true" multiValued="true" docValues="false"/>
     <field name="access_facet" type="string" indexed="true" stored="false" multiValued="true" docValues="false"/>
     <field name="building_facet" type="string" indexed="true" stored="false" multiValued="true" docValues="false"/>
     <field name="shelf_facet" type="string" indexed="true" stored="false" multiValued="true" docValues="false"/>
