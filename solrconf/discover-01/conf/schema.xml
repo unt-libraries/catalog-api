@@ -6,14 +6,13 @@
 -->
 <schema name="discover" version="1.6">
   <types>
-    <fieldType name="string" class="solr.StrField" sortMissingLast="true" omitNorms="true" uninvertible="true"/>
-    <fieldType name="boolean" class="solr.BoolField" sortMissingLast="true" omitNorms="true" uninvertible="true"/>
+    <fieldType name="string" class="solr.StrField" sortMissingLast="true" omitNorms="true" uninvertible="false"/>
+    <fieldType name="boolean" class="solr.BoolField" sortMissingLast="true" omitNorms="true" uninvertible="false"/>
     <fieldType name="integer" class="solr.IntPointField" sortMissingLast="true" omitNorms="true" uninvertible="false"/>
-    <fieldType name="integer_trie" class="solr.TrieIntField" sortMissingLast="true" omitNorms="true" uninvertible="true"/>
-    <fieldType name="long" class="solr.LongPointField" sortMissingLast="true" omitNorms="true" uninvertible="true"/>
-    <fieldType name="float" class="solr.FloatPointField" sortMissingLast="true" omitNorms="true" uninvertible="true"/>
-    <fieldType name="double" class="solr.DoublePointField" sortMissingLast="true" omitNorms="true" uninvertible="true"/>
-    <fieldType name="date" class="solr.DatePointField" sortMissingLast="true" omitNorms="true" uninvertible="true"/>
+    <fieldType name="long" class="solr.LongPointField" sortMissingLast="true" omitNorms="true" uninvertible="false"/>
+    <fieldType name="float" class="solr.FloatPointField" sortMissingLast="true" omitNorms="true" uninvertible="false"/>
+    <fieldType name="double" class="solr.DoublePointField" sortMissingLast="true" omitNorms="true" uninvertible="false"/>
+    <fieldType name="date" class="solr.DatePointField" sortMissingLast="true" omitNorms="true" uninvertible="false"/>
 
     <fieldType name="text" class="solr.TextField" positionIncrementGap="100" uninvertible="false">
       <analyzer type="index">
@@ -283,26 +282,26 @@
     <field name="title_sort" type="string" indexed="true" stored="false" multiValued="false" docValues="true"/>
 
     <!-- FACET FIELDS ===================================================================================== -->
-    <field name="publication_year_range_facet" type="integer_trie" indexed="true" stored="true" multiValued="true" docValues="false"/>
-    <field name="access_facet" type="string" indexed="true" stored="false" multiValued="true" docValues="false"/>
-    <field name="building_facet" type="string" indexed="true" stored="false" multiValued="true" docValues="false"/>
-    <field name="shelf_facet" type="string" indexed="true" stored="false" multiValued="true" docValues="false"/>
-    <field name="collection_facet" type="string" indexed="true" stored="false" multiValued="true" docValues="false"/>
-    <field name="resource_type_facet" type="string" indexed="true" stored="false" multiValued="true" docValues="false"/>
-    <field name="media_type_facet" type="string" indexed="true" stored="false" multiValued="true" docValues="false"/>
-    <field name="languages" type="string" indexed="true" stored="true" multiValued="true" docValues="false"/>
-    <field name="author_contributor_facet" type="string" indexed="true" stored="false" multiValued="true" docValues="false"/>
-    <field name="meeting_facet" type="string" indexed="true" stored="false" multiValued="true" docValues="false"/>
-    <field name="title_series_facet" type="string" indexed="true" stored="false" multiValued="true" docValues="false"/>
-    <field name="games_ages_facet" type="string" indexed="true" stored="false" multiValued="true" docValues="false"/>
-    <field name="games_duration_facet" type="string" indexed="true" stored="false" multiValued="true" docValues="false"/>
-    <field name="games_players_facet" type="string" indexed="true" stored="false" multiValued="true" docValues="false"/>
-    <field name="subject_heading_facet" type="string" indexed="true" stored="false" multiValued="true" docValues="false"/>
-    <field name="genre_heading_facet" type="string" indexed="true" stored="false" multiValued="true" docValues="false"/>
-    <field name="topic_facet" type="string" indexed="true" stored="false" multiValued="true" docValues="false"/>
-    <field name="era_facet" type="string" indexed="true" stored="false" multiValued="true" docValues="false"/>
-    <field name="region_facet" type="string" indexed="true" stored="false" multiValued="true" docValues="false"/>
-    <field name="genre_facet" type="string" indexed="true" stored="false" multiValued="true" docValues="false"/>
+    <field name="publication_year_range_facet" type="integer" indexed="true" stored="true" multiValued="true" docValues="true"/>
+    <field name="access_facet" type="string" indexed="true" stored="false" multiValued="true" docValues="true"/>
+    <field name="building_facet" type="string" indexed="true" stored="false" multiValued="true" docValues="true"/>
+    <field name="shelf_facet" type="string" indexed="true" stored="false" multiValued="true" docValues="true"/>
+    <field name="collection_facet" type="string" indexed="true" stored="false" multiValued="true" docValues="true"/>
+    <field name="resource_type_facet" type="string" indexed="true" stored="false" multiValued="true" docValues="true"/>
+    <field name="media_type_facet" type="string" indexed="true" stored="false" multiValued="true" docValues="true"/>
+    <field name="languages" type="string" indexed="true" stored="true" multiValued="true" docValues="true"/>
+    <field name="author_contributor_facet" type="string" indexed="true" stored="false" multiValued="true" docValues="true"/>
+    <field name="meeting_facet" type="string" indexed="true" stored="false" multiValued="true" docValues="true"/>
+    <field name="title_series_facet" type="string" indexed="true" stored="false" multiValued="true" docValues="true"/>
+    <field name="games_ages_facet" type="string" indexed="true" stored="false" multiValued="true" docValues="true"/>
+    <field name="games_duration_facet" type="string" indexed="true" stored="false" multiValued="true" docValues="true"/>
+    <field name="games_players_facet" type="string" indexed="true" stored="false" multiValued="true" docValues="true"/>
+    <field name="subject_heading_facet" type="string" indexed="true" stored="false" multiValued="true" docValues="true"/>
+    <field name="genre_heading_facet" type="string" indexed="true" stored="false" multiValued="true" docValues="true"/>
+    <field name="topic_facet" type="string" indexed="true" stored="false" multiValued="true" docValues="true"/>
+    <field name="era_facet" type="string" indexed="true" stored="false" multiValued="true" docValues="true"/>
+    <field name="region_facet" type="string" indexed="true" stored="false" multiValued="true" docValues="true"/>
+    <field name="genre_facet" type="string" indexed="true" stored="false" multiValued="true" docValues="true"/>
 
     <!-- For future use, for CN / browse-the-shelf type features -->
     <!-- <field name="call_numbers_facet" type="string" indexed="true" stored="false" multiValued="true"/> -->
