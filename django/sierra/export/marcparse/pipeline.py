@@ -2916,9 +2916,14 @@ class BibDataPipeline(object):
                 all_languages[main_lang] = None
                 categorized['a'][main_lang] = None
 
+        # Update 7/24/2023 -- I'm adding a check to make sure that any
+        # languages from the title appear in the list of languages for
+        # the MARC language codes. If we don't do this we end up with a
+        # bunch of garbage in the Language facet.
         for lang in self.title_languages:
-            all_languages[lang] = None
-            categorized['a'][lang] = None
+            if lang in settings.MARCDATA.LANGUAGES:
+                all_languages[lang] = None
+                categorized['a'][lang] = None
 
         for f in self.marc_fieldgroups.get('language_code', []):
             parsed = fp.LanguageParser(f).parse()

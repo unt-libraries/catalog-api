@@ -1980,6 +1980,19 @@ def test_bdpipeline_getresourcetypeinfo(bcode2, expected, sierra_test_record,
      ]}
     ),
 
+    # Language from title ignored if not in MARC language list
+    # Background: We end up seeing a lot of garbage in our Language
+    # facet when we don't check title languages against a controlled
+    # vocabulary.
+    ('', ['130 0#$aBible.$pN.T.$pRomans.$lEnglish (1995).$sRevised standard.',
+          '730 02$aBible.$pO.T.$pJudges V.$lGerman$sGrether.',
+          '730 02$aTest Title.$lEng.'],
+     {'languages': ['German'],
+      'language_notes': [
+         'Item content: German',
+     ]}
+    ),
+
     # Language info from related titles is not used
     ('', ['730 0#$aBible.$pO.T.$pJudges V.$lGerman$sGrether.'],
      {'languages': None, 'language_notes': None}),
@@ -2000,10 +2013,11 @@ def test_bdpipeline_getresourcetypeinfo(bcode2, expected, sierra_test_record,
              '130 0#$aBible.$pN.T.$pRomans.$lEnglish.$sRevised standard.',
              '377 ##$lEnglish',
              '377 ##$ager',
-             '730 02$aSome title.$lKlingon.'],
-     {'languages': ['English', 'French', 'German', 'Russian', 'Klingon'],
+             '730 02$aSome title.$lKlingon (Artificial language).'],
+     {'languages': ['English', 'French', 'German', 'Russian',
+                    'Klingon (Artificial language)'],
       'language_notes': [
-         'Item content: English, Klingon, German',
+         'Item content: English, Klingon (Artificial language), German',
          'Translated from (original): Russian',
          'Librettos: English, French',
          'Librettos translated from (original): Russian',
@@ -2026,6 +2040,7 @@ def test_bdpipeline_getresourcetypeinfo(bcode2, expected, sierra_test_record,
     'Language info just from 377, example 2',
     'Language info just from 377, example 3',
     'Language info just from titles',
+    'Language from title ignored if not in MARC language list',
     'Language info from related titles is not used',
     'If there are 546s, those lang notes override generated ones',
     'Language info from combined sources',
