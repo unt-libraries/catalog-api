@@ -170,3 +170,112 @@ def clear_inventory_locations(locations, batch_size=1000, using='haystack',
     }
     set_item_fields(locations, default=default, batch_size=batch_size,
                     using=using, verbose=verbose)
+
+
+def copy_inventory_data_from_other_index(
+    locations, from_url='http://localhost:8983/solr/haystack',
+    to_using='haystack|update', batch_size=1000, verbose=True,
+    from_key='haystack_id', to_key='haystack_id'    
+):
+    """
+    Copy inventory-specific data from one index to another.
+
+    We use this when we need to migrate to new Solr servers and we want
+    to copy all inventory-specific data from the old one to the new
+    one. The overall workflow is:    
+        - On the new server, reindex all item data from Sierra into the
+          haystack index. When finished, inventory-specific data will
+          not yet be present.
+        - On the process server (on the new stack), open an SSH tunnel
+          to the old production Solr server that maps port 8983 to
+          localhost:8983.
+        - On the process server (on the new stack), run this function,
+          either from a shell or a script. Provide the list of location
+          codes you wish to copy over.
+
+    Args:
+        - locations, a list of locations to act on.
+        - from_url, the Solr server external to the current stack
+          you wish to copy data from. Default is
+          'http://localhost:8983/solr/haystack'.
+        - to_using, the haystack connection string you want to use to
+          load data into. Default is 'haystack|update'.
+        - batch_size, default is 1000
+        - verbose, default is True
+        - from_key, the field in the "from" Solr data you wish to use
+          as a match key. Default is 'haystack_id'.
+        - to_key, the field in the "to" Solr data you wish to use as a
+          match key. Default is 'haystack_id'. Note that the values in
+          your 'from_key' field must match the values in your 'to_key'
+          field.
+    """
+    inv_fields = ['shelf_status', 'inventory_notes', 'inventory_date', 'flags']
+    for location in locations:
+        old_qs = solr.Queryset(url=from_url, page_by=batch_size)
+        old_qs = old_qs.filter(location_code=location).order_by(from_key)
+        new_qs = solr.Queryset(using=to_using, page_by=batch_size)
+        new_qs = new_qs.filter(location_code=location).order_by(to_key)
+        nqs_iter = iter(new_qs)
+        num_items = old_qs.count()
+        batch = []
+        num_updated = 0
+        num_skipped = 0
+        done_flag = False
+
+        if verbose:
+            print()
+            print(f'Location ___{location}___ ({num_items} items)')
+
+        new_item = next(nqs_iter, None)
+        for old_item in old_qs:
+            total_seen = num_updated + num_skipped
+            if verbose and total_seen % batch_size == 0:
+                pc = round((total_seen / num_items) * 100, 2)
+                print(f'Updated {num_updated}, skipped {num_skipped} ({pc}%)')
+
+            if len(batch) == batch_size:
+                new_qs._conn.add(batch, commit=False)
+                batch = []
+                if verbose:
+                    print(f'===Adding {batch_size} docs to Solr===')
+
+            updated_flag = False
+            while True:
+                if new_item is None:
+                    done_flag = True
+                    break
+                if old_item[from_key] < new_item[to_key]:
+                    break
+                if old_item[from_key] == new_item[to_key]:
+                    for field in inv_fields:
+                        if old_item.get(field) != new_item.get(field):
+                            new_item[field] = old_item.get(field)
+                            updated_flag = True
+                    if updated_flag:
+                        del(new_item['_version_'])
+                        batch.append(new_item)
+                    new_item = next(nqs_iter, None)
+                    break
+                new_item = next(nqs_iter, None)
+
+            if updated_flag:
+                num_updated += 1
+            else:
+                num_skipped += 1
+
+            if done_flag:
+                num_left = num_items - (num_updated + num_skipped)
+                num_skipped += num_left
+                break
+
+        if batch:
+            new_qs._conn.add(batch, commit=False)
+            if verbose:
+                print(f'===Adding {len(batch)} docs to Solr===')
+
+        if verbose:
+            print(f'Done. Updated {num_updated}, skipped {num_skipped}.')
+            print()
+
+        # A final hard commit after each location
+        solr.commit(new_qs._conn, to_using)
