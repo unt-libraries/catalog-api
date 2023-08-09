@@ -2,17 +2,21 @@
 Provides Django queryset functionality on top of Solr search results.
 """
 
+from __future__ import absolute_import
 from __future__ import unicode_literals
-import re
+
 import copy
+import logging
+import re
 from datetime import datetime
 
 import pysolr
-
-from django.core.exceptions import ImproperlyConfigured
 from django.conf import settings
+from django.core.exceptions import ImproperlyConfigured
+from six import iteritems, text_type
+import ujson
 
-import logging
+
 # set up logger, for debugging
 logger = logging.getLogger('sierra.custom')
 
@@ -24,7 +28,47 @@ def connect(url=None, using='default', **kwargs):
         except KeyError:
             raise ImproperlyConfigured('Haystack connection {} does not '
                                        'exist.'.format(using))
-    return pysolr.Solr(url, **kwargs)
+    return pysolr.Solr(url, always_commit=True, **kwargs)
+
+
+def commit(leader_conn, using, specify_leader_url=False):
+    """
+    Commit to Solr AND trigger manual replication, if desired.
+
+    This function wraps and is used in place of the usual 'commit'
+    method on the pysolr object. If manual Solr replication is
+    configured for this connection in settings.HAYSTACK_CONNECTIONS,
+    then it triggers each follower to replicate immediately after a
+    commit on the leader. (Otherwise, it only performs the commit.)
+    """
+    leader_conn.commit()
+    if settings.HAYSTACK_CONNECTIONS[using].get('MANUAL_REPLICATION', False):
+        follower_urls = settings.HAYSTACK_CONNECTIONS[using]['FOLLOWER_URLS']
+        handler = settings.HAYSTACK_CONNECTIONS[using]['REPLICATION_HANDLER']
+        lurl = f'&leaderUrl={leader_conn.url}' if specify_leader_url else ''
+        req_path = f'{handler}?command=fetchindex{lurl}'
+        for url in follower_urls:
+            follower_conn = connect(url=url)
+            err_msg = f'Cannot replicate to index at {follower_conn.url}:'
+            try:
+                resp = ujson.loads(
+                    follower_conn._send_request('GET', req_path)
+                )
+            except pysolr.SolrError as e:
+                raise ImproperlyConfigured(f'{err_msg} {e}')
+            else:
+                if resp['status'] == 'ERROR':
+                    raise ImproperlyConfigured(f"{err_msg} {resp['message']}")
+
+
+def format_datetime_for_solr(dt_obj):
+    """
+    Format a Python datetime object (UTC) in Solr datetime format.
+    """
+    s_time = dt_obj.utctimetuple()
+    date_str = '{}-{:02d}-{:02d}'.format(*s_time[0:3])
+    time_str = '{:02d}:{:02d}:{:02d}'.format(*s_time[3:6])
+    return '{}T{}Z'.format(date_str, time_str)
 
 
 class MultipleObjectsReturned(Exception):
@@ -38,6 +82,7 @@ class Result(dict):
     the object attributes / dict values directly. Can be saved back to
     Solr using save().
     """
+
     def __init__(self, *args, **kwargs):
         super(Result, self).__init__(*args, **kwargs)
         self.__dict__ = self
@@ -48,7 +93,10 @@ class Result(dict):
             del(self['_version_'])
         except KeyError:
             pass
-        conn.add([self], **kwargs)
+        wants_commit = kwargs.pop('commit', True)
+        conn.add([self], commit=False, **kwargs)
+        if wants_commit:
+            commit(conn, using)
 
 
 class Queryset(object):
@@ -193,18 +241,13 @@ class Queryset(object):
 
     def _val_to_solr_str(self, val):
         if isinstance(val, datetime):
-            s_time = val.utctimetuple()
-            date_str = '{}-{:02d}-{:02d}'.format(*s_time[0:3])
-            time_str = '{:02d}:{:02d}:{:02d}'.format(*s_time[3:6])
-            val = '{}T{}Z'.format(date_str, time_str)
-        else:
-            val = re.sub(r'([ +\-!(){}\[\]\^"~*?:\\/]|&&|\|\|)', r'\\\1',
-                         unicode(val))
-        return val
+            return format_datetime_for_solr(val)
+        return re.sub(r'([ +\-!(){}\[\]\^"~*?:\\/]|&&|\|\|)', r'\\\1',
+                      text_type(val))
 
     def _compile_filter_args(self, filter_args):
         fq = []
-        for key, val in filter_args.iteritems():
+        for key, val in iteritems(filter_args):
             try:
                 field, filter_type = key.split('__')
             except ValueError:
@@ -274,7 +317,7 @@ class Queryset(object):
     def search(self, raw_query, params=None):
         q = self._search_params.get('q', '*')
 
-        if q not in ('*', '*:*') :
+        if q not in ('*', '*:*'):
             q = '({}) AND ({})'.format(q, raw_query)
         else:
             q = raw_query

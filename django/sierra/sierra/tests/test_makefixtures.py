@@ -2,18 +2,18 @@
 Tests the 'makefixtures' custom management.py command.
 """
 
+from __future__ import absolute_import
+
 import pytest
 import ujson
-
 from django.core import serializers
 from django.core.management import call_command
 from django.core.management.base import CommandError
 from django.db.models import Q
-from django.utils.six import StringIO
-
-from testmodels import models as m
 from sierra.management.commands import makefixtures
+from six import StringIO
 
+from .testmodels import models as m
 
 # FIXTURES AND TEST DATA
 # ---------------------------------------------------------------------
@@ -56,6 +56,7 @@ def confdata():
 @pytest.fixture
 def exp_makefixtures_results(scope='module'):
     indent = makefixtures.INDENT
+
     def onlymodel():
         objs = m.EndNode.objects.order_by('name')
         return serializers.serialize('json', objs, indent=indent)
@@ -65,7 +66,7 @@ def exp_makefixtures_results(scope='module'):
                 list(m.SelfReferentialNode.objects.order_by('name')) +
                 list(m.OneToOneNode.objects.filter(
                      referencenode__isnull=False).order_by('name')) +
-                list(m.ReferenceNode.objects.order_by('name')) + 
+                list(m.ReferenceNode.objects.order_by('name')) +
                 list(m.ManyToManyNode.objects.order_by('name')) +
                 list(m.ThroughNode.objects.order_by('name')))
         return serializers.serialize('json', objs, indent=indent)
@@ -286,4 +287,3 @@ def test_makefixtures_outputs_correct_data(testname, fname, make_tmpfile,
     cfile = make_tmpfile(ujson.dumps(confdata[testname]), fname)
     call_command('makefixtures', str(cfile), stdout=out)
     assert out.getvalue() == exp_makefixtures_results[testname]
-

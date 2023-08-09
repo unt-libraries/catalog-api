@@ -2,9 +2,10 @@
 DIY utility for mapping unicode to plain ASCII, for normalization
 """
 
+from __future__ import absolute_import
 from __future__ import unicode_literals
-import unicodedata
 
+from six import unichr
 
 CHARACTER_MAP = {
     '\u00C0': 'A',
@@ -1271,4 +1272,3 @@ class FromUnicodeMapping(dict):
 
 def map_from_unicode(text):
     return text.translate(FromUnicodeMapping())
-

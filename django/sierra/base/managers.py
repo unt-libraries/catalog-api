@@ -1,11 +1,12 @@
 """
 Custom Managers for sierra base app models.
 """
-from datetime import date, time, datetime
+from __future__ import absolute_import
+
+from datetime import time, datetime
 
 from django.db import models
 from django.utils import timezone as tz
-
 from utils import helpers
 
 
@@ -56,6 +57,7 @@ class RecordManager(CustomFilterManager):
     records from the Sierra database, such as the base record types
     (item, bib, patron, etc.)
     """
+
     def _do_date_range(self, start, end):
         def _make_fpath(prefix, is_del=False):
             fname = 'deletion_date_gmt' if is_del else 'record_last_updated_gmt'
@@ -184,4 +186,3 @@ class RecordManager(CustomFilterManager):
             filter_.append({'{}locations__code__in'.format(bf_prefix): locs})
 
         return {'filter': filter_, 'order_by': ['pk'], 'distinct': distinct}
-    

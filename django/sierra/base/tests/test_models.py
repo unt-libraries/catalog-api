@@ -2,18 +2,18 @@
 Tests for custom behavior on base.models (i.e., Sierra models).
 """
 
+from __future__ import absolute_import
+
 import pytest
-
-from base import models as m
 from base import fields as f
-
+from base import models as m
 
 # FIXTURES AND TEST DATA
 # External fixtures used below can be found in
 # django/sierra/conftest.py:
 #    model_instance
 
-pytestmark = pytest.mark.django_db
+pytestmark = pytest.mark.django_db(databases=['sierra'])
 
 
 def get_attached_name_models():
@@ -43,7 +43,7 @@ def test_modelattachedname_getname(prop_model, model_instance, settings):
     eng, spi = (m.IiiLanguage.objects.get(code=l) for l in ('eng', 'spi'))
     name_model = getattr(m, '{}Name'.format(prop_model._meta.object_name))
     name_accessor = '{}name_set'.format(prop_model._meta.model_name)
-    prop_attname = getattr(prop_model, name_accessor).related.field.name
+    prop_attname = getattr(prop_model, name_accessor).rel.field.name
     name_attname = prop_model._name_attname
     lang_attname = prop_model._language_attname
     test_property = model_instance(prop_model, pk='999999')

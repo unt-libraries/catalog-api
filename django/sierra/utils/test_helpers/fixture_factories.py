@@ -2,10 +2,14 @@
 Provides object factories for use in pytest fixtures.
 """
 
-import importlib
-import pysolr
+from __future__ import absolute_import
 
+import importlib
+from datetime import datetime
+
+import pysolr
 from django.conf import settings
+from utils.solr import format_datetime_for_solr
 
 from . import solr_factories as sf
 
@@ -208,7 +212,7 @@ class SolrTestDataAssemblerFactory(object):
             self.records = {}
             self.profiles = {
                 rectype: self.make_profile(rectype, **profile_def)
-                    for rectype, profile_def in profile_definitions.items()
+                for rectype, profile_def in profile_definitions.items()
             }
 
         def make_profile(self, rectype, conn=None, user_fields=None,
@@ -232,7 +236,7 @@ class SolrTestDataAssemblerFactory(object):
 
         def make(self, rectype, number, context=None, **field_gens):
             """
-            Make a set of records via a 
+            Make a set of records via a
             solr_factories.SolrFixtureFactory for the given `rectype`
             profile. `number` is an integer defining how many records
             to create. `context` is an optional keyword arg providing
@@ -264,8 +268,23 @@ class SolrTestDataAssemblerFactory(object):
             """
             Save this assembler's `rectype` recordset to Solr.
             """
-            if self.records[rectype]:
-                self.profiles[rectype].conn.add(self.records[rectype])
+            recs = []
+            for old_rec in self.records.get(rectype, []):
+                rec = {}
+                for k, v in old_rec.items():
+                    if isinstance(v, datetime):
+                        rec[k] = format_datetime_for_solr(v)
+                    elif isinstance(v, (list, tuple)):
+                        rec[k] = []
+                        for sub_v in v:
+                            if isinstance(sub_v, datetime):
+                                rec[k].append(format_datetime_for_solr(sub_v))
+                            else:
+                                rec[k].append(sub_v)
+                    else:
+                        rec[k] = v
+                recs.append(rec)
+            self.profiles[rectype].conn.add(recs)
 
         def save_all(self):
             """
@@ -344,7 +363,7 @@ class TestSolrConnectionFactory(object):
 
     def make(self, conn_name, *args, **kwargs):
         url = settings.HAYSTACK_CONNECTIONS[conn_name]['URL']
-        return pysolr.Solr(url, **kwargs)
+        return pysolr.Solr(url, always_commit=True, **kwargs)
 
     def unmake(self, conn):
         conn.delete(q='*:*')

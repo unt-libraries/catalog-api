@@ -2,12 +2,15 @@
 Tests the base.ruleset classes and functions.
 """
 
+from __future__ import absolute_import
 from __future__ import unicode_literals
-import pytest
 
+import pytest
 from base import ruleset as r
 
+
 # FIXTURES / TEST DATA
+
 
 @pytest.fixture
 def ex_nondict_map_class():

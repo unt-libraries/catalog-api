@@ -2,9 +2,10 @@
 Map subject headings to subject facet values.
 """
 
+from __future__ import absolute_import
 from __future__ import unicode_literals
-import re
 
+import re
 
 war_words = '(?:war|revolution)'
 
@@ -16,11 +17,11 @@ war_words = '(?:war|revolution)'
 # This is here for testing purposes.
 # TO USE: Use the `lcsh_sd_to_facet_values` convenience function.
 LCSH_SUBDIVISION_PATTERNS = [
-    [r'annexation to (.+)', 
+    [r'annexation to (.+)',
         [('topic', 'Annexation (International law)'), ('region', '{}')],
         'Annexation to the United States'],
     [r'art and(?: the)? {}'.format(war_words),
-        [('topic','Art and war')],
+        [('topic', 'Art and war')],
         'Art and the war'],
     [r'claims vs (.+)',
         [('topic', 'Claims'), ('topic', '{}')],
@@ -79,7 +80,7 @@ LCSH_SUBDIVISION_PATTERNS = [
         [('topic', 'Anti-war television programs'),
          ('topic', 'War television programs'), ('topic', 'Television and war'),
          ('topic', 'War and television')],
-         'Television and the war'],
+     'Television and the war'],
     [r'theater and(?: the)? {}'.format(war_words),
         [('topic', 'War and theater')],
         'Theater and the war'],
@@ -118,7 +119,7 @@ LCSH_SUBDIVISION_PATTERNS = [
 # To use, split an LCSH subject into separate terms (based on "--" or
 # MARC subfield). Leave the main/first term as-is. For each subsequent
 # term (subdivision):
-# 
+#
 #   - Call the `lcsh_to_facet_values` function on that subdivision.
 #     Pass in any parent subdivisions as the `sd_parents` argument. Use
 #     the subfield tag to determine the right `default_type` -- $x is
@@ -6185,7 +6186,7 @@ LCSH_SUBDIVISION_TERM_MAP = {
         ],
     },
     'transfer': {
-        'headings': [   
+        'headings': [
             'Transfer (Employees)',
         ],
     },

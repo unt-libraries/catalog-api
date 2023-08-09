@@ -1,12 +1,15 @@
+from __future__ import absolute_import
+
 from django.contrib import admin
-from django.http import HttpResponseRedirect, HttpResponse
-from django.core.urlresolvers import reverse
-from django.shortcuts import get_object_or_404, render
+from django.http import HttpResponseRedirect
+from django.shortcuts import render
+from django.urls import reverse
 from django.utils import timezone as tz
 
-from .models import ExportType, ExportFilter, ExportInstance, Status
 from .forms.modelforms import ExportForm
+from .models import ExportType, ExportFilter, ExportInstance, Status
 from .tasks import export_dispatch
+
 
 def process_export_form(request):
     """
@@ -40,12 +43,13 @@ class ExportInstanceAdmin(admin.ModelAdmin):
     list_display = ('export_filter', 'export_type', 'user', 'timestamp',
                     'status', 'errors', 'warnings')
     readonly_fields = ('status', 'export_type', 'export_filter',
-                        'filter_params', 'user', 'timestamp', 'errors',
-                        'warnings')
+                       'filter_params', 'user', 'timestamp', 'errors',
+                       'warnings')
     list_filter = ('user', 'status', 'export_type',)
     ordering = ('-timestamp',)
     change_list_template = 'admin/export_instance_changelist.html'
     change_form_template = 'admin/export_instance_changeform.html'
+
     class Media:
         css = {
             'all': ('export/admin_styles.css',)
@@ -75,7 +79,7 @@ class ExportInstanceAdmin(admin.ModelAdmin):
                     self.model._meta.model_name
                 )
                 response = HttpResponseRedirect(reverse(reverse_url,
-                    args=(form.instance.pk, )))
+                                                        args=(form.instance.pk, )))
             else:
                 response = render(request, 'admin/trigger_export.html', {
                     'form': form,
@@ -92,3 +96,7 @@ admin.site.register(ExportType, ExportTypeAdmin)
 admin.site.register(ExportFilter, ExportFilterAdmin)
 admin.site.register(ExportInstance, ExportInstanceAdmin)
 admin.site.register(Status, StatusAdmin)
+
+# Disable admin sidebar added in 3.1
+admin.autodiscover()
+admin.site.enable_nav_sidebar = False

@@ -1,4 +1,0 @@
-[
-  {"fields": {"path": "blacklight.exporters.BibsToDiscover", "order": 13, "description": "This is the export process that loads bib records into one of the discover cores.", "label": "Load bib records into `discover` core for Blacklight"}, "model": "export.exporttype", "pk": "BibsToDiscover"},
-  {"fields": {"path": "blacklight.exporters.BibsToDiscoverAndAttachedToSolr", "order": 14, "description": "This is a compound export process that runs BibsAndAttachedToSolr and then BibsToDiscover.", "label": "Run BibsAndAttachedToSolr and BibsToDiscover"}, "model": "export.exporttype", "pk": "BibsToDiscoverAndAttachedToSolr"}
-]

@@ -5,15 +5,13 @@ This tests creating users and setting permissions. The APIUsers API
 resource (including authentication) is tested via `test_api.py`.
 """
 
+from __future__ import absolute_import
+
 import pytest
-
 import ujson
-
-from django.contrib.auth.models import User
+from api.models import APIUserException, remove_null_kwargs
 from django.contrib.auth import authenticate
-
-from api.models import APIUserException, UserExists, remove_null_kwargs
-
+from django.contrib.auth.models import User
 
 pytestmark = pytest.mark.django_db
 
@@ -27,6 +25,7 @@ pytestmark = pytest.mark.django_db
 
 # TESTS
 # ---------------------------------------------------------------------
+
 
 def test_removenullkwargs_removes_kwargs_having_None_value():
     """
@@ -466,7 +465,7 @@ def test_apiuser_setpermissionstovalue(apiuser_with_custom_defaults):
     test_cls = apiuser_with_custom_defaults(custom_defaults)
     apiuser = test_cls()
     apiuser.set_permissions_to_value(['first', 'third'], True)
-    assert ujson.decode(apiuser.permissions) == {'first': True, 
+    assert ujson.decode(apiuser.permissions) == {'first': True,
                                                  'second': False,
                                                  'third': True}
 
@@ -769,7 +768,7 @@ def test_apiusermgr_batchimport_works(apiuser_with_custom_defaults,
          'last_name', 'first', 'second', 'third'],
          ['un1', 'se1', 'pw1', 'em1', 'fn1', 'ln1', 'true', 'true', 'true']],
         [('un1', 'pw1', 'em1', 'fn1', 'ln1', 'se1',
-          {'first': True, 'second': True, 'third': True}),]
+          {'first': True, 'second': True, 'third': True}), ]
     ),
     (
         [['username', 'secret_text', 'password', 'email', 'first_name',
@@ -782,25 +781,25 @@ def test_apiusermgr_batchimport_works(apiuser_with_custom_defaults,
          ('un2', 'pw2', 'em2', 'fn2', 'ln2', 'se2',
           {'first': True, 'second': True, 'third': True}),
          ('un3', 'pw3', 'em3', 'fn3', 'ln3', 'se3',
-          {'first': True, 'second': True, 'third': True}),]
+          {'first': True, 'second': True, 'third': True}), ]
     ),
     (
         [['second', 'last_name', 'secret_text', 'email', 'username', 'first',
           'password', 'third', 'first_name'],
          ['true', 'ln1', 'se1', 'em1', 'un1', 'true', 'pw1', 'true', 'fn1']],
         [('un1', 'pw1', 'em1', 'fn1', 'ln1', 'se1',
-          {'first': True, 'second': True, 'third': True}),]
+          {'first': True, 'second': True, 'third': True}), ]
     ),
     (
         [['username'], ['un1'], ['un2'], ['un3']],
         [('un1', None, None, None, None, None, None),
          ('un2', None, None, None, None, None, None),
-         ('un3', None, None, None, None, None, None),]
+         ('un3', None, None, None, None, None, None), ]
     ),
     (
         [['username', 'second'],
          ['un1', 'true']],
-        [('un1', None, None, None, None, None, {'second': True}),]
+        [('un1', None, None, None, None, None, {'second': True}), ]
     ),
 ], ids=[
     'one row, all fields entered',
@@ -820,7 +819,7 @@ def test_apiusermgr_tabletobatch_works(apiuser_with_custom_defaults, table,
     exp_fields = ('username', 'password', 'email', 'first_name', 'last_name',
                   'secret_text', 'permissions_dict')
     exp_batch = [{exp_fields[i]: v for i, v in enumerate(u) if v is not None}
-                  for u in expected]
+                 for u in expected]
 
     # Set up test class.
     custom_defaults = {'first': False, 'second': False, 'third': False}

@@ -2,10 +2,13 @@
 Tests the relationtrees module used in custom sierra management commands.
 """
 
-import pytest
+from __future__ import absolute_import
 
-from testmodels import models as m
+import pytest
 from sierra.management import relationtrees
+from six import iteritems
+
+from .testmodels import models as m
 
 # FIXTURES AND TEST DATA
 
@@ -38,6 +41,8 @@ RELATION_PARAMS = {
     'OneToOneNode to ReferenceNode': (m.OneToOneNode, 'referencenode'),
     'SelfReferentialNode to SelfReferentialNode':
         (m.SelfReferentialNode, 'parent'),
+    'Reverse SelfRN to SelfRN':
+        (m.SelfReferentialNode, 'selfreferentialnode_set'),
     'SelfReferentialNode to ReferenceNode':
         (m.SelfReferentialNode, 'referencenode_set'),
     'SelfReferentialNode to EndNode': (m.SelfReferentialNode, 'end'),
@@ -112,7 +117,7 @@ def assert_all_objset_calls():
         calls = mock.call_args_list
         actual_objsets = []
         for call in calls:
-            for arg in (list(call[0]) + call[1].values()):
+            for arg in (list(call[0]) + list(call[1].values())):
                 try:
                     arg[0]._meta
                 except Exception:
@@ -168,7 +173,7 @@ def tree(make_tree, request):
 
 @pytest.fixture
 def all_trees(make_tree):
-    return {k: make_tree(*v) for k, v in TREE_PARAMS.iteritems()}
+    return {k: make_tree(*v) for k, v in iteritems(TREE_PARAMS)}
 
 
 # TESTS
@@ -280,7 +285,11 @@ def test_relation_init_raises_error_on_invalid_data(make_bad_relation):
     ('ReferenceNode to ManyToManyNode', True, True, True),
     ('OneToOneNode to ReferenceNode', False, False, False),
     ('EndNode to ReferenceNode', False, True, False),
-    ('ManyToManyNode to ReferenceNode', True, True, False)
+    ('ManyToManyNode to ReferenceNode', True, True, False),
+    ('ReferenceNode to ThroughNode', False, True, False),
+    ('ThroughNode to ManyToManyNode', False, False, True),
+    ('SelfReferentialNode to SelfReferentialNode', False, False, True),
+    ('Reverse SelfRN to SelfRN', False, True, False),
 ], ids=[
     'direct 1-1',
     'direct foreign-key',
@@ -288,6 +297,10 @@ def test_relation_init_raises_error_on_invalid_data(make_bad_relation):
     'indirect 1-1',
     'indirect 1-many',
     'indirect m2m',
+    'to throughnode (indirect 1-many)',
+    'from throughnode (direct foreign-key)',
+    'self-referential (direct foreign-key)',
+    'reverse self-referential (indirect 1-many)',
 ], indirect=['relation'])
 def test_relation_isattrs_return_right_bools(relation, m2m, multi, direct):
     """
@@ -306,7 +319,11 @@ def test_relation_isattrs_return_right_bools(relation, m2m, multi, direct):
     ('ReferenceNode to ManyToManyNode', m.ManyToManyNode),
     ('OneToOneNode to ReferenceNode', m.ReferenceNode),
     ('EndNode to ReferenceNode', m.ReferenceNode),
-    ('ManyToManyNode to ReferenceNode', m.ReferenceNode)
+    ('ManyToManyNode to ReferenceNode', m.ReferenceNode),
+    ('ReferenceNode to ThroughNode', m.ThroughNode),
+    ('ThroughNode to ManyToManyNode', m.ManyToManyNode),
+    ('SelfReferentialNode to SelfReferentialNode', m.SelfReferentialNode),
+    ('Reverse SelfRN to SelfRN', m.SelfReferentialNode),
 ], ids=[
     'direct 1-1',
     'direct foreign-key',
@@ -314,6 +331,10 @@ def test_relation_isattrs_return_right_bools(relation, m2m, multi, direct):
     'indirect 1-1',
     'indirect 1-many',
     'indirect m2m',
+    'to throughnode (indirect 1-many)',
+    'from throughnode (direct foreign-key)',
+    'self-referential (direct foreign-key)',
+    'reverse self-referential (indirect 1-many)',
 ], indirect=['relation'])
 def test_relation_targetmodel_has_right_model(relation, target):
     """
@@ -420,7 +441,7 @@ def test_relation_getasthroughrelations_not_m2m_returns_error(relation):
     'multiple models, non-relevant model is between first and second',
     'multiple models, non-relevant model is after first and second',
 ],
-indirect=['relation'])
+    indirect=['relation'])
 def test_relation_arrangemodels_order(relation, models, result):
     """
     Relation.arrange_models should return models in dependency order,
@@ -557,7 +578,7 @@ def test_relationtree_pick_calls_prepareqset(qset, exp_qset, mocker,
     tree = relationtrees.RelationTree(m.ReferenceNode, [])
     mocker.patch.object(tree, 'prepare_qset')
     bucket = tree.pick(qset=qset)
-    tree.prepare_qset.assert_called_once()
+    assert tree.prepare_qset.call_count == 1
     assert_all_objset_calls(tree.prepare_qset, [exp_qset])
 
 
@@ -642,11 +663,11 @@ def test_makerelationchainfromfieldnames(bp_key, fieldnames):
 @pytest.mark.utilities
 @pytest.mark.parametrize('model, exp', [
     (m.ReferenceNode, [['end'], ['srn', 'end'], ['srn', 'parent', 'end'],
-                            ['throughnode_set', 'm2m', 'end'], ['one']]),
+                       ['throughnode_set', 'm2m', 'end'], ['one']]),
     (m.ThroughNode, [['ref', 'end'], ['ref', 'srn', 'end'], ['ref', 'one'],
-                          ['ref', 'srn', 'parent', 'end'],
-                          ['ref', 'throughnode_set', 'm2m', 'end'],
-                          ['m2m', 'end']]),
+                     ['ref', 'srn', 'parent', 'end'],
+                     ['ref', 'throughnode_set', 'm2m', 'end'],
+                     ['m2m', 'end']]),
     (m.EndNode, []),
     (m.OneToOneNode, []),
     (m.SelfReferentialNode, [['end'], ['parent', 'end']]),
@@ -686,8 +707,8 @@ def test_harvest_picks_trees_into_bucket_using_qset(all_trees, mocker):
     }
     for tree in all_trees.values():
         mocker.patch.object(tree, 'pick', return_value=bucket)
-    relationtrees.harvest(all_trees.values(), into=bucket, tree_qsets=qsets)
+    relationtrees.harvest(list(all_trees.values()),
+                          into=bucket, tree_qsets=qsets)
     for tree in all_trees.values():
         tree.pick.assert_called_once_with(into=bucket,
                                           qset=qsets.get(tree, None))
-

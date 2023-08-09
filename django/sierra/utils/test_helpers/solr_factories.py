@@ -1,13 +1,17 @@
 """
 Contains factories for generating test data for Solr.
 """
-import ujson
+from __future__ import absolute_import
 
 import datetime
-import pytz
-import random
 import fnmatch
+import random
 from collections import OrderedDict
+
+import pytz
+import ujson
+from six import unichr, text_type
+from six.moves import range
 
 
 class DataEmitter(object):
@@ -55,7 +59,7 @@ class DataEmitter(object):
     def make_unicode_alphabet(uchar_ranges=None):
         """
         Generate a list of characters to use for initializing a new
-        DataEmitters object. Pass a nested list of tuples representing 
+        DataEmitters object. Pass a nested list of tuples representing
         the character ranges to include via `char_ranges`.
         """
         if uchar_ranges is None:
@@ -65,7 +69,7 @@ class DataEmitter(object):
             ]
         return [
             unichr(code) for this_range in uchar_ranges
-                for code in range(this_range[0], this_range[1] + 1)
+            for code in range(this_range[0], this_range[1] + 1)
         ]
 
     def _emit_string(self, mn=0, mx=0, alphabet=None):
@@ -77,7 +81,7 @@ class DataEmitter(object):
         return ''.join(random.choice(alphabet) for _ in range(length))
 
     def _emit_text(self, mn_words=0, mx_words=0, mn_word_len=0,
-                  mx_word_len=0, alphabet=None):
+                   mx_word_len=0, alphabet=None):
         """
         Generate random unicode multi-word text.
 
@@ -194,6 +198,7 @@ class SolrDataGenFactory(object):
     def _make_choice_function(self, values, repeatable):
         choices = [v for v in values]
         random.shuffle(choices)
+
         def _choice_function(record):
             if repeatable:
                 return random.choice(choices)
@@ -279,6 +284,7 @@ class SolrDataGenFactory(object):
         to a parent.
         """
         counters = {'into_left': total_into, 'from_left': total_from}
+
         def _counter():
             if counters['into_left'] == 0:
                 return 0
@@ -309,8 +315,8 @@ class SolrProfile(object):
         pass
 
     DEFAULT_SOLR_FIELD_TYPE_MAPPING = {
-        'string': {'pytype': unicode, 'emtype': 'string'},
-        'text_en': {'pytype': unicode, 'emtype': 'text'},
+        'string': {'pytype': text_type, 'emtype': 'string'},
+        'text_en': {'pytype': text_type, 'emtype': 'text'},
         'long': {'pytype': int, 'emtype': 'int'},
         'int': {'pytype': int, 'emtype': 'int'},
         'date': {'pytype': datetime.datetime, 'emtype': 'date'},
@@ -328,7 +334,7 @@ class SolrProfile(object):
         dataset you want to force. Provide one or the other; you don't
         need both. Normally you'll provide the `conn` and the schema
         will be grabbed automatically; `schema` overrides `conn` if
-        both are provided. 
+        both are provided.
 
         `user_fields`: A list of field names (each of which should
         match a field name (whether static or dynamic) in the schema).
@@ -497,7 +503,7 @@ class SolrProfile(object):
             if gen.max_unique is not None:
                 if value in fieldvals and len(records) >= gen.max_unique:
                     raise type(self).ViolatesUniqueness
-            
+
             while value in fieldvals:
                 value = self._do_gen(gen, record)
             return value

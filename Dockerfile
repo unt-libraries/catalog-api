@@ -1,35 +1,40 @@
-FROM python:2.7.16-stretch
+FROM python:3.10.12-buster
 
 RUN apt-get update -qq && \
-    apt-get install -y libpq-dev python-dev mariadb-client netcat openjdk-8-jre
+    apt-get install -y libpq-dev python-dev mariadb-client netcat
 
 ARG userid=999
 ARG groupid=999
+ARG project_root=/project
+ARG log_path=$project_root/logs
+ARG media_path=$project_root/media
+ARG workdir_path=$project_root/catalog-api
+ARG wait_for_it_path=$project_root/wait-for-it
 
 RUN groupadd -o --gid $groupid hostgroup && \
     useradd --no-log-init --uid $userid --gid $groupid appuser
-RUN mkdir -p /project/catalog-api \
-             /project/logs \
-             /project/media \
-             /project/requirements && \
+RUN mkdir -p $workdir_path \
+             $log_path \
+             $media_path \
+             /tmp/requirements && \
     chown -R appuser:hostgroup /project
 
-WORKDIR /project/catalog-api
+WORKDIR $workdir_path
 
-RUN git clone https://github.com/vishnubob/wait-for-it.git ../wait-for-it
+RUN git clone https://github.com/vishnubob/wait-for-it.git $wait_for_it_path
 
-COPY requirements/* /project/requirements/
+COPY requirements/* /tmp/requirements/
 
-RUN pip install setuptools-scm==5.0.2
+RUN pip install -r /tmp/requirements/requirements-base.txt \
+                -r /tmp/requirements/requirements-dev.txt \
+                -r /tmp/requirements/requirements-tests.txt; \
+    rm /tmp/requirements/*; \
+    rmdir /tmp/requirements
 
-RUN pip install -r /project/requirements/requirements-base.txt \
-                -r /project/requirements/requirements-dev.txt \
-                -r /project/requirements/requirements-tests.txt
-
-ENV PYTHONPATH=/project/catalog-api \
-    LOG_FILE_DIR=/project/logs \
-    MEDIA_ROOT=/project/media \
-    PATH=$PATH:/project/wait-for-it \
+ENV PYTHONPATH=$workdir_path \
+    LOG_FILE_DIR=$log_path \
+    MEDIA_ROOT=$media_path \
+    PATH=$PATH:$wait_for_it_path \
     DEFAULT_DB_HOST=default-db-dev \
     DEFAULT_DB_PORT=3306 \
     TEST_DEFAULT_DB_HOST=default-db-test \
@@ -38,8 +43,10 @@ ENV PYTHONPATH=/project/catalog-api \
     TEST_SIERRA_DB_PORT=5432 \
     SOLR_HOST=solr-dev \
     SOLR_PORT=8983 \
-    TEST_SOLR_HOST=solr-test \
-    TEST_SOLR_PORT=8983 \
+    TEST_SOLR_HOST_FOR_UPDATE=solr-test-for-update \
+    TEST_SOLR_HOST_FOR_SEARCH=solr-test-for-search \
+    TEST_SOLR_PORT_FOR_UPDATE=8983 \
+    TEST_SOLR_PORT_FOR_SEARCH=8983 \
     REDIS_CELERY_HOST=redis-celery-dev \
     REDIS_CELERY_PORT=6379 \
     REDIS_APPDATA_HOST=redis-appdata-dev \

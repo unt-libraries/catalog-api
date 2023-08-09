@@ -1,21 +1,18 @@
 from __future__ import absolute_import
 
 import logging
-import sys, traceback
 
 import pysolr
-
-from django.core import mail
-from django import template
+from celery import Task, shared_task, chord, result
 from django.conf import settings
 from django.contrib.auth.models import User
-from django.utils import timezone as tz
 from django.db import connections
-
-from celery import Task, shared_task, chord, chain, result
+from django.utils import timezone as tz
+from six import iteritems
+from six.moves import range
+from utils.redisobjs import RedisObject
 
 from . import models as export_models
-from utils.redisobjs import RedisObject
 
 # set up loggers
 logger = logging.getLogger('sierra.custom')
@@ -32,8 +29,8 @@ def needs_database(job_func):
     and after the decorated function runs.
     """
     def _do_close():
-            for conn in connections.all():
-                conn.close_if_unusable_or_obsolete()
+        for conn in connections.all():
+            conn.close_if_unusable_or_obsolete()
 
     def _wrapper(*args, **kwargs):
         _do_close()
@@ -101,9 +98,9 @@ def optimize():
     logger = logging.getLogger('exporter.file')
     logger.info('Running optimization on all Solr indexes.')
     url_stack = []
-    for index, options in settings.HAYSTACK_CONNECTIONS.iteritems():
+    for index, options in iteritems(settings.HAYSTACK_CONNECTIONS):
         if options['URL'] not in url_stack:
-            conn = pysolr.Solr(options['URL'], 
+            conn = pysolr.Solr(options['URL'], always_commit=True,
                                timeout=options['TIMEOUT'])
             logger.info('Optimizing {} index.'.format(index))
             conn.optimize()
@@ -174,7 +171,7 @@ class SierraExplicitKeyBundler(RecordSetBundler):
         sorted_qset = self.apply_sort(queryset)
         manifest = [r['pk'] for r in sorted_qset.values('pk')]
         for start in range(0, len(manifest), size):
-            yield manifest[start:start+size]
+            yield manifest[start:start + size]
 
     def unpack(self, bundle, all_recs):
         sorted_qset = self.apply_sort(all_recs)
@@ -233,7 +230,7 @@ class JobPlan(object):
         self.instance_pk = exp.instance.pk
         self.chunk_sizes = {
             op: exp.max_del_chunk if op == 'deletion' else exp.max_rec_chunk
-                for op in operations
+            for op in operations
         }
         self.bundler = exp.bundler
         self.batch_size = batch_size
@@ -260,8 +257,8 @@ class JobPlan(object):
         except ValueError:
             batch_id, padded_cnum, op, pnum = chunk_id.split('-')
             rset_name = None
-        return { 'batch_id': batch_id, 'chunk_num': int(padded_cnum),
-                 'rset_name': rset_name, 'op': op, 'part_num': int(pnum) }
+        return {'batch_id': batch_id, 'chunk_num': int(padded_cnum),
+                'rset_name': rset_name, 'op': op, 'part_num': int(pnum)}
 
     def get_records_for_operation(self, exp, op, prefetch=True):
         if op == 'export':
@@ -319,7 +316,7 @@ class JobPlan(object):
         return sorted(res)
 
     def get_recordsets_iterable(self, recs):
-        return recs.items() if hasattr(recs, 'items') else [(None, recs)]
+        return list(recs.items()) if hasattr(recs, 'items') else [(None, recs)]
 
     def generate(self, exp):
         if self.registry:
@@ -348,7 +345,7 @@ class JobPlan(object):
                             for op in self.operations}
 
         self._totals = {
-            'batches': len(self.registry.keys()),
+            'batches': len(list(self.registry.keys())),
             'chunks': total_chunks,
             'chunks_by_op': total_chunks_by_op,
             'records': sum(total_recs_by_op.values()),
@@ -412,7 +409,7 @@ class JobPlan(object):
             lines.extend([
                 '`{}`: {} {}'.format(op, rec_count, rec_label),
                 '`{}`: {} {} (chunk size is {})'
-                    ''.format(op, chunk_count, chunk_label, chunk_size),
+                ''.format(op, chunk_count, chunk_label, chunk_size),
             ])
             for rset_name, rset_count in op_totals.items():
                 if rset_name is not None:
@@ -421,7 +418,7 @@ class JobPlan(object):
                         '    `{}`: {} {}'.format(rset_name, rset_count,
                                                  rset_rec_label)
                     ])
-                
+
         tot_chunks = self.totals['chunks']
         tot_chunks_label = _plural('chunk', tot_chunks)
         tot_batches = self.totals['batches']
@@ -429,9 +426,9 @@ class JobPlan(object):
         lines.extend([
             '- {} total {}'.format(tot_chunks, tot_chunks_label),
             '- {} total {} ({} chunks per batch)'
-                ''.format(tot_batches, tot_batches_label, self.batch_size)
+            ''.format(tot_batches, tot_batches_label, self.batch_size)
         ])
-        
+
         batch_ids = sorted(self.registry.keys())
         first_chunk_id = self.registry[batch_ids[0]][0]
         last_chunk_id = self.registry[batch_ids[-1]][-1]
@@ -462,6 +459,7 @@ class ExportTask(Task):
     Subclasses celery.Task to provide custom on_failure and on_success
     behavior.
     """
+
     def on_failure(self, exc, task_id, args, kwargs, einfo):
         """
         Handle a task that raises an uncaught exception.
@@ -476,7 +474,7 @@ class ExportTask(Task):
         else:
             exp.log('Error', msg)
 
-    def on_success(self, vals, task_id, args, kwargs):
+    def on_success(self, retval, task_id, args, kwargs):
         """
         When a task succeeds, the registry for that chunk should be
         cleared from Redis.
@@ -657,8 +655,7 @@ def do_final_cleanup(vals_list, instance_pk, export_filter, export_type,
     """
     Task that runs after all sub-tasks for an export job are done.
     Does final clean-up steps, such as updating the ExportInstance
-    status, triggering the final callback function on the export job,
-    emailing site admins if there were errors, etc.
+    status, triggering the final callback function on the export job.
     """
     exp = spawn_exporter(instance_pk, export_filter, export_type, options)
     errors = exp.instance.errors
@@ -676,7 +673,7 @@ def do_final_cleanup(vals_list, instance_pk, export_filter, export_type,
     else:
         if status == 'errors':
             vals_list = _compile_vals_list_for_batch(prev_batch_task_id)
-        
+
         cumulative_vals = exp.compile_vals([cumulative_vals] + vals_list)
 
         # UNCOMMENT the below to help troubleshoot issues with `vals`
@@ -703,26 +700,3 @@ def do_final_cleanup(vals_list, instance_pk, export_filter, export_type,
     else:
         plan.clear()
     exp.log('Info', _hr_line('='))
-
-    (send_errors, send_warnings) = (None, None)
-    if errors > 0 and settings.EXPORTER_EMAIL_ON_ERROR:
-        subject = '{} Exporter Errors'.format(
-                        exp.instance.export_type.code)
-        send_errors = errors
-    if warnings > 0 and settings.EXPORTER_EMAIL_ON_WARNING:
-        subject = '{} Exporter Warnings'.format(
-                        exp.instance.export_type.code)
-        send_warnings = warnings
-    if send_errors or send_warnings:
-        logfile = settings.LOGGING['handlers']['export_file']['filename']
-        vars = template.Context({
-            'i': exp.instance,
-            'errors': send_errors,
-            'warnings': send_warnings,
-            'logfile': logfile
-        })
-        if send_errors and send_warnings:
-            subject = '{} Exporter Errors and Warnings'.format(
-                            exp.instance.export_type.code)
-        email = template.loader.get_template('export/error_email.txt')
-        mail.mail_admins(subject, email.render(vars))

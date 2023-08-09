@@ -1,7 +1,7 @@
 version: '3'
 services:
   default-db-dev:
-    image: mariadb:10.3
+    image: mariadb:10.6
     environment:
       - MYSQL_USER=${DEFAULT_DB_USER}
       - MYSQL_PASSWORD=${DEFAULT_DB_PASSWORD}
@@ -10,14 +10,14 @@ services:
     ports:
       - "${DEFAULT_DB_HOST:-127.0.0.1}:${DEFAULT_DB_PORT:-3306}:3306"
     volumes:
-      - ./docker_data/default_db_dev:/var/lib/mysql
+      - ${DEFAULT_DB_DEV_DDPATH}:/var/lib/mysql
     networks:
       - development
     user: ${USERID}:${GROUPID}
     command: mysqld --wait_timeout=7200
 
   default-db-test:
-    image: mariadb:10.3
+    image: mariadb:10.6
     environment:
       - MYSQL_USER=${TEST_DEFAULT_DB_USER}
       - MYSQL_PASSWORD=${TEST_DEFAULT_DB_PASSWORD}
@@ -26,14 +26,14 @@ services:
     ports:
       - "${TEST_DEFAULT_DB_HOST:-127.0.0.1}:${TEST_DEFAULT_DB_PORT:-3307}:3306"
     volumes:
-      - ./docker_data/default_db_test:/var/lib/mysql
+      - ${DEFAULT_DB_TEST_DDPATH}:/var/lib/mysql
     networks:
       - testing
     user: ${USERID}:${GROUPID}
     command: mysqld --wait_timeout=7200
 
   sierra-db-test:
-    image: postgres:9.2
+    image: postgres:14
     environment:
       - POSTGRES_USER=${TEST_SIERRA_DB_USER}
       - POSTGRES_PASSWORD=${TEST_SIERRA_DB_PASSWORD}
@@ -42,101 +42,95 @@ services:
     ports:
       - "${TEST_SIERRA_DB_HOST:-127.0.0.1}:${TEST_SIERRA_DB_PORT:-5432}:5432"
     volumes:
-      - ./docker_data/sierra_db_test:/var/lib/postgresql/data/pgdata
+      - ${SIERRA_DB_TEST_DDPATH}:/var/lib/postgresql/data/pgdata
     networks:
       - testing
     user: ${USERID}:${GROUPID}
 
   solr-dev:
-    image: openjdk:8-jre
+    image: solr:9.2.1
     volumes:
-      - ./solr:/project/solr
-      - ./docker_data/solr_dev/logs:/project/solr/instances/logs
-      - ./docker_data/solr_dev/bibdata_data:/project/solr/instances/solr/bibdata/data
-      - ./docker_data/solr_dev/haystack_data:/project/solr/instances/solr/haystack/data
-      - ./docker_data/solr_dev/marc_data:/project/solr/instances/solr/marc/data
-      - ./docker_data/solr_dev/alpha-solrmarc_data:/project/solr/instances/solr/alpha-solrmarc/data
-      - ./docker_data/solr_dev/alpha-solrmarc-02_data:/project/solr/instances/solr/alpha-solrmarc-02/data
-      - ./docker_data/solr_dev/discover-01_data:/project/solr/instances/solr/discover-01/data
-      - ./docker_data/solr_dev/discover-02_data:/project/solr/instances/solr/discover-02/data
-      - ./docker_data/solr_dev/bl-suggest_data:/project/solr/instances/solr/bl-suggest/data
-    working_dir: /project/solr/instances
+      - ${SOLR_DEV_DDPATH}:/var/solr
+      - ${SOLRCONF_PATH}:${SOLRCONF_DOCKER_MOUNT_PATH}
     ports:
       - "${SOLR_HOST:-127.0.0.1}:${SOLR_PORT:-8983}:8983"
     networks:
       - development
     user: ${USERID}:${GROUPID}
-    command: java -jar /project/solr/instances/start.jar -Djetty.port=8983
+    command: solr-fg
 
-  solr-test:
-    image: openjdk:8-jre
+  solr-test-for-update:
+    image: solr:9.2.1
     volumes:
-      - ./solr:/project/solr
-      - ./docker_data/solr_test/logs:/project/solr/instances/logs
-      - ./docker_data/solr_test/bibdata_data:/project/solr/instances/solr/bibdata/data
-      - ./docker_data/solr_test/haystack_data:/project/solr/instances/solr/haystack/data
-      - ./docker_data/solr_test/marc_data:/project/solr/instances/solr/marc/data
-      - ./docker_data/solr_test/alpha-solrmarc_data:/project/solr/instances/solr/alpha-solrmarc/data
-      - ./docker_data/solr_test/alpha-solrmarc-02_data:/project/solr/instances/solr/alpha-solrmarc-02/data
-      - ./docker_data/solr_test/discover-01_data:/project/solr/instances/solr/discover-01/data
-      - ./docker_data/solr_test/discover-02_data:/project/solr/instances/solr/discover-02/data
-      - ./docker_data/solr_test/bl-suggest_data:/project/solr/instances/solr/bl-suggest/data
-    working_dir: /project/solr/instances
+      - ${SOLR_TEST_FOR_UPDATE_DDPATH}:/var/solr
+      - ${SOLRCONF_PATH}:${SOLRCONF_DOCKER_MOUNT_PATH}
     ports:
-      - "${TEST_SOLR_HOST:-127.0.0.1}:${TEST_SOLR_PORT:-8883}:8983"
+      - "127.0.0.1:${TEST_SOLR_PORT_FOR_UPDATE:-8883}:8983"
     networks:
       - testing
     user: ${USERID}:${GROUPID}
-    command: java -jar /project/solr/instances/start.jar -Djetty.port=8983
+    command: solr-fg -Dsolr.disable.allowUrls=true
+
+  solr-test-for-search:
+    image: solr:9.2.1
+    volumes:
+      - ${SOLR_TEST_FOR_SEARCH_DDPATH}:/var/solr
+      - ${SOLRCONF_PATH}:${SOLRCONF_DOCKER_MOUNT_PATH}
+    ports:
+      - "127.0.0.1:${TEST_SOLR_PORT_FOR_SEARCH:-8884}:8983"
+    networks:
+      - testing
+    user: ${USERID}:${GROUPID}
+    command: solr-fg -Dsolr.disable.allowUrls=true
 
   redis-celery-dev:
-    image: redis:3.2
+    image: redis:7.0.10
     volumes:
-      - ./docker_data/redis_celery/data:/project/data
-      - ./docker_data/redis_celery/logs:/project/logs
+      - ${REDIS_CELERY_DEV_DATA_DDPATH}:/project/data
+      - ${REDIS_CELERY_DEV_LOGS_DDPATH}:/project/logs
     ports:
       - "${REDIS_CELERY_HOST:-127.0.0.1}:${REDIS_CELERY_PORT:-6379}:6379"
     networks:
       - development
     user: ${USERID}:${GROUPID}
-    command: redis-server ${REDIS_CELERY_CONF_FILE:---dir /project/data --logfile /project/logs/log.txt --appendonly yes}
+    command: redis-server ${REDIS_CELERY_CONF_FILE:---dir /project/data --logfile /project/logs/log.txt --appendonly yes ${REDIS_CELERY_DEV_PW_ARG:-}}
 
   redis-celery-test:
-    image: redis:3.2
+    image: redis:7.0.10
     volumes:
-      - ./docker_data/redis_celery_test/data:/project/data
-      - ./docker_data/redis_celery_test/logs:/project/logs
+      - ${REDIS_CELERY_TEST_DATA_DDPATH}:/project/data
+      - ${REDIS_CELERY_TEST_LOGS_DDPATH}:/project/logs
     ports:
       - "${TEST_REDIS_CELERY_HOST:-127.0.0.1}:${TEST_REDIS_CELERY_PORT:-6279}:6379"
     networks:
       - testing
       - development
     user: ${USERID}:${GROUPID}
-    command: redis-server ${REDIS_CELERY_CONF_FILE:---dir /project/data --logfile /project/logs/log.txt --appendonly no}
- 
+    command: redis-server ${REDIS_CELERY_CONF_FILE:---dir /project/data --logfile /project/logs/log.txt --appendonly no ${REDIS_CELERY_TEST_PW_ARG:-}}
+
   redis-appdata-dev:
-    image: redis:3.2
+    image: redis:7.0.10
     volumes:
-      - ./docker_data/redis_appdata_dev/data:/project/data
-      - ./docker_data/redis_appdata_dev/logs:/project/logs
+      - ${REDIS_APPDATA_DEV_DATA_DDPATH}:/project/data
+      - ${REDIS_APPDATA_DEV_LOGS_DDPATH}:/project/logs
     ports:
       - "${REDIS_APPDATA_HOST:-127.0.0.1}:${REDIS_APPDATA_PORT:-6380}:6379"
     networks:
       - development
     user: ${USERID}:${GROUPID}
-    command: redis-server ${REDIS_APPDATA_CONF_FILE:---dir /project/data --logfile /project/logs/log.txt --appendonly yes}
+    command: redis-server ${REDIS_APPDATA_CONF_FILE:---dir /project/data --logfile /project/logs/log.txt --appendonly yes ${REDIS_APPDATA_DEV_PW_ARG:-}}
 
   redis-appdata-test:
-    image: redis:3.2
+    image: redis:7.0.10
     volumes:
-      - ./docker_data/redis_appdata_test/data:/project/data
-      - ./docker_data/redis_appdata_test/logs:/project/logs
+      - ${REDIS_APPDATA_TEST_DATA_DDPATH}:/project/data
+      - ${REDIS_APPDATA_TEST_LOGS_DDPATH}:/project/logs
     ports:
       - "${TEST_REDIS_APPDATA_HOST:-127.0.0.1}:${TEST_REDIS_APPDATA_PORT:-6280}:6379"
     networks:
       - testing
     user: ${USERID}:${GROUPID}
-    command: redis-server ${REDIS_APPDATA_CONF_FILE:---dir /project/data --logfile /project/logs/log.txt --appendonly no}
+    command: redis-server ${REDIS_APPDATA_CONF_FILE:---dir /project/data --logfile /project/logs/log.txt --appendonly no ${REDIS_APPDATA_TEST_PW_ARG:-}}
 
   app:
     build:
@@ -144,37 +138,45 @@ services:
       args:
         userid: ${USERID}
         groupid: ${GROUPID}
+        project_root: ${PROJECT_DOCKER_MOUNT_PATH}
+        log_path: ${PROJECT_LOGS_DOCKER_MOUNT_PATH}
+        media_path: ${PROJECT_MEDIA_DOCKER_MOUNT_PATH}
+        workdir_path: ${PROJECT_DOCKER_WORKDIR_PATH}
     depends_on:
       - default-db-dev
       - solr-dev
       - redis-appdata-dev
     volumes:
-      - .:/project/catalog-api
-      - ./docker_data/app/logs:/project/logs
-      - ./docker_data/app/media:/project/media
-    working_dir: /project/catalog-api/django/sierra
+      - .:${PROJECT_DOCKER_WORKDIR_PATH}
+      - ${APP_LOGS_DDPATH}:${PROJECT_LOGS_DOCKER_MOUNT_PATH}
+      - ${APP_MEDIA_DDPATH}:${PROJECT_MEDIA_DOCKER_MOUNT_PATH}
+    working_dir: ${PROJECT_DOCKER_WORKDIR_PATH}/django/sierra
     networks:
       - development
     ports:
       - "0.0.0.0:${DJANGO_PORT:-8000}:8000"
-    command: wait-for-it.sh -t 30 default-db-dev:3306 -- wait-for-it.sh -t 30 solr-dev:8983 -- wait-for-it.sh -t 30 redis-appdata-dev:6379 -- /project/catalog-api/django/sierra/manage.py runserver 0.0.0.0:8000
+    command: wait-for-it.sh -t 30 default-db-dev:3306 -- wait-for-it.sh -t 30 solr-dev:8983 -- wait-for-it.sh -t 30 redis-appdata-dev:6379 -- ${PROJECT_DOCKER_WORKDIR_PATH}/django/sierra/manage.py runserver 0.0.0.0:8000
 
-  celery-worker:
+  celery-worker-dev:
     build:
       context: .
       args:
         userid: ${USERID}
         groupid: ${GROUPID}
+        project_root: ${PROJECT_DOCKER_MOUNT_PATH}
+        log_path: ${PROJECT_LOGS_DOCKER_MOUNT_PATH}
+        media_path: ${PROJECT_MEDIA_DOCKER_MOUNT_PATH}
+        workdir_path: ${PROJECT_DOCKER_WORKDIR_PATH}
     depends_on:
       - default-db-dev
       - redis-celery-dev
     volumes:
-      - .:/project/catalog-api
-      - ./docker_data/celery_worker/logs:/project/logs
-    working_dir: /project/catalog-api/django/sierra
+      - .:${PROJECT_DOCKER_WORKDIR_PATH}
+      - ${CELERY_WORKER_DEV_LOGS_DDPATH}:${PROJECT_LOGS_DOCKER_MOUNT_PATH}
+    working_dir: ${PROJECT_DOCKER_WORKDIR_PATH}/django/sierra
     networks:
       - development
-    command: wait-for-it.sh -t 30 default-db-dev:3306 -- wait-for-it.sh -t 30 redis-celery-dev:6379 -- celery worker -A sierra -c 4 -l info -f /project/logs/celery-worker.log
+    command: wait-for-it.sh -t 30 default-db-dev:3306 -- wait-for-it.sh -t 30 redis-celery-dev:6379 -- celery -A sierra worker -E -c 4 -l INFO -f ${PROJECT_LOGS_DOCKER_MOUNT_PATH}/celery-worker.log
 
   celery-worker-test:
     build:
@@ -182,18 +184,22 @@ services:
       args:
         userid: ${USERID}
         groupid: ${GROUPID}
+        project_root: ${PROJECT_DOCKER_MOUNT_PATH}
+        log_path: ${PROJECT_LOGS_DOCKER_MOUNT_PATH}
+        media_path: ${PROJECT_MEDIA_DOCKER_MOUNT_PATH}
+        workdir_path: ${PROJECT_DOCKER_WORKDIR_PATH}
     depends_on:
       - default-db-test
       - redis-celery-test
     volumes:
-      - .:/project/catalog-api
-      - ./docker_data/celery_worker_test/logs:/project/logs
+      - .:${PROJECT_DOCKER_WORKDIR_PATH}
+      - ${CELERY_WORKER_TEST_LOGS_DDPATH}:${PROJECT_LOGS_DOCKER_MOUNT_PATH}
     environment:
       - DJANGO_SETTINGS_MODULE=sierra.settings.test
-    working_dir: /project/catalog-api/django/sierra
+    working_dir: ${PROJECT_DOCKER_WORKDIR_PATH}/django/sierra
     networks:
       - testing
-    command: wait-for-it.sh -t 30 default-db-test:3306 -- wait-for-it.sh -t 30 redis-celery-test:6379 -- celery worker -A sierra -c 4 -l info -f /project/logs/celery-worker.log
+    command: wait-for-it.sh -t 30 default-db-test:3306 -- wait-for-it.sh -t 30 redis-celery-test:6379 -- celery -A sierra worker -E -c 4 -l INFO -f ${PROJECT_LOGS_DOCKER_MOUNT_PATH}/celery-worker.log
 
   test:
     build:
@@ -201,23 +207,25 @@ services:
       args:
         userid: ${USERID}
         groupid: ${GROUPID}
+        project_root: ${PROJECT_DOCKER_MOUNT_PATH}
+        log_path: ${PROJECT_LOGS_DOCKER_MOUNT_PATH}
+        media_path: ${PROJECT_MEDIA_DOCKER_MOUNT_PATH}
+        workdir_path: ${PROJECT_DOCKER_WORKDIR_PATH}
     depends_on:
       - default-db-test
       - sierra-db-test
-      - solr-test
+      - solr-test-for-update
+      - solr-test-for-search
       - redis-appdata-test
       - celery-worker-test
     volumes:
-      - .:/project/catalog-api
-      - ./docker_data/test/logs:/project/logs
-      - ./docker_data/test/media:/project/media
-    environment:
-      - SOLRMARC_CONFIG_FILE=${TEST_SOLRMARC_CONFIG_FILE:-test_config.properties}
-      - SOLRMARC_COMMAND=/project/catalog-api/solr/solrmarc/indexfile.sh
-    working_dir: /project/catalog-api/
+      - .:${PROJECT_DOCKER_WORKDIR_PATH}
+      - ${TEST_LOGS_DDPATH}:${PROJECT_LOGS_DOCKER_MOUNT_PATH}
+      - ${TEST_MEDIA_DDPATH}:${PROJECT_MEDIA_DOCKER_MOUNT_PATH}
+    working_dir: ${PROJECT_DOCKER_WORKDIR_PATH}
     networks:
       - testing
-    entrypoint: wait-for-it.sh -t 30 default-db-test:3306 -- wait-for-it.sh -t 30 sierra-db-test:5432 -- wait-for-it.sh -t 30 solr-test:8983 -- wait-for-it.sh -t 30 redis-appdata-test:6379 -- py.test
+    entrypoint: wait-for-it.sh -t 30 default-db-test:3306 -- wait-for-it.sh -t 30 sierra-db-test:5432 -- wait-for-it.sh -t 30 solr-test-for-update:8983 -- wait-for-it.sh -t 30 solr-test-for-search:8983 -- wait-for-it.sh -t 30 redis-appdata-test:6379 -- pytest
 
   live-db-test:
     build:
@@ -225,16 +233,21 @@ services:
       args:
         userid: ${USERID}
         groupid: ${GROUPID}
+        project_root: ${PROJECT_DOCKER_MOUNT_PATH}
+        log_path: ${PROJECT_LOGS_DOCKER_MOUNT_PATH}
+        media_path: ${PROJECT_MEDIA_DOCKER_MOUNT_PATH}
+        workdir_path: ${PROJECT_DOCKER_WORKDIR_PATH}
     depends_on:
       - default-db-dev
+      - redis-appdata-dev
     volumes:
-      - .:/project/catalog-api
-      - ./docker_data/test/logs:/project/logs
-      - ./docker_data/test/media:/project/media
-    working_dir: /project/catalog-api/
+      - .:${PROJECT_DOCKER_WORKDIR_PATH}
+      - ${TEST_LOGS_DDPATH}:${PROJECT_LOGS_DOCKER_MOUNT_PATH}
+      - ${TEST_MEDIA_DDPATH}:${PROJECT_MEDIA_DOCKER_MOUNT_PATH}
+    working_dir: ${PROJECT_DOCKER_WORKDIR_PATH}
     networks:
       - development
-    entrypoint: wait-for-it.sh -t 30 default-db-dev:3306 -- py.test --ds=${DJANGO_SETTINGS_MODULE} django/sierra/base/tests/test_database.py
+    entrypoint: wait-for-it.sh -t 30 default-db-dev:3306 -- pytest --ds=${DJANGO_SETTINGS_MODULE} django/sierra/base/tests/test_database.py
 
   manage-dev:
     build:
@@ -242,16 +255,20 @@ services:
       args:
         userid: ${USERID}
         groupid: ${GROUPID}
+        project_root: ${PROJECT_DOCKER_MOUNT_PATH}
+        log_path: ${PROJECT_LOGS_DOCKER_MOUNT_PATH}
+        media_path: ${PROJECT_MEDIA_DOCKER_MOUNT_PATH}
+        workdir_path: ${PROJECT_DOCKER_WORKDIR_PATH}
     depends_on:
       - default-db-dev
     volumes:
-      - .:/project/catalog-api
-      - ./docker_data/app/logs:/project/logs
-      - ./docker_data/app/media:/project/media
+      - .:${PROJECT_DOCKER_WORKDIR_PATH}
+      - ${APP_LOGS_DDPATH}:${PROJECT_LOGS_DOCKER_MOUNT_PATH}
+      - ${APP_MEDIA_DDPATH}:${PROJECT_MEDIA_DOCKER_MOUNT_PATH}
     networks:
       - development
-    working_dir: /project/catalog-api/django/sierra
-    entrypoint: wait-for-it.sh -t 30 default-db-dev:3306 -- /project/catalog-api/django/sierra/manage.py
+    working_dir: ${PROJECT_DOCKER_WORKDIR_PATH}/django/sierra
+    entrypoint: wait-for-it.sh -t 30 default-db-dev:3306 -- ${PROJECT_DOCKER_WORKDIR_PATH}/django/sierra/manage.py
 
   manage-test:
     build:
@@ -259,20 +276,23 @@ services:
       args:
         userid: ${USERID}
         groupid: ${GROUPID}
+        project_root: ${PROJECT_DOCKER_MOUNT_PATH}
+        log_path: ${PROJECT_LOGS_DOCKER_MOUNT_PATH}
+        media_path: ${PROJECT_MEDIA_DOCKER_MOUNT_PATH}
+        workdir_path: ${PROJECT_DOCKER_WORKDIR_PATH}
     depends_on:
       - default-db-test
       - sierra-db-test
     volumes:
-      - .:/project/catalog-api
-      - ./docker_data/test/logs:/project/logs
-      - ./docker_data/test/media:/project/media
+      - .:${PROJECT_DOCKER_WORKDIR_PATH}
+      - ${TEST_LOGS_DDPATH}:${PROJECT_LOGS_DOCKER_MOUNT_PATH}
+      - ${TEST_MEDIA_DDPATH}:${PROJECT_MEDIA_DOCKER_MOUNT_PATH}
     networks:
       - testing
-    working_dir: /project/catalog-api/django/sierra
+    working_dir: ${PROJECT_DOCKER_WORKDIR_PATH}/django/sierra
     environment:
       - DJANGO_SETTINGS_MODULE=sierra.settings.test
-      - SOLRMARC_CONFIG_FILE=${TEST_SOLRMARC_CONFIG_FILE:-test_config.properties}
-    entrypoint: wait-for-it.sh -t 30 default-db-test:3306 -- wait-for-it.sh -t 30 sierra-db-test:5432 -- /project/catalog-api/django/sierra/manage.py
+    entrypoint: wait-for-it.sh -t 30 default-db-test:3306 -- wait-for-it.sh -t 30 sierra-db-test:5432 -- ${PROJECT_DOCKER_WORKDIR_PATH}/django/sierra/manage.py
 
 networks:
   development:

@@ -2,15 +2,14 @@
 Tests the 'importapiusers' custom management.py command.
 """
 
-import pytest
-import csv
+from __future__ import absolute_import
 
+import pytest
+from api.management.commands import importapiusers
 from django.core.management import call_command
 from django.core.management.base import CommandError
-from django.utils.six import StringIO
-
-from api.management.commands import importapiusers
-
+from six import StringIO
+from six.moves import range
 
 # FIXTURES AND TEST DATA
 # ---------------------------------------------------------------------
@@ -43,9 +42,9 @@ def gen_ubatch(number, start_index=1, fields=None, perms=None):
                         'first_name', 'last_name')
     pdict = {p: True for p in (perms or ('first', 'second', 'third'))}
     return [
-        { f: ('{}{}'.format(f[0:2], i + start_index) if f in fields else pdict)
-            for f in fields + ('permissions_dict',) }
-                for i in range(0, number)
+        {f: ('{}{}'.format(f[0:2], i + start_index) if f in fields else pdict)
+            for f in fields + ('permissions_dict',)}
+        for i in range(0, number)
     ]
 
 
@@ -55,10 +54,10 @@ def ubatch_to_csv(batch):
     """
     permkey = 'permissions_dict'
     fields = [k for k in batch[0].keys() if k != permkey]
-    fields.extend(batch[0][permkey].keys())
+    fields.extend(list(batch[0][permkey].keys()))
     return '{}\n{}'.format(','.join(fields), '\n'.join([
         ','.join([str(r.get(f, r[permkey].get(f, None))) for f in fields])
-            for r in batch
+        for r in batch
     ]))
 
 
@@ -158,7 +157,7 @@ def test_command_handle(cmd, apiuser_with_custom_defaults, mixed_data, mocker):
 
     # Do the test
     test_cmd.handle(file=str(fpath))
-    
+
     # Check results
     test_cmd.csv_to_batch.assert_called_with(str(fpath))
     test_uclass.objects.batch_import_users.assert_called_with(batch)
@@ -179,7 +178,7 @@ def test_importapiusers_output_sanity(cmd, apiuser_with_custom_defaults,
     created, updated, errors = [], [], []
     for i, user in enumerate(batch):
         if user['username'] == '':
-            errors.append(i+1)
+            errors.append(i + 1)
         elif not updated:
             updated.append(user['username'])
             test_uclass.objects.batch_import_users([user])

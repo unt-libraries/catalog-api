@@ -1,0 +1,150 @@
+    <!-- Misc Metadata -->
+    <field name="id" type="string" indexed="true" stored="true" required="true" multiValued="false" docValues="true"/>
+    <field name="suppressed" type="boolean" indexed="true" stored="true" multiValued="false"/>
+    <field name="date_added" type="date" indexed="true" stored="true" multiValued="false" docValues="true"/>
+    <field name="timestamp_of_last_solr_update" type="date" indexed="true" stored="true" default="NOW" multiValued="false" docValues="true"/>
+    <field name="record_boost" type="integer" indexed="true" stored="true" multiValued="false" docValues="true" />
+    <field name="access_facet" type="string" indexed="true" stored="false" multiValued="true" docValues="true"/>
+    <field name="resource_type" type="string" indexed="true" stored="true" multiValued="false" docValues="true"/>
+    <field name="resource_type_facet" type="string" indexed="true" stored="false" multiValued="true" docValues="true"/>
+    <field name="media_type_facet" type="string" indexed="true" stored="false" multiValued="true" docValues="true"/>
+    <field name="building_locations" type="string" indexed="false" stored="true" multiValued="true"/>
+    <field name="building_facet" type="string" indexed="true" stored="false" multiValued="true" docValues="true"/>
+    <field name="shelf_facet" type="string" indexed="true" stored="false" multiValued="true" docValues="true"/>
+    <field name="collection_facet" type="string" indexed="true" stored="false" multiValued="true" docValues="true"/>
+    <field name="languages" type="string" indexed="true" stored="true" multiValued="true" docValues="true"/>
+    <field name="language_notes" type="string" indexed="false" stored="true" multiValued="true"/>
+    <field name="games_ages_facet" type="string" indexed="true" stored="false" multiValued="true" docValues="true"/>
+    <field name="games_duration_facet" type="string" indexed="true" stored="false" multiValued="true" docValues="true"/>
+    <field name="games_players_facet" type="string" indexed="true" stored="false" multiValued="true" docValues="true"/>
+    <field name="building_collection_search" type="text" indexed="true" stored="false" multiValued="true"/>
+    <field name="type_format_search" type="stem_text" indexed="true" stored="false" multiValued="true"/>
+
+    <!-- Thumbnails -->
+    <field name="thumbnail_url" type="string" indexed="false" stored="true" multiValued="false"/>
+
+    <!-- URLs -->
+    <field name="urls_json" type="string" indexed="false" stored="true" multiValued="true"/>
+
+    <!-- Items -->
+    <field name="items_json" type="string" indexed="false" stored="true" multiValued="true"/>
+    <field name="has_more_items" type="boolean" indexed="true" stored="true" multiValued="false"/>
+    <field name="more_items_json" type="string" indexed="false" stored="true" multiValued="true"/>
+
+    <!-- Call Numbers / Other Standard Numbers -->
+    <field name="call_numbers_display" type="string" indexed="false" stored="true" multiValued="true"/>
+    <field name="sudocs_display" type="string" indexed="false" stored="true" multiValued="true"/>
+    <field name="lccns_display" type="string" indexed="false" stored="true" multiValued="true"/>
+    <field name="oclc_numbers_display" type="string" indexed="false" stored="true" multiValued="true"/>
+    <field name="other_control_numbers_display" type="string" indexed="false" stored="true" multiValued="true"/>
+    <field name="isbns_display" type="string" indexed="false" stored="true" multiValued="true"/>
+    <field name="issns_display" type="string" indexed="false" stored="true" multiValued="true"/>
+    <field name="other_standard_numbers_display" type="string" indexed="false" stored="true" multiValued="true"/>
+    <field name="isbn_numbers" type="string" indexed="false" stored="true" multiValued="true"/>
+    <field name="lccn_number" type="string" indexed="false" stored="true"/>
+    <field name="issn_numbers" type="string" indexed="false" stored="true" multiValued="true"/>
+    <field name="oclc_numbers" type="string" indexed="false" stored="true" multiValued="true"/>
+    <field name="all_standard_numbers" type="string" indexed="false" stored="true" multiValued="true"/>
+    <field name="all_control_numbers" type="string" indexed="false" stored="true" multiValued="true"/>
+    <field name="call_numbers_search" type="cn_norm" indexed="true" stored="false" multiValued="true"/>
+    <field name="sudocs_search" type="cn_norm" indexed="true" stored="false" multiValued="true"/>
+    <field name="standard_numbers_search" type="cn_norm" indexed="true" stored="false" multiValued="true"/>
+    <field name="control_numbers_search" type="cn_norm" indexed="true" stored="false" multiValued="true"/>
+
+    <!-- Publication -->
+    <field name="publication_year_display" type="string" indexed="false" stored="true" multiValued="false"/>
+    <field name="publication_year_range_facet" type="integer" indexed="true" stored="true" multiValued="true" docValues="true"/>
+    <field name="current_publication_frequency" type="string" indexed="false" stored="true" multiValued="true"/>
+    <field name="former_publication_frequency" type="string" indexed="false" stored="true" multiValued="true"/>
+    <field name="creation_display" type="string" indexed="false" stored="true" multiValued="true"/>
+    <field name="publication_display" type="string" indexed="false" stored="true" multiValued="true"/>
+    <field name="distribution_display" type="string" indexed="false" stored="true" multiValued="true"/>
+    <field name="manufacture_display" type="string" indexed="false" stored="true" multiValued="true"/>
+    <field name="copyright_display" type="string" indexed="false" stored="true" multiValued="true"/>
+    <field name="publication_date_notes" type="string" indexed="false" stored="true" multiValued="true"/>
+    <field name="publication_places_search" type="text" indexed="true" stored="false" multiValued="true"/>
+    <field name="publishers_search" type="text" indexed="true" stored="false" multiValued="true"/>
+    <field name="publication_dates_search" type="text" indexed="true" stored="false" multiValued="true"/>
+    <field name="publication_sort" type="string" indexed="true" stored="false" multiValued="false" docValues="true"/>
+    
+    <!-- Authors / Contributors -->
+    <field name="author_json" type="string" indexed="false" stored="true" multiValued="false"/>
+    <field name="contributors_json" type="string" indexed="false" stored="true" multiValued="true"/>
+    <field name="author_contributor_facet" type="string" indexed="true" stored="false" multiValued="true" docValues="true"/>
+    <field name="meetings_json" type="string" indexed="false" stored="true" multiValued="true"/>
+    <field name="meeting_facet" type="string" indexed="true" stored="false" multiValued="true" docValues="true"/>
+    <field name="responsibility_display" type="string" indexed="false" stored="true" multiValued="false"/>
+    <field name="author_search" type="heading_term_text" indexed="true" stored="false" multiValued="true"/>
+    <field name="contributors_search" type="heading_term_text" indexed="true" stored="false" multiValued="true"/>
+    <field name="meetings_search" type="text" indexed="true" stored="false" multiValued="true"/>
+    <field name="responsibility_search" type="stem_text" indexed="true" stored="false" multiValued="true"/>
+    <field name="author_sort" type="norm_string" indexed="true" stored="false" multiValued="false"/>
+
+    <!-- Titles / Series -->
+    <field name="title_display" type="string" indexed="false" stored="true" multiValued="false"/>
+    <field name="non_truncated_title_display" type="string" indexed="false" stored="true" multiValued="false"/>
+    <field name="main_work_title_json" type="string" indexed="false" stored="true" multiValued="false"/>
+    <field name="included_work_titles_json" type="string" indexed="false" stored="true" multiValued="true"/>
+    <field name="related_work_titles_json" type="string" indexed="false" stored="true" multiValued="true"/>
+    <field name="related_series_titles_json" type="string" indexed="false" stored="true" multiValued="true"/>
+    <field name="title_series_facet" type="string" indexed="true" stored="false" multiValued="true" docValues="true"/>
+    <field name="variant_titles_notes" type="string" indexed="false" stored="true" multiValued="true"/>
+    <field name="main_title_search" type="text" indexed="true" stored="false" multiValued="true"/>
+    <field name="included_work_titles_search" type="text" indexed="true" stored="false" multiValued="true"/>
+    <field name="related_work_titles_search" type="text" indexed="true" stored="false" multiValued="true"/>
+    <field name="related_series_titles_search" type="text" indexed="true" stored="false" multiValued="true"/>
+    <field name="variant_titles_search" type="text" indexed="true" stored="false" multiValued="true"/>
+    <field name="all_title_variants_search" type="text" indexed="true" stored="false" multiValued="true"/>
+    <field name="title_sort" type="string" indexed="true" stored="false" multiValued="false" docValues="true"/>
+
+    <!-- Edition -->
+    <field name="editions_display" type="string" indexed="false" stored="true" multiValued="true"/>
+    <field name="editions_search" type="text" indexed="true" stored="false" multiValued="true"/>
+
+    <!-- Subjects / Genres -->
+    <field name="subject_headings_json" type="string" indexed="false" stored="true" multiValued="true"/>
+    <field name="subjects_search_exact_headings" type="full_heading_text" indexed="true" stored="false" multiValued="true"/>
+    <field name="subjects_search_all_terms" type="heading_term_text_stem" indexed="true" stored="false" multiValued="true"/>
+    <field name="subjects_search_main_terms" type="heading_term_text_stem" indexed="true" stored="false" multiValued="true"/>
+    <field name="genre_headings_json" type="string" indexed="false" stored="true" multiValued="true"/>
+    <field name="genres_search_exact_headings" type="full_heading_text" indexed="true" stored="false" multiValued="true"/>
+    <field name="genres_search_all_terms" type="heading_term_text_stem" indexed="true" stored="false" multiValued="true"/>
+    <field name="genres_search_main_terms" type="heading_term_text_stem" indexed="true" stored="false" multiValued="true"/>
+    <field name="subject_heading_facet" type="string" indexed="true" stored="false" multiValued="true" docValues="true"/>
+    <field name="genre_heading_facet" type="string" indexed="true" stored="false" multiValued="true" docValues="true"/>
+    <field name="topic_facet" type="string" indexed="true" stored="false" multiValued="true" docValues="true"/>
+    <field name="era_facet" type="string" indexed="true" stored="false" multiValued="true" docValues="true"/>
+    <field name="region_facet" type="string" indexed="true" stored="false" multiValued="true" docValues="true"/>
+    <field name="genre_facet" type="string" indexed="true" stored="false" multiValued="true" docValues="true"/>
+
+    <!-- Linking Fields -->
+    <field name="serial_continuity_linking_json" type="string" indexed="false" stored="true" multiValued="true"/>
+    <field name="related_resources_linking_json" type="string" indexed="false" stored="true" multiValued="true"/>
+
+    <!-- Description and Notes -->
+    <field name="toc_notes" type="stem_text" indexed="true" stored="true" multiValued="true"/>
+    <field name="summary_notes" type="string" indexed="false" stored="true" multiValued="true"/>
+    <field name="arrangement_of_materials" type="string" indexed="false" stored="true" multiValued="true"/>
+    <field name="physical_description" type="string" indexed="false" stored="true" multiValued="true"/>
+    <field name="physical_medium" type="string" indexed="false" stored="true" multiValued="true"/>
+    <field name="geospatial_data" type="string" indexed="false" stored="true" multiValued="true"/>
+    <field name="audio_characteristics" type="string" indexed="false" stored="true" multiValued="true"/>
+    <field name="projection_characteristics" type="string" indexed="false" stored="true" multiValued="true"/>
+    <field name="video_characteristics" type="string" indexed="false" stored="true" multiValued="true"/>
+    <field name="digital_file_characteristics" type="string" indexed="false" stored="true" multiValued="true"/>
+    <field name="graphic_representation" type="string" indexed="false" stored="true" multiValued="true"/>
+    <field name="performance_medium" type="string" indexed="false" stored="true" multiValued="true"/>
+    <field name="production_credits" type="string" indexed="false" stored="true" multiValued="true"/>
+    <field name="performers" type="string" indexed="false" stored="true" multiValued="true"/>
+    <field name="dissertation_notes" type="string" indexed="false" stored="true" multiValued="true"/>
+    <field name="audience" type="string" indexed="false" stored="true" multiValued="true"/>
+    <field name="creator_demographics" type="string" indexed="false" stored="true" multiValued="true"/>
+    <field name="curriculum_objectives" type="string" indexed="false" stored="true" multiValued="true"/>
+    <field name="system_details" type="string" indexed="false" stored="true" multiValued="true"/>
+    <field name="notes" type="string" indexed="false" stored="true" multiValued="true"/>
+    <field name="notes_search" type="stem_text" indexed="true" stored="false" multiValued="true"/>
+
+    <!-- Serial Holdings -->
+    <field name="library_has_display" type="string" indexed="false" stored="true" multiValued="true"/>
+
+

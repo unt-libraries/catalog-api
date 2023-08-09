@@ -1,13 +1,13 @@
+from __future__ import absolute_import
 from __future__ import unicode_literals
 
 import json
+
 import ujson
-
 from django.http.multipartparser import parse_header
-
-from rest_framework.compat import six
 from rest_framework.renderers import BaseRenderer
 from rest_framework.utils import encoders
+from six import text_type
 
 
 class FullJSONRenderer(BaseRenderer):
@@ -34,7 +34,8 @@ class FullJSONRenderer(BaseRenderer):
         if accepted_media_type:
             # If the media type looks like 'application/json; indent=4',
             # then pretty print the result.
-            base_media_type, params = parse_header(accepted_media_type.encode('ascii'))
+            base_media_type, params = parse_header(
+                accepted_media_type.encode('ascii'))
             indent = params.get('indent', indent)
             try:
                 indent = max(min(int(indent), 8), 0)
@@ -50,7 +51,7 @@ class FullJSONRenderer(BaseRenderer):
         # but if ensure_ascii=False, the return type is underspecified,
         # and may (or may not) be unicode.
         # On python 3.x json.dumps() returns unicode strings.
-        if isinstance(ret, six.text_type):
+        if isinstance(ret, text_type):
             return bytes(ret.encode('utf-8'))
         return ret
 

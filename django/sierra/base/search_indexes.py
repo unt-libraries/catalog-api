@@ -1,27 +1,23 @@
 """
 Contains code for Haystack to build search indexes for Sierra API.
-
-IMPORTANT: All Solr indexes should be managed by Haystack EXCEPT any
-SolrMarc indexes. We don't want Haystack indexing documents or even
-generating schemas for our SolrMarc indexes. But we do want to allow
-Haystack to search them. In order to do that, we have to include a
-BibIndex class with the bare minimum attributes to make it a valid
-Haystack SearchIndex class.
 """
+from __future__ import absolute_import
 from __future__ import unicode_literals
-import ujson
+
 import fnmatch
+import logging
+import re
 
-from haystack import indexes, constants, utils, exceptions
-
-from django.conf import settings
+import ujson
 from django.core.exceptions import ObjectDoesNotExist
-
-from export import sierra2marc as s2m
-from . import models as sierra_models
+from export import sierramarc, marcparse
+from haystack import indexes, constants, utils, exceptions
+from six import text_type
+from six.moves import range
 from utils import helpers
 
-import logging
+from . import models as sierra_models
+
 # set up logger, for debugging
 logger = logging.getLogger('sierra.custom')
 
@@ -38,12 +34,12 @@ def cat_fields(data, include=(), exclude=()):
     """
     values = []
     for i in data:
-        if data[i] is not None and ((include and i in include) 
+        if data[i] is not None and ((include and i in include)
                                     or (exclude and i not in exclude)):
-            if type(data[i]) is list or type(data[i]) is tuple:
-                values.append(' '.join([unicode(j) for j in data[i]]))
+            if isinstance(data[i], list) or isinstance(data[i], tuple):
+                values.append(' '.join([text_type(j) for j in data[i]]))
             else:
-                values.append(unicode(data[i]))
+                values.append(text_type(data[i]))
     return ' '.join(values)
 
 
@@ -164,7 +160,7 @@ class CustomQuerySetIndex(indexes.SearchIndex):
         queryset = self.index_queryset() if queryset is None else queryset
         if backend is not None:
             ids_to_delete = [self.get_qualified_id(r) for r in queryset]
-            backend.conn.delete(id=ids_to_delete, commit=commit)
+            backend.delete(ids=ids_to_delete, commit=commit)
 
     def clear(self, using=None, commit=True):
         backend = self.get_backend(using)
@@ -184,7 +180,7 @@ class CustomQuerySetIndex(indexes.SearchIndex):
     def commit(self, using=None):
         backend = self.get_backend(using)
         if backend is not None:
-            backend.conn.commit()
+            backend.commit()
 
     def optimize(self, using=None):
         backend = self.get_backend(using)
@@ -201,97 +197,63 @@ class CustomQuerySetIndex(indexes.SearchIndex):
             return self.prepared_data
 
 
-class SolrmarcIndex(CustomQuerySetIndex):
+class BibIndex(CustomQuerySetIndex, indexes.Indexable):
     """
-    Extends `CustomQuerySetIndex` with a few class attributes for the
-    SolrmarcIndexBackend, for indexing data via Solrmarc. See the
-    `sierra.solr_backend.SolrmarcIndexBackend` docstring for more info.
-    """
+    This uses a pipeline outside of Haystack to convert our Sierra
+    BibRecord data first to MARC format and then to a dictionary for
+    indexing in Solr. It bypasses Haystack fields etc.
 
-    s2marc_class = s2m.S2MarcBatch
-    index_properties = None
-    config_file = None
-    temp_filedir = None
-
-
-class BibIndex(SolrmarcIndex, indexes.Indexable):
-    """
-    WARNING: This is a total hack to force Haystack to register our
-    BibRecord model as being indexed by Haystack. This is the only way
-    to get it to search our non-Haystack-managed SolrMarc index(es).
+    Note: This index is used by our Blacklight-based faceted catalog
+    along with the Catalog API `bib` resource.
     """
     text = indexes.CharField(document=True)
+    reserved_fields = {
+        'haystack_id': 'id',
+        'django_ct': None,
+        'django_id': None
+    }
+    to_marc_converter = sierramarc.SierraToMarcConverter()
+    from_marc_pipeline = marcparse.BibDataPipeline()
     
     def get_model(self):
         return sierra_models.BibRecord
 
-
-class MarcIndex(CustomQuerySetIndex, indexes.Indexable):
-    """
-    Class to index MARC in Solr so that it's searchable by field and
-    subfield.
-    """
-    id = indexes.IntegerField()
-    text = indexes.CharField(document=True)
-    record_number = indexes.FacetCharField()
-    leader = indexes.FacetCharField(stored=False)
-    mf_001 = indexes.FacetCharField(stored=False)
-    mf_003 = indexes.FacetCharField(stored=False)
-    mf_005 = indexes.FacetCharField(stored=False)
-    mf_007 = indexes.FacetCharField(stored=False)
-    mf_008 = indexes.FacetCharField(stored=False)
-    json = indexes.FacetCharField()
-
-    def __init__(self, queryset=None, using=None):
-        super(MarcIndex, self).__init__(queryset=queryset, using=using)
-        for mf in range(10,1000):
-            fname = 'mf_{:03d}'.format(mf)
-            setattr(self, fname, indexes.FacetCharField(stored=False))
-            for sf in ['0','1','2','3','4','5','6','7','8','9','a','b','c','d',
-                       'e','f','g','h','i','j','k','l','m','n','o','p','q','r',
-                       's','t','u','v','w','x','y','z']:
-                sfname = 'sf_{:03d}{}'.format(mf, sf)
-                setattr(self, sfname, indexes.FacetCharField(stored=False))
-
-    def get_model(self):
-        return sierra_models.BibRecord
-
-    def prepare_id(self, obj):
-        return int(obj.pk)
-
-    def prepare_record_number(self, obj):
-        return obj.record_metadata.get_iii_recnum(True)
-
-    def prepare(self, obj):
-        self.prepared_data = super(MarcIndex, self).prepare(obj)
+    def get_qualified_id(self, record):
         try:
-            record = s2m.S2MarcBatch(obj).to_marc()[0]
-        except IndexError:
-            pass
-        else:
-            self.prepared_data['json'] = record.as_json()
-            self.prepared_data['leader'] = record.leader
-            for field in record.get_fields():
-                mf_name = 'mf_{}'.format(field.tag)
-                if field.is_control_field():
-                    self.prepared_data[mf_name] = field.data
-                else:
-                    data = self.prepared_data.get(mf_name, [])
-                    data.append(unicode(field)[6:])
-                    self.prepared_data[mf_name] = data
-                    sf = field.subfields
-                    for s_tag, s_data in [sf[n:n+2] for n in range(0,len(sf),2)]:
-                        sf_name = 'sf_{}{}'.format(field.tag, s_tag)
-                        data = self.prepared_data.get(sf_name, [])
-                        data.append(s_data)
-                        self.prepared_data[sf_name] = data
+            return record.get_iii_recnum(False)
+        except AttributeError:
+            return record.record_metadata.get_iii_recnum(False)
 
+    def log_error(self, obj_str, err):
+        self.last_batch_errors.append((obj_str, err))
+
+    def full_prepare(self, obj):
+        marc_records = self.to_marc_converter.to_marc([obj])
+        errors = []
+
+        if self.to_marc_converter.errors:
+            errors.extend(self.to_marc_converter.errors)
+        elif not marc_records or len(marc_records) != 1:
+            id_ = self.get_qualified_id(obj)
+            msg = 'Record {}: Unknown problem converting MARC.'.format(id_)
+            errors.append(msg)
+        else:
+            marc = marc_records[0]
+            try:
+                self.prepared_data = self.from_marc_pipeline.do(obj, marc)
+            except Exception as e:
+                id_ = self.get_qualified_id(obj)
+                errors.append('Record {}: {}'.format(id_, e))
+        if errors:
+            for error in errors:
+                self.log_error('WARNING', error)
+            raise exceptions.SkipDocument()
         return self.prepared_data
 
 
 class MetadataBaseIndex(CustomQuerySetIndex, indexes.Indexable):
     """
-    Subclassable class for creating III "metadata" indexes -- 
+    Subclassable class for creating III "metadata" indexes --
     Locations, Itypes, etc. (E.g. admin parameters.) Most of them are
     just key/value pairs (code/label), so they follow a predictable
     pattern. In each subclass just be sure to set your model and
@@ -306,7 +268,7 @@ class MetadataBaseIndex(CustomQuerySetIndex, indexes.Indexable):
     label = indexes.FacetCharField()
     type = indexes.FacetCharField()
     _version_ = indexes.IntegerField()
-    
+
     def get_model(self):
         return self.model
 
@@ -327,7 +289,7 @@ class MetadataBaseIndex(CustomQuerySetIndex, indexes.Indexable):
 class LocationIndex(MetadataBaseIndex):
     model = sierra_models.Location
     type_name = 'Location'
-    
+
     def prepare_label(self, obj):
         return obj.get_name()
 
@@ -336,7 +298,7 @@ class ItypeIndex(MetadataBaseIndex):
     model = sierra_models.ItypeProperty
     type_name = 'Itype'
     code = indexes.CharField(model_attr='code_num')
-    
+
     def prepare_label(self, obj):
         return obj.get_name()
 
@@ -351,10 +313,9 @@ class ItemStatusIndex(MetadataBaseIndex):
 
 class ItemIndex(CustomQuerySetIndex, indexes.Indexable):
     type_name = 'Item'
-    id = indexes.IntegerField()
+    id = indexes.FacetCharField()
     text = indexes.CharField(document=True, use_template=False)
     type = indexes.FacetCharField()
-    record_number = indexes.FacetCharField()
     parent_bib_id = indexes.IntegerField()
     parent_bib_record_number = indexes.CharField()
     parent_bib_title = indexes.CharField()
@@ -373,25 +334,25 @@ class ItemIndex(CustomQuerySetIndex, indexes.Indexable):
     public_notes = indexes.MultiValueField(null=True)
     local_code1 = indexes.IntegerField(model_attr='icode1', null=True)
     number_of_renewals = indexes.IntegerField(model_attr='renewal_total',
-        null=True)
+                                              null=True)
     item_type_code = indexes.FacetCharField(null=True)
     price = indexes.DecimalField(model_attr='price', null=True)
     # NOTE: item_message_code and opac_message_code are left out
     # because their corresponding labels are not available in the
     # Sierra database.
-    #item_message_code = indexes.CharField(model_attr='item_message_code',
+    # item_message_code = indexes.CharField(model_attr='item_message_code',
     #    null=True)
-    #opac_message_code = indexes.CharField(model_attr='opac_message_code',
+    # opac_message_code = indexes.CharField(model_attr='opac_message_code',
     #    null=True)
     internal_use_count = indexes.IntegerField(model_attr='internal_use_count',
-        null=True)
+                                              null=True)
     copy_use_count = indexes.IntegerField(model_attr='copy_use_count',
-        null=True)
+                                          null=True)
     iuse3_count = indexes.IntegerField(model_attr='use3_count', null=True)
     total_checkout_count = indexes.IntegerField(model_attr='checkout_total',
-        null=True)
+                                                null=True)
     total_renewal_count = indexes.IntegerField(model_attr='renewal_total',
-        null=True)
+                                               null=True)
     year_to_date_checkout_count = indexes.IntegerField(
         model_attr='year_to_date_checkout_total', null=True)
     last_year_to_date_checkout_count = indexes.IntegerField(
@@ -401,7 +362,7 @@ class ItemIndex(CustomQuerySetIndex, indexes.Indexable):
     due_date = indexes.DateTimeField(null=True)
     checkout_date = indexes.DateTimeField(null=True)
     last_checkin_date = indexes.DateTimeField(model_attr='last_checkin_gmt',
-        null=True)
+                                              null=True)
     overdue_date = indexes.DateTimeField(null=True)
     recall_date = indexes.DateTimeField(null=True)
     record_creation_date = indexes.DateTimeField(
@@ -412,7 +373,7 @@ class ItemIndex(CustomQuerySetIndex, indexes.Indexable):
         model_attr='record_metadata__num_revisions', null=True)
     suppressed = indexes.BooleanField()
     _version_ = indexes.IntegerField()
-    
+
     def get_model(self):
         return sierra_models.ItemRecord
 
@@ -423,22 +384,12 @@ class ItemIndex(CustomQuerySetIndex, indexes.Indexable):
         return self.type_name
 
     def prepare_id(self, obj):
-        return int(obj.pk)
-
-    def prepare_record_number(self, obj):
-        return obj.record_metadata.get_iii_recnum(True)
+        return obj.record_metadata.get_iii_recnum(False)
 
     def prepare_parent_bib_id(self, obj):
         try:
             bib = obj.bibrecorditemrecordlink_set.all()[0].bib_record
-            return bib.record_metadata.id
-        except IndexError:
-            return None
-    
-    def prepare_parent_bib_record_number(self, obj):
-        try:
-            bib = obj.bibrecorditemrecordlink_set.all()[0].bib_record
-            return bib.record_metadata.get_iii_recnum(True)
+            return bib.record_metadata.get_iii_recnum(False)
         except IndexError:
             return None
 
@@ -452,9 +403,14 @@ class ItemIndex(CustomQuerySetIndex, indexes.Indexable):
     def prepare_parent_bib_main_author(self, obj):
         try:
             bib = obj.bibrecorditemrecordlink_set.all()[0].bib_record
-            return bib.bibrecordproperty_set.all()[0].best_author
+            author = bib.bibrecordproperty_set.all()[0].best_author
         except IndexError:
             return None
+        # A few years ago we added $0 with URIs to many of our "author"
+        # fields in the catalog. Apparently Sierra's 'best_author'
+        # field retains this. Generally we prefer that this be stripped
+        # out.
+        return re.sub(r' https?://\S*', '', author)
 
     def prepare_parent_bib_publication_year(self, obj):
         try:
@@ -480,14 +436,14 @@ class ItemIndex(CustomQuerySetIndex, indexes.Indexable):
         """
         (cn, ctype) = self.get_call_number(obj)
         return ctype
-    
+
     def prepare_call_number_sort(self, obj):
         """
         Prepare call_number_sort field. This prepares a version of each
-        call_number that should sort correctly when sorted as a string. 
+        call_number that should sort correctly when sorted as a string.
         LPCD 100,000 --> LPCD!0000100000,
         PT8142.Z5 A5613 1988 --> PT!0000008142!Z5!A!0000005613
-        !0000001988. 
+        !0000001988.
         """
         (cn, ctype) = self.get_call_number(obj)
         if cn is not None:
@@ -577,7 +533,7 @@ class ItemIndex(CustomQuerySetIndex, indexes.Indexable):
         except (sierra_models.Location.DoesNotExist, AttributeError):
             pass
         return code
-    
+
     def prepare_due_date(self, obj):
         """
         Due date is from any checkout records attached to the item.
@@ -586,7 +542,7 @@ class ItemIndex(CustomQuerySetIndex, indexes.Indexable):
             return obj.checkout.due_gmt
         except ObjectDoesNotExist:
             return None
-    
+
     def prepare_checkout_date(self, obj):
         try:
             return obj.checkout.checkout_gmt
@@ -617,7 +573,7 @@ class ItemIndex(CustomQuerySetIndex, indexes.Indexable):
                 return True
             else:
                 return False
-    
+
     def prepare(self, obj):
         self.prepared_data = super(ItemIndex, self).prepare(obj)
         include = ('record_number', 'parent_bib_record_number', 'call_number',
@@ -633,10 +589,9 @@ class ItemIndex(CustomQuerySetIndex, indexes.Indexable):
 class ElectronicResourceIndex(CustomQuerySetIndex, indexes.Indexable):
     type_name = 'eResource'
     h_lists = {}
-    id = indexes.IntegerField()
+    id = indexes.FacetCharField()
     text = indexes.CharField(document=True, use_template=False)
     type = indexes.FacetCharField()
-    record_number = indexes.FacetCharField()
     eresource_type = indexes.FacetCharField(null=True)
     publisher = indexes.CharField(null=True)
     title = indexes.CharField(null=True)
@@ -656,18 +611,15 @@ class ElectronicResourceIndex(CustomQuerySetIndex, indexes.Indexable):
         model_attr='record_metadata__num_revisions', null=True)
     suppressed = indexes.BooleanField()
     _version_ = indexes.IntegerField()
-    
+
     def get_model(self):
         return sierra_models.ResourceRecord
 
     def prepare_id(self, obj):
-        return int(obj.pk)
+        return obj.record_metadata.get_iii_recnum(False)
 
     def prepare_type(self, obj):
         return self.type_name
-
-    def prepare_record_number(self, obj):
-        return obj.record_metadata.get_iii_recnum(True)
 
     def prepare_eresource_type(self, obj):
         ret_val = None
@@ -703,7 +655,7 @@ class ElectronicResourceIndex(CustomQuerySetIndex, indexes.Indexable):
 
         try:
             res_id = obj.record_metadata.varfield_set.filter(
-               varfield_type_code='p')[0].field_content
+                varfield_type_code='p')[0].field_content
         except IndexError:
             pass
         else:
@@ -750,19 +702,20 @@ class ElectronicResourceIndex(CustomQuerySetIndex, indexes.Indexable):
     def prepare_holdings(self, obj):
         ret_val = []
         data_map = []
-        rec_num = obj.record_metadata.get_iii_recnum(True)
+        rec_num = obj.record_metadata.get_iii_recnum(False)
 
         for h in obj.holding_records.all():
             try:
-                h_rec_num = h.record_metadata.get_iii_recnum(True)
+                h_rec_num = h.record_metadata.get_iii_recnum(False)
                 bib_vf = h.bibrecord_set.all()[0].record_metadata.\
-                            varfield_set.all()
+                    varfield_set.all()
             except IndexError:
                 pass
             else:
-                title = helpers.get_varfield_vals(bib_vf, 't', '245',
-                            cm_kw_params={'subfields': 'a'},
-                            content_method='display_field_content')
+                title = helpers.get_varfield_vals(
+                    bib_vf, 't', '245', cm_kw_params={'subfields': 'a'},
+                    content_method='display_field_content'
+                )
                 ret_val.append(title)
                 data_map.append(h_rec_num)
 

@@ -1,13 +1,13 @@
 """
-Contains the `tracebranches` manage.py command. 
+Contains the `tracebranches` manage.py command.
 """
+from __future__ import absolute_import
+
 import json
 
 from django.core.management.base import BaseCommand, CommandError
-
 from sierra.management import relationtrees
 from sierra.management.commands import makefixtures
-
 
 INDENT = 2
 
@@ -44,6 +44,3 @@ class Command(BaseCommand):
         branches = relationtrees.trace_branches(model)
         out = [[rel.fieldname for rel in branch] for branch in branches]
         self.stdout.write(json.dumps(out, indent=INDENT))
-
-
-

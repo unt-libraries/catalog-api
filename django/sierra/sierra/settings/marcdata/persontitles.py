@@ -1,9 +1,9 @@
-# -*- coding: utf-8 -*- 
+# -*- coding: utf-8 -*-
 
+from __future__ import absolute_import
 from __future__ import unicode_literals
 
 from utils import toascii
-
 
 """
 Contains data related to personal titles
@@ -16,7 +16,7 @@ Contains data related to personal titles
 #   See https://en.wikipedia.org/wiki/English_honorifics
 # - Imperial, royal, and noble titles: 'King', 'Baron', 'Sir'
 #   See https://en.wikipedia.org/wiki/Imperial,_royal_and_noble_ranks
-# 
+#
 # Before comparing to a value in this list, normalize the comparison
 # value by stripping punctuation and converting to lower case.
 #
@@ -71,7 +71,7 @@ PERSON_PRETITLES_REGEX = r'|'.join(list(PERSON_PRETITLES_ASCII))
 # See https://en.wikipedia.org/wiki/Nobiliary_particle
 PERSON_NOBILIARY_PARTICLES = set([
     'of', 'of the', 'af', 'von', 'de', 'd', 'du', 'des', 'zu', 'van', 'den',
-    'der', 'van de', 'van der', 'van den', 
+    'der', 'van de', 'van der', 'van den',
 ])
 
 PERSON_NOBILIARY_PARTICLES_REGEX = r'|'.join(list(PERSON_NOBILIARY_PARTICLES))

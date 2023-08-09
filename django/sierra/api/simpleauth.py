@@ -1,14 +1,16 @@
+from __future__ import absolute_import
+
 import hashlib
+# set up logger, for debugging
+import logging
 
 from rest_framework import authentication
 from rest_framework import exceptions
-
-from . import models
+from six import ensure_str
 from utils import redisobjs as ro
 
+from . import models
 
-# set up logger, for debugging
-import logging
 logger = logging.getLogger('sierra.custom')
 
 
@@ -19,7 +21,7 @@ class SimpleSignatureAuthentication(authentication.BaseAuthentication):
         timestamp = request.META.get('HTTP_X_TIMESTAMP', None)
         client_signature = request.META.get('HTTP_AUTHORIZATION', 'Basic ')
         client_signature = client_signature.split('Basic ')[1]
-        body = request.body
+        body = ensure_str(request.body)
 
         if username and timestamp and client_signature:
             try:
@@ -37,8 +39,9 @@ class SimpleSignatureAuthentication(authentication.BaseAuthentication):
             secret = api_user.secret
             user = api_user.user
 
-            hasher = hashlib.sha256('{}{}{}{}'.format(username, secret, 
-                                                      timestamp, body))
+            hasher = hashlib.sha256('{}{}{}{}'.format(username, secret,
+                                                      timestamp,
+                                                      body).encode('utf-8'))
             server_signature = hasher.hexdigest()
 
             if server_signature != client_signature:
@@ -49,6 +52,3 @@ class SimpleSignatureAuthentication(authentication.BaseAuthentication):
                 ret_val = (user, None)
 
         return ret_val
-
-
-

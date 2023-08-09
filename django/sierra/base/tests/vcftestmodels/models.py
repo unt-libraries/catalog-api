@@ -15,7 +15,10 @@ to test things like custom fields to ensure they work with the Django
 infrastructure, e.g., migrations and such.
 """
 
+from __future__ import absolute_import
+
 from utils.test_helpers.orm import AppModelsEnvironment
+
 
 def get_app_models_environment():
     return AppModelsEnvironment('vcftestmodels', 'base.tests.vcftestmodels')

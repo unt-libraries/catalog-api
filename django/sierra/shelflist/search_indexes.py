@@ -2,9 +2,10 @@
 This contains additional specifications for the haystack Solr indexes
 for the shelflist app.
 """
-from haystack import indexes
+from __future__ import absolute_import
 
 from base import search_indexes
+from haystack import indexes
 from utils import solr
 
 
@@ -28,7 +29,7 @@ class ShelflistItemIndex(search_indexes.ItemIndex):
 
     The `get_location_manifest` method pulls a list of item IDs from
     Solr, sorted in shelflist order, for a particular location, to help
-    build shelflist item manifests.    
+    build shelflist item manifests.
     """
     shelf_status = indexes.FacetCharField(null=True)
     inventory_notes = indexes.MultiValueField(null=True)
@@ -72,7 +73,9 @@ class ShelflistItemIndex(search_indexes.ItemIndex):
         self.prepared_data = super(ShelflistItemIndex, self).prepare(obj)
         if not self.has_any_user_data(obj):
             conn = self.get_backend().conn
-            item = solr.Queryset(conn=conn).get_one(id=obj.id)
+            obj_qid = self.get_qualified_id(obj)
+            qid_field = self.reserved_fields['haystack_id']
+            item = solr.Queryset(conn=conn).get_one(**{qid_field: obj_qid})
             if item:
                 for field in self.user_data_fields:
                     self.prepared_data[field] = getattr(item, field, None)
@@ -84,9 +87,12 @@ class ShelflistItemIndex(search_indexes.ItemIndex):
         codes represented by the given `records` (ItemRecord queryset,
         or RecordMetadata queryset of items).
         """
-        record_pks = [r['pk'] for r in records.values('pk')]
+        rec_qids = [self.get_qualified_id(r) for r in records]
+        qid_field = self.reserved_fields['haystack_id']
         conn = self.get_backend(using=using).conn
-        lcode_qs = solr.Queryset(conn=conn).filter(id__in=record_pks)
+        lcode_qs = solr.Queryset(conn=conn).filter(**{
+            f'{qid_field}__in': rec_qids
+        })
         facet_params = {'rows': 0, 'facet': 'true',
                         'facet.field': 'location_code', 'facet.mincount': 1}
         facets = lcode_qs.set_raw_params(facet_params).full_response.facets

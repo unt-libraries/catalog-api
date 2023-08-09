@@ -7,13 +7,14 @@ resource: a new index object (ShelflistItemIndex) and creation/storage
 of shelflistitem manifests.
 """
 
+from __future__ import absolute_import
 from __future__ import unicode_literals
+
 import logging
 
-from export import exporter, basic_exporters as exporters
+from export import basic_exporters as exporters
 from shelflist.search_indexes import ShelflistItemIndex
-from utils import solr, redisobjs
-
+from utils import redisobjs
 
 # set up logger, for debugging
 logger = logging.getLogger('sierra.custom')
@@ -32,16 +33,16 @@ class ItemsToSolr(exporters.ItemsToSolr):
 
     def export_records(self, records):
         super(ItemsToSolr, self).export_records(records)
-        return { 'seen_lcodes': self.indexes['Items'].location_set }
+        return {'seen_lcodes': self.indexes['Items'].location_set}
 
     def delete_records(self, records):
         seen_lcodes = self.indexes['Items'].get_location_set_from_recs(records)
         super(ItemsToSolr, self).delete_records(records)
-        return { 'seen_lcodes': seen_lcodes }
+        return {'seen_lcodes': seen_lcodes}
 
     def compile_vals(self, results):
         if results is not None:
-            vals = { 'seen_lcodes': set() }
+            vals = {'seen_lcodes': set()}
             for result in results:
                 result = result or {}
                 vals['seen_lcodes'] |= result.get('seen_lcodes', set())

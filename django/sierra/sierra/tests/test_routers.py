@@ -7,24 +7,23 @@ pull from the Sierra DB ("sierra"). No tables should be present in both
 databases.
 """
 
+from __future__ import absolute_import
+
 import pytest
-
-from django.db import connections, DatabaseError
-
-from sierra import routers
-from export import models as em
 from base import models as bm
-
+from django.db import connections, DatabaseError
+from export import models as em
+from sierra import routers
 
 # FIXTURES AND TEST DATA
 # External fixtures used below can be found in
 # django/sierra/conftest.py:
 #    model_instance
-# 
+#
 # The `settings` fixture used in a few tests is the one built into
 # pytest-django.
 
-pytestmark = pytest.mark.django_db
+pytestmark = pytest.mark.django_db(databases=['default', 'sierra'])
 
 
 SIERRA_TEST_MODEL_CLASS = bm.FixfldTypeMyuser
@@ -129,7 +128,7 @@ def test_db_write_routing(model_class, testing, expected, settings,
     try:
         instance = model_instance(model_class)
     except Exception as e:
-        if type(e) == expected:
+        if isinstance(e, expected):
             result = True
         else:
             raise

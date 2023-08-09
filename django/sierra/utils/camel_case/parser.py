@@ -1,15 +1,22 @@
 # -*- coding: utf-8 -*-
-from rest_framework.parsers import JSONParser, ParseError, six
-from django.conf import settings
-import re
+from __future__ import absolute_import
+
 import json
+import re
+
+from django.conf import settings
+from rest_framework.parsers import JSONParser, ParseError
+from six import text_type
+from six.moves import range
 
 first_cap_re = re.compile('(.)([A-Z][a-z]+)')
 all_cap_re = re.compile('([a-z0-9])([A-Z])')
 
+
 def camel_to_underscore(name):
     s1 = first_cap_re.sub(r'\1_\2', name)
     return all_cap_re.sub(r'\1_\2', s1).lower()
+
 
 def underscoreize(data):
     if isinstance(data, dict):
@@ -24,6 +31,7 @@ def underscoreize(data):
         return data
     return data
 
+
 class CamelCaseJSONParser(JSONParser):
 
     def parse(self, stream, media_type=None, parser_context=None):
@@ -34,4 +42,4 @@ class CamelCaseJSONParser(JSONParser):
             data = stream.read().decode(encoding)
             return underscoreize(json.loads(data))
         except ValueError as exc:
-            raise ParseError('JSON parse error - %s' % six.text_type(exc))
+            raise ParseError('JSON parse error - %s' % text_type(exc))

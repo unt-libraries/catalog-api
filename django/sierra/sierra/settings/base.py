@@ -1,14 +1,15 @@
 # Base Django settings for sierra project.
 
+from __future__ import absolute_import
+
 import os
-from unipath import Path
 
 import dotenv
-
-from django.core.exceptions import ImproperlyConfigured
 from celery.concurrency import asynpool
-from . import marcdata
+from django.core.exceptions import ImproperlyConfigured
+from unipath import Path
 
+from . import marcdata
 
 asynpool.PROC_ALIVE_TIMEOUT = 60.0
 
@@ -20,11 +21,11 @@ def get_env_variable(var_name, default=None):
 
 
 def raise_setting_error(setting):
-    raise ImproperlyConfigured('The {} setting is not set.'.format(setting))
+    raise ImproperlyConfigured(f'The {setting} setting is not set.')
 
 
 # Use dotenv to load env variables from a .env file
-dotenv.load_dotenv('{}/.env'.format(Path(__file__).ancestor(1)))
+dotenv.load_dotenv(f'{Path(__file__).ancestor(1)}/.env')
 
 # Check required settings
 required = ['SIERRA_DB_USER', 'SIERRA_DB_PASSWORD', 'SIERRA_DB_HOST',
@@ -36,14 +37,13 @@ for setting in required:
         raise_setting_error(setting)
 
 
-PROJECT_DIR = '{}'.format(Path(__file__).ancestor(3))
+PROJECT_DIR = str(Path(__file__).ancestor(3))
 
 # Path to the directory where user-initiated downloads are stored.
-# Temporary MARC files get stored here before being loaded by SolrMarc.
 # Be sure to create this directory if it doesn't exist.
 MEDIA_ROOT = get_env_variable('MEDIA_ROOT')
 
-# Path to the directory where static files get put when you run the 
+# Path to the directory where static files get put when you run the
 # collectstatic admin command. Usually only matters in production.
 STATIC_ROOT = get_env_variable('STATIC_ROOT')
 
@@ -61,8 +61,11 @@ MANAGERS = ADMINS
 
 DATABASES = {
     'sierra': {
-        'ENGINE': 'django.db.backends.postgresql_psycopg2',
+        'ENGINE': 'django.db.backends.postgresql',
         'NAME': 'iii',
+        'OPTIONS': {
+            'options': '-c search_path=sierra_view',
+        },
         'USER': get_env_variable('SIERRA_DB_USER'),
         'PASSWORD': get_env_variable('SIERRA_DB_PASSWORD'),
         'HOST': get_env_variable('SIERRA_DB_HOST'),
@@ -73,7 +76,7 @@ DATABASES = {
         },
     },
     'default': {
-        'ENGINE': get_env_variable('DEFAULT_DB_ENGINE', 
+        'ENGINE': get_env_variable('DEFAULT_DB_ENGINE',
                                    'django.db.backends.mysql'),
         'NAME': get_env_variable('DEFAULT_DB_NAME', 'django_catalog_api'),
         'USER': get_env_variable('DEFAULT_DB_USER'),
@@ -88,6 +91,9 @@ DATABASES = {
 }
 
 DATABASE_ROUTERS = ['sierra.routers.SierraRouter']
+
+# New setting for 3.2 to prevent migrations
+DEFAULT_AUTO_FIELD = 'django.db.models.AutoField'
 
 # Local time zone for this installation. Choices can be found here:
 # http://en.wikipedia.org/wiki/List_of_tz_zones_by_name
@@ -164,7 +170,7 @@ TEMPLATES = [
     },
 ]
 
-MIDDLEWARE_CLASSES = (
+MIDDLEWARE = (
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.common.CommonMiddleware',
     'sierra.middleware.AppendOrRemoveSlashMiddleware',
@@ -193,15 +199,13 @@ INSTALLED_APPS = (
     'rest_framework',
     'haystack',
     'django_extensions',
-    'kombu.transport.django',
-    'djcelery',
+    'django_celery_beat',
     'corsheaders',
     'base',
     'export',
     'api',
     'django.contrib.admin',
     'shelflist',
-    'blacklight',
 )
 
 SESSION_SERIALIZER = 'django.contrib.sessions.serializers.JSONSerializer'
@@ -228,31 +232,21 @@ LOGGING = {
             'class': 'logging.StreamHandler',
             'formatter': 'simple'
         },
-        'mail_admins': {
-            'level': 'ERROR',
-            'filters': ['require_debug_false'],
-            'class': 'django.utils.log.AdminEmailHandler'
-        },
         'file': {
             'level': 'ERROR',
             'class': 'logging.FileHandler',
-            'filename': '{}/sierra.log'.format(LOG_FILE_DIR),
+            'filename': f'{LOG_FILE_DIR}/sierra.log',
             'formatter': 'datetime'
         },
         'export_file': {
             'level': 'INFO',
             'class': 'logging.FileHandler',
-            'filename': '{}/exporter.log'.format(LOG_FILE_DIR),
+            'filename': f'{LOG_FILE_DIR}/exporter.log',
             'mode': 'a',
             'formatter': 'datetime'
         },
     },
     'loggers': {
-        'django.request': {
-            'handlers': ['mail_admins'],
-            'level': 'ERROR',
-            'propagate': True,
-        },
         'django': {
             'handlers': ['file'],
             'level': 'ERROR',
@@ -280,67 +274,121 @@ LOGGING = {
 
 SOLR_PORT = get_env_variable('SOLR_PORT', '8983')
 SOLR_HOST = get_env_variable('SOLR_HOST', '127.0.0.1')
-solr_haystack_url = get_env_variable('SOLR_HAYSTACK_URL', 
-                    'http://{}:{}/solr/haystack'.format(SOLR_HOST, SOLR_PORT))
-solr_bibdata_url = get_env_variable('SOLR_BIBDATA_URL', 
-                    'http://{}:{}/solr/bibdata'.format(SOLR_HOST, SOLR_PORT))
-solr_marc_url = get_env_variable('SOLR_MARC_URL', 
-                    'http://{}:{}/solr/marc'.format(SOLR_HOST, SOLR_PORT))
-solr_d01_url =  'http://{}:{}/solr/discover-01'.format(SOLR_HOST, SOLR_PORT)
-solr_d02_url =  'http://{}:{}/solr/discover-02'.format(SOLR_HOST, SOLR_PORT)
-solr_bls_url =  'http://{}:{}/solr/bl-suggest'.format(SOLR_HOST, SOLR_PORT)
+solr_base_url = f'http://{SOLR_HOST}:{SOLR_PORT}/solr'
+
+SOLR_HAYSTACK_URL_FOR_UPDATE = get_env_variable(
+    'SOLR_HAYSTACK_URL_FOR_UPDATE',
+    f'{solr_base_url}/haystack'
+)
+SOLR_HAYSTACK_URL_FOR_SEARCH = get_env_variable(
+    'SOLR_HAYSTACK_URL_FOR_SEARCH',
+    f'{solr_base_url}/haystack'
+)
+SOLR_DISCOVER01_URL_FOR_UPDATE = get_env_variable(
+    'SOLR_DISCOVER01_URL_FOR_UPDATE',
+    f'{solr_base_url}/discover-01'
+)
+SOLR_DISCOVER01_URL_FOR_SEARCH = get_env_variable(
+    'SOLR_DISCOVER01_URL_FOR_SEARCH',
+    f'{solr_base_url}/discover-01'
+)
+SOLR_DISCOVER02_URL_FOR_UPDATE = get_env_variable(
+    'SOLR_DISCOVER02_URL_FOR_UPDATE',
+    f'{solr_base_url}/discover-02'
+)
+SOLR_DISCOVER02_URL_FOR_SEARCH = get_env_variable(
+    'SOLR_DISCOVER02_URL_FOR_SEARCH',
+    f'{solr_base_url}/discover-02'
+)
 
 # HAYSTACK_CONNECTIONS, a required setting for Haystack
 HAYSTACK_CONNECTIONS = {
     'default': {
         'ENGINE': 'sierra.solr_backend.CustomSolrEngine',
-        'URL': solr_haystack_url,
+        'URL': SOLR_HAYSTACK_URL_FOR_UPDATE,
+        'EXCLUDED_INDEXES': ['base.search_indexes.ItemIndex'],
+        'TIMEOUT': 60 * 20,
+        'MANUAL_REPLICATION': get_env_variable(
+            'SOLR_HAYSTACK_MANUAL_REPLICATION', False
+        ),
+        'REPLICATION_HANDLER': get_env_variable(
+            'SOLR_HAYSTACK_REPLICATION_HANDLER', 'replication'
+        ),
+        'FOLLOWER_URLS': get_env_variable(
+            'SOLR_HAYSTACK_FOLLOWER_URLS',
+            SOLR_HAYSTACK_URL_FOR_SEARCH
+        ).split(','),
+    },
+    'haystack|update': {
+        'ENGINE': 'sierra.solr_backend.CustomSolrEngine',
+        'URL': SOLR_HAYSTACK_URL_FOR_UPDATE,
+        'EXCLUDED_INDEXES': ['base.search_indexes.ItemIndex'],
+        'TIMEOUT': 60 * 20,
+        'MANUAL_REPLICATION': get_env_variable(
+            'SOLR_HAYSTACK_MANUAL_REPLICATION', False
+        ),
+        'REPLICATION_HANDLER': get_env_variable(
+            'SOLR_HAYSTACK_REPLICATION_HANDLER', 'replication'
+        ),
+        'FOLLOWER_URLS': get_env_variable(
+            'SOLR_HAYSTACK_FOLLOWER_URLS',
+            SOLR_HAYSTACK_URL_FOR_SEARCH
+        ).split(','),
+    },
+    'haystack|search': {
+        'ENGINE': 'sierra.solr_backend.CustomSolrEngine',
+        'URL': SOLR_HAYSTACK_URL_FOR_SEARCH,
         'EXCLUDED_INDEXES': ['base.search_indexes.ItemIndex'],
         'TIMEOUT': 60 * 20,
     },
-    'haystack': {
+    'discover-01|update': {
         'ENGINE': 'sierra.solr_backend.CustomSolrEngine',
-        'URL': solr_haystack_url,
-        'EXCLUDED_INDEXES': ['base.search_indexes.ItemIndex'],
+        'URL': SOLR_DISCOVER01_URL_FOR_UPDATE,
         'TIMEOUT': 60 * 20,
+        'MANUAL_REPLICATION': get_env_variable(
+            'SOLR_DISCOVER01_MANUAL_REPLICATION', False
+        ),
+        'REPLICATION_HANDLER': get_env_variable(
+            'SOLR_DISCOVER01_REPLICATION_HANDLER', 'replication'
+        ),
+        'FOLLOWER_URLS': get_env_variable(
+            'SOLR_DISCOVER01_FOLLOWER_URLS',
+            SOLR_DISCOVER01_URL_FOR_SEARCH
+        ).split(','),
     },
-    'bibdata': {
-        'ENGINE': 'sierra.solr_backend.SolrmarcEngine',
-        'URL': solr_bibdata_url,
-        'TIMEOUT': 60 * 20,
-    },
-    # 'marc': {
-    #     'ENGINE': 'sierra.solr_backend.CustomSolrEngine',
-    #     'URL': solr_marc_url,
-    #     'TIMEOUT': 60 * 20,
-    # },
-    'discover-01': {
+    'discover-01|search': {
         'ENGINE': 'sierra.solr_backend.CustomSolrEngine',
-        'URL': solr_d01_url,
+        'URL': SOLR_DISCOVER01_URL_FOR_SEARCH,
         'TIMEOUT': 60 * 20,
     },
-    'discover-02': {
+    'discover-02|update': {
         'ENGINE': 'sierra.solr_backend.CustomSolrEngine',
-        'URL': solr_d02_url,
+        'URL': SOLR_DISCOVER02_URL_FOR_UPDATE,
+        'TIMEOUT': 60 * 20,
+        'MANUAL_REPLICATION': get_env_variable(
+            'SOLR_DISCOVER02_MANUAL_REPLICATION', False
+        ),
+        'REPLICATION_HANDLER': get_env_variable(
+            'SOLR_DISCOVER02_REPLICATION_HANDLER', 'replication'
+        ),
+        'FOLLOWER_URLS': get_env_variable(
+            'SOLR_DISCOVER02_FOLLOWER_URLS',
+            SOLR_DISCOVER02_URL_FOR_SEARCH
+        ).split(','),
+    },
+    'discover-02|search': {
+        'ENGINE': 'sierra.solr_backend.CustomSolrEngine',
+        'URL': SOLR_DISCOVER02_URL_FOR_SEARCH,
         'TIMEOUT': 60 * 20,
     },
-    # 'bl-suggest': {
-    #     'ENGINE': 'sierra.solr_backend.CustomSolrEngine',
-    #     'URL': solr_bls_url,
-    #     'TIMEOUT': 60 * 20,
-    # }
 }
 
 # BL_CONN_NAME: the name of the connection / Solr core you're using for
 # the current Blacklight deployment.
 BL_CONN_NAME = 'discover-02'
-# BL_SUGGEST_CONN_NAME: the name of the connection / Solr core you're
-# using for the current Blacklight auto-suggest index.
-# BL_SUGGEST_CONN_NAME = 'bl-suggest'
-BL_SUGGEST_CONN_NAME = ''
 
 # HAYSTACK_LIMIT_TO_REGISTERED_MODELS, set to False to allow Haystack
-# to search our SolrMarc indexes, which are not model-based
+# to search our Discover indexes, which are not model-based
 HAYSTACK_LIMIT_TO_REGISTERED_MODELS = False
 
 # HAYSTACK_ID_FIELD, change default haystack-internal id
@@ -351,18 +399,19 @@ REST_FRAMEWORK = {
     'PAGINATE_BY': 20,
     'PAGINATE_BY_PARAM': 'limit',
     'PAGINATE_PARAM': 'offset',
-    'ORDER_BY_PARAM': 'order_by',
+    'ORDER_BY_PARAM': 'orderBy',
     'SEARCH_PARAM': 'search',
     'SEARCHTYPE_PARAM': 'searchtype',
+    'CAMELCASE_FIELDNAMES': True,
     'MAX_PAGINATE_BY': 500,
-    'DEFAULT_FILTER_BACKENDS': ('api.filters.HaystackFilter',),
+    'DEFAULT_FILTER_BACKENDS': ('api.filters.SimpleQSetFilterBackend',),
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'api.simpleauth.SimpleSignatureAuthentication',
     ),
     'DEFAULT_PAGINATION_SERIALIZER_CLASS':
         'api.pagination.SierraApiPaginationSerializer',
     'DEFAULT_RENDERER_CLASSES': ('api.renderers.HALJSONRenderer',
-                            'rest_framework.renderers.BrowsableAPIRenderer',),
+                                 'rest_framework.renderers.BrowsableAPIRenderer',),
     'DEFAULT_PARSER_CLASSES': ('rest_framework.parsers.JSONParser',),
     'EXCEPTION_HANDLER': 'api.exceptions.sierra_exception_handler'
 }
@@ -370,27 +419,32 @@ REST_FRAMEWORK = {
 # CELERY settings
 REDIS_CELERY_PORT = get_env_variable('REDIS_CELERY_PORT', '6379')
 REDIS_CELERY_HOST = get_env_variable('REDIS_CELERY_HOST', '127.0.0.1')
-redis_celery_url = 'redis://{}:{}/0'.format(REDIS_CELERY_HOST,
-                                            REDIS_CELERY_PORT)
-BROKER_URL = redis_celery_url
-BROKER_TRANSPORT_OPTIONS = {
+REDIS_CELERY_PASSWORD = get_env_variable('REDIS_CELERY_PASSWORD')
+if REDIS_CELERY_PASSWORD:
+    rc_pw = f':{REDIS_CELERY_PASSWORD}@'
+else:
+    rc_pw = ''
+redis_celery_url = f'redis://{rc_pw}{REDIS_CELERY_HOST}:{REDIS_CELERY_PORT}/0'
+CELERY_BROKER_URL = redis_celery_url
+CELERY_BROKER_TRANSPORT_OPTIONS = {
     'visibility_timeout': 3600,
     'fanout_prefix': True,
     'fanout_patterns': True,
 }
 CELERY_RESULT_BACKEND = redis_celery_url
-CELERYBEAT_SCHEDULER = 'djcelery.schedulers.DatabaseScheduler'
+CELERY_BEAT_SCHEDULER = 'django_celery_beat.schedulers.DatabaseScheduler'
 CELERY_ACCEPT_CONTENT = ['pickle', 'json', 'msgpack', 'yaml']
-CELERY_TASK_RESULT_EXPIRES = 86400
-CELERYD_TASK_TIME_LIMIT = None
-CELERYD_TASK_SOFT_TIME_LIMIT = None
-CELERYD_FORCE_EXECV = True
-CELERYD_MAX_TASKS_PER_CHILD = 2
-CELERY_CHORD_PROPAGATES = True
+CELERY_RESULT_EXPIRES = 86400
+CELERY_TASK_SERIALIZER = 'pickle'
+CELERY_EVENT_SERIALIZER = 'pickle'
+CELERY_RESULT_SERIALIZER = 'pickle'
+CELERY_TASK_TIME_LIMIT = None
+CELERY_TASK_SOFT_TIME_LIMIT = None
+CELERY_WORKER_MAX_TASKS_PER_CHILD = 2
 
 # CORS settings
 CORS_ORIGIN_REGEX_WHITELIST = tuple(
-            get_env_variable('CORS_ORIGIN_REGEX_WHITELIST', '').split(' '))
+    get_env_variable('CORS_ORIGIN_REGEX_WHITELIST', '').split(' '))
 CORS_ALLOW_HEADERS = (
     'x-requested-with',
     'content-type',
@@ -417,16 +471,14 @@ TASK_LOG_LABEL = 'Scheduler'
 # This maps Exporter jobs to the haystack connection names that each
 # should use.
 EXPORTER_HAYSTACK_CONNECTIONS = {
-    'ItemsToSolr': 'haystack',
-    'BibsToSolr:BIBS': 'bibdata',
-    # 'BibsToSolr:MARC': 'marc',
-    'BibsToSolr:MARC': '',
-    'LocationsToSolr': 'haystack',
-    'ItypesToSolr': 'haystack',
-    'ItemStatusesToSolr': 'haystack',
-    'EResourcesToSolr': 'haystack',
-    'HoldingUpdate': 'haystack',
-    'AllMetadataToSolr': 'haystack',
+    'ItemsToSolr': 'haystack|update',
+    'BibsToSolr': f'{BL_CONN_NAME}|update',
+    'LocationsToSolr': 'haystack|update',
+    'ItypesToSolr': 'haystack|update',
+    'ItemStatusesToSolr': 'haystack|update',
+    'EResourcesToSolr': 'haystack|update',
+    'HoldingUpdate': 'haystack|update',
+    'AllMetadataToSolr': 'haystack|update',
 }
 
 # MAX_RC is max_rec_chunk, and MAX_DC is max_del_chunk. The below
@@ -448,10 +500,6 @@ for setting, as_str in ((EXPORTER_MAX_RC_CONFIG, 'EXPORTER_MAX_RC_CONFIG'),
             exp_name, max_val = item.split(':')
             setting.update({exp_name: int(max_val)})
 
-# Determines whether the Exporter jobs email site admins when a job
-# generates errors and/or warnings.
-EXPORTER_EMAIL_ON_ERROR = get_env_variable('EXPORTER_EMAIL_ON_ERROR', True)
-EXPORTER_EMAIL_ON_WARNING = get_env_variable('EXPORTER_EMAIL_ON_WARNING', True)
 
 # List of Exporter jobs that should be triggered when an AllMetadata
 # exporter job is run.
@@ -459,25 +507,25 @@ EXPORTER_METADATA_TYPE_REGISTRY = [
     'LocationsToSolr', 'ItypesToSolr', 'ItemStatusesToSolr',
 ]
 
-# The path (relative or absolute) to the command that runs SolrMarc.
-SOLRMARC_COMMAND = get_env_variable('SOLRMARC_COMMAND',
-                                    '../../solr/solrmarc/indexfile.sh')
-# The name of the properties file to use when running SolrMarc.
-SOLRMARC_CONFIG_FILE = get_env_variable('SOLRMARC_CONFIG_FILE',
-                                        'dev_config.properties')
-
 # This maps DRF views to haystack connections. Only needed for views
 # that don't use the default connection.
 REST_VIEWS_HAYSTACK_CONNECTIONS = {
-    'Bibs': 'bibdata',
-    # 'Marc': 'marc',
-    'Marc': '',
+    'Items': 'haystack|search',
+    'Bibs': f'{BL_CONN_NAME}|search',
+    'EResources': 'haystack|search',
+    'Locations': 'haystack|search',
+    'ItemTypes': 'haystack|search',
+    'ItemStatuses': 'haystack|search',
+    # Since ShelflistItems have an updatable component, we want those
+    # always to search/update the UPDATE Solr node. As far as views are
+    # concerned, the SEARCH nodes are read-only.
+    'ShelflistItems': 'haystack|update',
 }
 
 # This specifies which installed apps have user permissions settings
 # for the APIUser (api app), allowing you to define app-specific
 # permissions in apps and manage them centrally via the api app.
-# For apps with custom permissions, implement as a dict named 
+# For apps with custom permissions, implement as a dict named
 # "permissions" in the app's __init__.py.
 API_PERMISSIONS = [
     'shelflist',
@@ -490,7 +538,8 @@ API_PERMISSIONS = [
 REDIS_CONNECTION = {
     'host': get_env_variable('REDIS_APPDATA_HOST', '127.0.0.1'),
     'port': get_env_variable('REDIS_APPDATA_PORT', '6380'),
-    'db': get_env_variable('REDIS_APPDATA_DATABASE', 0)
+    'db': get_env_variable('REDIS_APPDATA_DATABASE', 0),
+    'password': get_env_variable('REDIS_APPDATA_PASSWORD')
 }
 
 # Do we allow access to the admin interface on /admin URL?

@@ -8,19 +8,18 @@ tests should be run again after every Sierra update and changes to the
 models made as needed.
 """
 
+from __future__ import absolute_import
+
 import re
-import warnings
 
 import pytest
-
-from django.core.exceptions import ObjectDoesNotExist
-
 from base import models
-
+from django.core.exceptions import ObjectDoesNotExist
 
 # FIXTURES AND TEST DATA
 
-pytestmark = pytest.mark.django_db
+pytestmark = pytest.mark.django_db(databases=['sierra'])
+
 
 def get_sierra_models():
     potential_models = [getattr(models, m) for m in dir(models)]
@@ -45,6 +44,7 @@ ALL_MODELS = get_sierra_models()
 MODEL_RELATED_FIELDS = get_model_related_fields(ALL_MODELS)
 
 # TESTS
+
 
 @pytest.mark.parametrize('model', ALL_MODELS)
 def test_model_instance_against_database(model):
@@ -114,5 +114,3 @@ def test_specific_m2one_relation(many_model, one_model, field_name):
     relationship_exists = hasattr(many_model, field_name)
     assert relationship_exists or not objects_exist
     assert objects_exist or not relationship_exists
-
-

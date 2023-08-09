@@ -1,6 +1,7 @@
 """
 Contains classes, etc. needed for custom sierra management commands.
 """
+from django.db.models.query_utils import DeferredAttribute
 
 
 class BadRelation(Exception):
@@ -31,7 +32,7 @@ class Bucket(dict):
             objset = [objset]
         for obj in objset:
             compartment = obj._meta.model
-            try:                
+            try:
                 self[compartment][obj.pk] = obj
             except KeyError:
                 self[compartment] = {obj.pk: obj}
@@ -40,7 +41,8 @@ class Bucket(dict):
     def dump(self):
         objects = []
         for c in self.compartments:
-            objects += sorted(self.get(c, {}).values(), key=lambda x: x.pk)
+            objects += sorted(list(self.get(c, {}).values()),
+                              key=lambda x: x.pk)
         return objects
 
 
@@ -85,14 +87,15 @@ class Relation(object):
         try:
             # db.models.fields.related RelatedObjectsDescriptor object
             accessor = getattr(model, fieldname)
+            if isinstance(accessor, DeferredAttribute):
+                raise AttributeError
         except AttributeError:
             msg = '{} not found on {}'.format(fieldname, model_name)
             raise BadRelation(msg)
 
-        self._describe(accessor)
         self.model = model
+        self._describe(accessor)
         self.fieldname = fieldname
-        self.target_model = self._get_target_model(accessor)
 
     def __repr__(self):
         mname = '.'.join([self.model._meta.app_label,
@@ -103,16 +106,71 @@ class Relation(object):
         kind = '{} {}'.format(kind, ' M2M' if self.is_m2m else ' FK')
         return '<{} on `{}` from {} to {}>'.format(kind, self.fieldname, mname,
                                                    target_mname)
-        
-    def _describe(self, acc):
-        self.is_direct = True if hasattr(acc, 'field') else False
-        self.is_multi = True if hasattr(acc, 'related_manager_cls') else False
-        field = acc.field if self.is_direct else acc.related.field
-        self.through = getattr(field.rel, 'through', None)
-        self.is_m2m = False if self.through is None else True
 
-    def _get_target_model(self, acc):
-        return acc.field.rel.to if self.is_direct else acc.related.related_model
+    def _describe(self, acc):
+        """
+        Set some basic attributes about this relationship by inspecting
+        the relationship descriptor (or accessor, `acc`).
+
+        - `is_direct` -- Basically, True if this is a forward
+          relationship, False if it is a reverse relationship. For M2M
+          fields, it will be True if acc.reverse is False.
+
+        - `is_multi` -- True if the other end of the relationship is
+          "many." Basically, if `is_multi` is True, then you use a
+          related objects manager to access the model instances at the
+          other end of the relationship. (ReverseManyToOne or
+          ManyToMany).
+
+        - `through` -- If this is a many-to-many relationship, then
+          `through` is intermediary ("through") model through which the
+          m2m relationship occurs. Default is None.
+
+        - `is_m2m` -- True if this is a many-to-many relationship.
+
+        - `target_model` -- The model at the other end of the
+          relationship.
+        """
+        try:
+            rel_field = acc.field
+        except AttributeError:
+            try:
+                # ReverseOneToOneDescriptor is the only kind lacking a
+                # direct `field` attribute; its equivalent is
+                # `related.field`.
+                rel_field = acc.related.field
+            except AttributeError:
+                msg = (
+                    'Something went wrong. For model {} and relation {}, the '
+                    'related field is not accessible via `acc.field` or '
+                    '`acc.related.field`.').format(self.model, acc)
+                raise BadRelation(msg)
+
+        try:
+            acc.related_manager_cls
+        except AttributeError:
+            self.is_multi = False
+        else:
+            self.is_multi = True
+
+        if rel_field.many_to_many:
+            self.through = rel_field.remote_field.through
+            self.is_m2m = True
+            self.is_direct = not acc.reverse
+        else:
+            self.through = None
+            self.is_m2m = False
+            self.is_direct = type(acc).__name__.startswith('Forward')
+
+        if rel_field.model == self.model:
+            self.target_model = rel_field.related_model
+        elif rel_field.related_model == self.model:
+            self.target_model = rel_field.model
+        else:
+            msg = ('Something went wrong. For model {} and relation {}, the '
+                   'model is not accessible via `field.model` or `field.'
+                   'related_model`.').format(self.model, acc)
+            raise BadRelation(msg)
 
     def get_as_through_relations(self):
         meta = self.model._meta
@@ -120,18 +178,21 @@ class Relation(object):
             f for f in meta.get_fields()
             if (f.one_to_many or f.one_to_one) and f.auto_created and not f.concrete
         ]
-        matching_rel = [rel for rel in all_rels if rel.related_model == self.through]
+        matching_rel = [
+            rel for rel in all_rels if rel.related_model == self.through]
         try:
             through_name = matching_rel[0].get_accessor_name()
         except IndexError:
             msg = ('Models {} and {} have no `through` relation with each '
                    'other.'.format(self.model, self.target_model))
             raise BadRelation(msg)
-        through_model = getattr(self.model, through_name).related.related_model
-        rel_fs = [f for f in through_model._meta.get_fields() if f.related_model]
+        through_model = getattr(self.model, through_name).rel.related_model
+        rel_fs = [f for f in through_model._meta.get_fields()
+                  if f.related_model]
 
         try:
-            thru_f = [f for f in rel_fs if f.related_model == self.target_model][0]
+            thru_f = [f for f in rel_fs if f.related_model ==
+                      self.target_model][0]
         except IndexError:
             msg = ('Field for relation from model {} to {} not found.'
                    ''.format(through_model, self.target_model))
@@ -295,13 +356,13 @@ def trace_branches(model, orig_model=None, brfields=None, cache=None):
     """
     tracing, orig_model = [], orig_model or model
     meta = model._meta
-    relfields = [f for f in meta.fields if f.rel] + [f for f in meta.many_to_many]
-
+    relfields = [f for f in meta.fields if f.remote_field] + \
+        [f for f in meta.many_to_many]
     for field in relfields:
         cache = cache or []
         field_id = '{}.{}'.format(meta.model_name, field.name)
         if field_id not in cache:
-            next_model = field.rel.to
+            next_model = field.remote_field.model
             branchcache = cache + [field_id]
             next_brfields = (brfields or []) + [field.name]
             tracing += trace_branches(next_model, orig_model,

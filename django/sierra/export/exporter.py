@@ -7,6 +7,7 @@ Define your subclasses in a separate module and then hook it into your
 project using the EXPORTER_MODULE_REGISTRY Django setting.
 """
 
+from __future__ import absolute_import
 from __future__ import unicode_literals
 
 import logging
@@ -14,13 +15,12 @@ import sys
 import traceback
 from collections import OrderedDict, namedtuple
 
-from django.db.models import F
-from django.utils import timezone as tz
-from django.conf import settings
-
-from utils import helpers
-from utils import dict_merge
 from base import models as sierra_models
+from django.conf import settings
+from django.db.models import F
+from utils import dict_merge
+from utils import helpers
+
 from .models import ExportInstance, ExportType, Status
 from .tasks import SierraExplicitKeyBundler
 
@@ -34,7 +34,7 @@ class Exporter(object):
     Exporter class. Subclass this to define your export jobs. Your
     class names should match exactly 1:1 with the ExportType.codes
     you've defined.
-    
+
     Your Exporter subclasses should at the very LEAST override the
     export_records() method to define how the export works.
 
@@ -53,16 +53,16 @@ class Exporter(object):
     filtering from the POV of the RecordMetadata model. Alternatively,
     you can simply override the get_deletions method and do whatever
     you want.
-    
+
     The deletion_filter attribute should contain a list of
     dictionaries, where each dict contains keyword filter criteria that
     should be ANDed together and each dict group then gets ORed to
     produce the final filter.
-    
+
     If your export job doesn't need to handle deletions, simply don't
     specify a deletion_filter in your subclass--the get_deletions
     method will return None and you won't have to worry about it.
-    
+
     In certain cases you might want to apply some sort of base filter
     when getting records, aside from whatever export filter is used.
     For instance, if you want to filter out suppressed records. To do
@@ -72,14 +72,14 @@ class Exporter(object):
     filter out suppressed records from getting loaded into Solr, then
     you'll want to check for newly suppressed records in your deletion
     filter along with deleted records.
-    
+
     Use select_related and prefetch_related attributes to specify what
     related objects should be prefetched or preselected when records
     are fetched from the DB. These have a MASSIVE performance benefit
     if your job uses a lot of data in related tables, so use them!
     (See the Django docs on the Queryset API for info about
     prefetch_related and select_related.)
-    
+
     Note about max_rec_chunk and max_del_chunk. These are used by
     the tasks.py module that breaks up record loads and delegates tasks
     out to Celery. The max_rec_chunk size is the size of the chunk used
@@ -132,7 +132,7 @@ class Exporter(object):
         if export_filter == 'last_export':
             try:
                 latest = ExportInstance.objects.filter(
-                    export_type=self.export_type, 
+                    export_type=self.export_type,
                     status__in=['success', 'done_with_errors']
                 ).order_by(
                     '-timestamp'
@@ -198,7 +198,7 @@ class Exporter(object):
         """
         prefetch_related = prefetch_related or []
         qs = model.objects.filter_by(export_filter, options=filter_options)
-        
+
         if added_filters:
             q_filter = helpers.reduce_filter_kwargs(added_filters)
             qs = qs.filter(q_filter)
@@ -320,7 +320,7 @@ class Exporter(object):
         """
         Override this method in your subclasses only if you need to do
         deletions.
-        
+
         When passed a queryset (e.g., from self.get_deletions()), this
         should delete the records as necessary.
 
@@ -545,7 +545,7 @@ class CompoundMixin(object):
     def spawn_children(cls, parent_args):
         return OrderedDict(
             (c.name, c.spawn_instance(cls, *parent_args))
-                for c in cls.children_config
+            for c in cls.children_config
         )
 
     @property
@@ -565,14 +565,14 @@ class CompoundMixin(object):
         from multiple lists, returning one sorted, flattened list.
         """
         combined_dupes = sorted([item for l in lists for item in l])
-        return OrderedDict.fromkeys(combined_dupes).keys()
+        return list(OrderedDict.fromkeys(combined_dupes).keys())
 
     def combine_rels_from_children(self, which_rel, which_children=None):
         """
         This is a helper method for combining lists of relations (like
         select_related or prefetch_related) from 1+ children.
         """
-        children = which_children or self.children.values()
+        children = which_children or list(self.children.values())
         rel_lists = [c._config.derive_rel_list(c, which_rel) for c in children]
         return self.combine_lists(*rel_lists)
 
@@ -584,7 +584,7 @@ class CompoundMixin(object):
         child's name to the set of records it returned.
         """
         records = {}
-        for child in which_children or self.children.values():
+        for child in which_children or list(self.children.values()):
             if deletions:
                 records[child._config.name] = child.get_deletions()
             else:
@@ -601,7 +601,7 @@ class CompoundMixin(object):
         otherwise, `records` is sent to each child.
         """
         vals = {}
-        for child in which_children or self.children.values():
+        for child in which_children or list(self.children.values()):
             op = getattr(child, operation)
             if isinstance(records, dict):
                 child_rset = records.get(child._config.name, [])
@@ -631,7 +631,7 @@ class CompoundMixin(object):
         children.
         """
         vals = {}
-        for child in which_children or self.children.values():
+        for child in which_children or list(self.children.values()):
             vals[child._config.name] = child.initialize()
         return vals
 
@@ -641,7 +641,7 @@ class CompoundMixin(object):
         on 1+ children, passing the appropriate vals to each call.
         """
         vals = vals or {}
-        for child in which_children or self.children.values():
+        for child in which_children or list(self.children.values()):
             child_vals = vals.get(child._config.name, None)
             child.final_callback(vals=child_vals, status=status)
 
@@ -734,11 +734,11 @@ class AttachedRecordExporter(CompoundMixin, Exporter):
 
     @property
     def main_child(self):
-        return self.children.items()[0][1]
+        return list(self.children.items())[0][1]
 
     @property
     def attached_children(self):
-        return [c[1] for c in self.children.items()[1:]]
+        return [c[1] for c in list(self.children.items())[1:]]
 
     @property
     def select_related(self):
@@ -788,6 +788,24 @@ class AttachedRecordExporter(CompoundMixin, Exporter):
     def compile_vals(self, results):
         return self.compile_vals_from_children(results)
 
+    def get_records(self, prefetch=True):
+        """
+        By default, we defer to `main_child.get_records` method.
+
+        Feel free to override this in a subclass if something different
+        is needed.
+        """
+        return self.main_child.get_records(prefetch)
+
+    def get_deletions(self):
+        """
+        By default, we defer to `main_child.get_deletions` method.
+
+        Feel free to override this in a subclass if something different
+        is needed.
+        """
+        return self.main_child.get_deletions()
+
     def export_records(self, records):
         """
         Export the given set of `records`, which is a single queryset
@@ -814,3 +832,120 @@ class AttachedRecordExporter(CompoundMixin, Exporter):
 
     def final_callback(self, vals=None, status='success'):
         self.do_final_callback_on_children(vals, status)
+
+
+class SameRecSetMultiExporter(CompoundMixin, Exporter):
+    """
+    A type of compound exporter that runs multiple export jobs against
+    the same recordset. Use the `model` class attr to define what model
+    the recordset comes from. The default Exporter.get_records is used
+    (as usual) to get records, but `prefetch_` and `select_related`
+    attrs are combined from the children exporters. Deletions are a
+    little tricky; generally it's assumed you'd have the same deletion
+    filters for each child exporter, in which case one set of deletions
+    is fetched (via the default Exporter.get_deletions method). If not,
+    then a batch deletion recordset is put together (like for a
+    BatchExporter) so that the correct records are deleted.
+    """
+    Child = CompoundMixin.Child
+    children_config = tuple()
+
+    @property
+    def select_related(self):
+        try:
+            self._select_related = self._select_related
+        except AttributeError:
+            rel = 'select_related'
+            self._select_related = self.combine_rels_from_children(rel)
+        return self._select_related
+
+    @property
+    def prefetch_related(self):
+        try:
+            self._prefetch_related = self._prefetch_related
+        except AttributeError:
+            rel = 'prefetch_related'
+            self._prefetch_related = self.combine_rels_from_children(rel)
+        return self._prefetch_related
+
+    @property
+    def deletion_filter(self):
+        return list(self.children.values())[0].deletion_filter
+
+    def get_deletions(self):
+        """
+        If this deletion filter and the deletion filter for all
+        children are the same, then get one set of deletions. Otherwise
+        get a separate set for each child (like a BatchExporter).
+        """
+        children = list(self.children.values())
+        if all((c.deletion_filter == self.deletion_filter for c in children)):
+            return super(SameRecSetMultiExporter, self).get_deletions()
+        return self.get_records_from_children(deletions=True)
+
+    def export_records(self, records):
+        return self.do_op_on_children('export_records', records)
+
+    def delete_records(self, records):
+        return self.do_op_on_children('delete_records', records)
+
+    def compile_vals(self, results):
+        return self.compile_vals_from_children(results)
+
+    def final_callback(self, vals=None, status='success'):
+        self.do_final_callback_on_children(vals, status)
+
+
+class FromSolrMixin(object):
+    """
+    This is a mixin to use with Exporter classes that implements a
+    `get_filtered_queryset` method for grabbing records from a Solr
+    core or index instead of via the Django ORM.
+    """
+    parallel = False
+    model = None
+    source_solr_conn = None
+    deletion_filter = None
+    solr_id_field = 'id'
+    source_fields = tuple()
+
+    @property
+    def bundler(self):
+        return SolrKeyRangeBundler(self.solr_id_field)
+
+    @staticmethod
+    def filter_by(solr_qs, export_filter, options=None):
+        """
+        For now we aren't going to need to actually filter, so we just
+        return the queryset.
+        """
+        return solr_qs
+
+    def get_filtered_queryset(self, export_filter, filter_options,
+                              other_filters=None):
+        """
+        Utility method for fetching a filtered queryset based on the
+        provided args and kwargs. Returns a utils.solr.Queryset, which
+        can be used interchangeably with ORM QuerySets for many common
+        filtering operations.
+        """
+        qs = solr.Queryset(using=self.source_solr_conn)
+        qs = self.filter_by(qs, export_filter, options=filter_options)
+        if other_filters is not None:
+            qs = qs.filter(**other_filters)
+        if self.source_fields:
+            fl = set((self.solr_id_field, '_version_') + self.source_fields)
+            qs = qs.set_raw_params({'fl': list(fl)})
+        return qs
+
+    def get_records(self, prefetch=True):
+        options = self.options.copy()
+        options['is_deletion'] = False
+        return self.get_filtered_queryset(self.export_filter, options)
+
+    def get_deletions(self):
+        """
+        For now we don't need to do deletions, so just return None.
+        """
+        return None
+

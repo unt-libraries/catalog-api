@@ -1,8 +1,9 @@
 # -*- coding: utf-8 -*-
+from __future__ import absolute_import
 from __future__ import unicode_literals
 
-from django.db import models, migrations
 from django.conf import settings
+from django.db import models, migrations
 
 
 class Migration(migrations.Migration):
@@ -15,10 +16,13 @@ class Migration(migrations.Migration):
         migrations.CreateModel(
             name='APIUser',
             fields=[
-                ('id', models.AutoField(verbose_name='ID', serialize=False, auto_created=True, primary_key=True)),
+                ('id', models.AutoField(verbose_name='ID',
+                 serialize=False, auto_created=True, primary_key=True)),
                 ('secret', models.CharField(max_length=128)),
-                ('permissions', models.TextField(default=b'{"system_shelflist_item_note":false,"change_shelflist_item_note":false,"delete_shelflist_item_note":false,"change_shelflist_item":false,"add_shelflist_item_note":false}')),
-                ('user', models.OneToOneField(to=settings.AUTH_USER_MODEL)),
+                ('permissions', models.TextField(
+                    default=b'{"system_shelflist_item_note":false,"change_shelflist_item_note":false,"delete_shelflist_item_note":false,"change_shelflist_item":false,"add_shelflist_item_note":false}')),
+                ('user', models.OneToOneField(on_delete=models.CASCADE,
+                                              to=settings.AUTH_USER_MODEL)),
             ],
             options={
             },

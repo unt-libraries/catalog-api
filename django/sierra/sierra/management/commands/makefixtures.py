@@ -1,15 +1,14 @@
 """
-Contains the `makefixtures` manage.py command. 
+Contains the `makefixtures` manage.py command.
 """
-import ujson
+from __future__ import absolute_import
 
-from django.core.management.base import BaseCommand, CommandError
-from django.core.exceptions import FieldError
+import ujson
 from django.apps import apps
 from django.core import serializers
-
+from django.core.exceptions import FieldError
+from django.core.management.base import BaseCommand, CommandError
 from sierra.management import relationtrees
-
 
 INDENT = 2  # How much to indent JSON output from makefixtures.
 

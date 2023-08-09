@@ -5,19 +5,18 @@ Tests custom filters defined in `sierra.base.managers.`
 from datetime import datetime
 
 import pytest
-
-from django.utils import timezone as tz
-
 from base import models as m
+from django.utils import timezone as tz
 
 # FIXTURES AND TEST DATA
 # Fixtures used in the below tests can be found in
 # django/sierra/base/tests/conftest.py:
 #    global_model_instance
 
-pytestmark = pytest.mark.django_db
+pytestmark = pytest.mark.django_db(databases=['sierra'])
 
 DEFAULT_TZ = tz.get_default_timezone()
+
 
 class SierraTestRecordMaker(object):
     """
@@ -31,7 +30,7 @@ class SierraTestRecordMaker(object):
     `global_model_instance` (pytest fixture), depending on the scope of
     the parent fixture. Then, call the `make_all` method and pass in
     a dictionary structure defining the bib/item records you want made.
-    
+
     Note: This class started out as a way to set up a testing
     environment specifically for this module, so it is not exactly
     complete. The model fields that get populated are limited to the
@@ -40,6 +39,7 @@ class SierraTestRecordMaker(object):
     this out into `utils/test_helpers`. For now I don't think that's
     necessary.
     """
+
     def __init__(self, make_instance):
         self.make_instance = make_instance
         self.reset_vars()
@@ -70,16 +70,18 @@ class SierraTestRecordMaker(object):
         )
 
     def get_or_make_location_instance(self, lcode):
-        try:
-            location = m.Location.objects.get(code=lcode)
-        except m.Location.DoesNotExist:
-            location = self.make_instance(
-                m.Location,
-                id=self.next_location_id,
-                code=lcode
-            )
-            self.next_location_id += 1
-        return location
+        if lcode:
+            try:
+                location = m.Location.objects.get(code=lcode)
+            except m.Location.DoesNotExist:
+                location = self.make_instance(
+                    m.Location,
+                    id=self.next_location_id,
+                    code=lcode
+                )
+                self.next_location_id += 1
+            return location
+        return None
 
     def make_item_instance(self, record_md, item_data):
         (location_code,) = item_data or ([],)
@@ -645,7 +647,7 @@ def test_recordmanager_fullexport(model, test_env):
     (m.ItemRecord, ['_czm'], 'item', ['i3', 'i6']),
     (m.ItemRecord, ['_w', '_x'], 'item', ['i1']),
     (m.ItemRecord, ['_w', '_r'], 'item', []),
-    (m.ItemRecord, ['_w'], 'both',  ['i0', 'i2', 'i3', 'i4']),
+    (m.ItemRecord, ['_w'], 'both', ['i0', 'i2', 'i3', 'i4']),
     (m.ItemRecord, ['_w3'], 'both', ['i0', 'i4']),
     (m.ItemRecord, ['_czm'], 'both', ['i3', 'i4', 'i6']),
     (m.ItemRecord, ['_xdoc'], 'both', ['i5']),
@@ -666,4 +668,3 @@ def test_recordmanager_location(model, lcodes, which_loc, expected, test_env):
     results = model.objects.filter_by('location', opts_dict)
     record_nums = [r.record_metadata.get_iii_recnum() for r in results]
     assert sorted(record_nums) == sorted(expected)
-

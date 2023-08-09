@@ -2,30 +2,33 @@
 Contains all shared pytest fixtures and hooks
 """
 
-import pytest
-import importlib
-import redis
-import pysolr
-import pytz
-import hashlib
-import urllib
-import random
-import ujson
-from datetime import datetime
-from collections import OrderedDict
+from __future__ import absolute_import
 
+import hashlib
+import importlib
+import random
+from collections import OrderedDict
+from datetime import datetime
+
+import pytest
+import pytz
+import redis
+import six.moves.urllib.error
+import six.moves.urllib.parse
+import six.moves.urllib.request
+import ujson
 from django.conf import settings
 from django.contrib.auth import authenticate
 from django.contrib.auth.models import User
 from django.db.models import ObjectDoesNotExist
 from rest_framework import test as drftest
 
+from api.models import APIUser
+from base import models as bm
+from export import models as em
 from utils.redisobjs import RedisObject
 from utils.test_helpers import (fixture_factories as ff,
                                 solr_test_profiles as tp)
-from export import models as em
-from base import models as bm
-from api.models import APIUser
 
 
 # HOOKS -- These control setup / teardown for all tests.
@@ -128,6 +131,7 @@ def setattr_model_instance():
         _set_write_override(instance, False)
 
     cache = OrderedDict()
+
     def _setattr_model_instance(instance, attr, value):
         meta = instance._meta
         cache_key = '{}.{}.{}.{}'.format(meta.app_label, meta.model_name,
@@ -137,9 +141,9 @@ def setattr_model_instance():
         _set_and_save(instance, attr, value)
 
     yield _setattr_model_instance
-        
+
     while cache:
-        key = cache.keys()[-1]
+        key = list(cache.keys())[-1]
         instance, attr, old_value = cache.pop(key)
         _set_and_save(instance, attr, old_value)
 
@@ -222,78 +226,137 @@ def global_solr_data_assembler():
 
 
 @pytest.fixture(scope='module')
-def solr_profile_definitions(global_solr_conn):
+def api_solr_profile_definitions(global_solr_conn):
     """
-    Pytest fixture that returns definitions for Solr profiles, for
-    generating test data via the *_solr_data_factory fixtures.
+    Pytest fixture that returns definitions for Solr profiles used in
+    API tests, for generating test data via the *_solr_data_factory
+    fixtures.
     """
-    hs_conn = global_solr_conn('haystack')
-    bib_conn = global_solr_conn('bibdata')
-    # marc_conn = global_solr_conn('marc')
     return {
         'location': {
-            'conn': hs_conn,
+            'conn': global_solr_conn(
+                settings.REST_VIEWS_HAYSTACK_CONNECTIONS['Locations']
+            ),
             'user_fields': tp.CODE_FIELDS,
             'field_gens': tp.LOCATION_GENS
         },
         'itype': {
-            'conn': hs_conn,
+            'conn': global_solr_conn(
+                settings.REST_VIEWS_HAYSTACK_CONNECTIONS['ItemTypes']
+            ),
             'user_fields': tp.CODE_FIELDS,
             'field_gens': tp.ITYPE_GENS
         },
         'itemstatus': {
-            'conn': hs_conn,
+            'conn': global_solr_conn(
+                settings.REST_VIEWS_HAYSTACK_CONNECTIONS['ItemStatuses']
+            ),
             'user_fields': tp.CODE_FIELDS,
             'field_gens': tp.ITEMSTATUS_GENS
         },
         'item': {
-            'conn': hs_conn,
+            'conn': global_solr_conn(
+                settings.REST_VIEWS_HAYSTACK_CONNECTIONS['Items']
+            ),
             'user_fields': tp.ITEM_FIELDS,
             'field_gens': tp.ITEM_GENS
         },
         'eresource': {
-            'conn': hs_conn,
+            'conn': global_solr_conn(
+                settings.REST_VIEWS_HAYSTACK_CONNECTIONS['EResources']
+            ),
             'user_fields': tp.ERES_FIELDS,
             'field_gens': tp.ERES_GENS
         },
         'bib': {
-            'conn': bib_conn,
+            'conn': global_solr_conn(
+                settings.REST_VIEWS_HAYSTACK_CONNECTIONS['Bibs']
+            ),
             'user_fields': tp.BIB_FIELDS,
             'field_gens': tp.BIB_GENS
         },
-        # 'marc': {
-        #     'conn': marc_conn,
-        #     'user_fields': tp.MARC_FIELDS,
-        #     'field_gens': tp.MARC_GENS
-        # }
     }
 
 
+@pytest.fixture(scope='module')
+def export_solr_profile_definitions(global_solr_conn,
+                                    api_solr_profile_definitions):
+    """
+    Pytest fixture that returns definitions for Solr profiles used in
+    export tests, for generating test data via the *_solr_data_factory
+    fixtures.
+    """
+    pdefs = api_solr_profile_definitions.copy()
+    profiles_to_exporters = {
+        'location': 'LocationsToSolr',
+        'itype': 'ItypesToSolr',
+        'itemstatus': 'ItemStatusesToSolr',
+        'item': 'ItemsToSolr',
+        'eresource': 'EResourcesToSolr',
+        'bib': 'BibsToSolr'
+    }
+    for p_key, e_key in profiles_to_exporters.items():
+        pdefs[p_key]['conn'] = global_solr_conn(
+            settings.EXPORTER_HAYSTACK_CONNECTIONS[e_key]
+        )
+    return pdefs
+
+
 @pytest.fixture(scope='function')
-def basic_solr_assembler(solr_data_assembler, solr_profile_definitions):
+def api_solr_assembler(solr_data_assembler, api_solr_profile_definitions):
     """
     Function-scoped pytest fixture that returns a Solr test data
-    assembler. Records created via this fixture within a test function
-    are deleted when the test function finishes. (For more info about
-    using Solr data assemblers, see the SolrTestDataAssemblerFactory
-    class in utils.test_helpers.fixture_factories.)
+    assembler for API tests. Records created via this fixture within a
+    test function are deleted when the test function finishes. (For
+    more info about using Solr data assemblers, see the
+    SolrTestDataAssemblerFactory class in
+    utils.test_helpers.fixture_factories.)
     """
     return solr_data_assembler(tp.SOLR_TYPES, tp.GLOBAL_UNIQUE_FIELDS,
-                               tp.GENS, solr_profile_definitions)
+                               tp.GENS, api_solr_profile_definitions)
 
 
 @pytest.fixture(scope='module')
-def global_basic_solr_assembler(global_solr_data_assembler,
-                                solr_profile_definitions):
+def global_api_solr_assembler(global_solr_data_assembler,
+                              api_solr_profile_definitions):
     """
     Module-scoped pytest fixture that returns a Solr test data
-    assembler. Records created via this fixture persist while all tests
-    in the module run. (For more info about using Solr data assemblers,
-    see the SolrTestDataAssemblerFactory class in
+    assembler for API tests. Records created via this fixture persist
+    while all tests in the module run. (For more info about using Solr
+    data assemblers, see the SolrTestDataAssemblerFactory class in
     utils.test_helpers.fixture_factories.)
     """
     return global_solr_data_assembler(tp.SOLR_TYPES, tp.GLOBAL_UNIQUE_FIELDS,
-                                      tp.GENS, solr_profile_definitions)
+                                      tp.GENS, api_solr_profile_definitions)
+
+
+@pytest.fixture(scope='function')
+def export_solr_assembler(solr_data_assembler,
+                          export_solr_profile_definitions):
+    """
+    Function-scoped pytest fixture that returns a Solr test data
+    assembler for use in export tests. Records created via this fixture
+    within a test function are deleted when the test function finishes.
+    (For more info about using Solr data assemblers, see the
+    SolrTestDataAssemblerFactory class in
+    utils.test_helpers.fixture_factories.)
+    """
+    return solr_data_assembler(tp.SOLR_TYPES, tp.GLOBAL_UNIQUE_FIELDS,
+                               tp.GENS, export_solr_profile_definitions)
+
+
+@pytest.fixture(scope='module')
+def global_export_solr_assembler(global_solr_data_assembler,
+                                 export_solr_profile_definitions):
+    """
+    Module-scoped pytest fixture that returns a Solr test data
+    assembler for use in export tests. Records created via this fixture
+    persist while all tests in the module run. (For more info about
+    using Solr data assemblers, see the SolrTestDataAssemblerFactory
+    class in utils.test_helpers.fixture_factories.)
+    """
+    return global_solr_data_assembler(tp.SOLR_TYPES, tp.GLOBAL_UNIQUE_FIELDS,
+                                      tp.GENS, export_solr_profile_definitions)
 
 
 @pytest.fixture
@@ -347,7 +410,7 @@ def sierra_records_by_recnum_range():
     """
     def _sierra_records_by_recnum_range(start, end=None, rm_only=False):
         rectype = start[0]
-        filter_options = {'record_range_from': start, 
+        filter_options = {'record_range_from': start,
                           'record_range_to': end or start}
         if rm_only:
             model = bm.RecordMetadata
@@ -498,9 +561,9 @@ def derive_exporter_class(installed_test_class, model_instance, export_type):
             model_name = newclass.model._meta.object_name
         except AttributeError:
             model_name = None
-        new_exptype_info = { 'code': new_exptype_name, 'path': classpath,
-                             'label': 'Do {} load'.format(new_exptype_name),
-                             'description': new_exptype_name, 'order': 999 }
+        new_exptype_info = {'code': new_exptype_name, 'path': classpath,
+                            'label': 'Do {} load'.format(new_exptype_name),
+                            'description': new_exptype_name, 'order': 999}
         models = importlib.import_module('export.models')
         new_exptype = model_instance(models.ExportType, **new_exptype_info)
         return newclass
@@ -518,7 +581,7 @@ def derive_exporter_class(installed_test_class, model_instance, export_type):
 
         try:
             modpath = '.'.join(exptype.path.split('.')[0:-1])
-        except TypeError, ObjectDoesNotExist:
+        except TypeError as ObjectDoesNotExist:
             msg = ('In fixture `derive_exporter_class`, the supplied '
                    'base class name "{}" could not be resolved. It matches '
                    'neither any attribute of the supplied modpath "{}" nor '
@@ -590,6 +653,20 @@ def new_exporter(new_export_instance):
 
 
 @pytest.fixture
+def do_commit():
+    """
+    Pytest fixture. Ensures all indexes for all [grand]children run
+    their `commit_indexes` method to commit changes to Solr.
+    """
+    def _do_commit(exporter):
+        if hasattr(exporter, 'commit_indexes'):
+            exporter.commit_indexes()
+        for child in getattr(exporter, 'children', {}).values():
+            _do_commit(child)
+    return _do_commit
+
+
+@pytest.fixture
 def get_records_from_index(solr_conns, solr_search):
     """
     Pytest fixture that returns a test helper function for getting
@@ -625,9 +702,9 @@ def assert_records_are_indexed(get_records_from_index):
             assert record.pk in results
             result = results[record.pk]
             for field in result.keys():
-                schema_field = index.get_schema_field(field)
-                assert schema_field is not None
-                assert schema_field['stored']
+                sch_field = index.get_schema_field(field)
+                assert sch_field is not None
+                assert sch_field.get('stored') or sch_field.get('docValues')
     return _assert_records_are_indexed
 
 
@@ -654,7 +731,7 @@ def assert_all_exported_records_are_indexed(assert_records_are_indexed,
     """
     def _assert_all_exported_records_are_indexed(exporter, record_set):
         # Check results in all indexes for the parent test_exporter.
-        test_indexes = getattr(exporter, 'indexes', {}).values()
+        test_indexes = list(getattr(exporter, 'indexes', {}).values())
         for index in test_indexes:
             if exporter.is_active:
                 assert_records_are_indexed(index, record_set)
@@ -664,12 +741,13 @@ def assert_all_exported_records_are_indexed(assert_records_are_indexed,
         if hasattr(exporter, 'main_child'):
             ch_rsets = exporter.derive_recordsets_from_parent(record_set)
             for ch_name, child in exporter.children.items():
-                child_indexes = getattr(child, 'indexes', {}).values()
+                child_indexes = list(getattr(child, 'indexes', {}).values())
                 for index in child_indexes:
                     if child.is_active:
                         assert_records_are_indexed(index, ch_rsets[ch_name])
                     else:
-                        assert_records_are_not_indexed(index, ch_rsets[ch_name])
+                        assert_records_are_not_indexed(
+                            index, ch_rsets[ch_name])
     return _assert_all_exported_records_are_indexed
 
 
@@ -684,12 +762,13 @@ def assert_deleted_records_are_not_indexed(assert_records_are_indexed,
     """
     def _assert_deleted_records_are_not_indexed(exporter, record_set):
         # If the parent exporter has indexes, check them.
-        indexes = getattr(exporter, 'indexes', {}).values()
+        indexes = list(getattr(exporter, 'indexes', {}).values())
         ref_exporter = exporter
         # Otherwise, if the parent has a `main_child` that has indexes,
         # then those are the ones to check.
         if not indexes and hasattr(exporter, 'main_child'):
-            indexes = getattr(exporter.main_child, 'indexes', {}).values()
+            indexes = list(
+                getattr(exporter.main_child, 'indexes', {}).values())
             ref_exporter = exporter.main_child
 
         for index in indexes:
@@ -703,25 +782,29 @@ def assert_deleted_records_are_not_indexed(assert_records_are_indexed,
 # API App related fixtures
 
 @pytest.fixture(scope='module')
-def api_solr_env(global_basic_solr_assembler):
+def api_solr_env(global_api_solr_assembler):
     """
     Pytest fixture that generates and populates Solr with some random
     background test data for API integration tests. Fixture is module-
     scoped, so test data is regenerated each time the test module runs,
     NOT between tests.
     """
-    assembler = global_basic_solr_assembler
+    assembler = global_api_solr_assembler
     gens = assembler.gen_factory
     loc_recs = assembler.make('location', 10)
     itype_recs = assembler.make('itype', 10)
     status_recs = assembler.make('itemstatus', 10)
     bib_recs = assembler.make('bib', 100)
     item_recs = assembler.make('item', 200,
-        location_code=gens.choice([r['code'] for r in loc_recs]),
-        item_type_code=gens.choice([r['code'] for r in itype_recs]),
-        status_code=gens.choice([r['code'] for r in status_recs]),
-        parent_bib_id=gens(tp.choose_and_link_to_parent_bib(bib_recs))
-    )
+                               location_code=gens.choice(
+                                   [r['code'] for r in loc_recs]),
+                               item_type_code=gens.choice(
+                                   [r['code'] for r in itype_recs]),
+                               status_code=gens.choice(
+                                   [r['code'] for r in status_recs]),
+                               parent_bib_id=gens(
+                                   tp.choose_and_link_to_parent_bib(bib_recs))
+                               )
     eres_recs = assembler.make('eresource', 25)
     assembler.save_all()
     return assembler
@@ -749,7 +832,7 @@ def simple_sig_auth_credentials():
         timestamp = str(int(since_1970.total_seconds() * 1000))
         hasher = hashlib.sha256('{}{}{}{}'.format(api_user.user.username,
                                                   api_user.secret, timestamp,
-                                                  request_body))
+                                                  request_body).encode('utf-8'))
         signature = hasher.hexdigest()
         return {
             'HTTP_X_USERNAME': api_user.user.username,
@@ -792,16 +875,16 @@ def pick_reference_object_having_link():
 
 
 @pytest.fixture(scope='function')
-def assert_obj_fields_match_serializer():
+def assert_data_is_from_serializer():
     """
     Pytest fixture. Returns a helper function that asserts that the
-    given `obj` conforms to the given `serializer` -- all fields on the
-    serializer are represented on the object.
+    given `data` conforms to the given `serializer` -- all fields in
+    the data are serializer fields.
     """
-    def _assert_obj_fields_match_serializer(obj, serializer):
-        for field_name in serializer.fields:
-            assert serializer.render_field_name(field_name) in obj
-    return _assert_obj_fields_match_serializer
+    def _assert_data_is_from_serializer(data, serializer):
+        for fname in data.keys():
+            assert fname in serializer.field_lookup
+    return _assert_data_is_from_serializer
 
 
 @pytest.fixture(scope='function')
@@ -823,7 +906,7 @@ def get_linked_view_and_objects():
                 linked_objs.append(resp.data)
         else:
             try:
-                linked_objs = resp.data['_embedded'].values()[0]
+                linked_objs = list(resp.data['_embedded'].values())[0]
             except KeyError:
                 linked_objs = [resp.data]
         return resp.renderer_context['view'], linked_objs
@@ -865,7 +948,8 @@ def do_filter_search():
     response.
     """
     def _do_filter_search(resource_url, search, client):
-        q = '&'.join(['='.join([urllib.quote_plus(v) for v in pair.split('=')])
+        quote = six.moves.urllib.parse.quote_plus
+        q = '&'.join(['='.join([quote(v) for v in pair.split('=')])
                       for pair in search.split('&')])
         return client.get('{}?{}'.format(resource_url, q))
     return _do_filter_search
@@ -876,14 +960,13 @@ def get_found_ids():
     """
     Returns a list of values for identifying test records, in order,
     from the given `response` object. (Usually the response will come
-    from calling `do_filter_search`.) `solr_id_field` is the name of
-    that ID field as it exists in Solr.
+    from calling `do_filter_search`.) `api_id_field` is the name of
+    API field you want to use for identifying each unique record.
     """
-    def _get_found_ids(solr_id_field, response, max_found=None):
+    def _get_found_ids(api_id_field, response, max_found=None):
         serializer = response.renderer_context['view'].get_serializer()
-        api_id_field = serializer.render_field_name(solr_id_field)
         max_found = response.data.get('totalCount', max_found)
-        data = response.data.get('_embedded', {'data': []}).values()[0]
+        data = list(response.data.get('_embedded', {'data': []}).values())[0]
         # reality check: FAIL if there's any data returned on a different
         # page of results. If we don't return ALL available data, further
         # assertions will be invalid.

@@ -1,9 +1,10 @@
 #!/usr/bin/env python
+from __future__ import absolute_import
+
 import os
 import sys
 
 import dotenv
-
 from django.core.management import execute_from_command_line
 
 if __name__ == '__main__':

@@ -1,10 +1,12 @@
+from __future__ import absolute_import
+
 import re
 from datetime import date
 
 from django import forms
 
-from ..models import ExportType, ExportFilter, ExportInstance
 from .components import PastDateField, IiiRecordNumField, IiiLocationCodesField
+from ..models import ExportType, ExportFilter, ExportInstance
 
 
 class ExportForm(forms.ModelForm):
@@ -19,10 +21,10 @@ class ExportForm(forms.ModelForm):
                  ('both', 'Both Locations')]
     )
     export_filter = forms.ModelChoiceField(
-            queryset=ExportFilter.objects.order_by('order'), empty_label=None)
+        queryset=ExportFilter.objects.order_by('order'), empty_label=None)
     export_type = forms.ModelChoiceField(
-            queryset=ExportType.objects.order_by('order'), empty_label=None)
-    
+        queryset=ExportType.objects.order_by('order'), empty_label=None)
+
     def clean(self):
         cleaned_data = super(ExportForm, self).clean()  # validated data
         data = self.data  # original data
@@ -30,7 +32,7 @@ class ExportForm(forms.ModelForm):
         if re.search(r'date_range$', filter.pk):
             if not data.get('date_range_from'):
                 self._errors['date_range_from'] = self.error_class(['Date '
-                        'Range "From" field cannot be blank.']) 
+                                                                    'Range "From" field cannot be blank.'])
 
             if not data.get('date_range_to'):
                 cleaned_data['date_range_to'] = date.today()
@@ -39,35 +41,35 @@ class ExportForm(forms.ModelForm):
             date_to = cleaned_data.get('date_range_to')
             if date_from and date_to and date_from > date_to:
                 self._errors['date_range_from'] = self.error_class(['Date '
-                        'Range "From" field cannot be greater than Date '
-                        'Range "To" field.'])
+                                                                    'Range "From" field cannot be greater than Date '
+                                                                    'Range "To" field.'])
                 del cleaned_data['date_range_from']
 
         if re.search(r'record_range$', filter.pk):
             if not data.get('record_range_from'):
                 self.errors['record_range_from'] = self.error_class(['Record '
-                        'Range "From" field cannot be blank.'])
+                                                                     'Range "From" field cannot be blank.'])
 
             if not data.get('record_range_to'):
                 self.errors['record_range_to'] = self.error_class(['Record '
-                        'Range "To" field cannot be blank.'])
+                                                                   'Range "To" field cannot be blank.'])
 
             record_from = cleaned_data.get('record_range_from')
             record_to = cleaned_data.get('record_range_to')
             if record_from and record_to:
                 if record_from[0] != record_to[0]:
                     self.errors['record_range_from'] = self.error_class([
-                            'Record Range "From" and "To" fields must be the '
-                            'same III record type.'])
+                        'Record Range "From" and "To" fields must be the '
+                        'same III record type.'])
                 if int(record_from[1:]) > int(record_to[1:]):
                     self.errors['record_range_from'] = self.error_class([
-                            'Record Range "From" field cannot be greater than '
-                            'Record Range "To" field.'])
+                        'Record Range "From" field cannot be greater than '
+                        'Record Range "To" field.'])
 
         if filter.pk in ('location', 'bib_location'):
             if not data.get('location_code'):
                 self.errors['location_code'] = self.error_class(['Location '
-                        'Code field cannot be blank.'])
+                                                                 'Code field cannot be blank.'])
 
         return cleaned_data
 
@@ -94,8 +96,7 @@ class ExportForm(forms.ModelForm):
                     params, data['only_null_items']
                 )
         return params
-    
+
     class Meta:
         model = ExportInstance
         fields = ('export_filter', 'export_type')
-

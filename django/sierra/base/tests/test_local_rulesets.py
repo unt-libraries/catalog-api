@@ -2,12 +2,15 @@
 Tests the base.ruleset classes and functions.
 """
 
+from __future__ import absolute_import
 from __future__ import unicode_literals
-import pytest
 
+import pytest
 from base import local_rulesets as lr
 
+
 # FIXTURES / TEST DATA
+
 
 @pytest.fixture
 def item_rules():
@@ -34,7 +37,7 @@ def resource_type_determiner():
     ('mwww', True),
     ('pwww', True),
     ('xwww', True),
-    ('w1', False),    
+    ('w1', False),
     ('xdoc', False),
     ('w4m', False),
     ('czm', False),
@@ -632,7 +635,8 @@ def test_bibrules_resourcetype(bcode2, cns, f007s, f008_21, f008_23, f008_26,
                                 f008_26 or ' ')
     cfs = [mocker.Mock(**{'get_data.return_value': f007, 'control_num': 7})
            for f007 in f007s]
-    cfs.append(mocker.Mock(**{'get_data.return_value': f008, 'control_num': 8}))
+    cfs.append(mocker.Mock(
+        **{'get_data.return_value': f008, 'control_num': 8}))
 
     bib.record_metadata.controlfield_set.all.return_value = cfs
 
@@ -640,7 +644,8 @@ def test_bibrules_resourcetype(bcode2, cns, f007s, f008_21, f008_23, f008_26,
         rval = [mocker.Mock(code=bl) for bl in bib_locations]
         bib.locations.all.return_value = rval
     lr.ResourceTypeDeterminer()(bib)
-    assert bib_rules['resource_type'].evaluate(bib)['resource_type'] == expected
+    assert bib_rules['resource_type'].evaluate(
+        bib)['resource_type'] == expected
 
 
 @pytest.mark.parametrize('rtypes, fmts, exp_rtypes, exp_mtypes', [
@@ -767,3 +772,36 @@ def test_bibrules_resourcetype_categories(rtypes, fmts, exp_rtypes, exp_mtypes,
     val = resource_type_determiner.categorize_resource_type(rtypes, fmts)
     assert set(val['resource_type']) == set(exp_rtypes)
     assert set(val['media_type']) == set(exp_mtypes)
+
+
+def test_bibrules_resourcetype_get_callnums_from_obj(mocker,
+                                                     resource_type_determiner):
+    """
+    We still have a handful of places where we're trying to compare
+    things that evaluate to None and are getting a TypeError now in
+    Python 3 (e.g. '<' not supported between instances of 'NoneType'
+    and 'NoneType'). In ResourceTypeDeterminer.get_callnums_from_obj,
+    we have one such place, when trying to sort item callnumbers by
+    the 'item_display_order' property -- but it ONLY happens when
+    'item_display_order' is None, which is a weird elusive Sierra issue
+    that crops up from time to time.
+
+    Anyway, this test is designed to test this to make sure, 1) it
+    doesn't raise the error, and 2) it actually sorts on item record
+    number instead.
+    """
+    bib = mocker.Mock(bcode2='r')
+    bib.get_call_numbers.return_value = []
+    links = []
+    for i in [4, 1, 3, 2]:
+        links.append(mocker.Mock(
+            items_display_order=None,
+            item_record=mocker.Mock(**{
+                'is_suppressed': False,
+                'get_call_numbers.return_value': [('TEST {}'.format(i), None)],
+                'record_metadata': mocker.Mock(**{'record_num': i})
+            })
+        ))
+    bib.bibrecorditemrecordlink_set.all.return_value = links
+    callnums = list(resource_type_determiner.get_callnums_from_obj(bib))
+    assert callnums == ['TEST 1', 'TEST 2', 'TEST 3' , 'TEST 4']

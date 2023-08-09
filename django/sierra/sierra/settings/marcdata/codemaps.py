@@ -802,6 +802,10 @@ LANGUAGE_CODES = {
     'zza': 'Zaza',
 }
 
+
+LANGUAGES = set(LANGUAGE_CODES.values())
+
+
 # MARC Standard-Identifier Source Codes
 # Adapted from http://www.loc.gov/standards/sourcelist/standard-
 # identifier.html

@@ -18,12 +18,15 @@ relationship. The Sierra tables will never need to do that, anyway:
 foreign keys in Sierra are always implemented as single database
 columns.
 """
+from __future__ import absolute_import
+
 import re
 
+from django.core.exceptions import ValidationError
 from django.db import models
 from django.db.models import functions
 from django.utils.functional import cached_property
-from django.core.exceptions import ValidationError
+from six import text_type
 
 
 class CompositeColumn(models.expressions.Col):
@@ -52,10 +55,12 @@ class CompositeColumn(models.expressions.Col):
         *everything* into an `Expression` class first.
         """
         sep_exp = models.expressions.Value(self.target.separator)
-        exps_nested = [[f.get_col(self.alias), sep_exp]
-                       for f in self.target.partfields]
-        exps_flattened = [item for sublist in exps_nested for item in sublist]
-        return_exp = functions.Concat(*exps_flattened[:-1])
+        concat_exps = []
+        for i, field in enumerate(self.target.partfields):
+            if i > 0:
+                concat_exps.append(sep_exp)
+            concat_exps.append(field.get_col(self.alias))
+        return_exp = functions.Concat(*concat_exps)
         return return_exp.as_sql(compiler, connection)
 
 
@@ -69,17 +74,16 @@ class CompositeValueTuple(tuple):
     can round-trip the conversion by passing the string to `from_raw`.
     """
 
-    def __new__(cls, values, field):
-        return super(CompositeValueTuple, cls).__new__(cls, tuple(values))
-
-    def __init__(self, values, field):
+    def __new__(cls, values, field=None):
+        self = super(CompositeValueTuple, cls).__new__(cls, tuple(values))
         self.field = field
+        return self
 
     def __str__(self):
         return self.to_string()
 
     def __unicode__(self):
-        return unicode(self.to_string())
+        return text_type(self.to_string())
 
     @classmethod
     def from_raw(cls, value, field):
@@ -93,7 +97,7 @@ class CompositeValueTuple(tuple):
         (or questionably valid) set of values.
         """
         try:
-            cv_tuple = tuple((None if v == '' else unicode(v)
+            cv_tuple = tuple((None if v == '' else text_type(v)
                               for v in value.split(field.separator)))
         except AttributeError:
             # Not a string.
@@ -117,8 +121,8 @@ class CompositeValueTuple(tuple):
             separator = re.escape(self.field.separator)
         else:
             separator = self.field.separator
-        strings = [unicode('' if s is None else s) for s in self]
-        return unicode(separator.join(strings))
+        strings = [str('' if s is None else s) for s in self]
+        return str(separator.join(strings))
 
     def validate(self):
         """
@@ -186,7 +190,8 @@ class VirtualCompField(models.Field):
         pf_list = []
         for pf in self.partfield_names:
             try:
-                pf_list.append(self.model._meta.get_field(pf).rel.to._meta.pk)
+                pf_list.append(self.model._meta.get_field(
+                    pf).remote_field.model._meta.pk)
             except AttributeError:
                 pf_list.append(self.model._meta.get_field(pf))
         return tuple(pf_list)
@@ -198,16 +203,6 @@ class VirtualCompField(models.Field):
         Returns the results as a tuple.
         """
         return tuple([getattr(pf, 'to_python')(cvalue[i])
-                      for i, pf in enumerate(self.partfield_bases)])
-
-    def each_partfield_prep_exact_lookup(self, cvalue):
-        """
-        On the provided composite value (`cvalue`), run the
-        `get_prep_lookup` method (using `exact` as the lookup_type) for
-        each partfield that makes up this composite field. Returns the
-        results as a tuple.
-        """
-        return tuple([getattr(pf, 'get_prep_lookup')('exact', cvalue[i])
                       for i, pf in enumerate(self.partfield_bases)])
 
     def _make_field_value_property(self):
@@ -337,34 +332,14 @@ class VirtualCompField(models.Field):
         """
         return None
 
-    def get_prep_lookup(self, lookup_type, value):
+    def get_prep_value(self, value):
         """
-        Prep a value for lookup. Uses CompositeValueTuple methods to
-        handle type conversions. Exact matches raise a ValueError if
-        the provided lookup value is invalid for this field (e.g.,
-        wrong number of elements or inconvertible types).
+        Default prep to convert a Python value to the form needed to do
+        queries. In most cases that will be a string with each value
+        joined using the appropriate separator value.
         """
-        if lookup_type == 'exact':
-            cv_tuple = CompositeValueTuple.from_raw(value, self)
-            try:
-                cv_tuple.validate()
-            except ValidationError as e:
-                msg = ('Problem converting {} to an exact match lookup value '
-                       'for field {}: {}'.format(value, self, e))
-                raise ValueError(msg)
-            return self.each_partfield_prep_exact_lookup(cv_tuple)
-
-        elif lookup_type == 'isnull':
-            return value
-
-        elif lookup_type in ('range', 'in'):
-            return [CompositeValueTuple.from_raw(v, self).to_string()
-                    for v in value]
-
-        else:
-            is_regex = True if 'regex' in lookup_type else False
-            cv_tuple = CompositeValueTuple.from_raw(value, self)
-            return cv_tuple.to_string(is_regex)
+        cv_tuple = CompositeValueTuple.from_raw(value, self)
+        return cv_tuple.to_string()
 
     def to_python(self, value):
         """
@@ -383,6 +358,38 @@ class CompositeExact(models.lookups.Exact):
     multi-part, ANDed together WHERE statement for a nice efficient
     lookup.
     """
+
+    def get_prep_lookup(self):
+        """
+        Prep the user lookup value (self.rhs) for the DB query.
+
+        As of Django 1.10 this is no longer done as part of the custom
+        Field object. Instead it's done on the Lookup object. In order
+        for our exact matches to work as intended, we want to prep each
+        individual value that comprises the composite value using the
+        appropriate `get_prep_lookup` method for that field and its
+        designated lookup.
+        """
+        if hasattr(self.rhs, '_prepare'):
+            return self.rhs._prepare(self.lhs.output_field)
+
+        field = self.lhs.output_field
+        cv_tuple = CompositeValueTuple.from_raw(self.rhs, field)
+        try:
+            cv_tuple.validate()
+        except ValidationError as e:
+            msg = ('Problem converting {} to an exact match lookup value '
+                   'for field {}: {}'.format(self.rhs, field, e))
+            raise ValueError(msg)
+        prepped = []
+        for i, pf in enumerate(field.partfield_bases):
+            col = pf.get_col(self.lhs.alias)
+            lookup = pf.get_lookup('exact')
+            if lookup and hasattr(lookup, 'get_prep_lookup'):
+                prepped.append(lookup(col, cv_tuple[i]).get_prep_lookup())
+            else:
+                prepped.append(pf.get_prep_value(cv_tuple[i]))
+        return prepped
 
     def _partfield_as_sql(self, field, value, compiler, connection):
         """
@@ -409,17 +416,20 @@ class CompositeExact(models.lookups.Exact):
         value (`self.rhs`), matching each value part with the
         corresponding part field, using the part field to generate the
         needed lookup SQL, and manually compiling the WHERE clause.
-        """ 
+        """
         if self.rhs_is_direct_value():
             sql_list, params_list = [], []
             _, rhs_params = self.get_db_prep_lookup(self.rhs, connection)
             assert len(rhs_params) == 1
             part_values = rhs_params[0]
-            for i, part in enumerate(self.lhs.target.partfields):
-                sql, params = self._partfield_as_sql(part, part_values[i],
-                                                     compiler, connection)
-                params_list.extend(params)
-                sql_list.append(sql)
+            try:
+                for i, part in enumerate(self.lhs.target.partfields):
+                    sql, params = self._partfield_as_sql(part, part_values[i],
+                                                         compiler, connection)
+                    params_list.extend(params)
+                    sql_list.append(sql)
+            except (IndexError, TypeError, KeyError) as e:
+                raise ValueError(e)
             return ' AND '.join(sql_list), params_list
         else:
             # if self.rhs isn't a concrete value, we have to fall back
@@ -427,3 +437,62 @@ class CompositeExact(models.lookups.Exact):
             # less efficient method of concatenating the lhs child
             # columns via the CompositeColumn.as_sql method.
             return super(CompositeExact, self).as_sql(compiler, connection)
+
+
+@VirtualCompField.register_lookup
+class CompositeRegex(models.lookups.Regex):
+    prepare_rhs = True
+
+    def get_prep_lookup(self):
+        """
+        Prep the user lookup value (self.rhs) for the DB query.
+
+        As of Django 1.10 this is no longer done as part of the custom
+        Field object. Instead it's done on the Lookup object.
+        """
+        field = self.lhs.output_field
+        if hasattr(self.rhs, '_prepare'):
+            return self.rhs._prepare(field)
+
+        cv_tuple = CompositeValueTuple.from_raw(self.rhs, field)
+        return cv_tuple.to_string(True)
+
+
+@VirtualCompField.register_lookup
+class CompositeIRegex(CompositeRegex):
+    lookup_name = 'iregex'
+
+
+@VirtualCompField.register_lookup
+class CompositeIExact(models.lookups.IExact):
+    prepare_rhs = True
+
+
+@VirtualCompField.register_lookup
+class CompositeContains(models.lookups.Contains):
+    prepare_rhs = True
+
+
+@VirtualCompField.register_lookup
+class CompositeIContains(models.lookups.IContains):
+    prepare_rhs = True
+
+
+@VirtualCompField.register_lookup
+class CompositeIStartsWith(models.lookups.IStartsWith):
+    prepare_rhs = True
+
+
+@VirtualCompField.register_lookup
+class CompositeStartsWith(models.lookups.StartsWith):
+    prepare_rhs = True
+
+
+@VirtualCompField.register_lookup
+class CompositeIEndsWith(models.lookups.IEndsWith):
+    prepare_rhs = True
+
+
+@VirtualCompField.register_lookup
+class CompositeEndsWith(models.lookups.EndsWith):
+    prepare_rhs = True

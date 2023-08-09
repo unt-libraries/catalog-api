@@ -13,11 +13,11 @@ middleware here, or combine a Django application with an application of another
 framework.
 
 """
-import os
-from unipath import Path
+from __future__ import absolute_import
 
 import dotenv
-import djcelery
+from django.core.wsgi import get_wsgi_application
+from unipath import Path
 
 # We defer to a DJANGO_SETTINGS_MODULE already in the environment, or set
 # via a .env settings file. If running multiple sites in the same mod_wsgi
@@ -25,12 +25,10 @@ import djcelery
 # or use os.environ["DJANGO_SETTINGS_MODULE"] = "sierra.settings"
 dotenv.load_dotenv('{}/settings/.env'.format(Path(__file__).ancestor(1)))
 
-djcelery.setup_loader()
 
 # This application object is used by any WSGI server configured to use this
 # file. This includes Django's development server, if the WSGI_APPLICATION
 # setting points here.
-from django.core.wsgi import get_wsgi_application
 application = get_wsgi_application()
 
 # Apply WSGI middleware here.

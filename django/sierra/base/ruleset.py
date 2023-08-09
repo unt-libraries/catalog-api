@@ -12,10 +12,10 @@ you are implementing this at your institution, you will want to
 override that locally.
 """
 
+from __future__ import absolute_import
 from __future__ import unicode_literals
-import re
 
-from utils import helpers as h
+import re
 
 
 class Ruleset(object):
@@ -165,6 +165,7 @@ class StrPatternMap(object):
     >>> pmap.get('wx', 'Error')
     'Error'
     """
+
     def __init__(self, patterns, exclude=None):
         self.patterns = patterns or {}
         self.exclude = tuple() if exclude is None else tuple(exclude)

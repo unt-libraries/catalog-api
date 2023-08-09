@@ -9,11 +9,10 @@ change and as codes/rules in Sierra change, so the goal is to keep this
 collected in one place, isolated as much as possible from other code.
 """
 
+from __future__ import absolute_import
 from __future__ import unicode_literals
-import re
 
 from base import ruleset as r
-
 
 ITEM_RULES = {
     # `is_online` is True for online/electronic copies.
@@ -287,13 +286,13 @@ class ResourceTypeDeterminer(object):
         ('audio_spoken', 'cassette'): (('audio', 'spoken', 'cassette'), ()),
         ('audio_music', 'streaming'): (('audio', 'music', 'streaming',), ()),
         ('audio_music', 'record_7inch'): (('audio', 'music', 'record'),
-                                           ('record_7inch',)),
+                                          ('record_7inch',)),
         ('audio_music', 'record_10inch'): (('audio', 'music', 'record'),
-                                            ('record_10inch',)),
+                                           ('record_10inch',)),
         ('audio_music', 'record_12inch'): (('audio', 'music', 'record'),
-                                            ('record_12inch',)),
+                                           ('record_12inch',)),
         ('audio_music', 'record_78rpm'): (('audio', 'music', 'record'),
-                                           ('record_78rpm',)),
+                                          ('record_78rpm',)),
         ('audio_music', 'record'): (('audio', 'music', 'record'), ()),
         ('audio_music', 'cd'): (('audio', 'music', 'cd'), ()),
         ('audio_music', 'cassette'): (('audio', 'music', 'cassette'), ()),
@@ -493,7 +492,8 @@ class ResourceTypeDeterminer(object):
 
     def format_resource_type_value(self, rtypes, fmts):
         rtypestr = '_'.join(rtypes)
-        fmtstr = ', '.join([self.format_labels.get(f, f) for f in sorted(fmts)])
+        fmtstr = ', '.join([self.format_labels.get(f, f)
+                           for f in sorted(fmts)])
         return '!'.join((rtypestr, fmtstr)) if fmtstr else rtypestr
 
     def categorize_resource_type(self, rtypes, fmts):
@@ -524,8 +524,15 @@ class ResourceTypeDeterminer(object):
         for cn, _ in obj.get_call_numbers():
             yield cn
 
+        def _item_sort_key(link):
+            if link.items_display_order is None:
+                display_order = float('inf')
+            else:
+                display_order = link.items_display_order
+            return (display_order, link.item_record.record_metadata.record_num)
+
         item_links = [l for l in obj.bibrecorditemrecordlink_set.all()]
-        for link in sorted(item_links, key=lambda l: l.items_display_order):
+        for link in sorted(item_links, key=_item_sort_key):
             item = link.item_record
             if not item.is_suppressed:
                 for cn, _ in item.get_call_numbers():
@@ -664,5 +671,3 @@ class ResourceTypeDeterminer(object):
 BIB_RULES = {
     'resource_type': r.Ruleset([(ResourceTypeDeterminer(), None)]),
 }
-
-

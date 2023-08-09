@@ -7,15 +7,18 @@ factories. It *is* circular, and a little indirect, but it means we
 don't have to duplicate those fixtures here to test them.
 """
 
-import pytest
+from __future__ import absolute_import
+from __future__ import print_function
+
 import importlib
 
+import pytest
 from base import models as bm
+from six.moves import range
 from utils.test_helpers import solr_test_profiles as tp
 
-
 # FIXTURES AND TEST DATA
-# 
+#
 # Fixtures from django/sierra/conftest:
 #     model_instance
 #     global_model_instance
@@ -25,7 +28,17 @@ from utils.test_helpers import solr_test_profiles as tp
 #     solr_search
 #     installed_test_class
 
-pytestmark = pytest.mark.django_db
+# pytestmark = pytest.mark.django_db(databases=['sierra'])
+# NOTE 3/21/2023: Removing `pytest.mark.django_db` here seems to fix an
+# issue introduced by upgrading from 'pytest-django' 4.2.0 to 4.5.2,
+# which caused the second test below to fail. Part of that test is to
+# ensure database records created using a module-scoped factory persist
+# between tests -- this is what the `django_db_blocker.unblock()` in
+# that fixture does. However, it seems that `pytest.mark.django_db` is
+# automatically clearing the database now, whereas it didn't before.
+# Fortunately, the django_db mark is apparently unnecessary -- probably
+# because I'm manually unblocking? Whatever the case, tests pass like
+# this.
 
 TEST_MODEL_CLASS = bm.FixfldTypeMyuser
 
@@ -44,7 +57,7 @@ def test_profile_definitions(global_solr_conn):
     Pytest fixture that returns definitions for Solr profiles, for
     generating test data via the assembler fixtures.
     """
-    hs_conn = global_solr_conn('haystack')
+    hs_conn = global_solr_conn('haystack|search')
     return {
         'location': {
             'conn': hs_conn,
@@ -92,8 +105,9 @@ def test_solr_env(global_test_assembler):
     gens = assembler.gen_factory
     loc_recs = assembler.make('location', 10)
     item_recs = assembler.make('item', 100,
-        location_code=gens.choice([r['code'] for r in loc_recs])
-    )
+                               location_code=gens.choice(
+                                   [r['code'] for r in loc_recs])
+                               )
     assembler.save_all()
     return assembler
 
@@ -129,7 +143,8 @@ def test_model_instance_fixtures(glob_count, model_instance,
     new_loc_instance = model_instance(tmodel, code=loc_code, name=loc_name)
     new_loc_instance_exists = len(tmodel.objects.filter(code=loc_code)) == 1
 
-    print tmodel.objects.all()
+    print(tmodel.objects.all())
+    print(global_model_instance.obj_cache)
 
     assert not loc_instance_exists
     assert not glob_instance_exists
@@ -177,7 +192,7 @@ def test_solr_data_assembler_fixtures(iter_count, test_assembler,
     of tests creates data using a `global_solr_data_assembler` before
     the tests run.
     """
-    conn = global_solr_conn('haystack')
+    conn = global_solr_conn('haystack|search')
     start_num_locrecs_in_solr = len(solr_search(conn, 'type:Location'))
     start_num_itemrecs_in_solr = len(solr_search(conn, 'type:Item'))
 
@@ -255,12 +270,12 @@ def test_installed_test_class_fixture__override(count, installed_test_class):
     before_class = getattr(mod, classname)
 
     result_tuple = installed_test_class(testclass, modpath)
-    
+
     mod = importlib.import_module(modpath)
     after_class = getattr(mod, classname)
 
     assert after_class == testclass
     assert before_class != testclass
     assert result_tuple == (modpath, testclass, before_class)
-    assert getattr(before_class, 'arg') == None
+    assert getattr(before_class, 'arg') is None
     assert getattr(after_class, 'arg') == count

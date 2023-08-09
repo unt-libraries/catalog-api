@@ -3,18 +3,30 @@
 # Set up needed ENV variables.
 set -o allexport
 source ./django/sierra/sierra/settings/.env
+source ./docker-compose.env
 USERID=$(id -u)
 GROUPID=$(id -g)
 set +o allexport
 
-DDPATH=./docker_data
-SIERRA_FIXTURE_PATH=./django/sierra/base/fixtures
+# I've moved the following variables into `docker-compose.env`:
+#   DDPATH
+#   SIERRA_FIXTURE_PATH
+#   SOLRCONF_PATH
+#   SOLRCONF_DOCKER_MOUNT_PATH
+#   DEV_SERVICES
+#   TEST_SERVICES
+#   ALL_SERVICES
+
 SCRIPTNAME="$(basename "$0")"
-DEV_SERVICES=("default-db-dev" "solr-dev" "redis-celery-dev" "redis-appdata-dev" "app" "celery-worker")
-TEST_SERVICES=("default-db-test" "sierra-db-test" "solr-test" "redis-celery-test" "redis-appdata-test" "celery-worker-test" "test")
-ALL_SERVICES=("${DEV_SERVICES[@]}" "${TEST_SERVICES[@]}")
+
 
 ### FUNCTIONS ###
+
+# service_name_to_env_prefix -- Utility function to convert a Docker-compose
+# service name, like `solr-test`, to an ENV variable prefix, like `SOLR_TEST`.
+function service_name_to_env_prefix {
+  echo $1 | awk '{ gsub("-", "_", $0); print toupper($0) }'
+}
 
 # show_help -- Display usage/help text
 function show_help {
@@ -53,55 +65,18 @@ function show_services {
   echo "local volumes to be set up."
   echo ""
   echo "(service -- group)"
-  echo ""
-  echo "default-db-dev -- dev"
-  echo "    The default Django MariaDB database for a development environment."
-  echo "    Migrations are needed to set up the needed Django apps."
-  echo ""
-  echo "solr-dev -- dev"
-  echo "    Empty instance of Solr for a development environment. No migrations."
-  echo ""
-  echo "redis-celery-dev -- dev"
-  echo "    Redis instance behind Celery, used in development. No migrations."
-  echo ""
-  echo "redis-appdata-dev -- dev"
-  echo "    Redis instance that stores some app data in development. No migrations."
-  echo ""
-  echo "app -- dev"
-  echo "    The development app itself. Log and media directories are set up. No"
-  echo "    migrations."
-  echo ""
-  echo "celery-worker -- dev"
-  echo "    The celery-worker service that runs in development. A log directory is set"
-  echo "    up. No migrations."
-  echo ""
-  echo "default-db-test -- tests"
-  echo "    The default Django MariaDB database for a test environment. Migrations are"
-  echo "    needed to set up the needed Django apps. This must be set up and migrated"
-  echo "    before you run initial migrations on sierra-db-test."
-  echo ""
-  echo "sierra-db-test -- tests"
-  echo "    The sierra PostGreSQL database for a test environment. Migrations are"
-  echo "    needed to install sierra test fixtures. But, before you run migrations for"
-  echo "    the first time on sierra-db-test, you must make sure that default-db-test"
-  echo "    is set up and migrated."
-  echo ""
-  echo "solr-test -- tests"
-  echo "    Empty instance of Solr for a test environment. No migrations."
-  echo ""
-  echo "redis-celery-test -- tests"
-  echo "    Redis instance behind Celery, used in testing. No migrations."
-  echo ""
-  echo "redis-appdata-test -- tests"
-  echo "    Redis instance that stores some app data in test. No migrations."
-  echo ""
-  echo "test -- tests"
-  echo "    Log and media directories are set up for the test environment. No "
-  echo "    migrations."
-  echo ""
-  echo "celery-worker-test -- tests"
-  echo "    The celery-worker service that runs in testing. A log directory is set"
-  echo "    up. No migrations."
+  for dev_service in ${DEV_SERVICES[@]}; do
+    local service_def_var=$(service_name_to_env_prefix $dev_service)_DEF
+    echo ""
+    echo "$dev_service -- dev"
+    echo "${!service_def_var}"
+  done
+  for test_service in ${TEST_SERVICES[@]}; do
+    local service_def_var=$(service_name_to_env_prefix $test_service)_DEF
+    echo ""
+    echo "$test_service -- test"
+    echo "${!service_def_var}"
+  done
   echo ""
   exit 1
 }
@@ -170,6 +145,39 @@ function warm_up_sierra_db_test {
   return 0
 }
 
+# init_solr_volume -- This takes the path to the service volume (e.g.
+# /docker_data/solr-test) and creates the filesystem structure for the Solr
+# home directory, for all the cores in the $SOLRCONF_PATH. It creates symlinks
+# to configuration files in $SOLRCONF_PATH using the
+# $SOLRCONF_DOCKER_MOUNT_PATH as the base path to the linked file; note that
+# this should be the volume mount point (relative to the docker container)
+# defined in `docker-compose.yml` for the service. Relative to the host
+# filesystem, unless you've mounted $SOLRCONF_PATH at the
+# $SOLRCONF_DOCKER_MOUNT_PATH, the target path doesn't exist, so if you examine
+# the links that are created in the Docker data directory, they will appear
+# broken. But they will work as intended in the Docker container, because the
+# $SOLRCONF_PATH directory will be mounted there.
+function init_solr_volume {
+  local path=$1
+  echo "Initializing Solr volume $path ..."
+  mkdir "$path/logs"
+  mkdir "$path/data"
+  ln -s "$SOLRCONF_DOCKER_MOUNT_PATH/log4j2.xml" "$path/log4j2.xml"
+  ln -s "$SOLRCONF_DOCKER_MOUNT_PATH/solr.xml" "$path/data/solr.xml"
+  for dir in $SOLRCONF_PATH/*/; do
+    if [[ $dir =~ ([^/]+)/$ ]]; then
+      local corename="${BASH_REMATCH[1]}"
+      local corepath="$path/data/$corename"
+      mkdir "$corepath"
+      mkdir "$corepath/data"
+      touch "$corepath/core.properties"
+      ln -s "$SOLRCONF_DOCKER_MOUNT_PATH/$corename/conf" "$corepath/conf"
+    fi
+  done
+  echo "Done. Solr volume initialized."
+  return 0
+}
+
 # make_volume -- Takes args $path, $force, $service. Sets up the data volume
 # for $service at $path if the $path does not exist. If the $path and $force
 # exist, then it rm -rf's $path first. Returns 0 if it created a fresh volume
@@ -207,6 +215,42 @@ function prepvolume_sierra_db_test {
   fi
 }
 
+# prepvolume_solr_test_for_update
+function prepvolume_solr_test_for_update {
+  local volume_was_created=$1
+  local path="$DDPATH/solr_test_for_update"
+  if [[ $volume_was_created ]]; then
+    init_solr_volume "$path"
+    return $?
+  else
+    return 0
+  fi
+}
+
+# prepvolume_solr_test_for_search
+function prepvolume_solr_test_for_search {
+  local volume_was_created=$1
+  local path="$DDPATH/solr_test_for_search"
+  if [[ $volume_was_created ]]; then
+    init_solr_volume "$path"
+    return $?
+  else
+    return 0
+  fi
+}
+
+# prepvolume_solr_dev
+function prepvolume_solr_dev {
+  local volume_was_created=$1
+  local path="$DDPATH/solr_dev"
+  if [[ $volume_was_created ]]; then
+    init_solr_volume "$path"
+    return $?
+  else
+    return 0
+  fi
+}
+
 # migrate_[service] functions. Define new functions with this naming pattern to
 # migrate data (e.g. create database structures, load data fixtures, etc.) for
 # a particular service. Each migrate function takes an argument that tells you
@@ -217,13 +261,13 @@ function migrate_default_db_dev {
 }
 
 function migrate_default_db_test {
-  docker-compose run --rm manage-test migrate --database=default
+  docker-compose run --rm manage-test migrate --run-syncdb --database=default
 }
 
 function migrate_sierra_db_test {
   local volume_is_ready=$1
   if [[ $volume_is_ready ]]; then
-    docker-compose run --rm manage-test migrate --database=sierra
+    docker-compose run --rm manage-test migrate --run-syncdb --database=sierra
     echo "Installing sierra-db-test fixtures..."
     docker-compose run --rm manage-test loaddata --app=base --database=sierra $(find $SIERRA_FIXTURE_PATH/*.json -exec basename {} .json \; | tr '\n' ' ')
   else
@@ -301,92 +345,26 @@ show_summary $actions "${user_services[*]}" $force
 echo "Stopping any running catalog-api Docker services ..."
 docker-compose down &> /dev/null
 
-# First, loop over user-provide $user_services. Validate each service and set
+# First, loop over user-provided $user_services. Validate each service and set
 # volumes up as appropriate
 services=()
 volumes_were_created=()
 for service in ${user_services[@]}; do
-  paths=()
-  case $service in
-    default-db-dev)
-      paths=("$DDPATH/default_db_dev")
-      ;;
-    default-db-test)
-      paths=("$DDPATH/default_db_test")
-      ;;
-    sierra-db-test)
-      paths=("$DDPATH/sierra_db_test")
-      ;;
-    solr-dev)
-      paths=("$DDPATH/solr_dev/logs"
-             "$DDPATH/solr_dev/bibdata_data"
-             "$DDPATH/solr_dev/haystack_data"
-             "$DDPATH/solr_dev/marc_data"
-             "$DDPATH/solr_dev/alpha-solrmarc_data"
-             "$DDPATH/solr_dev/alpha-solrmarc-02_data"
-             "$DDPATH/solr_dev/discover-01_data"
-             "$DDPATH/solr_dev/discover-02_data"
-             "$DDPATH/solr_dev/bl-suggest_data")
-      ;;
-    solr-test)
-      paths=("$DDPATH/solr_test/logs"
-             "$DDPATH/solr_test/bibdata_data"
-             "$DDPATH/solr_test/haystack_data"
-             "$DDPATH/solr_test/marc_data"
-             "$DDPATH/solr_test/alpha-solrmarc_data"
-             "$DDPATH/solr_test/alpha-solrmarc-02_data"
-             "$DDPATH/solr_test/discover-01_data"
-             "$DDPATH/solr_test/discover-02_data"
-             "$DDPATH/solr_test/bl-suggest_data")
-      ;;
-    redis-celery-dev)
-      paths=("$DDPATH/redis_celery/data"
-             "$DDPATH/redis_celery/logs")
-      ;;
-    redis-celery-test)
-      paths=("$DDPATH/redis_celery_test/data"
-             "$DDPATH/redis_celery_test/logs")
-      ;;
-    redis-appdata-dev)
-      paths=("$DDPATH/redis_appdata_dev/data"
-             "$DDPATH/redis_appdata_dev/logs")
-      ;;
-    redis-appdata-test)
-      paths=("$DDPATH/redis_appdata_test/data"
-             "$DDPATH/redis_appdata_test/logs")
-      ;;
-    app)
-      paths=("$DDPATH/app/logs"
-             "$DDPATH/app/media")
-      ;;
-    celery-worker)
-      paths=("$DDPATH/celery_worker/logs")
-      ;;
-    celery-worker-test)
-      paths=("$DDPATH/celery_worker_test/logs")
-      ;;
-    test)
-      paths=("$DDPATH/test/logs"
-             "$DDPATH/test/media")
-      ;;
-    *)
-      echo ""
-      echo "Warning: Skipping \`$service\`. Either it is not a valid service, or it does not use data volumes."
-      ;;
-  esac
-
-  if [[ $paths ]]; then
+  service_paths_var=$(service_name_to_env_prefix $service)_PATHS[@]
+  if [[ -n ${!service_paths_var} ]]; then
     services+=($service)
     if [[ $want_make_volumes ]]; then
       volume_was_created="true"
       echo ""
       echo "Making data volume(s) for \`$service\`."
-      for path in ${paths[@]}; do
+      for path in ${!service_paths_var}; do
         if ! make_volume "$path" $service $force; then
           volume_was_created="false"
         fi
       done
     else
+      echo ""
+      echo "Warning: Skipping \`$service\`. Either it is not a valid service, or it does not use data volumes."
       volume_was_created="false"
     fi
     volumes_were_created+=($volume_was_created)

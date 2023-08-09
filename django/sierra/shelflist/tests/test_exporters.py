@@ -2,10 +2,11 @@
 Tests shelflist-app classes derived from `export.exporter.Exporter`.
 """
 
-import pytest
-import importlib
+from __future__ import absolute_import
+
 import random
 
+import pytest
 
 # FIXTURES AND TEST DATA
 # Fixtures used in the below tests can be found in ...
@@ -17,9 +18,9 @@ import random
 #    assert_deleted_records_are_not_indexed
 #
 # django/sierra/shelflist/tests/conftest.py:
-#    shelflist_solr_assembler
+#    shelflist_export_solr_assembler
 
-pytestmark = pytest.mark.django_db
+pytestmark = pytest.mark.django_db(databases=['default', 'sierra'])
 
 
 @pytest.fixture
@@ -97,6 +98,7 @@ def test_itemstosolr_get_deletions(exporter_class, record_sets, new_exporter):
 @pytest.mark.exports
 @pytest.mark.do_export
 def test_itemstosolr_records_to_solr(exporter_class, record_sets, new_exporter,
+                                     do_commit,
                                      assert_all_exported_records_are_indexed):
     """
     The shelflist app ItemsToSolr `export_records` method should load
@@ -106,40 +108,44 @@ def test_itemstosolr_records_to_solr(exporter_class, record_sets, new_exporter,
     expclass = exporter_class('ItemsToSolr')
     exporter = new_exporter(expclass, 'full_export', 'waiting')
     exporter.export_records(records)
-    exporter.commit_indexes()
+    do_commit(exporter)
     assert_all_exported_records_are_indexed(exporter, records)
 
 
 @pytest.mark.deletions
 @pytest.mark.do_export
 def test_itemstosolr_delete_records(exporter_class, record_sets, new_exporter,
-                                    shelflist_solr_assembler,
-                                    assert_records_are_indexed,
+                                    shelflist_export_solr_assembler,
+                                    assert_records_are_indexed, do_commit,
                                     assert_deleted_records_are_not_indexed):
     """
     The shelflist app ItemsToSolr `delete_records` method should delete
     records from the appropriate index or indexes.
     """
     records = record_sets['item_del_set']
-    data = [(r.id, {'record_number': r.get_iii_recnum()}) for r in records]
-    shelflist_solr_assembler.load_static_test_data('shelflistitem', data,
-                                                   id_field='id')
-    
     expclass = exporter_class('ItemsToSolr')
     exporter = new_exporter(expclass, 'full_export', 'waiting')
+    index = [ind for ind in exporter.indexes.values()][0]
+    assert len(exporter.indexes.values()) == 1
 
-    for index in exporter.indexes.values():
-        assert_records_are_indexed(index, records)
+    id_field = index.reserved_fields['haystack_id']
+
+    data = [(index.get_qualified_id(r), {}) for r in records]
+    shelflist_export_solr_assembler.load_static_test_data(
+        'shelflistitem', data, id_field=id_field
+    )
+    assert_records_are_indexed(index, records)
+
     exporter.delete_records(records)
-    exporter.commit_indexes()
+    do_commit(exporter)
     assert_deleted_records_are_not_indexed(exporter, records)
 
 
 @pytest.mark.exports
 @pytest.mark.do_export
 def test_itemstosolr_exps_keep_user_fields(exporter_class, new_exporter,
-                                           shelflist_solr_assembler,
-                                           sierra_full_object_set,
+                                           shelflist_export_solr_assembler,
+                                           sierra_full_object_set, do_commit,
                                            get_records_from_index):
     """
     When the shelflist app ItemsToSolr `export_records` method runs, if
@@ -148,18 +154,24 @@ def test_itemstosolr_exps_keep_user_fields(exporter_class, new_exporter,
     loading them should update the record but KEEP the data in the
     user-specified fields.
     """
-    ufields = ['inventory_date', 'shelf_status', 'flags', 'inventory_notes']
-    records = sierra_full_object_set('ItemRecord').order_by('pk')[0:6]
-    data = [(r.pk, {'record_number': i}) for i, r in enumerate(records)]
-    shelflist_solr_assembler.load_static_test_data('shelflistitem', data,
-                                                   id_field='id')
     expclass = exporter_class('ItemsToSolr')
     exporter = new_exporter(expclass, 'full_export', 'waiting')
+    index = [ind for ind in exporter.indexes.values()][0]
+    assert len(exporter.indexes.values()) == 1
+
+    id_field = index.reserved_fields['haystack_id']
+
+    ufields = ['inventory_date', 'shelf_status', 'flags', 'inventory_notes']
+    records = sierra_full_object_set('ItemRecord').order_by('pk')[0:6]
+    data = [(index.get_qualified_id(r), {}) for r in records]
+    shelflist_export_solr_assembler.load_static_test_data(
+        'shelflistitem', data, id_field=id_field
+    )
 
     # pre_results: data pre-loaded into Solr, with user-fields
     pre_results = get_records_from_index(exporter.indexes['Items'], records)
     exporter.export_records(records)
-    exporter.commit_indexes()
+    do_commit(exporter)
     # post_results: data in Solr after running `export_records`
     post_results = get_records_from_index(exporter.indexes['Items'], records)
 
@@ -170,20 +182,22 @@ def test_itemstosolr_exps_keep_user_fields(exporter_class, new_exporter,
     for record in records:
         pre_result = pre_results[record.pk]
         post_result = post_results[record.pk]
-        recnum = record.record_metadata.get_iii_recnum(True)
-        assert pre_result['record_number'] != post_result['record_number']
-        assert post_result['record_number'] == recnum
+        qid = index.get_qualified_id(record)
+        assert pre_result[id_field] == post_result[id_field] == qid
         for uf in ufields:
             assert pre_result.get(uf, None) == post_result.get(uf, None)
 
 
+# NOTE: Do not remove 'solr_conns' from the below test's fixture list.
+# It is not used in the test, but this is what assures that Solr gets
+# cleared out when the test finishes.
 @pytest.mark.shelflist
 @pytest.mark.exports
 @pytest.mark.return_vals
 def test_itemstosolr_export_returns_lcodes(exporter_class,
                                            sierra_full_object_set,
                                            new_exporter,
-                                           setattr_model_instance):
+                                           setattr_model_instance, solr_conns):
     """
     The shelflist app ItemsToSolr `export_records` method should return
     a vals structure containing a `seen_lcodes` list, or list of unique
@@ -200,7 +214,7 @@ def test_itemstosolr_export_returns_lcodes(exporter_class,
     expclass = exporter_class('ItemsToSolr')
     exporter = new_exporter(expclass, 'full_export', 'waiting')
     vals = exporter.export_records(records)
-    assert vals['seen_lcodes'] == expected_lcodes 
+    assert vals['seen_lcodes'] == expected_lcodes
 
 
 @pytest.mark.shelflist
@@ -208,12 +222,19 @@ def test_itemstosolr_export_returns_lcodes(exporter_class,
 @pytest.mark.return_vals
 def test_itemstosolr_del_returns_lcodes(exporter_class, sierra_full_object_set,
                                         new_exporter,
-                                        shelflist_solr_assembler):
+                                        shelflist_export_solr_assembler):
     """
     The shelflist app ItemsToSolr `delete_records` method should return
     a vals structure containing a `seen_lcodes` list, or list of unique
     locations that appear(ed) in the record set.
     """
+    expclass = exporter_class('ItemsToSolr')
+    exporter = new_exporter(expclass, 'full_export', 'waiting')
+    index = [ind for ind in exporter.indexes.values()][0]
+    assert len(exporter.indexes.values()) == 1
+
+    id_field = index.reserved_fields['haystack_id']
+
     # Set up existing data to be deleted.
     records = sierra_full_object_set('RecordMetadata')
     records = records.filter(record_type_id='i').order_by('pk')[0:20]
@@ -222,13 +243,11 @@ def test_itemstosolr_del_returns_lcodes(exporter_class, sierra_full_object_set,
     for rec in records:
         lcode = random.choice(lcode_opts)
         expected_lcodes.add(lcode)
-        data.append((rec.id, {'record_number': rec.get_iii_recnum(),
-                     'location_code': lcode}))
-    shelflist_solr_assembler.load_static_test_data('shelflistitem', data,
-                                                   id_field='id')
+        data.append((index.get_qualified_id(rec), {'location_code': lcode}))
+    shelflist_export_solr_assembler.load_static_test_data(
+        'shelflistitem', data, id_field=id_field
+    )
 
-    expclass = exporter_class('ItemsToSolr')
-    exporter = new_exporter(expclass, 'full_export', 'waiting')
     vals = exporter.delete_records(records)
     assert vals['seen_lcodes'] == expected_lcodes
 
@@ -260,7 +279,8 @@ def test_itemstosolr_compile_vals(results, expected, exporter_class,
 @pytest.mark.shelflist
 @pytest.mark.callback
 def test_itemstosolr_shelflist_manifests(exporter_class, new_exporter,
-                                         shelflist_solr_assembler, redis_obj):
+                                         shelflist_export_solr_assembler,
+                                         redis_obj):
     """
     The shelflist app ItemsToSolr `final_callback` method should build
     or rebuild the shelflist manifest for each location provided in the
@@ -269,28 +289,33 @@ def test_itemstosolr_shelflist_manifests(exporter_class, new_exporter,
     """
     expclass = exporter_class('ItemsToSolr')
     exporter = new_exporter(expclass, 'full_export', 'waiting')
+    index = [ind for ind in exporter.indexes.values()][0]
+    assert len(exporter.indexes.values()) == 1
+
+    id_field = index.reserved_fields['django_id']
 
     # Define some completely fake item data that makes it easy to do
     # sorting without getting caught up in details about sorting
     # call numbers. For this test we don't care about call number
     # sorting. The tuples in the below dict represent the Solr fields
-    # `id`, `call_number_sort`, `volume_sort`, and `copy_number`.
-    # When manifests are created, items should be sorted in that order.
+    # `django_id`, `id`, `call_number_sort`, `volume_sort`, and
+    # `copy_number`. When manifests are created, items should sort in
+    # that order.
     items = {
-        '1_1_1': (1, '1', '1', 1),
-        '1_1_2': (2, '1', '1', 2),
-        '1_2_1': (3, '1', '2', 1),
-        '1_2_2': (4, '1', '2', 2),
-        '2_1_1': (5, '2', '1', 1),
-        '2_1_2': (6, '2', '1', 2),
-        '2_1_3': (7, '2', '1', 3),
-        '3_1_1': (8, '3', '1', 1),
-        '3_1_2': (9, '3', '1', 2),
-        '3_1_3': (10, '3', '1', 3),
-        '3_2_1': (11, '3', '2', 1),
-        '3_2_2': (12, '3', '2', 2),
-        '4_1_1': (13, '4', '1', 1),
-        '4_2_1': (14, '4', '2', 1),
+        '1_1_1': ('1', 'i00001', '1', '1', 1),
+        '1_1_2': ('2', 'i00002', '1', '1', 2),
+        '1_2_1': ('3', 'i00003', '1', '2', 1),
+        '1_2_2': ('4', 'i00004', '1', '2', 2),
+        '2_1_1': ('5', 'i00005', '2', '1', 1),
+        '2_1_2': ('6', 'i00006', '2', '1', 2),
+        '2_1_3': ('7', 'i00007', '2', '1', 3),
+        '3_1_1': ('8', 'i00008', '3', '1', 1),
+        '3_1_2': ('9', 'i00009', '3', '1', 2),
+        '3_1_3': ('10', 'i00010', '3', '1', 3),
+        '3_2_1': ('11', 'i00011', '3', '2', 1),
+        '3_2_2': ('12', 'i00012', '3', '2', 2),
+        '4_1_1': ('13', 'i00013', '4', '1', 1),
+        '4_2_1': ('14', 'i00014', '4', '2', 1),
     }
 
     # Add some pre-existing shelflistitem-manifest data to Redis.
@@ -301,7 +326,7 @@ def test_itemstosolr_shelflist_manifests(exporter_class, new_exporter,
     }
     for lcode, item_data in existing_shelflists.items():
         key = '{}:{}'.format(expclass.redis_shelflist_prefix, lcode)
-        redis_obj(key).set([i[0] for i in item_data])
+        redis_obj(key).set([i[1] for i in item_data])
 
     # Now simulate data that's been loaded into Solr that's updated one
     # or more existing shelflists.
@@ -312,12 +337,18 @@ def test_itemstosolr_shelflist_manifests(exporter_class, new_exporter,
     }
     solr_data = []
     for lcode, slist in updated_shelflists.items():
-        for pk, cn, vol, copy in slist:
-            solr_data.append((pk, {'location_code': lcode,
-                             'call_number_sort': cn, 'volume_sort': vol,
-                             'copy_number': copy, 'call_number_type': 'lc'}))
-    shelflist_solr_assembler.load_static_test_data('shelflistitem', solr_data,
-                                                   id_field='id')
+        for django_id, id_, cn, vol, copy in slist:
+            solr_data.append((django_id, {
+                'id': id_,
+                'location_code': lcode,
+                'call_number_sort': cn,
+                'volume_sort': vol,
+                'copy_number': copy,
+                'call_number_type': 'lc'
+            }))
+    shelflist_export_solr_assembler.load_static_test_data(
+        'shelflistitem', solr_data, id_field=id_field
+    )
 
     # Run `final_callback`, passing the appropriate location codes to
     # update shelflistitem manifests for via vals['seen_lcodes'].
@@ -330,17 +361,21 @@ def test_itemstosolr_shelflist_manifests(exporter_class, new_exporter,
     for key in redis_obj.conn.keys():
         lcode = key.split(':')[1]
         if lcode in updated_shelflists:
-            expected_shelflist = [i[0] for i in updated_shelflists[lcode]]
+            expected_shelflist = [i[1] for i in updated_shelflists[lcode]]
         else:
-            expected_shelflist = [i[0] for i in existing_shelflists[lcode]]
+            expected_shelflist = [i[1] for i in existing_shelflists[lcode]]
         assert redis_obj(key).get() == expected_shelflist
 
 
+# NOTE: Do not remove 'solr_conns' from the below test's fixture list.
+# It is not used in the test, but this is what assures that Solr gets
+# cleared out when the test finishes.
 @pytest.mark.shelflist
 @pytest.mark.callback
 def test_bibsandattached_updates_shelflist_mf(exporter_class, new_exporter,
                                               sierra_full_object_set,
-                                              setattr_model_instance, mocker):
+                                              setattr_model_instance,
+                                              solr_conns, mocker):
     """
     When BibsAndAttachedToSolr runs and uses the shelflist ItemsToSolr
     as a child, the `final_callback` on ItemsToSolr should be triggered

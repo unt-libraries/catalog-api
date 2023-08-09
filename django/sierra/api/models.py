@@ -1,18 +1,18 @@
 """
 Contains models for api app.
 """
+from __future__ import absolute_import
+
 import hashlib
 import importlib
-import csv
 import re
 
 import ujson
-
 from django.conf import settings
+from django.contrib.auth import authenticate
+from django.contrib.auth.models import User
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import models, transaction, IntegrityError
-from django.contrib.auth.models import User
-from django.contrib.auth import authenticate
 
 
 class APIUserException(Exception):
@@ -110,7 +110,8 @@ class APIUserManager(models.Manager):
                            'APIUser already exists.'.format(username))
                     raise UserExists(msg)
 
-        except IntegrityError as (ie_num, detail):
+        except IntegrityError as xxx_todo_changeme:
+            (ie_num, detail) = xxx_todo_changeme.args
             if ie_num == 1062:
                 detail = ('Existing Django user found, but it may not be '
                           'the correct one. Its details do not match the ones '
@@ -163,7 +164,7 @@ class APIUserManager(models.Manager):
             try:
                 if unknown_fields:
                     msg = 'Unknown fields in record: {}'.format(unknown_fields)
-                    raise(APIUserException(msg))
+                    raise APIUserException
                 try:
                     au = self.get(user__username=username)
                 except ObjectDoesNotExist:
@@ -173,7 +174,7 @@ class APIUserManager(models.Manager):
                     au.update_and_save(secret_text, **kwargs)
                     updated.append(au)
             except APIUserException as e:
-                errors.append((i+1, record, e))
+                errors.append((i + 1, record, e))
         return (created, updated, errors)
 
     def table_to_batch(self, table):
@@ -193,14 +194,14 @@ class APIUserManager(models.Manager):
         def _str_to_bool(string):
             return False if re.match(r'([Ff]|0+$|$)', string) else True
 
-        permission_columns = self.model.permission_defaults.keys()
+        permission_columns = list(self.model.permission_defaults.keys())
         rows = (r for r in table)
-        colnames = rows.next()
+        colnames = next(rows)
         user_records = []
         for row in rows:
             rec = {col: row[i] for i, col in enumerate(colnames)}
             perm_dict = {c: _str_to_bool(rec.pop(c))
-                            for c in permission_columns if c in rec}
+                         for c in permission_columns if c in rec}
             if perm_dict:
                 rec['permissions_dict'] = perm_dict
             user_records.append(rec)
@@ -211,7 +212,7 @@ class APIUser(models.Model):
     """
     Provides fields/features for secrets and permissions.
     """
-    user = models.OneToOneField(User)
+    user = models.OneToOneField(User, on_delete=models.CASCADE)
     secret = models.CharField(max_length=128)
     permissions = models.TextField(default='{}')
     permission_defaults = get_permission_defaults_from_apps()
@@ -316,7 +317,7 @@ class APIUser(models.Model):
     def set_permissions_to_value(self, permissions, value):
         """
         Set certain permissions to the given `value` for this APIUser.
-        
+
         `permissions` is a list of permissions to set to the supplied
         boolean value.
 
@@ -330,7 +331,7 @@ class APIUser(models.Model):
 
         Returns a dictionary of all user permissions after the update.
         """
-        permissions = self.permission_defaults.keys()
+        permissions = list(self.permission_defaults.keys())
         return self.set_permissions_to_value(permissions, value)
 
     @staticmethod
@@ -346,7 +347,7 @@ class APIUser(models.Model):
             raise APIUserException('Provided hash_type argument must be one '
                                    'of: {}'.format(', '.join(valid_hashes)))
 
-        hasher = getattr(hashlib, hash_type)(secret)
+        hasher = getattr(hashlib, hash_type)(secret.encode())
         return hasher.hexdigest()
 
     class Meta:

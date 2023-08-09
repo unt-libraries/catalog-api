@@ -2,14 +2,19 @@
 Tests API features applicable to the `shelflist` app.
 """
 
-import pytest
-import ujson
-import jsonpatch
+from __future__ import absolute_import
+from __future__ import print_function
+
 from datetime import datetime
 
+import jsonpatch
+import pytest
+import ujson
 from shelflist.exporters import ItemsToSolr
 from shelflist.search_indexes import ShelflistItemIndex
-from shelflist.serializers import ShelflistItemSerializer
+from six import text_type
+from six.moves import range
+
 
 # FIXTURES AND TEST DATA
 # Fixtures used in the below tests can be found in ...
@@ -41,187 +46,195 @@ PARAMETERS__FILTER_TESTS = (
     'test_data, search, expected',
 
     # Filter by Call Number
-    { 'exact call number | one match': ((
+    {'exact call number | one match': ((
         ('TEST1', {'call_number': 'AB100 .A1 1', 'call_number_type': 'lc'}),
         ('TEST2', {'call_number': 'AB101 .A1 1', 'call_number_type': 'lc'}),
-     ), 'callNumber=AB100 .A1 1', ['TEST1']),
-    }, { 'exact call number, truncated | no matches': ((
+    ), 'callNumber=AB100 .A1 1', ['TEST1']),
+    }, {'exact call number, truncated | no matches': ((
         ('TEST1', {'call_number': 'AB100 .A1 1', 'call_number_type': 'lc'}),
         ('TEST2', {'call_number': 'AB101 .A1 1', 'call_number_type': 'lc'}),
-     ), 'callNumber=AB100 .A1', []),
-    }, { 'exact call number, normalized | one match': ((
+    ), 'callNumber=AB100 .A1', []),
+    }, {'exact call number, normalized | one match': ((
         ('TEST1', {'call_number': 'AB100 .A1 1', 'call_number_type': 'lc'}),
         ('TEST2', {'call_number': 'AB101 .A1 1', 'call_number_type': 'lc'}),
-     ), 'callNumber=ab100a11', ['TEST1']),
-    }, { 'exact call number, normalized and truncated | no matches': ((
+    ), 'callNumber=ab100a11', ['TEST1']),
+    }, {'exact call number, normalized and truncated | no matches': ((
         ('TEST1', {'call_number': 'AB100 .A1 1', 'call_number_type': 'lc'}),
         ('TEST2', {'call_number': 'AB101 .A1 1', 'call_number_type': 'lc'}),
-     ), 'callNumber=ab100a1', []),
-    }, { 'startswith call number | no matches': ((
+    ), 'callNumber=ab100a1', []),
+    }, {'startswith call number | no matches': ((
         ('TEST1', {'call_number': 'AB100 .A1 1', 'call_number_type': 'lc'}),
-        ('TEST2', {'call_number': 'AB101 .A1 1', 'call_number_type': 'lc'}),
-     ), 'callNumber[startswith]=AB102', []),
-    }, { 'startswith call number | multiple matches': ((
+        ('TEST2', {'call_number': 'AB101 .A1 1',
+                   'call_number_type': 'lc'}),
+    ), 'callNumber[startswith]=AB102', []),
+    }, {'startswith call number | multiple matches': ((
         ('TEST1', {'call_number': 'AB100 .A1 1', 'call_number_type': 'lc'}),
-        ('TEST2', {'call_number': 'AB101 .A1 1', 'call_number_type': 'lc'}),
-     ), 'callNumber[startswith]=AB1', ['TEST1', 'TEST2']),
-    }, { 'startswith call number, extra spaces | one match': ((
-        ('TEST1', {'call_number': 'AB100 .A1 1', 'call_number_type': 'lc'}),
-        ('TEST2', {'call_number': 'AB101 .A1 1', 'call_number_type': 'lc'}),
-     ), 'callNumber[startswith]=AB 100 .A1', ['TEST1']),
+        ('TEST2', {'call_number': 'AB101 .A1 1',
+                   'call_number_type': 'lc'}),
+    ), 'callNumber[startswith]=AB1', ['TEST1', 'TEST2']),
+    }, {'startswith call number, extra spaces | one match': ((
+        ('TEST1', {'call_number': 'AB100 .A1 1',
+                   'call_number_type': 'lc'}),
+        ('TEST2', {'call_number': 'AB101 .A1 1',
+                   'call_number_type': 'lc'}),
+    ), 'callNumber[startswith]=AB 100 .A1', ['TEST1']),
     },
 
     # Filter by Call Number and Type
-    { 'call number is correct; type is incorrect | no matches': ((
+    {'call number is correct; type is incorrect | no matches': ((
         ('TEST1', {'call_number': 'AB100 .A1 1', 'call_number_type': 'lc'}),
         ('TEST2', {'call_number': 'AB101 .A1 1', 'call_number_type': 'lc'}),
-     ), 'callNumber=AB 100 .A1 1&callNumberType=other', []),
-    }, { 'call number is correct; type is correct | one match': ((
+    ), 'callNumber=AB 100 .A1 1&callNumberType=other', []),
+    }, {'call number is correct; type is correct | one match': ((
         ('TEST1', {'call_number': 'AB100 .A1 1', 'call_number_type': 'lc'}),
         ('TEST2', {'call_number': 'AB101 .A1 1', 'call_number_type': 'lc'}),
-     ), 'callNumber=AB 100 .A1 1&callNumberType=lc', ['TEST1']),
+    ), 'callNumber=AB 100 .A1 1&callNumberType=lc', ['TEST1']),
     },
 
     # Filter by Barcode
-    { 'exact barcode | one match': ((
+    {'exact barcode | one match': ((
         ('TEST1', {'barcode': '5555000001'}),
         ('TEST2', {'barcode': '5555000002'}),
-     ), 'barcode=5555000001', ['TEST1']),
-    }, { 'exact barcode, truncated | no matches': ((
+    ), 'barcode=5555000001', ['TEST1']),
+    }, {'exact barcode, truncated | no matches': ((
         ('TEST1', {'barcode': '5555000001'}),
         ('TEST2', {'barcode': '5555000002'}),
-     ), 'barcode=555500000', []),
-    }, { 'startswith barcode, truncated | one match': ((
+    ), 'barcode=555500000', []),
+    }, {'startswith barcode, truncated | one match': ((
         ('TEST1', {'barcode': '5555000001'}),
         ('TEST2', {'barcode': '5554000001'}),
-     ), 'barcode[startswith]=5555', ['TEST1']),
-    }, { 'startswith barcode, truncated | multiple matches': ((
+    ), 'barcode[startswith]=5555', ['TEST1']),
+    }, {'startswith barcode, truncated | multiple matches': ((
         ('TEST1', {'barcode': '5555000001'}),
         ('TEST2', {'barcode': '5554000001'}),
-     ), 'barcode[startswith]=555', ['TEST1', 'TEST2']),
+    ), 'barcode[startswith]=555', ['TEST1', 'TEST2']),
     },
 
     # Filter by Item Status and Due Date
-    { 'status CHECKED OUT | one match': ((
+    {'status CHECKED OUT | one match': ((
         ('TEST1', {'status_code': '-',
                    'due_date': datetime(2019, 6, 30, 00, 00, 00)}),
         ('TEST2', {'status_code': '-', 'due_date': None}),
-     ), 'status_code=-&dueDate[isnull]=false', ['TEST1']),
-    }, { 'status CHECKED OUT and status code a | one match': ((
+    ), 'status_code=-&dueDate[isnull]=false', ['TEST1']),
+    }, {'status CHECKED OUT and status code a | one match': ((
         ('TEST1', {'status_code': 'a',
                    'due_date': datetime(2019, 6, 30, 00, 00, 00)}),
         ('TEST2', {'status_code': '-', 'due_date': None}),
-     ), 'status_code=a&dueDate[isnull]=false', ['TEST1']),
-    }, { 'status CHECKED OUT and status code a, b | multiple matches': ((
+    ), 'status_code=a&dueDate[isnull]=false', ['TEST1']),
+    }, {'status CHECKED OUT and status code a, b | multiple matches': ((
         ('TEST1', {'status_code': 'a',
                    'due_date': datetime(2019, 6, 30, 00, 00, 00)}),
         ('TEST2', {'status_code': 'b', 'due_date': None}),
         ('TEST3', {'status_code': 'b',
                    'due_date': datetime(2019, 9, 30, 00, 00, 00)}),
         ('TEST4', {'status_code': '-', 'due_date': None}),
-     ), 'status_code[in]=[a,b]&dueDate[isnull]=false', ['TEST1', 'TEST3']),
-    }, { 'status CHECKED OUT and status code a | no matches': ((
+    ), 'status_code[in]=[a,b]&dueDate[isnull]=false', ['TEST1', 'TEST3']),
+    }, {'status CHECKED OUT and status code a | no matches': ((
         ('TEST1', {'status_code': '-',
                    'due_date': datetime(2019, 6, 30, 00, 00, 00)}),
         ('TEST2', {'status_code': '-', 'due_date': None}),
-     ), 'status_code=a&dueDate[isnull]=false', []),
-    }, { 'status NOT CHECKED OUT and status code - | one match': ((
+    ), 'status_code=a&dueDate[isnull]=false', []),
+    }, {'status NOT CHECKED OUT and status code - | one match': ((
         ('TEST1', {'status_code': '-',
                    'due_date': datetime(2019, 6, 30, 00, 00, 00)}),
         ('TEST2', {'status_code': '-', 'due_date': None}),
-     ), 'status_code=-&dueDate[isnull]=true', ['TEST2']),
-    }, { 'status NOT CHECKED OUT and status code a | one match': ((
+    ), 'status_code=-&dueDate[isnull]=true', ['TEST2']),
+    }, {'status NOT CHECKED OUT and status code a | one match': ((
         ('TEST1', {'status_code': '-',
                    'due_date': datetime(2019, 6, 30, 00, 00, 00)}),
         ('TEST2', {'status_code': 'a', 'due_date': None}),
-     ), 'status_code=a&dueDate[isnull]=true', ['TEST2']),
-    }, { 'status NOT CHECKED OUT and status code a, b | multiple matches': ((
+    ), 'status_code=a&dueDate[isnull]=true', ['TEST2']),
+    }, {'status NOT CHECKED OUT and status code a, b | multiple matches': ((
         ('TEST1', {'status_code': 'b',
                    'due_date': datetime(2019, 6, 30, 00, 00, 00)}),
         ('TEST2', {'status_code': 'a', 'due_date': None}),
         ('TEST3', {'status_code': 'b', 'due_date': None}),
-     ), 'status_code[in]=[a,b]&dueDate[isnull]=true', ['TEST2', 'TEST3']),
+    ), 'status_code[in]=[a,b]&dueDate[isnull]=true', ['TEST2', 'TEST3']),
     },
 
     # Filter by Suppression
-    { 'suppression | one match': ((
+    {'suppression | one match': ((
         ('TEST1', {'suppressed': True}),
         ('TEST2', {'suppressed': False}),
-     ), 'suppressed=true', ['TEST1']),
-    }, { 'suppression | no matches': ((
+    ), 'suppressed=true', ['TEST1']),
+    }, {'suppression | no matches': ((
         ('TEST1', {'suppressed': True}),
         ('TEST2', {'suppressed': True}),
-     ), 'suppressed=false', []),
-    }, { 'suppression | multiple matches': ((
+    ), 'suppressed=false', []),
+    }, {'suppression | multiple matches': ((
         ('TEST1', {'suppressed': True}),
         ('TEST2', {'suppressed': True}),
-     ), 'suppressed=true', ['TEST1', 'TEST2']),
-    }, 
+    ), 'suppressed=true', ['TEST1', 'TEST2']),
+    },
 
     # Filter by Shelf / Inventory Status
-    { 'shelf status, on shelf | one match': ((
+    {'shelf status, on shelf | one match': ((
         ('TEST1', {'shelf_status': 'onShelf'}),
         ('TEST2', {'shelf_status': 'unknown'}),
-     ), 'shelfStatus=onShelf', ['TEST1']),
-    }, { 'shelf status, on shelf | no matches': ((
+    ), 'shelfStatus=onShelf', ['TEST1']),
+    }, {'shelf status, on shelf | no matches': ((
         ('TEST1', {'shelf_status': 'unknown'}),
         ('TEST2', {'shelf_status': 'unknown'}),
-     ), 'shelfStatus=onShelf', []),
-    }, { 'shelf status, on shelf or unknown | multiple matches': ((
+    ), 'shelfStatus=onShelf', []),
+    }, {'shelf status, on shelf or unknown | multiple matches': ((
         ('TEST1', {'shelf_status': 'onShelf'}),
         ('TEST2', {'shelf_status': 'unknown'}),
         ('TEST3', {'shelf_status': 'notOnShelf'}),
-     ), 'shelfStatus[in]=[unknown,onShelf]', ['TEST1', 'TEST2']),
+    ), 'shelfStatus[in]=[unknown,onShelf]', ['TEST1', 'TEST2']),
     },
-    
+
     # Filter by Inventory Notes
-    { 'inventory notes, attempt to keyword search | no matches': ((
+    {'inventory notes, attempt to keyword search | no matches': ((
         ('TEST1', {'inventory_notes': ['2019-01-01T20:49:49|user|my note']}),
         ('TEST2', {'inventory_notes': ['2019-01-01T20:49:49|@SYS|note text']}),
-     ), 'inventoryNotes=user', []),
-    }, { 'contains inventory notes | one note matches': ((
+    ), 'inventoryNotes=user', []),
+    }, {'contains inventory notes | one note matches': ((
         ('TEST1', {'inventory_notes': ['2019-01-01T20:49:49|user|my note',
                                        '2019-03-01T00:00:00|@SYS|note text']}),
-        ('TEST2', {'inventory_notes': ['2019-01-01T20:49:49|@SYS|note text']}),
-     ), 'inventoryNotes[contains]=user', ['TEST1']),
-    }, { 'contains inventory notes | no matches': ((
+        ('TEST2', {'inventory_notes': [
+            '2019-01-01T20:49:49|@SYS|note text']}),
+    ), 'inventoryNotes[contains]=user', ['TEST1']),
+    }, {'contains inventory notes | no matches': ((
         ('TEST1', {'inventory_notes': ['2019-01-01T20:49:49|user|my note',
                                        '2019-03-01T00:00:00|@SYS|note text']}),
-        ('TEST2', {'inventory_notes': ['2019-01-01T20:49:49|@SYS|note text']}),
-     ), 'inventoryNotes[contains]=otheruser', []),
-    }, { 'contains inventory notes | multiple matches': ((
+        ('TEST2', {'inventory_notes': [
+            '2019-01-01T20:49:49|@SYS|note text']}),
+    ), 'inventoryNotes[contains]=otheruser', []),
+    }, {'contains inventory notes | multiple matches': ((
         ('TEST1', {'inventory_notes': ['2019-01-01T20:49:49|user|my note',
                                        '2019-03-01T00:00:00|@SYS|note text']}),
-        ('TEST2', {'inventory_notes': ['2019-01-01T20:49:49|@SYS|note text']}),
-     ), 'inventoryNotes[contains]=note', ['TEST1', 'TEST2']),
-    }, { 'inventory notes has user-entered notes | one match': ((
+        ('TEST2', {'inventory_notes': [
+            '2019-01-01T20:49:49|@SYS|note text']}),
+    ), 'inventoryNotes[contains]=note', ['TEST1', 'TEST2']),
+    }, {'inventory notes has user-entered notes | one match': ((
         ('TEST1', {'inventory_notes': ['2019-01-01T20:49:49|user|my note',
                                        '2019-03-01T00:00:00|@SYS|note text']}),
-        ('TEST2', {'inventory_notes': ['2019-01-01T20:49:49|@SYS|note text']}),
-     ), 'inventoryNotes[matches]=^[^|]*\\|[^@]', ['TEST1']),
+        ('TEST2', {'inventory_notes': [
+            '2019-01-01T20:49:49|@SYS|note text']}),
+    ), 'inventoryNotes[matches]=^[^|]*\\|[^@]', ['TEST1']),
     },
 
     # Filter by Flags
-    { 'flags, filter by one flag | no matches': ((
+    {'flags, filter by one flag | no matches': ((
         ('TEST1', {'flags': ['workflowStart']}),
         ('TEST2', {'flags': ['workflowStart', 'workflowOther']}),
-     ), 'flags[in]=[workflowEnd]', []),
-    }, { 'flags, filter by one flag | one match': ((
+    ), 'flags[in]=[workflowEnd]', []),
+    }, {'flags, filter by one flag | one match': ((
         ('TEST1', {'flags': ['workflowStart']}),
         ('TEST2', {'flags': ['workflowStart', 'workflowOther']}),
-     ), 'flags[in]=[workflowOther]', ['TEST2']),
-    }, { 'flags, filter by one flag | multiple matches': ((
+    ), 'flags[in]=[workflowOther]', ['TEST2']),
+    }, {'flags, filter by one flag | multiple matches': ((
         ('TEST1', {'flags': ['workflowStart']}),
         ('TEST2', {'flags': ['workflowStart', 'workflowOther']}),
-     ), 'flags[in]=[workflowStart]', ['TEST1', 'TEST2']),
-    }, { 'flags, filter by two flags | multiple matches (OR)': ((
+    ), 'flags[in]=[workflowStart]', ['TEST1', 'TEST2']),
+    }, {'flags, filter by two flags | multiple matches (OR)': ((
         ('TEST1', {'flags': ['workflowStart', 'workflowEnd']}),
         ('TEST2', {'flags': ['workflowStart', 'workflowOther']}),
-     ), 'flags[in]=[workflowOther,workflowEnd]', ['TEST1', 'TEST2']),
-    }, { 'flags, filter by multiple flags | no matches': ((
+    ), 'flags[in]=[workflowOther,workflowEnd]', ['TEST1', 'TEST2']),
+    }, {'flags, filter by multiple flags | no matches': ((
         ('TEST1', {'flags': ['workflowStart', 'workflowEnd']}),
         ('TEST2', {'flags': ['workflowStart', 'workflowOther']}),
-     ), 'flags[in]=[notHere1,notHere2,notHere3]', []),
+    ), 'flags[in]=[notHere1,notHere2,notHere3]', []),
     },
 )
 
@@ -229,100 +242,106 @@ PARAMETERS__FILTER_TESTS = (
 # TESTDATA__FIRSTITEMPERLOCATION: We use a consistent set of test data
 # for testing the firstitemperlocation resource.
 TESTDATA__FIRSTITEMPERLOCATION = (
-    ( 'atest1', 1,
-        { 'location_code': 'atest',
-          'barcode': '1',
-          'call_number': 'BB 1234 C35 1990',
-          'call_number_type': 'lc'} ),
-    ( 'atest2', 0,
-        { 'location_code': 'atest',
-          'barcode': '2',
-          'call_number': 'BB 1234 A22 2000',
-          'call_number_type': 'lc' } ),
-    ( 'atest3', 2,
-        { 'location_code': 'atest',
-          'barcode': '3',
-          'call_number': 'BC 2345 F80',
-          'call_number_type': 'lc' } ),
-    ( 'atest4', 3,
-        { 'location_code': 'atest',
-          'barcode': '4',
-          'call_number': 'BB 1234',
-          'call_number_type': 'sudoc' } ),
-    ( 'btest1', 0,
-        { 'location_code': 'btest',
-          'barcode': '3',
-          'call_number': 'BB 1234 D99',
-          'call_number_type': 'lc' } ),
-    ( 'btest2', 3,
-        { 'location_code': 'btest',
-          'barcode': '4',
-          'call_number': 'BB 1234 A22',
-          'call_number_type': 'sudoc' } ),
-    ( 'btest3', 1,
-        { 'location_code': 'btest',
-          'barcode': '5',
-          'call_number': 'CC 9876 H43',
-          'call_number_type': 'lc' } ),
-    ( 'btest4', 2,
-        { 'location_code': 'btest',
-          'barcode': '6',
-          'call_number': 'BB 1234',
-          'call_number_type': 'sudoc' } ),
-    ( 'ctest1', 1,
-        { 'location_code': 'ctest',
-          'barcode': '8',
-          'call_number': 'BB 1234 D99 2016',
-          'call_number_type': 'lc' } ),
-    ( 'ctest2', 3,
-        { 'location_code': 'ctest',
-          'barcode': '9',
-          'call_number': 'CC 1234 A22',
-          'call_number_type': 'other' } ),
-    ( 'ctest3', 0,
-        { 'location_code': 'ctest',
-          'barcode': '10',
-          'call_number': '900.1 H43',
-          'call_number_type': 'dewey' } ),
-    ( 'ctest4', 2,
-        { 'location_code': 'ctest',
-          'barcode': '11',
-          'call_number': 'AB 1234',
-          'call_number_type': 'other' } ),
+    ('atest1', 1,
+        {'location_code': 'atest',
+         'barcode': '1',
+         'call_number': 'BB 1234 C35 1990',
+         'call_number_type': 'lc'}),
+    ('atest2', 0,
+        {'location_code': 'atest',
+         'barcode': '2',
+         'call_number': 'BB 1234 A22 2000',
+         'call_number_type': 'lc'}),
+    ('atest3', 2,
+        {'location_code': 'atest',
+         'barcode': '3',
+         'call_number': 'BC 2345 F80',
+         'call_number_type': 'lc'}),
+    ('atest4', 3,
+        {'location_code': 'atest',
+         'barcode': '4',
+         'call_number': 'BB 1234',
+         'call_number_type': 'sudoc'}),
+    ('btest1', 0,
+        {'location_code': 'btest',
+         'barcode': '3',
+         'call_number': 'BB 1234 D99',
+         'call_number_type': 'lc'}),
+    ('btest2', 3,
+        {'location_code': 'btest',
+         'barcode': '4',
+         'call_number': 'BB 1234 A22',
+         'call_number_type': 'sudoc'}),
+    ('btest3', 1,
+        {'location_code': 'btest',
+         'barcode': '5',
+         'call_number': 'CC 9876 H43',
+         'call_number_type': 'lc'}),
+    ('btest4', 2,
+        {'location_code': 'btest',
+         'barcode': '6',
+         'call_number': 'BB 1234',
+         'call_number_type': 'sudoc'}),
+    ('ctest1', 1,
+        {'location_code': 'ctest',
+         'barcode': '8',
+         'call_number': 'BB 1234 D99 2016',
+         'call_number_type': 'lc'}),
+    ('ctest2', 3,
+        {'location_code': 'ctest',
+         'barcode': '9',
+         'call_number': 'CC 1234 A22',
+         'call_number_type': 'other'}),
+    ('ctest3', 0,
+        {'location_code': 'ctest',
+         'barcode': '10',
+         'call_number': '900.1 H43',
+         'call_number_type': 'dewey'}),
+    ('ctest4', 2,
+        {'location_code': 'ctest',
+         'barcode': '11',
+         'call_number': 'AB 1234',
+         'call_number_type': 'other'}),
 )
 
 
 PARAMETERS__FIRSTITEMPERLOCATION = (
     ('test_data, search, expected'),
-    { 'LC call number type | A match at each location':
+    {'LC call number type | A match at each location':
         (TESTDATA__FIRSTITEMPERLOCATION,
          'callNumber[startswith]=BB 12&callNumberType=lc',
          ['atest2', 'btest1', 'ctest1']),
-    }, { 'LC call number type | A match at one location':
+    },
+    {'LC call number type | A match at one location':
         (TESTDATA__FIRSTITEMPERLOCATION,
          'callNumber[startswith]=BC&callNumberType=lc',
          ['atest3']),
-    }, { 'LC call number type | No matches':
+    },
+    {'LC call number type | No matches':
         (TESTDATA__FIRSTITEMPERLOCATION,
          'callNumber[startswith]=D&callNumberType=lc',
          None),
-    }, { 'SUDOC call number type | A match at two locations':
+    },
+    {'SUDOC call number type | A match at two locations':
         (TESTDATA__FIRSTITEMPERLOCATION,
          'callNumber[startswith]=BB&callNumberType=sudoc',
          ['atest4', 'btest4']),
-    }, { 'DEWEY call number type | A match at one location':
+    },
+    {'DEWEY call number type | A match at one location':
         (TESTDATA__FIRSTITEMPERLOCATION,
          'callNumber[startswith]=900&callNumberType=dewey',
          ['ctest3']),
-    }, { 'OTHER call number type | A match at one location':
+    },
+    {'OTHER call number type | A match at one location':
         (TESTDATA__FIRSTITEMPERLOCATION,
          'callNumber[startswith]=C&callNumberType=other',
          ['ctest2']),
-    }, { 'BARCODE | A match at two locations':
+    },
+    {'BARCODE | A match at two locations':
         (TESTDATA__FIRSTITEMPERLOCATION,
          'barcode=3',
          ['atest3', 'btest1']),
-    }, 
+    },
 )
 
 
@@ -333,7 +352,7 @@ def compile_params(parameters):
     Compile a tuple of test parameters for pytest.parametrize, from one
     of the above PARAMETERS__* constants.
     """
-    return tuple(p.values()[0] for p in parameters[1:])
+    return tuple(list(p.values())[0] for p in parameters[1:])
 
 
 def compile_ids(parameters):
@@ -341,7 +360,7 @@ def compile_ids(parameters):
     Compile a tuple of test IDs for pytest.parametrize, from one of the
     above PARAMETERS__* constants.
     """
-    return tuple(p.keys()[0] for p in parameters[1:])
+    return tuple(list(p.keys())[0] for p in parameters[1:])
 
 
 # PYTEST FIXTURES
@@ -373,8 +392,8 @@ def get_shelflist_urls():
     """
     def _get_shelflist_urls(records):
         locations = set([r['location_code'] for r in records])
-        return { loc: ('{}locations/{}/shelflistitems/'.format(API_ROOT, loc)) 
-                 for loc in locations }
+        return {loc: ('{}locations/{}/shelflistitems/'.format(API_ROOT, loc))
+                for loc in locations}
     return _get_shelflist_urls
 
 
@@ -417,33 +436,31 @@ def derive_updated_resource():
     directly as a PUT request to update the resource via the API.
     """
     def _get_new_val(old_val, field_type):
-        if field_type == 'str':
-            return unicode('{} TEST').format((old_val or ''))
-        if field_type == 'int':
+        if field_type == str:
+            return text_type('{} TEST').format((old_val or ''))
+        if field_type == int:
             return (old_val or 0) + 1
-        if field_type == 'bool':
+        if field_type == bool:
             return not bool(old_val)
-        if field_type == 'datetime':
+        if field_type == datetime:
             return '9999-01-01T00:00:00Z'
         return None
 
     def _derive_updated_resource(old_item, serializer, solr_profile,
                                  which_fields=None):
         new_item = {}
-        for fname, fopts in serializer.fields.items():
-            rendered_fname = serializer.render_field_name(fname)
-            old_val = old_item[rendered_fname]
-            solr_fname = fopts.get('source', fname)
-            if (which_fields is None) or (rendered_fname in which_fields):
-                field = solr_profile.fields.get(solr_fname, {})
-                if field.get('multi', False):
+        for f in serializer.fields:
+            old_val = old_item[f.public_name]
+            if (which_fields is None) or (f.public_name in which_fields):
+                solr_field = solr_profile.fields.get(f.sources['main'], {})
+                if solr_field.get('multi', False):
                     old_val = old_val or [None]
-                    new_val = [_get_new_val(o, fopts['type']) for o in old_val]
+                    new_val = [_get_new_val(o, f.data_type) for o in old_val]
                 else:
-                    new_val = _get_new_val(old_val, fopts['type'])
+                    new_val = _get_new_val(old_val, f.data_type)
             else:
                 new_val = old_val
-            new_item[rendered_fname] = new_val
+            new_item[f.public_name] = new_val
         return new_item
     return _derive_updated_resource
 
@@ -458,10 +475,9 @@ def filter_serializer_fields_by_opt():
     """
     def _filter_serializer_fields_by_opt(serializer, attr, value):
         fields = []
-        for fname, fopts in serializer.fields.items():
-            rendered_fname = serializer.render_field_name(fname)
-            if fopts.get(attr, None) == value:
-                fields.append(rendered_fname)
+        for f in serializer.fields:
+            if getattr(f, attr, None) == value:
+                fields.append(f.public_name)
         return fields
     return _filter_serializer_fields_by_opt
 
@@ -484,9 +500,14 @@ def send_api_data(apiuser_with_custom_defaults, simple_sig_auth_credentials):
 
     def _send_api_data(api_client, url, req_body, method, content_type=None):
         test_cls = apiuser_with_custom_defaults()
-        api_user = test_cls.objects.create_user('test', 'sec', password='pw',
-                                                email='test@test.com',
-                                                first_name='F', last_name='L')
+        api_user_results = test_cls.objects.filter(user__username='test')
+        if len(api_user_results) > 0:
+            api_user = api_user_results[0]
+        else:
+            api_user = test_cls.objects.create_user(
+                'test', 'sec', password='pw', email='test@test.com',
+                first_name='F', last_name='L'
+            )
         content_type = content_type or content_types[method]
         api_client.credentials(**simple_sig_auth_credentials(api_user,
                                                              req_body))
@@ -503,7 +524,7 @@ def send_api_data(apiuser_with_custom_defaults, simple_sig_auth_credentials):
 def test_shelflistitem_resource(api_settings, get_shelflist_urls,
                                 shelflist_solr_env, api_client,
                                 pick_reference_object_having_link,
-                                assert_obj_fields_match_serializer):
+                                assert_data_is_from_serializer):
     """
     The shelflistitem resource should should have a list view and
     detail view; it should have objects available in an "_embedded"
@@ -513,7 +534,7 @@ def test_shelflistitem_resource(api_settings, get_shelflist_urls,
     attribute.
     """
     urls = get_shelflist_urls(shelflist_solr_env.records['shelflistitem'])
-    list_resp = api_client.get(urls.values()[0])
+    list_resp = api_client.get(list(urls.values())[0])
     objects = list_resp.data['_embedded']['shelflistItems']
     ref_obj = pick_reference_object_having_link(objects, 'self')
     detail_resp = api_client.get(ref_obj['_links']['self']['href'])
@@ -521,21 +542,23 @@ def test_shelflistitem_resource(api_settings, get_shelflist_urls,
     assert ref_obj == detail_obj
 
     serializer = detail_resp.renderer_context['view'].get_serializer()
-    assert_obj_fields_match_serializer(detail_obj, serializer)
+    assert_data_is_from_serializer(detail_obj, serializer)
 
 
 @pytest.mark.parametrize('resource, linked_resource, link_field, '
                          'rev_link_field', [
-    ('items', 'shelflistItems', 'shelflistItem', 'item'),
-    ('shelflistItems', 'items', 'item', 'shelflistItem'),
-    ('shelflistItems', 'locations', 'location', 'shelflist'),
-    ('locations', 'shelflistItems', 'shelflist', 'location'),
-])
+                             ('items', 'shelflistItems', 'shelflistItem', 'item'),
+                             ('shelflistItems', 'items', 'item', 'shelflistItem'),
+                             ('shelflistItems', 'locations',
+                              'location', 'shelflist'),
+                             ('locations', 'shelflistItems',
+                              'shelflist', 'location'),
+                         ])
 def test_shelflistitem_links(resource, linked_resource, link_field,
                              rev_link_field, api_settings, api_client,
                              get_shelflist_urls, shelflist_solr_env,
                              pick_reference_object_having_link,
-                             assert_obj_fields_match_serializer,
+                             assert_data_is_from_serializer,
                              get_linked_view_and_objects):
     """
     Accessing linked resources (i.e. via the `_links` field in the JSON
@@ -543,7 +566,7 @@ def test_shelflistitem_links(resource, linked_resource, link_field,
     """
     if resource == 'shelflistItems':
         urls = get_shelflist_urls(shelflist_solr_env.records['shelflistitem'])
-        url = urls.values()[0]
+        url = list(urls.values())[0]
     else:
         url = '{}{}/'.format(API_ROOT, resource.lower())
     resp = api_client.get(url)
@@ -552,13 +575,13 @@ def test_shelflistitem_links(resource, linked_resource, link_field,
     lview, lobjs = get_linked_view_and_objects(api_client, ref_obj,
                                                link_field)
     assert lview.resource_name == linked_resource
-    assert_obj_fields_match_serializer(lobjs[0], lview.get_serializer())
+    assert_data_is_from_serializer(lobjs[0], lview.get_serializer())
     _, rev_objs = get_linked_view_and_objects(api_client, lobjs[0],
                                               rev_link_field)
     assert ref_obj in rev_objs
 
 
-@pytest.mark.parametrize('test_data, search, expected', 
+@pytest.mark.parametrize('test_data, search, expected',
                          compile_params(PARAMETERS__FILTER_TESTS),
                          ids=compile_ids(PARAMETERS__FILTER_TESTS))
 def test_shelflistitem_list_view_filters(test_data, search, expected,
@@ -570,7 +593,7 @@ def test_shelflistitem_list_view_filters(test_data, search, expected,
     """
     Given the provided `test_data` records: requesting the given
     `resource` using the provided search filter parameters (`search`)
-    should return each of the records in `expected` and NONE of the
+    s_data_is_from of the records in `expected` and NONE of the
     records NOT in `expected`.
     """
     test_ids = set([r[0] for r in test_data])
@@ -581,9 +604,8 @@ def test_shelflistitem_list_view_filters(test_data, search, expected,
     loc_erecs = [r for r in erecs if r['location_code'] == loc]
     for test_id, data in test_data:
         data['location_code'] = loc
-    _, trecs = assemble_shelflist_test_records(test_data,
-                                               id_field='record_number')
-    
+    _, trecs = assemble_shelflist_test_records(test_data)
+
     # First let's do a quick sanity check to make sure the resource
     # returns the correct num of records before the filter is applied.
     url = get_shelflist_urls(shelflist_solr_env.records['shelflistitem'])[loc]
@@ -591,7 +613,7 @@ def test_shelflistitem_list_view_filters(test_data, search, expected,
     assert check_response.data['totalCount'] == len(loc_erecs) + len(trecs)
 
     response = do_filter_search(url, search, api_client)
-    found_ids = set(get_found_ids('record_number', response))
+    found_ids = set(get_found_ids('id', response))
     assert all([i in found_ids for i in expected_ids])
     assert all([i not in found_ids for i in not_expected_ids])
 
@@ -613,15 +635,15 @@ def test_shelflistitem_view_orderby(order_by, api_settings, shelflist_solr_env,
     order-by criteria is invalid.
     """
     sl_urls = get_shelflist_urls(shelflist_solr_env.records['shelflistitem'])
-    test_url = '{}?orderBy={}'.format(sl_urls.values()[0], order_by)
+    test_url = '{}?orderBy={}'.format(list(sl_urls.values())[0], order_by)
     response = api_client.get(test_url)
     assert response.status_code == 400
-    assert 'not a valid field for ordering' in response.data['detail']
+    assert 'cannot be used for ordering' in response.data['detail']
 
 
 def test_shelflistitem_row_order(api_settings, shelflist_solr_env,
                                  get_shelflist_urls, api_client, redis_obj,
-                                 get_found_ids):
+                                 get_found_ids, settings):
     """
     The `shelflistitems` list view should list items in the same order
     that the shelflist manifest for that location lists them. The
@@ -630,7 +652,8 @@ def test_shelflistitem_row_order(api_settings, shelflist_solr_env,
     recs = shelflist_solr_env.records['shelflistitem']
     loc = recs[0]['location_code']
     loc_recs = [r for r in recs if r['location_code'] == loc]
-    index = ShelflistItemIndex()
+    using = settings.REST_VIEWS_HAYSTACK_CONNECTIONS['ShelflistItems']
+    index = ShelflistItemIndex(using=using)
     manifest = index.get_location_manifest(loc)
     redis_key = '{}:{}'.format(REDIS_SHELFLIST_PREFIX, loc)
     redis_obj(redis_key).set(manifest)
@@ -639,7 +662,7 @@ def test_shelflistitem_row_order(api_settings, shelflist_solr_env,
     response = api_client.get(url)
     total = response.data['totalCount']
     found_ids = get_found_ids('id', response)
-    row_numbers = get_found_ids('row_number', response)
+    row_numbers = get_found_ids('rowNumber', response)
     assert found_ids == manifest
     assert row_numbers == [num for num in range(0, total)]
 
@@ -652,13 +675,13 @@ def test_shelflistitem_putpatch_requires_auth(api_settings,
     fail without authentication. A 403 status code should be returned,
     and the item should NOT be updated.
     """
-    test_lcode, test_id = '1test', 99999999
+    test_lcode, test_id = '1test', 'i99999999'
     _, _, trecs = assemble_custom_shelflist(test_lcode, [(test_id, {})])
     url = '{}{}'.format(get_shelflist_urls(trecs)[test_lcode], test_id)
     before = api_client.get(url)
     put_resp = api_client.put(url, {})
     patch_resp = api_client.patch(url, {})
-    after = api_client.get(url)    
+    after = api_client.get(url)
     assert put_resp.status_code == 403
     assert patch_resp.status_code == 403
     assert before.data == after.data
@@ -666,18 +689,18 @@ def test_shelflistitem_putpatch_requires_auth(api_settings,
 
 @pytest.mark.django_db
 @pytest.mark.parametrize('method', ['put', 'patch'])
-def test_shelflistitem_update_err_nonwritable(method, api_settings,
-                                              assemble_custom_shelflist,
-                                              shelflist_solr_env,
-                                              filter_serializer_fields_by_opt,
-                                              derive_updated_resource,
-                                              send_api_data,
-                                              get_shelflist_urls, api_client):
+def test_shelflistitem_update_err_nonwriteable(method, api_settings,
+                                               assemble_custom_shelflist,
+                                               shelflist_solr_env,
+                                               filter_serializer_fields_by_opt,
+                                               derive_updated_resource,
+                                               send_api_data,
+                                               get_shelflist_urls, api_client):
     """
-    Attempting to update nonwritable fields raises an error,
-    '... is not a writable field'. The item should NOT be updated.
+    Attempting to update nonwriteable fields raises an error,
+    '... is not a writeable field'. The item should NOT be updated.
     """
-    test_lcode, test_id = '1test', 99999999
+    test_lcode, test_id = '1test', 'i99999999'
     _, _, trecs = assemble_custom_shelflist(test_lcode, [(test_id, {})])
     url = '{}{}'.format(get_shelflist_urls(trecs)[test_lcode], test_id)
     before = api_client.get(url)
@@ -690,46 +713,51 @@ def test_shelflistitem_update_err_nonwritable(method, api_settings,
     elif method == 'patch':
         req_body = jsonpatch.make_patch(before.data, try_item)
 
-    unwritable = filter_serializer_fields_by_opt(serializer, 'writable', False)
+    unwrtable = filter_serializer_fields_by_opt(serializer, 'writeable', False)
     resp = send_api_data(api_client, url, req_body, method)
     after = api_client.get(url)
 
     assert resp.status_code == 400
     assert before.data == after.data
-    for fname in unwritable:
-        msg = '{} is not a writable field'.format(fname)
+    for fname in unwrtable:
+        msg = '{} is not a writeable field'.format(fname)
         assert msg in resp.data['detail']
 
 
 @pytest.mark.django_db
 @pytest.mark.parametrize('method', ['put', 'patch'])
 def test_shelflistitem_update_items(method, api_settings,
-                                    assemble_custom_shelflist,
+                                    assemble_custom_shelflist, redis_obj,
                                     shelflist_solr_env,
                                     filter_serializer_fields_by_opt,
                                     derive_updated_resource, send_api_data,
-                                    get_shelflist_urls, api_client):
+                                    get_shelflist_urls, api_client, settings):
     """
-    Updating writable fields on shelflistitems should update/save the
-    resource: it should update the writable fields that were changed
+    Updating writeable fields on shelflistitems should update/save the
+    resource: it should update the writeable fields that were changed
     and keep all other fields exactly the same.
     """
-    test_lcode, test_id = '1test', 99999999
+    test_lcode, test_id = '1test', 'i99999999'
     _, _, trecs = assemble_custom_shelflist(test_lcode, [(test_id, {})])
+    using = settings.REST_VIEWS_HAYSTACK_CONNECTIONS['ShelflistItems']
+    index = ShelflistItemIndex(using=using)
+    manifest = index.get_location_manifest(test_lcode)
+    redis_key = '{}:{}'.format(REDIS_SHELFLIST_PREFIX, test_lcode)
+    redis_obj(redis_key).set(manifest)
     url = '{}{}'.format(get_shelflist_urls(trecs)[test_lcode], test_id)
     before = api_client.get(url)
     serializer = before.renderer_context['view'].get_serializer()
-    writable = filter_serializer_fields_by_opt(serializer, 'writable', True)
-    unwritable = filter_serializer_fields_by_opt(serializer, 'writable', False)
+    wrtable = filter_serializer_fields_by_opt(serializer, 'writeable', True)
+    unwrtable = filter_serializer_fields_by_opt(serializer, 'writeable', False)
     profile = shelflist_solr_env.profiles['shelflistitem']
     try_item = derive_updated_resource(before.data, serializer, profile,
-                                       which_fields=writable)
+                                       which_fields=wrtable)
 
     if method == 'put':
         req_body = ujson.dumps(try_item)
     elif method == 'patch':
         req_body = jsonpatch.make_patch(before.data, try_item)
-    
+
     resp = send_api_data(api_client, url, req_body, method)
     after = api_client.get(url)
 
@@ -737,17 +765,74 @@ def test_shelflistitem_update_items(method, api_settings,
     assert resp.data['links']['self']['href'].endswith(url)
     assert resp.data['links']['self']['id'] == test_id
 
-    print(before.data)
+    print((before.data))
     print(try_item)
-    print(after.data)
+    print((after.data))
 
-    for fname in writable:
+    for fname in wrtable:
         assert after.data[fname] == try_item[fname]
         assert after.data[fname] != before.data[fname]
 
-    for fname in unwritable:
+    for fname in unwrtable:
         assert after.data[fname] == try_item[fname]
         assert after.data[fname] == before.data[fname]
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize('method', ['put', 'patch'])
+def test_shelflistitem_delete_data(method, api_settings,
+                                   assemble_custom_shelflist, redis_obj,
+                                   shelflist_solr_env,
+                                   filter_serializer_fields_by_opt,
+                                   derive_updated_resource, send_api_data,
+                                   get_shelflist_urls, api_client, settings):
+    """
+    Updating a writeable field and providing a null value (None) should
+    delete the stored value.
+    """
+    test_lcode, test_id = '1test', 'i99999999'
+    _, _, trecs = assemble_custom_shelflist(test_lcode, [(test_id, {})])
+    using = settings.REST_VIEWS_HAYSTACK_CONNECTIONS['ShelflistItems']
+    index = ShelflistItemIndex(using=using)
+    manifest = index.get_location_manifest(test_lcode)
+    redis_key = '{}:{}'.format(REDIS_SHELFLIST_PREFIX, test_lcode)
+    redis_obj(redis_key).set(manifest)
+    url = '{}{}'.format(get_shelflist_urls(trecs)[test_lcode], test_id)
+    before = api_client.get(url)
+    serializer = before.renderer_context['view'].get_serializer()
+    writeable = filter_serializer_fields_by_opt(serializer, 'writeable', True)
+    unwriteable = filter_serializer_fields_by_opt(
+        serializer, 'writeable', False
+    )
+    profile = shelflist_solr_env.profiles['shelflistitem']
+    item_add_data = derive_updated_resource(before.data, serializer, profile,
+                                            which_fields=writeable)
+    if method == 'put':
+        req_body = ujson.dumps(item_add_data)
+    elif method == 'patch':
+        req_body = jsonpatch.make_patch(before.data, item_add_data)
+    add_resp = send_api_data(api_client, url, req_body, method)
+    item_del_data = derive_updated_resource(before.data, serializer, profile,
+                                            which_fields=[])
+    after_add = api_client.get(url)
+    item_del_data.update({fname: None for fname in writeable})
+    if method == 'put':
+        req_body = ujson.dumps(item_del_data)
+    elif method == 'patch':
+        req_body = jsonpatch.make_patch(after_add.data, item_del_data)
+    del_resp = send_api_data(api_client, url, req_body, method)
+    after_del = api_client.get(url)
+
+    assert del_resp.status_code == 200
+    assert del_resp.data['links']['self']['href'].endswith(url)
+    assert del_resp.data['links']['self']['id'] == test_id
+
+    for fname in writeable:
+        assert not after_del.data[fname]
+        assert after_add.data[fname] != after_del.data[fname]
+
+    for fname in unwriteable:
+        assert before.data[fname] == after_del.data[fname]
 
 
 @pytest.mark.django_db
@@ -768,18 +853,18 @@ def test_shelflistitem_put_data_missing_fields(fname_solr, fname_api,
     A PUT request should replace the item being updated with the item
     in the request body. In other words: if a field isn't provided in
     the PUT request body, the field is set to None/null. This results
-    in an error if the field previously had data and is not writable.
+    in an error if the field previously had data and is not writeable.
     """
-    test_lcode, test_id = '1test', 99999999
+    test_lcode, test_id = '1test', 'i99999999'
     test_data = [(test_id, {fname_solr: start_val})]
     _, _, trecs = assemble_custom_shelflist(test_lcode, test_data)
     url = '{}{}'.format(get_shelflist_urls(trecs)[test_lcode], test_id)
     before = api_client.get(url)
     serializer = before.renderer_context['view'].get_serializer()
     profile = shelflist_solr_env.profiles['shelflistitem']
-    writable = filter_serializer_fields_by_opt(serializer, 'writable', True)
+    wrtable = filter_serializer_fields_by_opt(serializer, 'writeable', True)
     try_item = derive_updated_resource(before.data, serializer, profile,
-                                       which_fields=writable)
+                                       which_fields=wrtable)
     del(try_item[fname_api])
     req_body = ujson.dumps(try_item)
     resp = send_api_data(api_client, url, req_body, 'put')
@@ -788,7 +873,7 @@ def test_shelflistitem_put_data_missing_fields(fname_solr, fname_api,
     if expect_error:
         assert resp.status_code == 400
         assert before.data == after.data
-        msg = '{} is not a writable field'.format(fname_api)
+        msg = '{} is not a writeable field'.format(fname_api)
         assert msg in resp.data['detail']
     else:
         assert resp.status_code == 200
@@ -803,7 +888,7 @@ def test_shelflist_firstitemperlocation_list(test_data, search, expected,
                                              api_settings, redis_obj,
                                              assemble_custom_shelflist,
                                              api_client, get_found_ids,
-                                             do_filter_search):
+                                             do_filter_search, settings):
     """
     The `firstitemperlocation` resource is basically a custom filter
     for `items` that submits a facet-query to Solr asking for the first
@@ -822,9 +907,10 @@ def test_shelflist_firstitemperlocation_list(test_data, search, expected,
         recs = test_data_by_location.get(lcode, []) + [(test_id, rec)]
         test_data_by_location[lcode] = recs
 
-    index = ShelflistItemIndex()
+    using = settings.REST_VIEWS_HAYSTACK_CONNECTIONS['ShelflistItems']
+    index = ShelflistItemIndex(using=using)
     for test_lcode, data in test_data_by_location.items():
-        assemble_custom_shelflist(test_lcode, data, id_field='record_number')
+        assemble_custom_shelflist(test_lcode, data)
         manifest = index.get_location_manifest(test_lcode)
         redis_key = '{}:{}'.format(REDIS_SHELFLIST_PREFIX, test_lcode)
         redis_obj(redis_key).set(manifest)
@@ -832,10 +918,12 @@ def test_shelflist_firstitemperlocation_list(test_data, search, expected,
     resource_url = '{}firstitemperlocation/'.format(API_ROOT)
     rsp = do_filter_search(resource_url, search, api_client)
     rsp_items = rsp.data['_embedded']['items']
+    print(rsp_items)
 
     if expected is None:
         for item in rsp_items:
-            assert item['locationCode'] not in test_data_by_location.keys()
+            assert item['locationCode'] not in list(
+                test_data_by_location.keys())
     else:
         for exp_id in expected:
             exp_row = [i[1] for i in test_data if i[0] == exp_id][0]

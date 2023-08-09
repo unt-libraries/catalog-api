@@ -2,16 +2,18 @@
 Tests for custom fields.
 """
 
-import re
+from __future__ import absolute_import
+
 import random
+import re
+
 import pytest
-
-from django.db import connections, models, IntegrityError
-from django.core import serializers
-
 from base import fields
-from vcftestmodels import models as vtm
+from django.core import serializers
+from django.db import connections, models, IntegrityError
+from six import text_type
 
+from .vcftestmodels import models as vtm
 
 # FIXTURES AND TEST DATA
 
@@ -124,8 +126,8 @@ def make_instance(testmodels):
     appropriate model instances.
     """
     def _make_instance(modelname, name, number, parent_int, parent_str):
-        fields = { 'name': name, 'number': number, 'parent_int': parent_int,
-                   'parent_str': parent_str }
+        fields = {'name': name, 'number': number, 'parent_int': parent_int,
+                  'parent_str': parent_str}
         testmodel = testmodels[modelname]
         pint_def = (testmodels['ParentInt'], 'parent_int')
         pstr_def = (testmodels['ParentStr'], 'parent_str')
@@ -147,13 +149,13 @@ def noise_data():
     """
     Pytest fixture that returns a generator for creating `n` sets of
     parameters that can be passed to `make_instance` to create noise
-    data. 
+    data.
     """
     def _noise_data(n):
         count = 1
         while count <= n:
-            parent_int = random.randint(0,11) or None
-            parent_str = unicode(random.randint(0,11) or None)
+            parent_int = random.randint(0, 11) or None
+            parent_str = text_type(random.randint(0, 11) or None)
             yield ('noise{}'.format(count), count, parent_int, parent_str)
             count += 1
     return _noise_data
@@ -173,11 +175,12 @@ def get_db_columns():
         return [r[0] for r in rows]
     return _get_db_columns
 
+
 @pytest.fixture
 def do_for_multiple_models():
     """
     Pytest fixture that performs a manager/queryset action across
-    multiple models and returns the results, if any. 
+    multiple models and returns the results, if any.
     """
     def _do_for_multiple_models(models, action):
         results = []
@@ -217,31 +220,39 @@ def test_vcfield_relation_or_fkid_use_same_partfields(testmodels):
     `parent` or the name `parent_id` in the `partfield_names` kwarg,
     so long as both are accessors for the same model field.
     """
-    rel_vcf = testmodels['VCFParentInt']._meta.get_field('vcf')
-    fkid_vcf = testmodels['VCFParentIntID']._meta.get_field('vcf')
-    assert rel_vcf.partfields == fkid_vcf.partfields
+    rel = testmodels['VCFParentInt']._meta.get_field('vcf').partfields[2]
+    fkid = testmodels['VCFParentIntID']._meta.get_field('vcf').partfields[2]
+    assert rel.related_model == fkid.related_model
+    assert rel.target_field == fkid.target_field
 
 
 @pytest.mark.parametrize('modelname, name, number, parent_int, parent_str, '
                          'expected_vcf', [
-    ('VCFNameNumber', 'aaa', 123, 1, '1', ('aaa', 123)),
-    ('VCFNameNumber', 'aaa', 0, 1, '1', ('aaa', 0)),
-    ('VCFNameNumber', 'aaa', None, 1, '1', ('aaa', None)),
-    ('VCFNameNumber', None, 123, 1, '1', (None, 123)),
-    ('VCFNameNumber', '', 123, 1, '1', ('', 123)),
-    ('VCFNumberName', 'aaa', 123, 1, '1', (123, 'aaa')),
-    ('VCFNumberName', None, None, 1, '1', (None, None)),
-    ('VCFNonPK', 'aaa', 123, 1, '1', ('aaa', 123)),
-    ('VCFHyphenSep', 'aaa', 123, 1, '1', ('aaa', 123)),
-    ('VCFParentInt', 'aaa', 123, 1, '2', ('aaa', 123, 1)),
-    ('VCFParentInt', 'aaa', 123, None, '2', ('aaa', 123, None)),
-    ('VCFParentInt', None, 123, None, '2', (None, 123, None)),
-    ('VCFParentInt', 'aaa', None, None, '2', ('aaa', None, None)),
-    ('VCFParentStr', 'aaa', 123, 1, '2', ('aaa', 123, '2')),
-    ('VCFParentStr', 'aaa', 123, 1, None, ('aaa', 123, None)),
-    ('VCFParentIntID', 'aaa', 123, 1, '2', ('aaa', 123, 1)),
-    ('VCFParentIntID', 'aaa', 123, None, '2', ('aaa', 123, None)),
-])
+                             ('VCFNameNumber', 'aaa', 123, 1, '1', ('aaa', 123)),
+                             ('VCFNameNumber', 'aaa', 0, 1, '1', ('aaa', 0)),
+                             ('VCFNameNumber', 'aaa', None, 1, '1', ('aaa', None)),
+                             ('VCFNameNumber', None, 123, 1, '1', (None, 123)),
+                             ('VCFNameNumber', '', 123, 1, '1', ('', 123)),
+                             ('VCFNumberName', 'aaa', 123, 1, '1', (123, 'aaa')),
+                             ('VCFNumberName', None, None, 1, '1', (None, None)),
+                             ('VCFNonPK', 'aaa', 123, 1, '1', ('aaa', 123)),
+                             ('VCFHyphenSep', 'aaa', 123, 1, '1', ('aaa', 123)),
+                             ('VCFParentInt', 'aaa', 123, 1, '2', ('aaa', 123, 1)),
+                             ('VCFParentInt', 'aaa', 123,
+                              None, '2', ('aaa', 123, None)),
+                             ('VCFParentInt', None, 123,
+                              None, '2', (None, 123, None)),
+                             ('VCFParentInt', 'aaa', None,
+                              None, '2', ('aaa', None, None)),
+                             ('VCFParentStr', 'aaa', 123,
+                              1, '2', ('aaa', 123, '2')),
+                             ('VCFParentStr', 'aaa', 123,
+                              1, None, ('aaa', 123, None)),
+                             ('VCFParentIntID', 'aaa', 123,
+                              1, '2', ('aaa', 123, 1)),
+                             ('VCFParentIntID', 'aaa', 123,
+                              None, '2', ('aaa', 123, None)),
+                         ])
 def test_vcfield_value_access(modelname, name, number, parent_int,
                               parent_str, expected_vcf, make_instance):
     """
@@ -282,22 +293,29 @@ def test_vcfield_cannot_set_value(make_instance):
 
 @pytest.mark.parametrize('modelname, name, number, parent_int, parent_str, '
                          'expected_pk', [
-    ('VCFNameNumber', 'aaa', 123, 1, '1', ('aaa', 123)),
-    ('VCFNameNumber', 'aaa', 0, 1, '1', ('aaa', 0)),
-    ('VCFNameNumber', 'aaa', None, 1, '1', ('aaa', None)),
-    ('VCFNameNumber', None, 123, 1, '1', (None, 123)),
-    ('VCFNameNumber', '', 123, 1, '1', ('', 123)),
-    ('VCFNumberName', 'aaa', 123, 1, '1', (123, 'aaa')),
-    ('VCFNumberName', None, None, 1, '1', (None, None)),
-    ('VCFParentInt', 'aaa', 123, 1, '2', ('aaa', 123, 1)),
-    ('VCFParentInt', 'aaa', 123, None, '2', ('aaa', 123, None)),
-    ('VCFParentInt', None, 123, None, '2', (None, 123, None)),
-    ('VCFParentInt', 'aaa', None, None, '2', ('aaa', None, None)),
-    ('VCFParentStr', 'aaa', 123, 1, '2', ('aaa', 123, '2')),
-    ('VCFParentStr', 'aaa', 123, 1, None, ('aaa', 123, None)),
-    ('VCFParentIntID', 'aaa', 123, 1, '2', ('aaa', 123, 1)),
-    ('VCFParentIntID', 'aaa', 123, None, '2', ('aaa', 123, None)),
-])
+                             ('VCFNameNumber', 'aaa', 123, 1, '1', ('aaa', 123)),
+                             ('VCFNameNumber', 'aaa', 0, 1, '1', ('aaa', 0)),
+                             ('VCFNameNumber', 'aaa', None, 1, '1', ('aaa', None)),
+                             ('VCFNameNumber', None, 123, 1, '1', (None, 123)),
+                             ('VCFNameNumber', '', 123, 1, '1', ('', 123)),
+                             ('VCFNumberName', 'aaa', 123, 1, '1', (123, 'aaa')),
+                             ('VCFNumberName', None, None, 1, '1', (None, None)),
+                             ('VCFParentInt', 'aaa', 123, 1, '2', ('aaa', 123, 1)),
+                             ('VCFParentInt', 'aaa', 123,
+                              None, '2', ('aaa', 123, None)),
+                             ('VCFParentInt', None, 123,
+                              None, '2', (None, 123, None)),
+                             ('VCFParentInt', 'aaa', None,
+                              None, '2', ('aaa', None, None)),
+                             ('VCFParentStr', 'aaa', 123,
+                              1, '2', ('aaa', 123, '2')),
+                             ('VCFParentStr', 'aaa', 123,
+                              1, None, ('aaa', 123, None)),
+                             ('VCFParentIntID', 'aaa', 123,
+                              1, '2', ('aaa', 123, 1)),
+                             ('VCFParentIntID', 'aaa', 123,
+                              None, '2', ('aaa', 123, None)),
+                         ])
 def test_vcfield_pk_access(modelname, name, number, parent_int, parent_str,
                            expected_pk, make_instance):
     """
@@ -310,22 +328,29 @@ def test_vcfield_pk_access(modelname, name, number, parent_int, parent_str,
 
 @pytest.mark.parametrize('modelname, name, number, parent_int, parent_str, '
                          'expected_pk', [
-    ('VCFNameNumber', 'aaa', 123, 1, '1', ('aaa', 123)),
-    ('VCFNameNumber', 'aaa', 0, 1, '1', ('aaa', 0)),
-    ('VCFNameNumber', 'aaa', None, 1, '1', ('aaa', None)),
-    ('VCFNameNumber', None, 123, 1, '1', (None, 123)),
-    ('VCFNameNumber', '', 123, 1, '1', ('', 123)),
-    ('VCFNumberName', 'aaa', 123, 1, '1', (123, 'aaa')),
-    ('VCFNumberName', None, None, 1, '1', (None, None)),
-    ('VCFParentInt', 'aaa', 123, 1, '2', ('aaa', 123, 1)),
-    ('VCFParentInt', 'aaa', 123, None, '2', ('aaa', 123, None)),
-    ('VCFParentInt', None, 123, None, '2', (None, 123, None)),
-    ('VCFParentInt', 'aaa', None, None, '2', ('aaa', None, None)),
-    ('VCFParentStr', 'aaa', 123, 1, '2', ('aaa', 123, '2')),
-    ('VCFParentStr', 'aaa', 123, 1, None, ('aaa', 123, None)),
-    ('VCFParentIntID', 'aaa', 123, 1, '2', ('aaa', 123, 1)),
-    ('VCFParentIntID', 'aaa', 123, None, '2', ('aaa', 123, None)),
-])
+                             ('VCFNameNumber', 'aaa', 123, 1, '1', ('aaa', 123)),
+                             ('VCFNameNumber', 'aaa', 0, 1, '1', ('aaa', 0)),
+                             ('VCFNameNumber', 'aaa', None, 1, '1', ('aaa', None)),
+                             ('VCFNameNumber', None, 123, 1, '1', (None, 123)),
+                             ('VCFNameNumber', '', 123, 1, '1', ('', 123)),
+                             ('VCFNumberName', 'aaa', 123, 1, '1', (123, 'aaa')),
+                             ('VCFNumberName', None, None, 1, '1', (None, None)),
+                             ('VCFParentInt', 'aaa', 123, 1, '2', ('aaa', 123, 1)),
+                             ('VCFParentInt', 'aaa', 123,
+                              None, '2', ('aaa', 123, None)),
+                             ('VCFParentInt', None, 123,
+                              None, '2', (None, 123, None)),
+                             ('VCFParentInt', 'aaa', None,
+                              None, '2', ('aaa', None, None)),
+                             ('VCFParentStr', 'aaa', 123,
+                              1, '2', ('aaa', 123, '2')),
+                             ('VCFParentStr', 'aaa', 123,
+                              1, None, ('aaa', 123, None)),
+                             ('VCFParentIntID', 'aaa', 123,
+                              1, '2', ('aaa', 123, 1)),
+                             ('VCFParentIntID', 'aaa', 123,
+                              None, '2', ('aaa', 123, None)),
+                         ])
 def test_vcfield_pk_lookups_work(modelname, name, number, parent_int,
                                  parent_str, expected_pk, testmodels,
                                  make_instance, noise_data):
@@ -420,30 +445,43 @@ def test_vcfield_nonpk_not_unique(modelname, name, number, parent_int,
 
 @pytest.mark.parametrize('modelname, name, number, parent_int, parent_str, '
                          'lookup_arg', [
-    ('VCFNameNumber', 'aaa', 123, 1, '1', ('aaa', 123)),
-    ('VCFNameNumber', 'aaa', 123, 1, '1', ['aaa', '123']),
-    ('VCFNameNumber', 'aaa', 123, 1, '1', 'aaa|_|123'),
-    ('VCFNameNumber', 'aaa', 0, 1, '1', ['aaa', 0]),
-    ('VCFNameNumber', 'aaa', None, 1, '1', ['aaa', None]),
-    ('VCFNameNumber', 'aaa', None, 1, '1', 'aaa|_|'),
-    ('VCFNameNumber', None, 123, 1, '1', [None, 123]),
-    ('VCFNameNumber', None, 123, 1, '1', '|_|123'),
-    ('VCFNameNumber', '', 123, 1, '1', ['', 123]),
-    ('VCFNumberName', 'aaa', 123, 1, '1', [123, 'aaa']),
-    ('VCFNumberName', None, None, 1, '1', [None, None]),
-    ('VCFParentInt', 'aaa', 123, 1, '2', ['aaa', 123, 1]),
-    ('VCFParentInt', 'aaa', 123, None, '2', ['aaa', 123, None]),
-    ('VCFParentInt', None, 123, None, '2', [None, 123, None]),
-    ('VCFParentInt', 'aaa', None, None, '2', ['aaa', None, None]),
-    ('VCFParentStr', 'aaa', 123, 1, '2', ['aaa', 123, '2']),
-    ('VCFParentStr', 'aaa', 123, 1, None, ['aaa', 123, None]),
-    ('VCFParentIntID', 'aaa', 123, 1, '2', ['aaa', 123, '1']),
-    ('VCFParentIntID', 'aaa', 123, None, '2', ['aaa', 123, None]),
-    ('VCFNonPK', 'aaa', 123, 1, '1', ['aaa', 123]),
-    ('VCFNonPK', None, 123, 1, '1', [None, 123]),
-    ('VCFHyphenSep', 'aaa', 123, 1, '1', ['aaa', 123]),
-    ('VCFHyphenSep', None, 123, 1, '1', [None, 123]),
-])
+                             ('VCFNameNumber', 'aaa', 123, 1, '1', ('aaa', 123)),
+                             ('VCFNameNumber', 'aaa', 123,
+                              1, '1', ['aaa', '123']),
+                             ('VCFNameNumber', 'aaa', 123, 1, '1', 'aaa|_|123'),
+                             ('VCFNameNumber', 'aaa', 0, 1, '1', ['aaa', 0]),
+                             ('VCFNameNumber', 'aaa',
+                              None, 1, '1', ['aaa', None]),
+                             ('VCFNameNumber', 'aaa', None, 1, '1', 'aaa|_|'),
+                             ('VCFNameNumber', None, 123, 1, '1', [None, 123]),
+                             ('VCFNameNumber', None, 123, 1, '1', '|_|123'),
+                             ('VCFNameNumber', '', 123, 1, '1', ['', 123]),
+                             ('VCFNumberName', 'aaa',
+                              123, 1, '1', [123, 'aaa']),
+                             ('VCFNumberName', None,
+                              None, 1, '1', [None, None]),
+                             ('VCFParentInt', 'aaa', 123,
+                              1, '2', ['aaa', 123, 1]),
+                             ('VCFParentInt', 'aaa', 123,
+                              None, '2', ['aaa', 123, None]),
+                             ('VCFParentInt', None, 123,
+                              None, '2', [None, 123, None]),
+                             ('VCFParentInt', 'aaa', None,
+                              None, '2', ['aaa', None, None]),
+                             ('VCFParentStr', 'aaa', 123,
+                              1, '2', ['aaa', 123, '2']),
+                             ('VCFParentStr', 'aaa', 123,
+                              1, None, ['aaa', 123, None]),
+                             ('VCFParentIntID', 'aaa', 123,
+                              1, '2', ['aaa', 123, '1']),
+                             ('VCFParentIntID', 'aaa', 123,
+                              None, '2', ['aaa', 123, None]),
+                             ('VCFNonPK', 'aaa', 123, 1, '1', ['aaa', 123]),
+                             ('VCFNonPK', None, 123, 1, '1', [None, 123]),
+                             ('VCFHyphenSep', 'aaa',
+                              123, 1, '1', ['aaa', 123]),
+                             ('VCFHyphenSep', None, 123, 1, '1', [None, 123]),
+                         ])
 def test_vcfield_exact_lookups_work(modelname, name, number, parent_int,
                                     parent_str, lookup_arg, testmodels,
                                     make_instance, noise_data):
@@ -476,18 +514,23 @@ def test_vcfield_exact_lookups_work(modelname, name, number, parent_int,
 
 @pytest.mark.parametrize('modelname, name, number, parent_int, parent_str, '
                          'lookup_arg', [
-    ('VCFParentInt', 'aaa', 123, 1, '1', ['no', 'no', 'no']),
-    ('VCFParentInt', 'aaa', 123, 1, '1', 'no|_|no|_|no'),
-    ('VCFParentInt', 'aaa', 123, 1, '1', ['aaa', 123]),
-    ('VCFParentInt', 'aaa', 123, 1, '1', 'aaa|_|123'),
-    ('VCFParentInt', 'aaa', 123, None, '1', ('aaa', 123)),
-    ('VCFParentInt', 'aaa', 123, None, '1', ['aaa', 123, '']),
-    ('VCFParentInt', 'aaa', 123, 1, '1', 123),
-    ('VCFParentInt', 'aaa', 123, 1, '1', ''),
-    ('VCFParentInt', 'aaa', 123, 1, '1', 'aaa'),
-    ('VCFParentInt', 'aaa', 123, 1, '1', ['aaa', 'aaa', 1]),
-    ('VCFParentInt', 'aaa', 123, 1, '1', {'what': 'even', 'is': 'this?'}),
-])
+                             ('VCFParentInt', 'aaa', 123,
+                              1, '1', ['no', 'no', 'no']),
+                             ('VCFParentInt', 'aaa', 123, 1, '1', 'no|_|no|_|no'),
+                             ('VCFParentInt', 'aaa',
+                              123, 1, '1', ['aaa', 123]),
+                             ('VCFParentInt', 'aaa', 123, 1, '1', 'aaa|_|123'),
+                             ('VCFParentInt', 'aaa', 123, None, '1', ('aaa', 123)),
+                             ('VCFParentInt', 'aaa', 123,
+                              None, '1', ['aaa', 123, '']),
+                             ('VCFParentInt', 'aaa', 123, 1, '1', 123),
+                             ('VCFParentInt', 'aaa', 123, 1, '1', ''),
+                             ('VCFParentInt', 'aaa', 123, 1, '1', 'aaa'),
+                             ('VCFParentInt', 'aaa', 123,
+                              1, '1', ['aaa', 'aaa', 1]),
+                             ('VCFParentInt', 'aaa', 123, 1, '1',
+                              {'what': 'even', 'is': 'this?'}),
+                         ])
 def test_vcfield_exact_lookup_errors(modelname, name, number, parent_int,
                                      parent_str, lookup_arg, testmodels,
                                      make_instance):
@@ -504,15 +547,21 @@ def test_vcfield_exact_lookup_errors(modelname, name, number, parent_int,
 
 @pytest.mark.parametrize('modelname, name, number, parent_int, parent_str, '
                          'lookup_arg', [
-    ('VCFNameNumber', '', 123, 1, '1', '|_|123'),
-    ('VCFParentInt', 'aaa', 123, 1, '1', ['aaa', 123, 456]),
-    ('VCFParentInt', 'aaa', 123, 1, '1', 'aaa|_|123|_|456'),
-    ('VCFParentInt', 'aaa', 123, 1, '1', ('aaa', 0, 1)),
-    ('VCFParentInt', 'aaa', 123, 1, '1', ['bbb', 123, 1]),
-    ('VCFParentInt', 'aaa', 123, 1, '1', ['aaa', '12', 1]),
-    ('VCFParentInt', 'aaa', 123, 1, '1', ['aaa', 123, '456']),
-    ('VCFParentInt', 'aaa', 123, 1, '1', ['123', '123', '456']),
-])
+                             ('VCFNameNumber', '', 123, 1, '1', '|_|123'),
+                             ('VCFParentInt', 'aaa', 123,
+                              1, '1', ['aaa', 123, 456]),
+                             ('VCFParentInt', 'aaa', 123,
+                              1, '1', 'aaa|_|123|_|456'),
+                             ('VCFParentInt', 'aaa', 123, 1, '1', ('aaa', 0, 1)),
+                             ('VCFParentInt', 'aaa', 123,
+                              1, '1', ['bbb', 123, 1]),
+                             ('VCFParentInt', 'aaa', 123,
+                              1, '1', ['aaa', '12', 1]),
+                             ('VCFParentInt', 'aaa', 123,
+                              1, '1', ['aaa', 123, '456']),
+                             ('VCFParentInt', 'aaa', 123, 1,
+                              '1', ['123', '123', '456']),
+                         ])
 def test_vcfield_nonmatch_exact_lookups(modelname, name, number, parent_int,
                                         parent_str, lookup_arg, testmodels,
                                         make_instance):
@@ -531,21 +580,51 @@ def test_vcfield_nonmatch_exact_lookups(modelname, name, number, parent_int,
 
 @pytest.mark.parametrize('modelname, name, number, parent_int, parent_str, '
                          'lookup_type, lookup_arg', [
-    ('VCFNameNumber', 'aaa', 123, 1, '1', 'icontains', 'a'),
-    ('VCFNameNumber', 'aaa', 0, 1, '1', 'in', [('aaa', 0), ('aaa', 1)]),
-    ('VCFNameNumber', 'aaa', 0, 1, '1', 'iexact', ['AAA', 0]),
-    ('VCFNameNumber', 'aaa', None, 1, '1', 'startswith', ['aa']),
-    ('VCFNameNumber', None, 123, 1, '1', 'endswith', [123]),
-    ('VCFNameNumber', '', 123, 1, '1', 'contains', 2),
-    ('VCFNumberName', 'aaa', 123, 1, '1', 'gte', [123]),
-    ('VCFNumberName', 'aaa', 123, 1, '1', 'lte', [124, None]),
-    ('VCFParentInt', 'aaa', 123, 1, '2', 'contains', [123]),
-    ('VCFParentInt', 'aaa', 123, None, '2', 'range', (['aaa', 123],
-                                                      ['aaa', 124])),
-    ('VCFParentInt', None, 123, None, '2', 'isnull', False),
-    ('VCFParentInt', 'aaa', None, None, '2', 'regex', '^aa'),
-    ('VCFParentStr', 'aaa', 123, 1, '2', 'regex', '^aaa\|_\|12'),
-])
+                             ('VCFNameNumber', 'aaa', 123,
+                              1, '1', 'icontains', 'a'),
+                             ('VCFNameNumber', 'aaa', 0, 1, '1',
+                              'in', (['aaa', 0], ['aaa', 1])),
+                             ('VCFNameNumber', 'aaa', 0, 1,
+                              '1', 'iexact', ['AAA', 0]),
+                             ('VCFNameNumber', 'aaa', None,
+                              1, '1', 'startswith', ['aa']),
+                             ('VCFNameNumber', 'aaa', None,
+                              1, '1', 'startswith', 'aa'),
+                             ('VCFNameNumber', 'aaa', None,
+                              1, '1', 'istartswith', 'AA'),
+                             ('VCFNameNumber', None, 123,
+                              1, '1', 'endswith', [123]),
+                             ('VCFNameNumber', None, 123, 1, '1', 'endswith', 123),
+                             ('VCFNumberName', 'aaa', 123,
+                              1, '1', 'iendswith', 'A'),
+                             ('VCFNameNumber', '', 123, 1, '1', 'contains', 2),
+                             ('VCFNameNumber', '', 123,
+                              1, '1', 'contains', [23]),
+                             ('VCFNameNumber', 'aaa', 123,
+                              1, '1', 'contains', ['a', 12]),
+                             ('VCFNameNumber', 'aaa', 123,
+                              1, '1', 'icontains', 'A'),
+                             ('VCFNumberName', 'aaa',
+                              123, 1, '1', 'gte', [123]),
+                             ('VCFNumberName', 'aaa', 123, 1, '1', 'gte', 123),
+                             ('VCFNumberName', 'aaa', 123,
+                              1, '1', 'lte', [124, None]),
+                             ('VCFNumberName', 'aaa', 123, 1, '1', 'lte', 124),
+                             ('VCFParentInt', 'aaa', 123,
+                              1, '2', 'contains', [123]),
+                             ('VCFParentInt', 'aaa', 123, None, '2', 'range', (['aaa', 123],
+                                                                               ['aaa', 124])),
+                             ('VCFParentInt', None, 123,
+                              None, '2', 'isnull', False),
+                             ('VCFParentInt', 'aaa', None,
+                              None, '2', 'regex', '^aa'),
+                             ('VCFParentStr', 'aaa', 123, 1,
+                              '2', 'regex', r'^aaa|_|12'),
+                             ('VCFParentStr', 'aaa', 123, 1,
+                              '2', 'regex', ['aa.', '12.']),
+                             ('VCFParentInt', 'aaa', None,
+                              None, '2', 'iregex', '^A'),
+                         ])
 def test_vcfield_other_lookups_work(modelname, name, number, parent_int,
                                     parent_str, lookup_type, lookup_arg,
                                     testmodels, make_instance, noise_data):
@@ -572,50 +651,58 @@ def test_vcfield_other_lookups_work(modelname, name, number, parent_int,
     where = qset.query.sql_with_params()[0].split(' WHERE ')[1]
     vcf_cols = [pf.column for pf in tmodel._meta.get_field('vcf').partfields]
     partfield_pattern = r'\W.*\W'.join(vcf_cols)
-    where_pattern = r'^CONCAT\(.*\W{}\W'.format(partfield_pattern)
+    where_pattern = r'^CONCAT(_WS)?\(.*\W{}\W'.format(partfield_pattern)
     assert len(tmodel.objects.all()) == 6
     assert test_inst in [r for r in qset]
     assert test_inst not in [r for r in exclude_qset]
     assert re.search(where_pattern, where)
 
 
-@pytest.mark.parametrize('modelname, data', [
-    ('VCFNameNumber', [ ('aaa', 1, 1, '1'), ('aaa', 3, 1, '1'),
-                        ('aaa', 2, 1, '1') ]),
-    ('VCFNameNumber', [ ('aab', 1, 1, '1'), ('aaa', 1, 1, '1'),
-                        ('aac', 1, 1, '1') ]),
-    ('VCFNonPK', [ ('aaa', 1, 1, '1'), ('aaa', 3, 1, '1'),
-                   ('aaa', 2, 1, '1') ]),
-    ('VCFNonPK', [ ('aab', 1, 1, '1'), ('aaa', 1, 1, '1'),
-                   ('aac', 1, 1, '1') ]),
-    ('VCFHyphenSep', [ ('aaa', 1, 1, '1'), ('aaa', 3, 1, '1'),
-                       ('aaa', 2, 1, '1') ]),
-    ('VCFHyphenSep', [ ('aab', 1, 1, '1'), ('aaa', 1, 1, '1'),
-                       ('aac', 1, 1, '1') ]),
-    ('VCFParentInt', [ ('aaa', 1, 1, '1'), ('aaa', 1, 3, '1'),
-                       ('aaa', 1, 2, '1') ]),
-    ('VCFParentInt', [ ('aaa', 1, 1, '1'), ('aaa', 1, 3, '1'),
-                       ('aaa', 1, None, '1') ]),
-    ('VCFParentIntID', [ ('aaa', 1, 1, '1'), ('aaa', 1, 3, '1'),
-                         ('aaa', 1, 2, '1') ]),
-    ('VCFParentIntID', [ ('aaa', 1, 1, '1'), ('aaa', 1, 3, '1'),
-                         ('aaa', 1, None, '1') ]),
-    ('VCFParentStr', [ ('aaa', 1, 1, '3'), ('aaa', 1, 1, '1'),
-                       ('aaa', 1, 1, '2') ]),
-    ('VCFParentStr', [ ('aaa', 1, 1, '3'), ('aaa', 1, 1, '1'),
-                       ('aaa', 1, 1, None) ]),
+@pytest.mark.parametrize('modelname, data, expected', [
+    ('VCFNameNumber', [('aaa', 1, 1, '1'), ('aaa', 3, 1, '1'),
+                       ('aaa', 2, 1, '1')], None),
+    ('VCFNameNumber', [('aab', 1, 1, '1'), ('aaa', 1, 1, '1'),
+                       ('aac', 1, 1, '1')], None),
+    ('VCFNonPK', [('aaa', 1, 1, '1'), ('aaa', 3, 1, '1'),
+                  ('aaa', 2, 1, '1')], None),
+    ('VCFNonPK', [('aab', 1, 1, '1'), ('aaa', 1, 1, '1'),
+                  ('aac', 1, 1, '1')], None),
+    ('VCFHyphenSep', [('aaa', 1, 1, '1'), ('aaa', 3, 1, '1'),
+                      ('aaa', 2, 1, '1')], None),
+    ('VCFHyphenSep', [('aab', 1, 1, '1'), ('aaa', 1, 1, '1'),
+                      ('aac', 1, 1, '1')], None),
+    ('VCFParentInt', [('aaa', 1, 1, '1'), ('aaa', 1, 3, '1'),
+                      ('aaa', 1, 2, '1')], None),
+    ('VCFParentInt', [('aaa', 1, 1, '1'), ('aaa', 1, 3, '1'),
+                      ('aaa', 1, None, '1')], [(u'aaa', 1, None), (u'aaa', 1, 1), (u'aaa', 1, 3)]),
+    ('VCFParentIntID', [('aaa', 1, 1, '1'), ('aaa', 1, 3, '1'),
+                        ('aaa', 1, 2, '1')], None),
+    ('VCFParentIntID', [('aaa', 1, 1, '1'), ('aaa', 1, 3, '1'),
+                        (u'aaa', 1, None, u'1')], [(u'aaa', 1, None), (u'aaa', 1, 1), (u'aaa', 1, 3)]),
+    ('VCFParentStr', [('aaa', 1, 1, '3'), ('aaa', 1, 1, '1'),
+                      ('aaa', 1, 1, '2')], None),
+    ('VCFParentStr', [('aaa', 1, 1, '3'), ('aaa', 1, 1, '1'),
+                      ('aaa', 1, 1, None)], [(u'aaa', 1, None), (u'aaa', 1, u'1'), (u'aaa', 1, u'3')]),
 ])
-def test_vcfield_orderby_works(modelname, data, testmodels, make_instance):
+def test_vcfield_orderby_works(
+        modelname, data, expected, testmodels, make_instance):
     """
     Using a VirtualCompField with the `order_by` obj manager method
     should return a QuerySet with instances in the appropriate order:
     ascending or descending, in the same order the VCField values
     would fall if sorted.
+
+    Python 3 can't compare None with other types, so some expected values are
+    provided.
     """
     tmodel = testmodels[modelname]
     instances = [make_instance(modelname, *f) for f in data]
-    asc_expected = sorted([m.vcf for m in tmodel.objects.all()])
-    desc_expected = sorted([m.vcf for m in tmodel.objects.all()], reverse=True)
+    asc_expected = expected or sorted([m.vcf for m in tmodel.objects.all()])
+    if expected:
+        desc_expected = list(reversed(expected))
+    else:
+        desc_expected = sorted(
+            [m.vcf for m in tmodel.objects.all()], reverse=True)
     asc_qset = tmodel.objects.order_by('vcf')
     desc_qset = tmodel.objects.order_by('-vcf')
     assert [m.vcf for m in asc_qset] == asc_expected
@@ -647,7 +734,7 @@ def test_vcfield_serialization(modelname, testmodels, make_instance,
                          testmodels[modelname])
     instances = [make_instance(modelname, *f) for f in noise_data(5)]
     og_objects, json_objects, xml_objects = [], [], []
-    
+
     og_objects = do_for_multiple_models(serial_testmodels, 'all')
     json = serializers.serialize('json', og_objects)
     xml = serializers.serialize('xml', og_objects)

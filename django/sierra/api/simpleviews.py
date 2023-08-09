@@ -1,21 +1,21 @@
-import urllib
+from __future__ import absolute_import
+
+import logging
 from collections import OrderedDict
+
 import jsonpatch
 import jsonpointer
-
-from django.http import Http404
+import six.moves.urllib.error
+import six.moves.urllib.parse
+import six.moves.urllib.request
+from api import exceptions
 from django.conf import settings
-
+from rest_framework import status
 from rest_framework import views
 from rest_framework.response import Response
 from rest_framework.templatetags.rest_framework import replace_query_param
-from rest_framework import status
-
-from api import exceptions
 from utils import load_class
 from utils.camel_case import render
-
-import logging
 
 # set up logger, for debugging
 logger = logging.getLogger('sierra.custom')
@@ -29,10 +29,10 @@ class SimpleView(views.APIView):
     """
     queryset = None
     filter_class = load_class(
-                   settings.REST_FRAMEWORK['DEFAULT_FILTER_BACKENDS'][0])
+        settings.REST_FRAMEWORK['DEFAULT_FILTER_BACKENDS'][0])
     serializer_class = None
-    ordering = []
-    filter_fields = []
+    disabled_orderby = set()
+    disabled_filters = set()
     api_version = 1
     resource_name = 'resources'
     multi = True
@@ -53,7 +53,7 @@ class SimpleView(views.APIView):
     def update_object(self, request, new_data):
         obj = self.get_object()
         serializer = self.get_serializer(force_refresh=True, instance=obj,
-                                         context={'request': request, 
+                                         context={'request': request,
                                                   'view': self}, data=new_data)
         if serializer.is_valid():
             serializer.save()
@@ -64,17 +64,17 @@ class SimpleView(views.APIView):
 
         url = request.build_absolute_uri()
 
-        content = {'status': 200,
-                   'details': 'The resource at {} was updated with the '
-                   'fields or sub-resource content provided in the request.'
-                   ''.format(url),
-                   'links': {
-                        'self': {
-                            'href': url,
-                            'id': self.get_object_id(obj)
-                        }
-                    }
-                }
+        content = {
+            'status': 200,
+            'details': 'The resource at {} was updated with the fields or sub-'
+                       'resource content provided in the request.'.format(url),
+            'links': {
+                'self': {
+                    'href': url,
+                    'id': self.get_object_id(obj)
+                 }
+            }
+        }
 
         return Response(content, status=status.HTTP_200_OK)
 
@@ -113,7 +113,7 @@ class SimpleGetMixin(object):
         """
         if getattr(self, '_cached_page', None) is None:
             offset, limit = self.get_offset_limit_from_request(request)
-            results = queryset[offset:offset+limit]
+            results = queryset[offset:offset + limit]
             total = queryset.count()
             end_row = self.get_page_end_row(total, offset, limit)
             offset = None if end_row is None else offset
@@ -163,8 +163,9 @@ class SimpleGetMixin(object):
             prev_offset = offset - limit if offset - limit >= 0 else 0
         if prev_offset is None:
             return None
-        return urllib.unquote(replace_query_param(url, params['offset_qp'],
-                                                  prev_offset))
+        unquote = six.moves.urllib.parse.unquote
+        return unquote(replace_query_param(url, params['offset_qp'],
+                                           prev_offset))
 
     def get_next_page_url(self, url, page):
         """
@@ -180,8 +181,9 @@ class SimpleGetMixin(object):
             next_offset = page['offset'] + page['limit']
         if next_offset is None:
             return None
-        return urllib.unquote(replace_query_param(url, params['offset_qp'],
-                                                  next_offset))
+        unquote = six.moves.urllib.parse.unquote
+        return unquote(replace_query_param(url, params['offset_qp'],
+                                           next_offset))
 
     def get_page_data(self, queryset, request):
         """
@@ -199,7 +201,7 @@ class SimpleGetMixin(object):
 
         url = request.build_absolute_uri()
         page_data['_links'] = OrderedDict()
-        page_data['_links']['self'] = {'href': url}        
+        page_data['_links']['self'] = {'href': url}
         prev_page = self.get_prev_page_url(url, page)
         if prev_page is not None:
             page_data['_links']['previous'] = {'href': prev_page}
@@ -219,7 +221,7 @@ class SimpleGetMixin(object):
     def get(self, request, *args, **kwargs):
         """
         HTTP `get` method for this view. Given the `request`, `args`,
-        and `kwargs`, return an appropriately paginated Response obj. 
+        and `kwargs`, return an appropriately paginated Response obj.
         """
         if self.multi:
             queryset = self.get_queryset()
@@ -228,8 +230,11 @@ class SimpleGetMixin(object):
             data = self.get_page_data(queryset, request)
         else:
             obj = self.get_object()
-            data = self.get_serializer(instance=obj, force_refresh=True,
-                    context={'request': request, 'view': self}).data
+            data = self.get_serializer(
+                instance=obj,
+                force_refresh=True,
+                context={'request': request, 'view': self}
+            ).data
         return Response(data)
 
 
@@ -237,6 +242,7 @@ class SimplePutMixin(object):
     """
     Simple mixin to provide a PUT method for a SimpleView-based object.
     """
+
     def put(self, request, *args, **kwargs):
         ret_val = self.update_object(request, request.data)
         return ret_val
@@ -248,18 +254,20 @@ class SimplePatchMixin(object):
     be sent using a valid json-patch document. (See IETF RFC 6902 for
     more info.)
     """
+
     def patch(self, request, *args, **kwargs):
         patch = request.data
         obj = self.get_object()
         serializer = self.get_serializer(instance=obj,
-                                         context={'request': request, 
+                                         context={'request': request,
                                                   'view': self})
         try:
             new_data = patch.apply(serializer.data)
-        except (jsonpatch.JsonPatchException, 
+        except (jsonpatch.JsonPatchException,
                 jsonpointer.JsonPointerException) as e:
             msg = 'Could not apply json-patch to object: {}'.format(e)
             raise exceptions.BadUpdate(detail=msg)
 
         ret_val = self.update_object(request, new_data)
         return ret_val
+

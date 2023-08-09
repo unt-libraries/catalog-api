@@ -2,14 +2,15 @@
 Contains test helpers for managing ORM test models and such.
 """
 
+from __future__ import absolute_import
+
 import os
 from collections import OrderedDict
 
-from django.db import models
+from django.conf import settings
 from django.core import management
 from django.db import connections, OperationalError
-
-from django.conf import settings
+from django.db import models
 
 
 class AppModelsEnvironment(object):
@@ -108,7 +109,7 @@ class AppModelsEnvironment(object):
         """
         Destroy all registered test models created via this factory.
         """
-        for name in self.models.keys():
+        for name in list(self.models.keys()):
             self.delete(name)
 
     def migrate(self):
@@ -128,7 +129,7 @@ class AppModelsEnvironment(object):
         """
         try:
             management.call_command('migrate', self.modulename, 'zero',
-                                     verbosity=0, interactive=False)
+                                    verbosity=0, interactive=False)
         except OperationalError:
             # If DB tables from a previous run have been deleted, the
             # above attempt to migrate will error out. In that case,

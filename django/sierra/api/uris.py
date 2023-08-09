@@ -1,3 +1,5 @@
+from __future__ import absolute_import
+
 import re
 
 from django.conf import settings
@@ -7,7 +9,7 @@ class Uris(object):
     '''
     Provides a simpler (or at least faster) way to build URIs for a
     REST API project that requires links between resources and thus
-    lots of potentially slow URL reversals. 
+    lots of potentially slow URL reversals.
 
     The named_uripatterns member is similar to Django's urlpatterns,
     except it's made for simple lookups of URLs based on names, and it
@@ -26,7 +28,7 @@ class Uris(object):
     named_uripatterns = {}
 
     @classmethod
-    def get_uri(self, name, req=None, absolute=False, template=False, 
+    def get_uri(self, name, req=None, absolute=False, template=False,
                 **kwargs):
         '''
         Get a named URI based on parameters passed via kwargs. Each
@@ -44,11 +46,11 @@ class Uris(object):
         if pattern is not None:
             for p in pattern:
                 if isinstance(p, dict):
-                    if (template and not p.values()[0]):
-                        uri = '{}{{{}}}'.format(uri, p.keys()[0])
+                    if (template and not list(p.values())[0]):
+                        uri = '{}{{{}}}'.format(uri, list(p.keys())[0])
                     else:
-                        uri = '{}{}'.format(uri, kwargs.get(p.keys()[0],
-                                                            p.values()[0]))
+                        uri = '{}{}'.format(uri, kwargs.get(list(p.keys())[0],
+                                                            list(p.values())[0]))
                 else:
                     uri = '{}{}'.format(uri, p)
 
@@ -69,7 +71,7 @@ class Uris(object):
         if pattern is not None:
             for p in pattern:
                 if isinstance(p, dict):
-                    ret = r'{}{}'.format(ret, kwargs.get(p.keys()[0],
+                    ret = r'{}{}'.format(ret, kwargs.get(list(p.keys())[0],
                                                          r'([0-9A-Za-z]+)'))
                 else:
                     ret = r'{}{}'.format(ret, p)
@@ -99,8 +101,8 @@ class APIUris(Uris):
         'itemstatuses-detail': [r'v', {'v': r'1'}, r'/itemstatuses/',
                                 {'code': ''}],
         'callnumbermatches-list': [r'v', {'v': r'1'}, r'/callnumbermatches/'],
-        'firstitemperlocation-list': [r'v', {'v': r'1'}, 
-                                    r'/firstitemperlocation/'],
+        'firstitemperlocation-list': [r'v', {'v': r'1'},
+                                      r'/firstitemperlocation/'],
         'eresources-list': [r'v', {'v': r'1'}, r'/eresources/'],
         'eresources-detail': [r'v', {'v': r'1'}, r'/eresources/', {'id': ''}],
     }

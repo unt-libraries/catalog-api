@@ -1,6 +1,6 @@
-import jsonpatch
-import jsonpointer
+from __future__ import absolute_import
 
+import jsonpatch
 from rest_framework import parsers
 from rest_framework.exceptions import ParseError
 
@@ -12,7 +12,7 @@ class JSONPatchParser(parsers.JSONParser):
     media_type = 'application/json-patch+json'
 
     def parse(self, stream, media_type=None, parser_context=None):
-        data = super(JSONPatchParser, self).parse(stream, media_type, 
+        data = super(JSONPatchParser, self).parse(stream, media_type,
                                                   parser_context)
         if not isinstance(data, (list, tuple)):
             raise ParseError('JSON-Patch parse error: json-patch doc should '
