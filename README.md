@@ -841,12 +841,11 @@ Your settings file won't load without these.
 this README. Until then you can leave the default value provided in the
 template.
 - `DJANGO_SETTINGS_MODULE` — The settings module that you want Django to use in
-- the current environment, in Python path syntax (e.g.,
-`sierra.settings.FILE`). Unless you create new settings files that import from
-`base.py`, this will either be `sierra.settings.dev` or
-`sierra.settings.production`.
+the current environment, in Python path syntax (e.g., `sierra.settings.FILE`).
+Unless you create new settings files that import from `base.py`, this will
+either be `sierra.settings.dev` or `sierra.settings.production`.
 - `SIERRA_DB_USER` — The username for the Sierra user you set up
-- [earlier](#sierra-users).
+[earlier](#sierra-users).
 - `SIERRA_DB_PASSWORD` — Password for your Sierra user.
 - `SIERRA_DB_HOST` — The hostname or IP for your Sierra database server.
 - `DEFAULT_DB_USER` — The username for the default Django database user.
@@ -926,10 +925,12 @@ instance is running on. Default is 8983.
 Solr instance is running. Default is `127.0.0.1`.
 - `SOLR_*_URL_FOR_UPDATE` — If running Solr in SolrCloud mode or with
 user-managed replication, you may be using different URLs for updating and for
-searching the same core. This is the URL to use for updating a given core.
+searching the same core across the cluster. This is the URL to use for updating
+a given core.
 - `SOLR_*_URL_FOR_SEARCH` — If running Solr in SolrCloud mode or with
 user-managed replication, you may be using different URLs for updating and for
-searching the same core. This is the URL to use for searching a given core.
+searching the same core across the cluster. This is the URL to use for
+searching a given core.
 - `SOLR_*_MANUAL_REPLICATION` — true or false. If `True`, then anytime a commit
 is made to this Solr core, the catalog-api code manually triggers replication
 on each follower. The default is `False`. **IMPORTANT** — If you set this to
