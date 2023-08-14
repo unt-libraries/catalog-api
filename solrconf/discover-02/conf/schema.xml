@@ -14,6 +14,16 @@
     <fieldType name="double" class="solr.DoublePointField" sortMissingLast="true" omitNorms="true" uninvertible="false"/>
     <fieldType name="date" class="solr.DatePointField" sortMissingLast="true" omitNorms="true" uninvertible="false"/>
 
+    <!-- 2023/08/14: On most *text* type query analyzers, I switched `preserveOriginal` on the
+         `solr.WordDelmiterGraphFilterFactory` filters to 0. This is to avoid an issue that
+         was causing citation-style search queries to exponentially increase the number of
+         clauses sent to Lucene, making us hit against the maxBooleanClauses limit.
+
+         The 'heading_term_text' type is the exception, since 1) we need to preserve the commas
+         for name headings, and 2) the pattern tokenizer strips most of the problematic
+         punctuation, anyway.
+    -->
+
     <fieldType name="text" class="solr.TextField" positionIncrementGap="100" uninvertible="false">
       <analyzer type="index">
         <tokenizer class="solr.WhitespaceTokenizerFactory"/>
@@ -38,7 +48,7 @@
                 catenateNumbers="0"
                 catenateAll="1"
                 splitOnCaseChange="1"
-                preserveOriginal="1"/>
+                preserveOriginal="0"/>
         <filter class="solr.ICUFoldingFilterFactory"/>
         <filter class="solr.RemoveDuplicatesTokenFilterFactory"/>
       </analyzer>
@@ -92,7 +102,7 @@
                 catenateNumbers="0"
                 catenateAll="1"
                 splitOnCaseChange="1"
-                preserveOriginal="1"/>
+                preserveOriginal="0"/>
         <filter class="solr.ICUFoldingFilterFactory"/>
         <filter class="solr.PorterStemFilterFactory"/>
         <filter class="solr.RemoveDuplicatesTokenFilterFactory"/>
@@ -177,7 +187,7 @@
                 catenateNumbers="0"
                 catenateAll="1"
                 splitOnCaseChange="1"
-                preserveOriginal="1"/>
+                preserveOriginal="0"/>
         <filter class="solr.ICUFoldingFilterFactory"/>
         <filter class="solr.PorterStemFilterFactory"/>
         <filter class="solr.RemoveDuplicatesTokenFilterFactory"/>
