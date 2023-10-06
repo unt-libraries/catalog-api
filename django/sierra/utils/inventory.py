@@ -1,6 +1,6 @@
 """
-This is small collection of utility functions for managing shelflists
-for inventory projects.
+This is a small collection of utility functions for managing shelflists
+for the Inventory App.
 
 Use `set_item_fields` to set fields on specific docs or to set certain
 fields on all docs to default values (at specific locations).
@@ -15,12 +15,27 @@ historical purposes, you can use `set_item_fields` with
 `auto_notes=True`. This will auto-generate the appropriate system notes
 to log the actions taken to clear the status and each flag, to ensure
 the app continues to log future actions correctly.
+
+Use `copy_inventory_data_from_other_index` for any situation where you
+need to reindex the `haystack` core from scratch -- migrations, Solr
+upgrades, etc. It copies inventory-specific field data from `haystack`
+on one server to `haystack` on another. E.g., if you're upgrading on
+staging and then moving the upgraded index to production: on staging
+you'd run the full ItemsToSolr export process, then right before you're
+ready to move that to production you would run this function to copy
+the inventory data from your existing production index to your new one.
+
+Use `generate_shelflistitem_manifests` if/when you need to regenerate
+the shelflist item manifests in Redis. E.g., if you change how the
+manifests are stored or what information they contain, if your Redis
+data gets corrupted or lost, etc.
 """
 
 from datetime import datetime
 import pytz
 
-from utils import solr
+from shelflist import exporters, search_indexes
+from utils import redisobjs, solr
 
 
 FLAG_CODES = {
@@ -72,6 +87,14 @@ def _make_fl_notes(doc, new_val):
         msg = 'BATCH-PROCESS {} flag {}'.format(verb, flag_code)
         notes.append(_make_system_inventory_note(SYSTEMLOG_FLAG, msg))
     return notes
+
+
+def get_locations(using='haystack|search'):
+    """
+    Get a list of all valid location codes from Solr.
+    """
+    qs = solr.Queryset(using=using).filter(type='Location')
+    return sorted([loc.code for loc in qs])
 
 
 def rows_to_data(rows):
@@ -279,3 +302,25 @@ def copy_inventory_data_from_other_index(
 
         # A final hard commit after each location
         solr.commit(new_qs._conn, to_using)
+
+
+def generate_shelflistitem_manifests(locations, using='haystack|search',
+                                     verbose=True):
+    """
+    (Re)generate shelflistitem manifests for the given locations.
+    """
+    index = search_indexes.ShelflistItemIndex(using=using)
+    redis_shelflist_prefix = exporters.ItemsToSolr.redis_shelflist_prefix
+    for location in locations:
+        if verbose:
+            print()
+            print(f'Location ___{location}___')
+            print('Getting items from Solr.')
+        manifest = index.get_location_manifest(location)
+        if manifest:
+            if verbose:
+                print('Saving to Redis.')
+            r = redisobjs.RedisObject(redis_shelflist_prefix, location)
+            r.set(manifest)
+        elif verbose:
+            print('Location is empty or does not exist. Skipping.')
