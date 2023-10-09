@@ -225,7 +225,7 @@ services:
     working_dir: ${PROJECT_DOCKER_WORKDIR_PATH}
     networks:
       - testing
-    entrypoint: wait-for-it.sh -t 30 default-db-test:3306 -- wait-for-it.sh -t 30 sierra-db-test:5432 -- wait-for-it.sh -t 30 solr-test-for-update:8983 -- wait-for-it.sh -t 30 solr-test-for-search:8983 -- wait-for-it.sh -t 30 redis-appdata-test:6379 -- pytest
+    entrypoint: wait-for-it.sh -t 30 default-db-test:3306 -- wait-for-it.sh -t 30 sierra-db-test:5432 -- wait-for-it.sh -t 30 solr-test-for-update:8983 -- wait-for-it.sh -t 30 solr-test-for-search:8983 -- wait-for-it.sh -t 30 redis-appdata-test:6379 -- wait-for-it.sh -t 30 redis-celery-test:6379 -- pytest
 
   live-db-test:
     build:
