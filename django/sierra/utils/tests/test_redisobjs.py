@@ -264,6 +264,14 @@ def test_redisobject_set_saves_key():
 @pytest.mark.parametrize('value', [
     None,
     '',
+    [],
+    tuple(),
+    {},
+    set(),
+    0,
+    1,
+    0.0,
+    0.1,
     'MyString',
     [1, 2, 3, 4, 5],
     (1, 2, 3, 4, 5),
@@ -290,7 +298,9 @@ def test_redisobject_set_and_get_work_correctly(value):
     """
     assert redisobjs.RedisObject('test_table', 'test_item').set(value) == value
     r = redisobjs.RedisObject('test_table', 'test_item')
-    if isinstance(value, tuple):
+    if not value and value != 0:
+        assert r.get() is None
+    elif isinstance(value, tuple):
         assert r.get() == list(value)
     else:
         assert r.get() == value
@@ -299,7 +309,7 @@ def test_redisobject_set_and_get_work_correctly(value):
 @pytest.mark.parametrize('old_val, new_val', [
     (None, 'test val'),
     ('test val', None),
-    ('test val', ''),
+    ('test val', 0),
     ('test val', [1, 2, 3, 4, 5]),
     ([1, 2, 3, 4, 5], 'test val'),
     ([1, 2, 3, 4, 5], [5, 4, 3, 2, 1]),
@@ -315,6 +325,28 @@ def test_redisobject_set_overwrites_existing_key(old_val, new_val):
     redisobjs.RedisObject('test_table', 'test_item').set(new_val)
     assert redisobjs.RedisObject('test_table', 'test_item').get() == new_val
 
+
+@pytest.mark.parametrize('old_val, new_val', [
+    ('test val', None),
+    ('test val', ''),
+    ('test val', []),
+    ('test val', tuple()),
+    ('test val', {}),
+    ('test val', set())
+])
+def test_redisobject_set_empty_deletes_existing_key(old_val, new_val):
+    """
+    If an existing key is set to a non-zero empty value, the key is
+    deleted entirely from Redis. Attempting to get it returns None.
+    """
+    conn = redisobjs.REDIS_CONNECTION
+    assert 'test:item' not in conn.keys()
+    redisobjs.RedisObject('test', 'item').set(old_val)
+    assert 'test:item' in conn.keys()
+    redisobjs.RedisObject('test', 'item').set(new_val)
+    assert 'test:item' not in conn.keys()
+    assert redisobjs.RedisObject('test', 'item').get() is None
+    
 
 @pytest.mark.parametrize('value, force_unique, exp', [
     ([1, 2, 2, 3], True, [1, 2, 3]),
@@ -420,6 +452,8 @@ def test_redisobject_get_nonexistent_key_returns_none():
 
 
 @pytest.mark.parametrize('init, mapping, expected', [
+    ({'a': 'z'}, None, {'a': 'z'}),
+    ({'a': 'z'}, {}, {'a': 'z'}),
     ({'a': 'z'}, {'b': 'y'}, {'a': 'z', 'b': 'y'}),
     ({'a': 'z'}, {'b': 'y', 'c': 'x'}, {'a': 'z', 'b': 'y', 'c': 'x'}),
     ({'a': 'z', 'b': 'y'}, {'a': 1, 'b': 2}, {'a': 1, 'b': 2}),
@@ -456,6 +490,7 @@ def test_redisobject_setfield_type_errors(value, force_unique):
 
 
 @pytest.mark.parametrize('init, mapping, exp_return, exp_dict', [
+    ({'a': 'z'}, {}, [None], {'a': 'z'}),
     ({'a': 'z'}, {'b': 'y'}, [1], {'a': 'z', 'b': 'y'}),
     ({'a': 'z'}, {'b': 'y', 'c': 'x'}, [2], {'a': 'z', 'b': 'y', 'c': 'x'}),
 ])
@@ -478,8 +513,12 @@ def test_redisobject_setfield_with_defer(init, mapping, exp_return, exp_dict):
 
 
 @pytest.mark.parametrize('init, force_unique, index, val, expected', [
+    (['a', 'b'], True, 0, None, [None, 'b']),
+    (['a', 'b'], True, 0, '', ['', 'b']),
     (['a', 'b'], True, 0, 'c', ['c', 'b']),
     (['a', 'b'], True, 1, 'c', ['a', 'c']),
+    (['a', 'b'], False, 0, None, [None, 'b']),
+    (['a', 'b'], False, 0, '', ['', 'b']),
     (['a', 'b'], False, 0, 'c', ['c', 'b']),
     (['a', 'b'], False, 1, 'c', ['a', 'c']),
 
@@ -510,6 +549,7 @@ def test_redisobject_setvalue_sets_one_value(init, force_unique, index, val,
 
 
 @pytest.mark.parametrize('init, force_unique, i, vals, expected', [
+    (['a', 'b'], True, 0, tuple(), ['a', 'b']),
     (['a', 'b'], True, 0, ('c', 'b', 'd'), ['c', 'b', 'd']),
     (['a', 'b'], True, 1, (['b1', 'b2'], ['c1']), ['a', ['b1', 'b2'], ['c1']]),
     (['a', 'b', 'c'], True, 1, ('1', '2'), ['a', '1', '2']),
@@ -560,8 +600,10 @@ def test_redisobject_setvalue_type_errors(value):
 
 
 @pytest.mark.parametrize('init, f_unq, i, vals, exp_return, exp_list', [
+    (['a', 'b'], True, 0, tuple(), [None], ['a', 'b']),
     (['a', 'b'], True, 0, ('c',), [[1, 1]], ['c', 'b']),
     (['a', 'b'], True, 0, ('c', 'b', 'd'), [[2, 3]], ['c', 'b', 'd']),
+    (['a', 'b'], False, 0, tuple(), [None], ['a', 'b']),
     (['a', 'b'], False, 0, ('c',), [1], ['c', 'b']),
     (['a', 'b'], False, 0, ('c', 'b', 'd'), [[True, True, 3]], ['c', 'b', 'd']),
 ])
@@ -585,6 +627,7 @@ def test_redisobject_setvalue_with_defer(init, f_unq, i, vals, exp_return,
 
 
 @pytest.mark.parametrize('init, field, expected', [
+    ({'a': 'z', 'b': 'y', 'c': 'x'}, tuple(), None),
     ({'a': 'z', 'b': 'y', 'c': 'x'}, 'b', 'y'),
     ({'a': 'z', 'b': 'y', 'c': 'x'}, ('b', 'a', 'c'), ['y', 'z', 'x']),
     ({'a': 'z', 'b': 'y', 'c': 'x'}, 'd', None),
@@ -625,6 +668,7 @@ def test_redisobject_getfield_with_defer():
 
 
 @pytest.mark.parametrize('init, force_unique, value, expected', [
+    (['a', 'b', 'c'], True, tuple(), None),
     (['a', 'b', 'c'], True, 'a', 0),
     (['a', 'b', 'c'], True, 'b', 1),
     (['a', 'b', 'c'], True, 'c', 2),
@@ -632,6 +676,7 @@ def test_redisobject_getfield_with_defer():
     (['a', 'b', 'c'], True, ('a', 'b'), [0, 1]),
     (['a', 'b', 'c'], True, ('d', 'e'), [None, None]),
     (['a', 'b', 'c'], True, ('a', 'd'), [0, None]),
+    (['a', 'b', 'c'], False, tuple(), None),
     (['a', 'b', 'c'], False, 'a', 0),
     (['a', 'b', 'c'], False, 'b', 1),
     (['a', 'b', 'c'], False, 'c', 2),

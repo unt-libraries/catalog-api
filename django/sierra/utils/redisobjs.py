@@ -624,7 +624,10 @@ class RedisObject(object):
         and returns the original data value. If self.defer is True, it
         queues up the operation(s) on self.pipe and returns that.
         """
-        self.setter.set_key(data, force_unique)
+        if data or data == 0:
+            self.setter.set_key(data, force_unique)
+        else:
+            self.pipe.add('delete', self.key)
         if self.defer:
             return self.pipe
         self.pipe.execute()
@@ -647,7 +650,10 @@ class RedisObject(object):
         it queues up the operation(s) on self.pipe and returns that.
         """
         if self.rtype == 'hash':
-            self.setter.hash(mapping)
+            if mapping:
+                self.setter.hash(mapping)
+            else:
+                self.getter.none()
             if self.defer:
                 return self.pipe
             self.pipe.execute()
@@ -679,19 +685,21 @@ class RedisObject(object):
         """
         multi = len(values) > 1
         if self.rtype in ('list', 'zset'):
-            if self.rtype == 'list':
+            if values:
                 if multi:
-                    self.setter.list_values(index, values)
+                    plural = 's'
                 else:
-                    self.setter.list_value(index, values[0])
-            elif multi:
-                self.setter.zset_values(index, values)
+                    plural = ''
+                    values = values[0]
+                getattr(self.setter, f'{self.rtype}_value{plural}')(
+                    index, values
+                )
             else:
-                self.setter.zset_value(index, values[0])
+                self.getter.none()
             if self.defer:
                 return self.pipe
             self.pipe.execute()
-            return values if multi else values[0]
+            return values
         raise TypeError(
             f"'set_value' must be used on a 'list' or 'zset' type, not "
             f"'{self.rtype}'"
@@ -736,7 +744,7 @@ class RedisObject(object):
         queues up the operation(s) on self.pipe and returns that.
         """
         multi = len(fields) > 1
-        if self.rtype == 'hash':
+        if self.rtype == 'hash' and fields:
             if multi:
                 self.getter.hash_fields(fields)
             else:
@@ -770,16 +778,13 @@ class RedisObject(object):
         queues up the operation(s) on self.pipe and returns that.
         """
         multi = len(values) > 1
-        if self.rtype == 'zset':
+        if self.rtype in ('zset', 'list') and values:
             if multi:
-                self.getter.zset_indexes(values)
+                plural = 'es'
             else:
-                self.getter.zset_index(values[0])
-        elif self.rtype == 'list':
-            if multi:
-                self.getter.list_indexes(values)
-            else:
-                self.getter.list_index(values[0])
+                plural = ''
+                values = values[0]
+            getattr(self.getter, f'{self.rtype}_index{plural}')(values)
         else:
             self.getter.none()
         if self.defer:
@@ -808,16 +813,14 @@ class RedisObject(object):
         queues up the operation(s) on self.pipe and returns that.
         """
         multi = end is not None
-        if self.rtype == 'zset':
+        if self.rtype in ('zset', 'list'):
             if multi:
-                self.getter.zset_values(start, end)
+                plural = 's'
+                args = [start, end]
             else:
-                self.getter.zset_value(start)
-        elif self.rtype == 'list':
-            if multi:
-                self.getter.list_values(start, end)
-            else:
-                self.getter.list_value(start)
+                plural = ''
+                args = [start]
+            getattr(self.getter, f'{self.rtype}_value{plural}')(*args)
         else:
             self.getter.none()
         if self.defer:
