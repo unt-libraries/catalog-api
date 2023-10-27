@@ -131,7 +131,7 @@ class Pipeline(object):
         self.accumulators = []
         self.pipe = conn.pipeline()
 
-    def add(self, method_name, key, args=[], kwargs={}, callback=None,
+    def add(self, cmd, key, args=[], kwargs={}, callback=None,
             accumulator=None):
         """
         Queues up the next command you wish to add to the pipeline.
@@ -151,7 +151,7 @@ class Pipeline(object):
         Returns the Pipeline instance so you can string together
         multiple 'add's, if desired.
         """
-        getattr(self.pipe, method_name)(key, *args, **kwargs)
+        getattr(self.pipe, cmd)(key, *args, **kwargs)
         self.entries.append((callback, accumulator, False))
         if accumulator is not None and accumulator not in self.accumulators:
             self.accumulators.append(accumulator)
@@ -301,40 +301,42 @@ class _RedisSetter(object):
         self.pipe = redis_object.pipe
         self.encoder = encoder
 
-    def make_cmd_accumulator(self):
-        return Accumulator(list, list.append)
+    def get_rtype_from_data(self, data, force_unique):
+        ptype = type(data)
+        unstr = '_unique' if ptype in (list, tuple) and force_unique else ''
+        return self.types_to_rtype.get(f'{ptype.__name__}{unstr}') or 'string'
 
-    def zset(self, data, accumulator=None):
-        data = ((v, i) for i, v in enumerate(data))
+    def zset(self, data, accumulator):
         return self.pipe.add(
-            'zadd', self.key, args=[self.encoder.zset(data)],
-             accumulator=accumulator
+            'zadd', self.key, args=[self.encoder.zset(
+                ((v, i) for i, v in enumerate(data))
+            )], accumulator=accumulator
         )
 
-    def list(self, data, accumulator=None):
+    def list(self, data, accumulator):
         return self.pipe.add(
             'rpush', self.key, args=self.encoder.list(data),
             accumulator=accumulator
         )
 
-    def hash(self, data, accumulator=None):
+    def hash(self, data, accumulator):
         return self.pipe.add(
             'hset', self.key, kwargs={'mapping': self.encoder.hash(data)},
             accumulator=accumulator
         )
 
-    def string(self, data, accumulator=None):
+    def set(self, data, accumulator):
+        return self.pipe.add(
+            'sadd', self.key, args=self.encoder.set(data),
+            accumulator=accumulator
+        )
+
+    def string(self, data, accumulator):
         # 'string' is the default type; if 'data' isn't one of the
         # known collection types, it's serialized to JSON and stored as
         # a string value in Redis.
         return self.pipe.add(
             'set', self.key, args=[self.encoder.string(data)],
-            accumulator=accumulator
-        )
-
-    def set(self, data, accumulator=None):
-        return self.pipe.add(
-            'sadd', self.key, args=self.encoder.set(data),
             accumulator=accumulator
         )
 
@@ -346,8 +348,8 @@ class _RedisSetter(object):
             return zset_len
         return index
 
-    def zset_value(self, index, value, accumulator=None):
-        acc = accumulator or self.make_cmd_accumulator()
+    def zset_value(self, index, value):
+        acc = self.obj.make_result_accumulator()
         index = self._convert_zset_index(index)
         self.pipe.add(
             'zremrangebyscore', self.key, args=[index, index],
@@ -357,28 +359,25 @@ class _RedisSetter(object):
             'zadd', self.key, args=[self.encoder.zset([(value, index)])],
             accumulator=acc
         )
-        if accumulator is None:
-            self.pipe.mark_accumulator_pop()
+        self.pipe.mark_accumulator_pop()
         return self.pipe
 
-    def zset_values(self, start, values, accumulator=None):
-        acc = accumulator or self.make_cmd_accumulator()
+    def zset_values(self, start, values):
+        acc = self.obj.make_result_accumulator()
         start = self._convert_zset_index(start)
         end = start + len(values) - 1
         self.pipe.add(
-            'zremrangebyscore', self.key, args=[start, end],
-            accumulator=acc
+            'zremrangebyscore', self.key, args=[start, end], accumulator=acc
         )
         self.pipe.add(
             'zadd', self.key, args=[self.encoder.zset(
                 ((v, start + i) for i, v in enumerate(values))
             )], accumulator=acc
         )
-        if accumulator is None:
-            self.pipe.mark_accumulator_pop()
+        self.pipe.mark_accumulator_pop()
         return self.pipe
 
-    def _add_item_to_list(self, listlength, index, value, accumulator):
+    def _add_item_to_list(self, listlength, index, value, acc):
         encoded = self.encoder.string(value)
         if index >= listlength:
             cmd = 'rpush'
@@ -386,31 +385,19 @@ class _RedisSetter(object):
         else:
             cmd = 'lset'
             args = [index, encoded]
-        return self.pipe.add(cmd, self.key, args=args, accumulator=accumulator)
+        return self.pipe.add(cmd, self.key, args=args, accumulator=acc)
 
-    def list_value(self, index, value, accumulator=None):
+    def list_value(self, index, value):
         llen = self.conn.llen(self.key)
         index += llen if index < 0 else 0
-        return self._add_item_to_list(llen, index, value, accumulator)
+        return self._add_item_to_list(llen, index, value, None)
 
-    def list_values(self, start, values, accumulator=None):
-        acc = accumulator or self.make_cmd_accumulator()
+    def list_values(self, start, values):
+        acc = self.obj.make_result_accumulator()
         llen = self.conn.llen(self.key)
         start += llen if start < 0 else 0
         for i, val in enumerate(values):
             self._add_item_to_list(llen, i + start, val, acc)
-        if accumulator is None:
-            self.pipe.mark_accumulator_pop()
-        return self.pipe
-
-    def set_key(self, data, force_unique, accumulator=None):
-        acc = accumulator or self.make_cmd_accumulator()
-        self.pipe.add('delete', self.key, accumulator=acc)
-        ptype = type(data)
-        unstr = '_unique' if ptype in (list, tuple) and force_unique else ''
-        rtype = self.types_to_rtype.get(f'{ptype.__name__}{unstr}') or 'string'
-        self.obj._rtype = rtype
-        self.pipe = getattr(self, rtype)(data, accumulator=acc)
         self.pipe.mark_accumulator_pop()
         return self.pipe
 
@@ -425,9 +412,6 @@ class _RedisGetter(object):
         self.key = redis_object.key
         self.pipe = redis_object.pipe
         self.decoder = decoder
-
-    def make_result_accumulator(self):
-        return Accumulator(list, list.append)
 
     def zset(self):
         return self.pipe.add(
@@ -486,7 +470,7 @@ class _RedisGetter(object):
         )
 
     def list_indexes(self, values):
-        acc = self.make_result_accumulator()
+        acc = self.obj.make_result_accumulator()
         callback = make_single_or_list_callback()
         encoded_vals = (self.obj.setter.encoder.string(v) for v in values)
         for encoded_val in encoded_vals:
@@ -561,7 +545,6 @@ class RedisObject(object):
     conn = REDIS_CONNECTION
     none_key = '____DOESNOTEXIST____'
 
-
     def __init__(self, entity, id_, pipe=None, defer=False):
         """
         Initializes a new RedisObject.
@@ -598,6 +581,9 @@ class RedisObject(object):
             self._rtype = self.conn.type(self.key)
         return self._rtype
 
+    def make_result_accumulator(self):
+        return Accumulator(list, list.append)
+
     def set(self, data, force_unique=True):
         """
         Sets the given data in Redis using the current key.
@@ -625,7 +611,14 @@ class RedisObject(object):
         queues up the operation(s) on self.pipe and returns that.
         """
         if data or data == 0:
-            self.setter.set_key(data, force_unique)
+            self._rtype = self.setter.get_rtype_from_data(data, force_unique)
+            acc = self.make_result_accumulator()
+            self.pipe.add('delete', self.key, accumulator=acc)
+            if self.rtype == 'string':
+                self.pipe = self.setter.string(data, acc)
+            else:
+                self.pipe = getattr(self.setter, self.rtype)(data, acc)
+            self.pipe.mark_accumulator_pop()
         else:
             self.pipe.add('delete', self.key)
         if self.defer:
@@ -651,7 +644,7 @@ class RedisObject(object):
         """
         if self.rtype == 'hash':
             if mapping:
-                self.setter.hash(mapping)
+                self.setter.hash(mapping, None)
             else:
                 self.getter.none()
             if self.defer:
@@ -686,11 +679,8 @@ class RedisObject(object):
         multi = len(values) > 1
         if self.rtype in ('list', 'zset'):
             if values:
-                if multi:
-                    plural = 's'
-                else:
-                    plural = ''
-                    values = values[0]
+                plural = 's' if multi else ''
+                values = values if multi else values[0]
                 getattr(self.setter, f'{self.rtype}_value{plural}')(
                     index, values
                 )
