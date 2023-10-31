@@ -306,23 +306,33 @@ def test_redisobject_set_and_get_work_correctly(value):
         assert r.get() == value
 
 
-@pytest.mark.parametrize('old_val, new_val', [
-    (None, 'test val'),
-    ('test val', None),
-    ('test val', 0),
-    ('test val', [1, 2, 3, 4, 5]),
-    ([1, 2, 3, 4, 5], 'test val'),
-    ([1, 2, 3, 4, 5], [5, 4, 3, 2, 1]),
-    ({1, 2, 3}, [1, 2, 3]),
-    ({'test1': [1, 2, 3], 'test2': [4, 5, 6]}, {'test3': [7, 8, 9]})
+@pytest.mark.parametrize('old_val, old_funq, new_val, new_funq', [
+    (None, None, 'test val', None),
+    ('test val', None, None, None),
+    ('test val', None, 0, None),
+    ('test val', None, [1, 2, 3, 4, 5], True),
+    ('test val', None, [1, 2, 3, 4, 5], False),
+    ([1, 2, 3, 4, 5], True, 'test val', None),
+    ([1, 2, 3, 4, 5], False, 'test val', None),
+    ([1, 2, 3, 4, 5], True, [5, 4, 3, 2, 1], True),
+    ([1, 2, 3, 4, 5], True, [5, 4, 3, 2, 1], False),
+    ([1, 2, 3, 4, 5], False, [5, 4, 3, 2, 1], True),
+    ([1, 2, 3, 4, 5], False, [5, 4, 3, 2, 1], False),
+    ({1, 2, 3}, None, [1, 2, 3], True),
+    ({'t1': [1, 2, 3], 't2': [4, 5, 6]}, None, {'t3': [7, 8, 9]}, None)
 ])
-def test_redisobject_set_overwrites_existing_key(old_val, new_val):
+def test_redisobject_set_without_update_overwrites_existing(old_val, old_funq,
+                                                            new_val, new_funq):
     """
-    The RedisObject.set method should silently and automatically
-    overwrite the existing key, whatever it may be.
+    By default (update=False), the RedisObject.set method should
+    silently and automatically overwrite the existing key.
     """
-    redisobjs.RedisObject('test_table', 'test_item').set(old_val)
-    redisobjs.RedisObject('test_table', 'test_item').set(new_val)
+    redisobjs.RedisObject('test_table', 'test_item').set(
+        old_val, force_unique=old_funq
+    )
+    redisobjs.RedisObject('test_table', 'test_item').set(
+        new_val, force_unique=new_funq
+    )
     assert redisobjs.RedisObject('test_table', 'test_item').get() == new_val
 
 
@@ -336,8 +346,9 @@ def test_redisobject_set_overwrites_existing_key(old_val, new_val):
 ])
 def test_redisobject_set_empty_deletes_existing_key(old_val, new_val):
     """
-    If an existing key is set to a non-zero empty value, the key is
-    deleted entirely from Redis. Attempting to get it returns None.
+    By default (update=False), if an existing key is set to a non-zero
+    empty value, the key is deleted entirely from Redis. Attempting to
+    get it returns None.
     """
     conn = redisobjs.REDIS_CONNECTION
     assert 'test:item' not in conn.keys()
@@ -367,13 +378,202 @@ def test_redisobject_set_empty_deletes_existing_key(old_val, new_val):
 ])
 def test_redisobject_set_and_get_with_force_unique(value, force_unique, exp):
     """
-    When RedisObject.set is used to save a list, the `force_unique`
+    When RedisObject.set is used to save a list, the 'force_unique'
     option determines whether Redis stores only unique values or not.
     """
     r_set = redisobjs.RedisObject('test_table', 'test_item')
     r_set.set(value, force_unique=force_unique)
     r_get = redisobjs.RedisObject('test_table', 'test_item')
     assert r_get.get() == exp
+
+
+@pytest.mark.parametrize('init, force_unique, newval, index, expected', [
+    # New values are set from scratch
+    (None, None, None, None, None),
+    (None, None, '', None, None),
+    (None, False, [], None, None),
+    (None, True, [], None, None),
+    (None, None, {}, None, None),
+    (None, None, 'test', None, 'test'),
+    (None, None, '0', None, '0'),
+    (None, None, 0, None, 0),
+    (None, None, 0.1, None, 0.1),
+    (None, False, [1, 2, 3], None, [1, 2, 3]),
+    (None, True, [1, 2, 3], None, [1, 2, 3]),
+    (None, None, {'a': 'z'}, None, {'a': 'z'}),
+    (None, None, {1, 2, 3}, None, {1, 2, 3}),
+    (None, False, [1, 2, 3], 2, [None, None, 1, 2, 3]),
+    (None, True, [1, 2, 3], 2, [1, 2, 3]),
+    (None, None, 'test', 2, '\x00\x00test'),
+    (None, None, {'a': 'z'}, 2, {'a': 'z'}),
+    (None, None, {1, 2, 3}, 2, {1, 2, 3}),
+
+    # Strings
+    ('foo', None, None, None, 'foo'),
+    ('foo', None, '', None, 'foo'),
+    ('foo', None, ' bar', None, 'foo bar'),
+    ('foo', None, '0', None, 'foo0'),
+    # ('index' allows you to insert/overwrite part of a string)
+    ('foo', None, 'bar', 0, 'bar'),
+    ('foo', None, 'bar', 1, 'fbar'),
+    ('foo', None, 'bar', 3, 'foobar'),
+    ('foo', None, 'bar', 4, 'foo\x00bar'),
+    ('foo', None, 'bar', 5, 'foo\x00\x00bar'),
+    ('foo', None, 'bar', -1, 'fobar'),
+    ('foo', None, 'bar', -3, 'bar'),
+    ('foo', None, 'bar', -10, 'bar'),
+
+    # Non-string encoded objects
+    (100, None, None, None, 100),
+    (100, None, 200, None, 200),
+    (100, None, 200, 1, 200),
+    (100, None, 0, None, 0),
+
+    # Lists and zsets
+    ([1, 2, 3], False, None, None, [1, 2, 3]),
+    ([1, 2, 3], False, [], None, [1, 2, 3]),
+    ([1, 2, 3], False, [3, 2, 1], None, [1, 2, 3, 3, 2, 1]),
+    ([1, 2, 3], False, (3, 2, 1), None, [1, 2, 3, 3, 2, 1]),
+    ([1, 2, 3], True, None, None, [1, 2, 3]),
+    ([1, 2, 3], True, [], None, [1, 2, 3]),
+    ([1, 2, 3], True, [3, 2, 1], None, [3, 2, 1]),
+    ([1, 2, 3], True, [4], None, [1, 2, 3, 4]),
+    ([1, 2, 3], True, [{'a': 'z'}], None, [1, 2, 3, {'a': 'z'}]),
+    # ('index' allows you to insert/overwrite in a list/zset)
+    (['a', 'b'], True, [None], 0, [None, 'b']),
+    (['a', 'b'], True, [''], 0, ['', 'b']),
+    (['a', 'b'], True, ['c'], 0, ['c', 'b']),
+    (['a', 'b'], True, ['c'], 1, ['a', 'c']),
+    (['a', 'b'], True, ('c', 'b', 'd'), 0, ['c', 'b', 'd']),
+    (['a', 'b'], True, (['b1', 'b2'], ['c1']), 1, ['a', ['b1', 'b2'], ['c1']]),
+    (['a', 'b', 'c'], True, ('1', '2'), 0, ['1', '2', 'c']),
+    (['a', 'b', 'c'], True, ('1', '2'), 1, ['a', '1', '2']),
+    (['a', 'b', 'c'], True, ('1', '2'), 2, ['a', 'b', '1', '2']),
+    (['a', 'b', 'c'], True, ('1', '2'), 3, ['a', 'b', 'c', '1', '2']),
+    # (for a zset, since members have to be unique, you can't skip
+    # index numbers.)
+    (['a', 'b', 'c'], True, ('1', '2'), 5, ['a', 'b', 'c', '1', '2']),
+    (['a', 'b', 'c'], True, ('1', '2'), -1, ['a', 'b', '1', '2']),
+    (['a', 'b', 'c'], True, ('1', '2'), -2, ['a', '1', '2']),
+    (['a', 'b', 'c'], True, ('1', '2'), -3, ['1', '2', 'c']),
+    (['a', 'b', 'c'], True, ('1', '2'), -10, ['1', '2', 'c']),
+    (['a', 'b'], False, [None], 0, [None, 'b']),
+    (['a', 'b'], False, [''], 0, ['', 'b']),
+    (['a', 'b'], False, ['c'], 0, ['c', 'b']),
+    (['a', 'b'], False, ['c'], 1, ['a', 'c']),
+    (['a', 'b'], False, ('c', 'b', 'd'), 0, ['c', 'b', 'd']),
+    (['a', 'b'], False, ({'b': 'z'}, 'c'), 1, ['a', {'b': 'z'}, 'c']),
+    (['a', 'b', 'c'], False, ('1', '2'), 0, ['1', '2', 'c']),
+    (['a', 'b', 'c'], False, ('1', '2'), 1, ['a', '1', '2']),
+    (['a', 'b', 'c'], False, ('1', '2'), 2, ['a', 'b', '1', '2']),
+    (['a', 'b', 'c'], False, ('1', '2'), 3, ['a', 'b', 'c', '1', '2']),
+    # (a list lets you skip index numbers.)
+    (['a', 'b', 'c'], False, ('1', '2'), 5,
+     ['a', 'b', 'c', None, None, '1', '2']),
+    (['a', 'b', 'c'], False, ('1', '2'), -1, ['a', 'b', '1', '2']),
+    (['a', 'b', 'c'], False, ('1', '2'), -2, ['a', '1', '2']),
+    (['a', 'b', 'c'], False, ('1', '2'), -3, ['1', '2', 'c']),
+    (['a', 'b', 'c'], False, ('1', '2'), -10, ['1', '2', 'c']),
+
+    # Hashes
+    ({'a': 'z'}, None, None, None, {'a': 'z'}),
+    ({'a': 'z'}, None, {}, None, {'a': 'z'}),
+    ({'a': 'z'}, None, {'b': 'y'}, None, {'a': 'z', 'b': 'y'}),
+    ({'a': 'z'}, None, {'b': 'y', 'c': 'x'}, None, 
+     {'a': 'z', 'b': 'y', 'c': 'x'}),
+    ({'a': 'z', 'b': 'y'}, None, {'a': 1, 'b': 2}, None, {'a': 1, 'b': 2}),
+    ({'a': 'z'}, None, {'a': 1, 'b': 2}, None, {'a': 1, 'b': 2}),
+    ({'a': 'z'}, None, {'b': {'t': 'v'}}, None, {'a': 'z', 'b': {'t': 'v'}}),
+    ({'a': 'z', 'b': 'y'}, None, {'a': [1, 2, 3]}, None,
+     {'a': [1, 2, 3], 'b': 'y'}),
+    # ('index' is ignored for hashes)
+    ({'a': 'z', 'b': 'y'}, None, {'a': 1, 'b': 2}, 1, {'a': 1, 'b': 2}),
+
+    # Sets
+    ({1, 2, 3}, None, None, None, {1, 2, 3}),
+    ({1, 2, 3}, None, set(), None, {1, 2, 3}),
+    ({1, 2, 3}, None, {3, 2, 1}, None, {1, 2, 3}),
+    ({1, 2, 3}, None, {4}, None, {1, 2, 3, 4}),
+    ({1, 2, 3}, None, {3, 4, 5}, None, {1, 2, 3, 4, 5}),
+    # ('index' is ignored for sets)
+    ({1, 2, 3}, None, {4}, 1, {1, 2, 3, 4}),
+])
+def test_redisobject_set_with_update(init, force_unique, newval, index,
+                                     expected):
+    """
+    When RedisObject.set is used and the 'update' kwarg is True, the
+    new data is added to the existing data. If the key does not yet
+    exist, it is created and set normally.
+    """
+    key = ('test', 'item')
+    if init is not None:
+        redisobjs.RedisObject(*key).set(init, force_unique=force_unique)
+    assert redisobjs.RedisObject(*key).set(
+        newval, force_unique=force_unique, update=True, index=index
+    ) == newval
+    assert redisobjs.RedisObject(*key).get() == expected
+
+
+@pytest.mark.parametrize('init, force_unique, newval, index, expected', [
+    (None, None, 'test', 2, '\x00\x00test'),
+    (None, None, 10, 2, 10),
+    (None, False, [1, 2, 3], 2, [None, None, 1, 2, 3]),
+    (None, True, [1, 2, 3], 2, [1, 2, 3]),
+    (None, None, {1, 2, 3}, 2, {1, 2, 3}),
+    (None, None, {'a': 'b'}, 2, {'a': 'b'}),
+])
+def test_redisobject_set_without_update_with_index(init, force_unique, newval,
+                                                   index, expected):
+    """
+    This is to test the edge case where you use RedisObject.set with
+    'update=False' but provide an index value. For the 'list' and
+    'string' types, it should pad the beginning of the data. For other
+    types, it should have no effect.
+    """
+    key = ('test', 'item')
+    if init is not None:
+        redisobjs.RedisObject(*key).set(init, force_unique=force_unique)
+    assert redisobjs.RedisObject(*key).set(
+        newval, force_unique=force_unique, update=False, index=index
+    ) == newval
+    assert redisobjs.RedisObject(*key).get() == expected
+
+
+@pytest.mark.parametrize(
+    'init, force_unique, newval, old_rtype, new_rtype, cmp_ptype_label',
+    [
+        ('ab', False, [1, 2, 3], 'string', 'list', 'string'),
+        ('ab', True, [1, 2, 3], 'string', 'zset', 'string'),
+        ('ab', None, {1, 2, 3}, 'string', 'set', 'string'),
+        ('ab', None, {'a': 'z'}, 'string', 'hash', 'string'),
+        ('ab', None, 0, 'string', 'encoded_obj', 'string'),
+        (0, None, 'ab', 'encoded_obj', 'string',
+         'any JSON-serializable type except list, tuple, string, dict, or '
+         'set'),
+        ([1, 2, 3], False, 'foo', 'list', 'string', 'list or tuple'),
+        ([1, 2, 3], True, 'foo', 'zset', 'string', 'list or tuple'),
+        ({1, 2, 3}, None, 'foo', 'set', 'string', 'set'),
+        ({'a': 'z'}, None, 'foo', 'hash', 'string', 'hash'),
+    ]
+)
+def test_redisobject_set_with_update_wrong_type(init, force_unique, newval,
+                                                old_rtype, new_rtype,
+                                                cmp_ptype_label):
+    """
+    When RedisObject.set is used and the 'update' kwarg is True but the
+    provided data type is not compatible with the data type in Redis,
+    it should raise a TypeError that includes the expected message.
+    """
+    key = ('test', 'item')
+    redisobjs.RedisObject(*key).set(init, force_unique=force_unique)
+    with pytest.raises(TypeError) as excinfo:
+        redisobjs.RedisObject(*key).set(
+            newval, force_unique=force_unique, update=True
+        )
+    err_msg = str(excinfo.value)
+    exp_msg = f'Cannot update existing {old_rtype} data with {new_rtype} data'
+    assert exp_msg in err_msg
+    assert cmp_ptype_label in err_msg
 
 
 @pytest.mark.parametrize('value', [
@@ -417,7 +617,7 @@ def test_redisobject_set_and_defer_with_new_pipeline():
     assert redisobjs.RedisObject('test', 'item').get() is None
     pipe = r.set('next_value')
     assert redisobjs.RedisObject('test', 'item').get() is None
-    assert pipe.execute() == [[0, True], [1, True]]
+    assert pipe.execute() == [[0, 8], [1, 10]]
     assert redisobjs.RedisObject('test', 'item').get() == 'next_value'
 
 
@@ -436,9 +636,76 @@ def test_redisobject_set_and_defer_with_user_pipeline():
     assert r2.set('other_value') == pipe
     assert redisobjs.RedisObject('test', 'item').get() is None
     assert redisobjs.RedisObject('test', 'item2').get() is None
-    assert pipe.execute() == [[0, True], [0, True]]
+    assert pipe.execute() == [[0, 8], [0, 11]]
     assert redisobjs.RedisObject('test', 'item').get() == 'my_value'
     assert redisobjs.RedisObject('test', 'item2').get() == 'other_value' 
+
+
+@pytest.mark.parametrize('init, f_unq, i, vals, exp_return, exp_list', [
+    (['a', 'b'], True, 0, [], [None], ['a', 'b']),
+    (['a', 'b'], True, 0, ['c'], [[1, 1]], ['c', 'b']),
+    (['a', 'b'], True, 0, ['c', 'b', 'd'], [[2, 3]], ['c', 'b', 'd']),
+    (['a', 'b'], False, 0, [], [None], ['a', 'b']),
+    (['a', 'b'], False, 0, ['c'], [True], ['c', 'b']),
+    (['a', 'b'], False, 0, ['c', 'b', 'd'], [[True, True, 3]],
+     ['c', 'b', 'd']),
+    (['a', 'b'], False, 0, ['c', 'b', 'd', 'e'], [[True, True, 4]],
+     ['c', 'b', 'd', 'e']),
+])
+def test_redisobject_set_and_defer_list_zset(init, f_unq, i, vals, exp_return,
+                                             exp_list):
+    """
+    This is to test the pipe execution return values when using the
+    'set' method when 'defer' is True and the data type is a zset or a
+    list. When executed, the pipe will return the expected value(s)
+    from Redis. Getting the full object will produce the expected list,
+    but only after the pipeline is executed.
+    """
+    r_norm = redisobjs.RedisObject('test', 'list-zset-defer')
+    r_norm.set(init, force_unique=f_unq)
+    r_defer = redisobjs.RedisObject('test', 'list-zset-defer', defer=True)
+    pipe = r_defer.set(vals, update=True, index=i)
+    assert pipe == r_defer.pipe
+    assert r_norm.get() == init
+    assert pipe.execute() == exp_return
+    assert r_norm.get() == exp_list
+
+
+def test_redisobject_setfield_calls_set(mocker):
+    """
+    The RedisObject.set_field method is just a convenience method that
+    calls 'set' with 'update=True' to set fields on an existing hash.
+    """
+    r = redisobjs.RedisObject('test', 'item')
+    r.set = mocker.Mock()
+    r.set_field({'a': 'z'})
+    r.set.assert_called_with({'a': 'z'}, update=True)
+
+
+def test_redisobject_setvalue_single_value(mocker):
+    """
+    The RedisObject.set_value method is just a convenience method that
+    calls 'set' with 'update=True' to set data values on an existing
+    list or zset. When a single value is provided, it returns only that
+    value (not in a list).
+    """
+    r = redisobjs.RedisObject('test', 'item')
+    r.set = mocker.Mock(return_value=['a'])
+    assert r.set_value(1, 'a') == 'a'
+    r.set.assert_called_with(('a',), update=True, index=1)
+
+
+def test_redisobject_setvalue_multiple_values(mocker):
+    """
+    The RedisObject.set_value method is just a convenience method that
+    calls 'set' with 'update=True' to set data values on an existing
+    list or zset. When multiple values are provided, it returns them as
+    a list.
+    """
+    r = redisobjs.RedisObject('test', 'item')
+    r.set = mocker.Mock(return_value=['a', 'b'])
+    assert r.set_value(1, 'a', 'b') == ['a', 'b']
+    r.set.assert_called_with(('a', 'b'), update=True, index=1)
 
 
 def test_redisobject_get_nonexistent_key_returns_none():
@@ -449,181 +716,6 @@ def test_redisobject_get_nonexistent_key_returns_none():
     r = redisobjs.RedisObject('not set', 'not set')
     assert r.conn.keys() == []
     assert r.get() == None
-
-
-@pytest.mark.parametrize('init, mapping, expected', [
-    ({'a': 'z'}, None, {'a': 'z'}),
-    ({'a': 'z'}, {}, {'a': 'z'}),
-    ({'a': 'z'}, {'b': 'y'}, {'a': 'z', 'b': 'y'}),
-    ({'a': 'z'}, {'b': 'y', 'c': 'x'}, {'a': 'z', 'b': 'y', 'c': 'x'}),
-    ({'a': 'z', 'b': 'y'}, {'a': 1, 'b': 2}, {'a': 1, 'b': 2}),
-    ({'a': 'z'}, {'a': 1, 'b': 2}, {'a': 1, 'b': 2}),
-    ({'a': 'z'}, {'b': {'test': 'value'}}, {'a': 'z', 'b': {'test': 'value'}}),
-    ({'a': 'z', 'b': 'y'}, {'a': [1, 2, 3]}, {'a': [1, 2, 3], 'b': 'y'})
-])
-def test_redisobject_setfield_sets_values(init, mapping, expected):
-    """
-    The RedisObject.set_field method sets one or more fields on an
-    existing hash using the given mapping. It returns the mapping.
-    Getting the full object produces the expected dict.
-    """
-    redisobjs.RedisObject('test', 'hash').set(init)
-    assert redisobjs.RedisObject('test', 'hash').set_field(mapping) == mapping
-    assert redisobjs.RedisObject('test', 'hash').get() == expected
-
-
-@pytest.mark.parametrize('value, force_unique', [
-    ('test', None),
-    ([1, 2, 3], False),
-    ([1, 2, 3], True),
-    ({1, 2, 3}, None)
-])
-def test_redisobject_setfield_type_errors(value, force_unique):
-    """
-    The RedisObject.set_field method requires a Redis 'hash' type,
-    otherwise it raises a TypeError.
-    """
-    r = redisobjs.RedisObject('test', 'hash-error')
-    r.set(value, force_unique=force_unique)
-    with pytest.raises(TypeError):
-        redisobjs.RedisObject('test', 'hash-error').set_field({'a': 'z'})
-
-
-@pytest.mark.parametrize('init, mapping, exp_return, exp_dict', [
-    ({'a': 'z'}, {}, [None], {'a': 'z'}),
-    ({'a': 'z'}, {'b': 'y'}, [1], {'a': 'z', 'b': 'y'}),
-    ({'a': 'z'}, {'b': 'y', 'c': 'x'}, [2], {'a': 'z', 'b': 'y', 'c': 'x'}),
-])
-def test_redisobject_setfield_with_defer(init, mapping, exp_return, exp_dict):
-    """
-    When a RedisObject instance has defer set to True, a 'set_field'
-    operation wil queue the operation on the instance's 'pipe' object
-    and return the pipe. When executed, the pipe will return the
-    expected value(s) from Redis. Getting the full object will produce
-    the expected dict, but only after the pipeline is executed.
-    """
-    r_norm = redisobjs.RedisObject('test', 'hash-defer')
-    r_norm.set(init)
-    r_defer = redisobjs.RedisObject('test', 'hash-defer', defer=True)
-    pipe = r_defer.set_field(mapping)
-    assert pipe == r_defer.pipe
-    assert r_norm.get() == init
-    assert pipe.execute() == exp_return
-    assert r_norm.get() == exp_dict
-
-
-@pytest.mark.parametrize('init, force_unique, index, val, expected', [
-    (['a', 'b'], True, 0, None, [None, 'b']),
-    (['a', 'b'], True, 0, '', ['', 'b']),
-    (['a', 'b'], True, 0, 'c', ['c', 'b']),
-    (['a', 'b'], True, 1, 'c', ['a', 'c']),
-    (['a', 'b'], False, 0, None, [None, 'b']),
-    (['a', 'b'], False, 0, '', ['', 'b']),
-    (['a', 'b'], False, 0, 'c', ['c', 'b']),
-    (['a', 'b'], False, 1, 'c', ['a', 'c']),
-
-    # If the start index is out of range, it pushes values onto the end
-    # of the list.
-    (['a', 'b'], True, 2, 'c', ['a', 'b', 'c']),
-    (['a', 'b'], True, 10, 'c', ['a', 'b', 'c']),
-    (['a', 'b'], False, 2, 'c', ['a', 'b', 'c']),
-    (['a', 'b'], False, 10, 'c', ['a', 'b', 'c']),
-
-    # If a negative index is used, it replaces values starting at the
-    # end of the list.
-    (['a', 'b'], True, -1, 'c', ['a', 'c']),
-    (['a', 'b'], True, -2, 'c', ['c', 'b']),
-    (['a', 'b'], False, -1, 'c', ['a', 'c']),
-    (['a', 'b'], False, -2, 'c', ['c', 'b']),
-])
-def test_redisobject_setvalue_sets_one_value(init, force_unique, index, val,
-                                             expected):
-    """
-    The RedisObject.set_value method sets a value at the given index
-    position for an existing list or zset in Redis and returns the
-    value. Getting the full object produces the expected list.
-    """
-    redisobjs.RedisObject('test', 'item').set(init, force_unique=force_unique)
-    assert redisobjs.RedisObject('test', 'item').set_value(index, val) == val
-    assert redisobjs.RedisObject('test', 'item').get() == expected
-
-
-@pytest.mark.parametrize('init, force_unique, i, vals, expected', [
-    (['a', 'b'], True, 0, tuple(), ['a', 'b']),
-    (['a', 'b'], True, 0, ('c', 'b', 'd'), ['c', 'b', 'd']),
-    (['a', 'b'], True, 1, (['b1', 'b2'], ['c1']), ['a', ['b1', 'b2'], ['c1']]),
-    (['a', 'b', 'c'], True, 1, ('1', '2'), ['a', '1', '2']),
-    (['a', 'b'], False, 0, ('c', 'b', 'd',), ['c', 'b', 'd']),
-    (['a', 'b'], False, 1, ({'b': 'z'}, 'c'), ['a', {'b': 'z'}, 'c']),
-    (['a', 'b', 'c'], False, 1, ('1', '2'), ['a', '1', '2']),
-
-    # If the start index is out of range, it pushes values onto the end
-    # of the list.
-    (['a', 'b'], True, 2, ('c', 'd'), ['a', 'b', 'c', 'd']),
-    (['a', 'b'], True, 10, ('c', 'd'), ['a', 'b', 'c', 'd']),
-    (['a', 'b'], False, 2, ('c', 'd'), ['a', 'b', 'c', 'd']),
-    (['a', 'b'], False, 10, ('c', 'd'), ['a', 'b', 'c', 'd']),
-
-    # If a negative index is used, it replaces values starting at the
-    # end of the list.
-    (['a', 'b'], True, -1, ('c', 'd'), ['a', 'c', 'd']),
-    (['a', 'b', 'c'], True, -2, ('1', '2'), ['a', '1', '2']),
-    (['a', 'b'], False, -1, ('c', 'd'), ['a', 'c', 'd']),
-    (['a', 'b', 'c'], False, -2, ('1', '2'), ['a', '1', '2']),
-])
-def test_redisobject_setvalue_sets_multi_values(init, force_unique, i, vals,
-                                                expected):
-    """
-    When multiple values are provided, the RedisObject.set_value method
-    sets a range of values starting at the given index position for an
-    existing list or zset in Redis and returns the values. Getting the
-    full object produces the expected list.
-    """
-    redisobjs.RedisObject('test', 'item').set(init, force_unique=force_unique)
-    assert redisobjs.RedisObject('test', 'item').set_value(i, *vals) == vals
-    assert redisobjs.RedisObject('test', 'item').get() == expected
-
-
-@pytest.mark.parametrize('value', [
-    'test',
-    {1, 2, 3},
-    {'a': 'z', 'b': 'y'}
-])
-def test_redisobject_setvalue_type_errors(value):
-    """
-    The RedisObject.set_value method requires a list or zset type in
-    Redis, otherwise it raises a TypeError.
-    """
-    redisobjs.RedisObject('test', 'list-error').set(value)
-    with pytest.raises(TypeError):
-        redisobjs.RedisObject('test', 'list-error').set_value(0, ['a', 'b'])
-
-
-@pytest.mark.parametrize('init, f_unq, i, vals, exp_return, exp_list', [
-    (['a', 'b'], True, 0, tuple(), [None], ['a', 'b']),
-    (['a', 'b'], True, 0, ('c',), [[1, 1]], ['c', 'b']),
-    (['a', 'b'], True, 0, ('c', 'b', 'd'), [[2, 3]], ['c', 'b', 'd']),
-    (['a', 'b'], False, 0, tuple(), [None], ['a', 'b']),
-    (['a', 'b'], False, 0, ('c',), [1], ['c', 'b']),
-    (['a', 'b'], False, 0, ('c', 'b', 'd'), [[True, True, 3]], ['c', 'b', 'd']),
-])
-def test_redisobject_setvalue_with_defer(init, f_unq, i, vals, exp_return,
-                                         exp_list):
-    """
-    When a RedisObject instance has defer set to True, a 'set_value'
-    operation wil queue the operation on the instance's 'pipe' object
-    and return the pipe. When executed, the pipe will return the
-    expected value(s) from Redis. Getting the full object will produce
-    the expected list, but only after the pipeline is executed.
-    """
-    r_norm = redisobjs.RedisObject('test', 'list-zset-defer')
-    r_norm.set(init, force_unique=f_unq)
-    r_defer = redisobjs.RedisObject('test', 'list-zset-defer', defer=True)
-    pipe = r_defer.set_value(i, *vals)
-    assert pipe == r_defer.pipe
-    assert r_norm.get() == init
-    assert pipe.execute() == exp_return
-    assert r_norm.get() == exp_list
 
 
 @pytest.mark.parametrize('init, field, expected', [
@@ -818,9 +910,9 @@ def test_redisobject_one_pipeline_multiple_operations():
     r_feels.get_value(-1)
     r_header.get()
     r_things.get_field('lemon', 'peas')
-    r_things.set_field({
+    r_things.set({
         'lemon': {'color': 'y', 'taste': 'sour', 'feeling': 'happy'}
-    })
+    }, update=True)
     r_things.get_field('lemon')
     t, f, h, t1, _, t2 = pipe.execute()
     assert t == [4, 2]

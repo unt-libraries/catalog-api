@@ -10,6 +10,8 @@ from six import iteritems
 REDIS_CONNECTION = redis.StrictRedis(
     decode_responses=True, **settings.REDIS_CONNECTION
 )
+NONE_KEY = '~~~|_DOESNOTEXIST_|~~~'
+STR_OBJ_PREFIX = '~~~|_STR_OBJ_|~~~'
 
 
 class Accumulator(object):
@@ -222,28 +224,41 @@ class _RedisJsonEncoder(object):
     All methods are static. This is just to provide a convenient
     grouping and namespace for these functions.
     """
-    
+
     @staticmethod
-    def string(data):
+    def is_encoded_obj(obj):
+        end_of_prefix = len(STR_OBJ_PREFIX) - 1
+        return obj.conn.getrange(obj.key, 0, end_of_prefix) == STR_OBJ_PREFIX
+
+    @staticmethod
+    def encoded_obj(data):
+        return ''.join([STR_OBJ_PREFIX, ujson.dumps(data)])
+
+    @staticmethod
+    def member(data):
         return ujson.dumps(data)
 
     @staticmethod
     def zset(data):
+        member_encode = _RedisJsonEncoder.member
         return {
-            ujson.dumps(item): score for item, score in data
+            member_encode(item): score for item, score in data
         }
 
     @staticmethod
     def list(data):
-        return [ujson.dumps(item) for item in data]
+        member_encode = _RedisJsonEncoder.member
+        return [member_encode(item) for item in data]
 
     @staticmethod
     def hash(data):
-        return {k: ujson.dumps(v) for k, v in iteritems(data)}
+        member_encode = _RedisJsonEncoder.member
+        return {k: member_encode(v) for k, v in iteritems(data)}
 
     @staticmethod
     def set(data):
-        return [ujson.dumps(item) for item in data]
+        member_encode = _RedisJsonEncoder.member
+        return [member_encode(item) for item in data]
 
 
 class _RedisJsonDecoder(object):
@@ -255,29 +270,38 @@ class _RedisJsonDecoder(object):
     """
 
     @staticmethod
+    def encoded_obj(raw):
+        if raw is not None:
+            return ujson.loads(raw.lstrip(STR_OBJ_PREFIX))
+
+    @staticmethod
     def list(raw):
+        member_decode = _RedisJsonDecoder.member
         if raw:
-            return [v if v is None else ujson.loads(v) for v in raw]
+            return [v if v is None else member_decode(v) for v in raw]
     
     @staticmethod
     def dict(raw):
+        member_decode = _RedisJsonDecoder.member
         if raw:
-            return {k: ujson.loads(v) for k, v in iteritems(raw)}
+            return {k: member_decode(v) for k, v in iteritems(raw)}
 
     @staticmethod
     def set(raw):
+        member_decode = _RedisJsonDecoder.member
         if raw:
-            return set([v if v is None else ujson.loads(v) for v in raw])
+            return set([v if v is None else member_decode(v) for v in raw])
 
     @staticmethod
-    def string(raw):
+    def member(raw):
         if raw is not None:
-            return ujson.loads(str(raw))
+            return ujson.loads(raw)
 
     @staticmethod
     def int(raw):
+        member_decode = _RedisJsonDecoder.member
         if raw is not None:
-            return int(ujson.loads(str(raw)))
+            return int(member_decode(raw))
 
 
 class _RedisSetter(object):
@@ -294,6 +318,19 @@ class _RedisSetter(object):
         'str': 'string',
         'set': 'set'
     }
+    rtype_compatibility = {
+        'zset': {'types': (list, tuple), 'label': 'list or tuple'},
+        'list': {'types': (list, tuple), 'label': 'list or tuple'},
+        'string': {'types': (str,), 'label': 'string'},
+        'hash': {'types': (dict,), 'label': 'dict'},
+        'set': {'types': (set,), 'label': 'set'},
+        'encoded_obj': {
+            'types': tuple(),
+            'label': 'any JSON-serializable type except list, tuple, string, '
+                     'dict, or set'
+        }
+    }
+    default_rtype = 'encoded_obj'
 
     def __init__(self, redis_object, encoder):
         self.obj = redis_object
@@ -304,20 +341,68 @@ class _RedisSetter(object):
     def get_rtype_from_data(self, data, force_unique):
         ptype = type(data)
         unstr = '_unique' if ptype in (list, tuple) and force_unique else ''
-        return self.types_to_rtype.get(f'{ptype.__name__}{unstr}') or 'string'
+        type_key = ''.join([ptype.__name__, unstr])
+        return self.types_to_rtype.get(type_key) or self.default_rtype
 
-    def zset(self, data, accumulator):
-        return self.pipe.add(
+    def get_cmp_ptypes(self, rtype):
+        return self.rtype_compatibility.get(rtype, {}).get('types', str)
+
+    def get_cmp_ptypes_label(self, rtype):
+        entry = self.rtype_compatibility.get(rtype, {})
+        return entry.get('label', self.default_rtype)
+
+    def zset(self, data, accumulator, update=False, index=None):
+        acc = accumulator
+        if update:
+            zset_len = self.conn.zcard(self.key)
+            if index is None or index > zset_len:
+                index = zset_len
+            else:
+                if index < 0:
+                    try_convert = index + zset_len
+                    index = try_convert if try_convert > 0 else 0
+                acc = acc or self.obj.make_result_accumulator()
+                end_index = index + len(data) - 1
+                self.pipe.add(
+                    'zremrangebyscore', self.key, args=[index, end_index],
+                    accumulator=acc
+                )
+        else:
+            index = 0
+        self.pipe.add(
             'zadd', self.key, args=[self.encoder.zset(
-                ((v, i) for i, v in enumerate(data))
-            )], accumulator=accumulator
+                ((v, index + i) for i, v in enumerate(data))
+            )], accumulator=acc
         )
+        if acc is not None and accumulator is None:
+            self.pipe.mark_accumulator_pop()
+        return self.pipe
 
-    def list(self, data, accumulator):
-        return self.pipe.add(
-            'rpush', self.key, args=self.encoder.list(data),
-            accumulator=accumulator
-        )
+    def list(self, data, accumulator, update=False, index=None):
+        acc = accumulator
+        if index is not None:
+            llen = self.conn.llen(self.key) if update else 0
+            if index < 0:
+                try_convert = index + llen
+                index = try_convert if try_convert > 0 else 0
+            if index < llen:
+                if len(data) > 1 and not acc:
+                    acc = self.obj.make_result_accumulator()
+                end_index = llen - index
+                for i, value in enumerate(data[:end_index]):
+                    args = [i + index, self.encoder.member(value)]
+                    self.pipe.add('lset', self.key, args=args, accumulator=acc)
+                data = data[end_index:]
+            elif index > llen:
+                data = [None] * (index - llen) + list(data)
+        if data:
+            self.pipe.add(
+                'rpush', self.key, args=self.encoder.list(data),
+                accumulator=acc
+            )
+        if acc is not None and accumulator is None:
+            self.pipe.mark_accumulator_pop()
+        return self.pipe
 
     def hash(self, data, accumulator):
         return self.pipe.add(
@@ -331,75 +416,23 @@ class _RedisSetter(object):
             accumulator=accumulator
         )
 
-    def string(self, data, accumulator):
-        # 'string' is the default type; if 'data' isn't one of the
-        # known collection types, it's serialized to JSON and stored as
-        # a string value in Redis.
+    def string(self, data, accumulator, update=False, index=None):
+        strlen = self.conn.strlen(self.key) if update else 0
+        if index is None:
+            index = strlen
+        elif index < 0:
+            try_convert = index + strlen
+            index = try_convert if try_convert > 0 else 0
         return self.pipe.add(
-            'set', self.key, args=[self.encoder.string(data)],
+            'setrange', self.key, args=[index, data],
             accumulator=accumulator
         )
 
-    def _convert_zset_index(self, index):
-        zset_len = self.conn.zcard(self.key)
-        if index < 0:
-            return index + zset_len
-        if index > zset_len:
-            return zset_len
-        return index
-
-    def zset_value(self, index, value):
-        acc = self.obj.make_result_accumulator()
-        index = self._convert_zset_index(index)
-        self.pipe.add(
-            'zremrangebyscore', self.key, args=[index, index],
-            accumulator=acc
+    def encoded_obj(self, data, accumulator):
+        return self.pipe.add(
+            'set', self.key, args=[self.encoder.encoded_obj(data)],
+            accumulator=accumulator
         )
-        self.pipe.add(
-            'zadd', self.key, args=[self.encoder.zset([(value, index)])],
-            accumulator=acc
-        )
-        self.pipe.mark_accumulator_pop()
-        return self.pipe
-
-    def zset_values(self, start, values):
-        acc = self.obj.make_result_accumulator()
-        start = self._convert_zset_index(start)
-        end = start + len(values) - 1
-        self.pipe.add(
-            'zremrangebyscore', self.key, args=[start, end], accumulator=acc
-        )
-        self.pipe.add(
-            'zadd', self.key, args=[self.encoder.zset(
-                ((v, start + i) for i, v in enumerate(values))
-            )], accumulator=acc
-        )
-        self.pipe.mark_accumulator_pop()
-        return self.pipe
-
-    def _add_item_to_list(self, listlength, index, value, acc):
-        encoded = self.encoder.string(value)
-        if index >= listlength:
-            cmd = 'rpush'
-            args = [encoded]
-        else:
-            cmd = 'lset'
-            args = [index, encoded]
-        return self.pipe.add(cmd, self.key, args=args, accumulator=acc)
-
-    def list_value(self, index, value):
-        llen = self.conn.llen(self.key)
-        index += llen if index < 0 else 0
-        return self._add_item_to_list(llen, index, value, None)
-
-    def list_values(self, start, values):
-        acc = self.obj.make_result_accumulator()
-        llen = self.conn.llen(self.key)
-        start += llen if start < 0 else 0
-        for i, val in enumerate(values):
-            self._add_item_to_list(llen, i + start, val, acc)
-        self.pipe.mark_accumulator_pop()
-        return self.pipe
 
 
 class _RedisGetter(object):
@@ -430,14 +463,19 @@ class _RedisGetter(object):
         return self.pipe.add('smembers', self.key, callback=self.decoder.set)
 
     def string(self):
-        return self.pipe.add('get', self.key, callback=self.decoder.string)
+        return self.pipe.add('get', self.key)
+
+    def encoded_obj(self):
+        return self.pipe.add(
+            'get', self.key, callback=self.decoder.encoded_obj
+        )
 
     def none(self):
-        return self.pipe.add('get', self.obj.none_key)
+        return self.pipe.add('get', NONE_KEY)
 
     def hash_field(self, field):
         return self.pipe.add(
-            'hget', self.key, args=[field], callback=self.decoder.string
+            'hget', self.key, args=[field], callback=self.decoder.member
         )
 
     def hash_fields(self, fields):
@@ -446,14 +484,14 @@ class _RedisGetter(object):
         )
 
     def zset_index(self, value):
-        encoded_val = self.obj.setter.encoder.string(value)
+        encoded_val = self.obj.setter.encoder.member(value)
         return self.pipe.add(
             'zscore', self.key, args=[encoded_val],
             callback=lambda score: score if score is None else int(score)
         )
 
     def zset_indexes(self, values):
-        encoded_vals = [self.obj.setter.encoder.string(v) for v in values]
+        encoded_vals = [self.obj.setter.encoder.member(v) for v in values]
         return self.pipe.add(
             'zmscore', self.key, args=[encoded_vals],
             callback=lambda scores: [
@@ -463,7 +501,7 @@ class _RedisGetter(object):
 
     def list_index(self, value):
         callback = make_single_or_list_callback()
-        encoded_val = self.obj.setter.encoder.string(value)
+        encoded_val = self.obj.setter.encoder.member(value)
         return self.pipe.add(
             'lpos', self.key, args=[encoded_val], kwargs={'count': 0},
             callback=callback
@@ -472,7 +510,7 @@ class _RedisGetter(object):
     def list_indexes(self, values):
         acc = self.obj.make_result_accumulator()
         callback = make_single_or_list_callback()
-        encoded_vals = (self.obj.setter.encoder.string(v) for v in values)
+        encoded_vals = (self.obj.setter.encoder.member(v) for v in values)
         for encoded_val in encoded_vals:
             self.pipe.add(
                 'lpos', self.key, args=[encoded_val], kwargs={'count': 0},
@@ -484,7 +522,7 @@ class _RedisGetter(object):
     def zset_value(self, index):
         return self.pipe.add(
             'zrange', self.key, args=[index, index],
-            callback=lambda v: self.decoder.string(v[0]) if v else None
+            callback=lambda v: self.decoder.member(v[0]) if v else None
         )
 
     def zset_values(self, start, end):
@@ -494,7 +532,7 @@ class _RedisGetter(object):
 
     def list_value(self, index):
         return self.pipe.add(
-            'lindex', self.key, args=[index], callback=self.decoder.string
+            'lindex', self.key, args=[index], callback=self.decoder.member
         )
 
     def list_values(self, start, end):
@@ -543,7 +581,6 @@ class RedisObject(object):
     method docstrings for more information.
     """
     conn = REDIS_CONNECTION
-    none_key = '____DOESNOTEXIST____'
 
     def __init__(self, entity, id_, pipe=None, defer=False):
         """
@@ -579,23 +616,27 @@ class RedisObject(object):
         """
         if self._rtype is None:
             self._rtype = self.conn.type(self.key)
+            if self._rtype == 'string':
+                if self.setter.encoder.is_encoded_obj(self):
+                    self._rtype = 'encoded_obj'
         return self._rtype
 
     def make_result_accumulator(self):
         return Accumulator(list, list.append)
 
-    def set(self, data, force_unique=True):
+    def set(self, data, force_unique=None, update=False, index=None):
         """
-        Sets the given data in Redis using the current key.
+        Sets the given data in Redis at the current key.
 
         The 'data' can be any type that is JSON-serializable. Strings
         and numbers get converted to JSON. Lists, sets, and dicts are
         stored as specialized types for more granular access; each
         member is converted to JSON.
-            - List/tuple with force_unique=True: sorted set (zset).
-            - List/tuple with force_unique=False: list.
-            - Set: set.
-            - Dictionary: hash.
+
+          - List/tuple with force_unique=True: sorted set (zset).
+          - List/tuple with force_unique=False: list.
+          - Set: set.
+          - Dictionary: hash.
 
         Other data types just get converted to JSON and are stored as
         strings.
@@ -606,19 +647,67 @@ class RedisObject(object):
         MUCH faster access compared to a plain list, so use this if
         possible. Default is True (zset).
 
+        If 'update' is False, then any existing data at the given key
+        is deleted before setting the new value.
+
+        If 'update' is True, it updates the existing key according to
+        its data type, using 'index' as appropriate.
+
+          - For a list, zset, or string: replaces data starting at the
+            given 'index' value, or tacks new values to the end if
+            'index' is None. Negative indexes set values starting from
+            the end of the list.
+          - For a list or string, if 'index' is larger than the size of
+            the data, then it pads the data appropriately -- it adds
+            None/null list members or null bytes.
+          - For a zset, if 'index' is larger than the size of the data,
+            it treats it as though 'index' is None, tacking values onto
+            the end of the zset. (Because zset members must be unique,
+            we cannot pad them with null values like we can lists and
+            strings.)
+          - For a set: adds the data values, like set.update. The
+            'index' value is ignored.
+          - For a hash: updates existing fields and adds new ones, like
+            dict.update. The 'index' value is ignored.
+
+        Other types, labeled 'encoded_obj', cannot be updated -- data
+        is reset whether 'update' is True or False.
+
+        When updating existing data, your new data values must be
+        compatible with the stored type. E.g., if you wish to add to a
+        list or zset, you must provide a list or a tuple.
+
+        The default for 'update' is False, and the default for 'index'
+        is None.
+
         If self.defer is False, it executes the operation immediately
         and returns the original data value. If self.defer is True, it
         queues up the operation(s) on self.pipe and returns that.
         """
         if data or data == 0:
-            self._rtype = self.setter.get_rtype_from_data(data, force_unique)
-            acc = self.make_result_accumulator()
-            self.pipe.add('delete', self.key, accumulator=acc)
-            if self.rtype == 'string':
-                self.pipe = self.setter.string(data, acc)
+            kwargs = {}
+            if force_unique is None and self.rtype in ('zset', 'list'):
+                force_unique = self.rtype == 'zset' if update else True
+            drtype = self.setter.get_rtype_from_data(data, force_unique)
+            if drtype in ('zset', 'list', 'string'):
+                kwargs = {'update': update, 'index': index}
+            if update:
+                if self.rtype not in ('none', drtype):
+                    cmp_ptypes = self.setter.get_cmp_ptypes_label(self.rtype)
+                    raise TypeError(
+                        f'Cannot update existing {self.rtype} data with '
+                        f'{drtype} data for key {self.key}. You must '
+                        f'provide data of a compatible type: {cmp_ptypes}.'
+                    )
+                self.pipe = getattr(self.setter, drtype)(data, None, **kwargs)
             else:
-                self.pipe = getattr(self.setter, self.rtype)(data, acc)
-            self.pipe.mark_accumulator_pop()
+                acc = self.make_result_accumulator()
+                self.pipe.add('delete', self.key, accumulator=acc)
+                self.pipe = getattr(self.setter, drtype)(data, acc, **kwargs)
+                self.pipe.mark_accumulator_pop()
+            self._rtype = drtype
+        elif update:
+            self.getter.none()
         else:
             self.pipe.add('delete', self.key)
         if self.defer:
@@ -628,72 +717,26 @@ class RedisObject(object):
 
     def set_field(self, mapping):
         """
-        Sets the given hash field(s) based on the provided mapping.
+        Sets one or more field values using the given mapping.
 
-        This is the equivalent of: my_dict.update(mapping), but done
-        natively with a Redis hash. This way you can set a subset of
-        values using a single operation instead of having to retrieve
-        the hash, update the dict, and store the hash again.
-
-        If the Redis data type isn't 'hash' -- i.e., if you didn't set
-        this using a dict -- it raises a TypeError.
-
-        If self.defer is False, it executes the operation immediately
-        and returns the original data mapping. If self.defer is True,
-        it queues up the operation(s) on self.pipe and returns that.
+        This is the equivalent of: my_dict.update(mapping). It is a
+        convenience method that just calls 'set' with 'update=True'.
+        For more information, see the 'set' method.
         """
-        if self.rtype == 'hash':
-            if mapping:
-                self.setter.hash(mapping, None)
-            else:
-                self.getter.none()
-            if self.defer:
-                return self.pipe
-            self.pipe.execute()
-            return mapping
-        raise TypeError(
-            f"'set_field' must be used on a 'hash' (dict) type, not "
-            f"'{self.rtype}'"
-        )
+        return self.set(mapping, update=True)
 
     def set_value(self, index, *values):
         """
         Sets one or more data values starting at the given index pos.
 
-        This is the equivalent of: my_list[index:] = data, but done
-        natively in Redis. This lets you set a range of values with a
-        single operation instead of having to retrieve the full data
-        structure, set the values, and store the data structure again.
-
-        You can use negative indexes to set values starting from the
-        end of the list. If you provide an index value that is out of
-        range, then it simply pushes your data onto the end.
-
-        If the Redis data type isn't 'list' or 'zset' -- i.e., if you
-        didn't set this with a list or tuple -- it raises a TypeError.
-
-        If self.defer is False, it executes the operation immediately
-        and returns the original data value. If self.defer is True, it
-        queues up the operation(s) on self.pipe and returns that.
+        This is the equivalent of: my_list[index:] = values. It is a
+        convenience method that just calls 'set' with 'update=True'.
+        For more information, see the 'set' method.
         """
-        multi = len(values) > 1
-        if self.rtype in ('list', 'zset'):
-            if values:
-                plural = 's' if multi else ''
-                values = values if multi else values[0]
-                getattr(self.setter, f'{self.rtype}_value{plural}')(
-                    index, values
-                )
-            else:
-                self.getter.none()
-            if self.defer:
-                return self.pipe
-            self.pipe.execute()
-            return values
-        raise TypeError(
-            f"'set_value' must be used on a 'list' or 'zset' type, not "
-            f"'{self.rtype}'"
-        )
+        rval = self.set(values, update=True, index=index)
+        if not self.defer and len(values) == 1:
+            return rval[0]
+        return rval
 
     def get(self):
         """
