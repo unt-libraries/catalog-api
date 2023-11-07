@@ -671,6 +671,130 @@ def test_redisobject_set_and_defer_list_zset(init, f_unq, i, vals, exp_return,
     assert r_norm.get() == exp_list
 
 
+@pytest.mark.parametrize('updates, expected', [
+    # zsets
+    # appending
+    ([(['1', '2'], True, False, None),
+      (['3', '4'], True, True, None),
+      (['5', '6', '7'], True, True, None)],
+     ['1', '2', '3', '4', '5', '6', '7']),
+    # using indexes
+    ([(['1', '2'], True, False, None),
+      (['3'], True, True, 0),
+      (['4', '5', '6'], True, True, 1),
+      (['7'], True, True, -1)], ['3', '4', '5', '7']),
+    ([(['1', '2', '3', '4', '5'], True, False, None),
+      (['10', '11', '12', '13', '14'], True, True, 2),
+      (['3'], True, True, -2)], ['1', '2', '10', '11', '12', '3', '14']),
+    # (with zsets, specifying an index > the current length adds the
+    # items to the end, using the specified index as the score -- so
+    # it doesn't pad with None, but you can fill the unused scores with
+    # items and effectively insert them into the zset there)
+    ([(['1', '2', '3'], True, False, None),
+      (['4', '5', '6'], True, True, 10),
+      (['7', '8'], True, True, 3)], ['1', '2', '3', '7', '8', '4', '5', '6']),
+    # update is False
+    ([(['1', '2', '3', '4', '5'], True, False, None),
+      (['6', '7'], True, False, None),
+      (['8'], True, True, None)], ['6', '7', '8']),
+    # starts with an update, and specifies an index -- no None-padding
+    # due to zset
+    ([(['1', '2', '3', '4', '5'], True, True, 2),
+      (['6', '7'], True, True, None)], ['1', '2', '3', '4', '5', '6', '7']),
+    # zsets with duplicate members always set a duplicate item's score
+    # using the last occurrence -- earlier occurrences leave score
+    # holes
+    ([(['1', '2', '3', '4', '2'], True, False, None),
+      (['3'], True, True, None),
+      (['5', '6'], True, True, None),
+      (['7'], True, True, 1)], ['1', '7', '4', '2', '3', '5', '6']),
+
+    # lists
+    # appending
+    ([(['1', '2'], False, False, None),
+      (['3', '4'], False, True, None),
+      (['5', '6', '7'], False, True, None)],
+     ['1', '2', '3', '4', '5', '6', '7']),
+    # using indexes
+    ([(['1', '2'], False, False, None),
+      (['3'], False, True, 0),
+      (['4', '5', '6'], False, True, 1),
+      (['7'], False, True, -1)], ['3', '4', '5', '7']),
+    ([(['1', '2', '3', '4', '5'], False, False, None),
+      (['10', '11', '12', '13', '14'], False, True, 2),
+      (['3'], False, True, -2)], ['1', '2', '10', '11', '12', '3', '14']),
+    ([(['1', '2', '3'], False, False, None),
+      (['4', '5', '6'], False, True, 6),
+      (['7', '8'], False, True, 3)],
+     ['1', '2', '3', '7', '8', None, '4', '5', '6']),
+    # update is False
+    ([(['1', '2', '3', '4', '5'], False, False, None),
+      (['6', '7'], False, False, None),
+      (['8'], False, True, None)], ['6', '7', '8']),
+    # starts with an update, and specifies an index
+    ([(['1', '2', '3', '4', '5'], False, True, 2),
+      (['6', '7'], False, True, None)],
+     [None, None, '1', '2', '3', '4', '5', '6', '7']),
+
+    # raw strings
+    # appending
+    ([('12', None, False, None),
+      ('34', None, True, None),
+      ('567', None, True, None)], '1234567'),
+    # using indexes
+    ([('12', None, False, None),
+      ('3', None, True, 0),
+      ('456', None, True, 1),
+      ('7', None, True, -1)], '3457'),
+    ([('12345', None, False, None),
+      ('1011121314', None, True, 2),
+      ('3', None, True, -2)], '121011121334'),
+    ([('123', None, False, None),
+      ('456', None, True, 6),
+      ('78', None, True, 3)], '12378\x00456'),
+    # update is False
+    ([('12345', None, False, None),
+      ('67', None, False, None),
+      ('8', None, True, None)], '678'),
+    # starts with an update, and specifies an index
+    ([('12345', None, True, 2),
+      ('67', None, True, None)], '\x00\x001234567'),
+
+    # hashes
+    # adding to a hash
+    ([({'a': 'z'}, None, False, None),
+      ({'b': 'y', 'c': 'x'}, None, True, None),
+      ({'d': 'w'}, None, True, None)],
+      {'a': 'z', 'b': 'y', 'c': 'x', 'd': 'w'}),
+    # overriding existing fields
+    ([({'a': 'z'}, None, False, None),
+      ({'a': 1, 'b': 2}, None, True, None),
+      ({'b': 3}, None, True, None)], {'a': 1, 'b': 3}),
+    # update is False
+    ([({'a': 'z'}, None, False, None),
+      ({'b': 'y'}, None, False, None),
+      ({'c': 'x'}, None, True, None)], {'b': 'y', 'c': 'x'}),
+    # starts with an update
+    ([({'a': 'z'}, None, True, None),
+      ({'b': 'y'}, None, True, None)], {'a': 'z', 'b': 'y'}),
+
+])
+def test_redisobject_set_and_defer_multiple_updates(updates, expected):
+    """
+    When performing multiple deferred 'set' operations that update a
+    key, the length of data the key stores varies per operation. But,
+    if operations are deferred, then operations n+1, n+2, ... may
+    depend on the future length of the data, not the current length.
+    This is to test and make sure this works correctly.
+    """
+    r = redisobjs.RedisObject('test', 'defer-multi-update', defer=True)
+    for args in updates:
+        r.set(*args)
+    r.pipe.execute()
+    r.defer = False
+    assert r.get() == expected
+
+
 def test_redisobject_setfield_calls_set(mocker):
     """
     The RedisObject.set_field method is just a convenience method that

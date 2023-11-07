@@ -132,6 +132,7 @@ class Pipeline(object):
         self.entries = []
         self.accumulators = []
         self.pipe = conn.pipeline()
+        self.pending_cache = {}
 
     def add(self, cmd, key, args=[], kwargs={}, callback=None,
             accumulator=None):
@@ -195,6 +196,7 @@ class Pipeline(object):
             if accumulator.accumulated:
                 results.append(accumulator.pop_all())
         self.entries = []
+        self.pending_cache = {}
         return results
 
 
@@ -354,39 +356,54 @@ class _RedisSetter(object):
     def zset(self, data, accumulator, update=False, index=None):
         acc = accumulator
         if update:
-            zset_len = self.conn.zcard(self.key)
-            if index is None or index > zset_len:
-                index = zset_len
+            prev_end = self.pipe.pending_cache.get(self.key)
+            if prev_end is None:
+                prev_max = self.conn.zrange(self.key, -1, -1, withscores=True)
+                prev_end = int(prev_max[0][1]) if prev_max else -1
+            if index is None:
+                offset = prev_end + 1
             else:
                 if index < 0:
-                    try_convert = index + zset_len
-                    index = try_convert if try_convert > 0 else 0
+                    try_convert = prev_end + index + 1
+                    offset = try_convert if try_convert > 0 else 0
+                else:
+                    offset = index
+            end = offset + len(data) - 1
+            if offset <= prev_end:
                 acc = acc or self.obj.make_result_accumulator()
-                end_index = index + len(data) - 1
                 self.pipe.add(
-                    'zremrangebyscore', self.key, args=[index, end_index],
+                    'zremrangebyscore', self.key, args=[offset, end],
                     accumulator=acc
                 )
+            zset_end = end if end > prev_end else prev_end
         else:
-            index = 0
+            offset = 0 if (index is None or index < 0) else index
+            zset_end = offset + len(data) - 1
         self.pipe.add(
             'zadd', self.key, args=[self.encoder.zset(
-                ((v, index + i) for i, v in enumerate(data))
+                ((v, offset + i) for i, v in enumerate(data))
             )], accumulator=acc
         )
+        self.pipe.pending_cache[self.key] = zset_end
         if acc is not None and accumulator is None:
             self.pipe.mark_accumulator_pop()
         return self.pipe
 
     def list(self, data, accumulator, update=False, index=None):
         acc = accumulator
+        if update:
+            llen = self.pipe.pending_cache.get(
+                self.key, self.conn.llen(self.key)
+            )
+        else:
+            llen = 0
         if index is not None:
-            llen = self.conn.llen(self.key) if update else 0
             if index < 0:
                 try_convert = index + llen
                 index = try_convert if try_convert > 0 else 0
             if index < llen:
-                if len(data) > 1 and not acc:
+                len_data = len(data)
+                if len_data > 1 and not acc:
                     acc = self.obj.make_result_accumulator()
                 end_index = llen - index
                 for i, value in enumerate(data[:end_index]):
@@ -400,6 +417,8 @@ class _RedisSetter(object):
                 'rpush', self.key, args=self.encoder.list(data),
                 accumulator=acc
             )
+            llen += len(data)
+        self.pipe.pending_cache[self.key] = llen
         if acc is not None and accumulator is None:
             self.pipe.mark_accumulator_pop()
         return self.pipe
@@ -417,12 +436,20 @@ class _RedisSetter(object):
         )
 
     def string(self, data, accumulator, update=False, index=None):
-        strlen = self.conn.strlen(self.key) if update else 0
+        if update:
+            strlen = self.pipe.pending_cache.get(
+                self.key, self.conn.strlen(self.key)
+            )
+        else:
+            strlen = 0
         if index is None:
             index = strlen
         elif index < 0:
             try_convert = index + strlen
             index = try_convert if try_convert > 0 else 0
+        new_len = len(data) + index
+        strlen = new_len if new_len > strlen else strlen
+        self.pipe.pending_cache[self.key] = strlen
         return self.pipe.add(
             'setrange', self.key, args=[index, data],
             accumulator=accumulator
@@ -644,8 +671,25 @@ class RedisObject(object):
         The 'force_unique' option only applies to lists/tuples. It
         determines whether Redis stores the data as a zset (thereby
         forcing members to be unique) or a plain list. A zset allows
-        MUCH faster access compared to a plain list, so use this if
-        possible. Default is True (zset).
+        MUCH faster access compared to a plain list, so use this any
+        time you have unique data. Default is True (zset). Note that,
+        if you do provide a duplicate item when setting a zset, its
+        position resets each time it appears -- so its final position
+        will be wherever it appears LAST.
+
+        Note also that a zset works by keeping a "score" associated
+        with each member, and the scores determine the sort order.
+        RedisObject uses these to store index positions and thus
+        provides sortable set functionality (mostly) transparently --
+        i.e., you usually don't have to worry about the scores.
+        However, when duplicates appear in your data, it leaves holes
+        in the score sequence where all but the last instance of each
+        duplicate fell. (E.g., a b c b => a|0, c|2, b|3.) This doesn't
+        affect the sort order, but if you need to update the zset in
+        place starting at a specific 'index' value, then you need to be
+        aware of where the holes are. Given the 'a b c b' example,
+        putting a value at index position 1 will insert it between a
+        and c, not overwrite c.
 
         If 'update' is False, then any existing data at the given key
         is deleted before setting the new value.
@@ -653,6 +697,10 @@ class RedisObject(object):
         If 'update' is True, it updates the existing key according to
         its data type, using 'index' as appropriate.
 
+          - For a set: adds the data values, like set.update. The
+            'index' value is ignored.
+          - For a hash: updates existing fields and adds new ones, like
+            dict.update. The 'index' value is ignored.
           - For a list, zset, or string: replaces data starting at the
             given 'index' value, or tacks new values to the end if
             'index' is None. Negative indexes set values starting from
@@ -660,15 +708,31 @@ class RedisObject(object):
           - For a list or string, if 'index' is larger than the size of
             the data, then it pads the data appropriately -- it adds
             None/null list members or null bytes.
-          - For a zset, if 'index' is larger than the size of the data,
-            it treats it as though 'index' is None, tacking values onto
-            the end of the zset. (Because zset members must be unique,
-            we cannot pad them with null values like we can lists and
-            strings.)
-          - For a set: adds the data values, like set.update. The
-            'index' value is ignored.
-          - For a hash: updates existing fields and adds new ones, like
-            dict.update. The 'index' value is ignored.
+          - Zset behavior is more complicated. It doesn't have indexes
+            per se; instead, sort order is determined by a "score"
+            associated with each member, in Redis. For our purposes we
+            simply store the index position as the score. When you
+            first set a zset, scores are incremental unless your data
+            has duplicates. E.g.: a b c => a|0, b|1, c|2. BUT,
+            a c b c => a|0, b|2, c|3. When you 'get' each of these,
+            they return the same value, (['a', 'b', 'c']). But they
+            behave differently when you set 'index' position 1. If you
+            issue a command to set position 1 to 'd' -- with the first,
+            'b' is at position 1 and gets overwritten: a|0, d|1, c|2.
+            The second has nothing at position 1, so it inserts the new
+            value between 'a' and 'b': a|0, d|1, b|2, c|3.
+          - If you provide a zset 'index' larger than the size of the
+            data, it doesn't pad with None/null the way a list or
+            string does because zset members must be unique. However,
+            since it converts the index positions to scores, you end up
+            with an invisible score gap. E.g., say you start with
+            'a b c', and you add 'd e f' at position 10. You'll have
+            a|0, b|1, c|2, d|10, e|11, f|12. From there, setting values
+            at positions 3-9 will insert them between b and c.
+
+        Generally: when you're working with zsets and you need to
+        update one in place, you must account for how index values are
+        mapped to scores.
 
         Other types, labeled 'encoded_obj', cannot be updated -- data
         is reset whether 'update' is True or False.
