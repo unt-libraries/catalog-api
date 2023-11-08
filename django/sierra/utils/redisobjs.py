@@ -129,10 +129,20 @@ class Pipeline(object):
         """
         Inits a new Pipeline instance.
         """
+        self.pipe = conn.pipeline()
+        self.reset(False)
+
+    def reset(self, reset_pipe=True):
+        """
+        Resets this Pipeline object's state.
+
+        Use 'reset_pipe=True' to reset self.pipe. Default is True.
+        """
         self.entries = []
         self.accumulators = []
-        self.pipe = conn.pipeline()
         self.pending_cache = {}
+        if reset_pipe:
+            self.pipe.reset()
 
     def add(self, cmd, key, args=[], kwargs={}, callback=None,
             accumulator=None):
@@ -195,8 +205,7 @@ class Pipeline(object):
         for accumulator in self.accumulators:
             if accumulator.accumulated:
                 results.append(accumulator.pop_all())
-        self.entries = []
-        self.pending_cache = {}
+        self.reset(False)
         return results
 
 
