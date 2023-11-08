@@ -230,89 +230,76 @@ def make_single_or_list_callback(decode_list=None):
 
 class _RedisJsonEncoder(object):
     """
-    Private class with methods for encoding JSON in Redis data types.
+    Private class with methods for encoding Redis data types.
 
-    All methods are static. This is just to provide a convenient
-    grouping and namespace for these functions.
+    Contains methods named with a Redis type that return a generator
+    for encoding items. Ultimately the caller is responsible for
+    converting the generated items to the needed args for Redis.
+
+    'encoded_obj' is a special type representing a JSON-serializable
+    object of an unknown type. This method doesn't return a generator,
+    since it's a one-shot encoding.
+
+    A 'member' property defines how individual members of zsets, lists,
+    hashes, and sets should be encoded.
     """
+
+    def __init__(self):
+        self.member = ujson.dumps
 
     @staticmethod
     def is_encoded_obj(obj):
         end_of_prefix = len(STR_OBJ_PREFIX) - 1
         return obj.conn.getrange(obj.key, 0, end_of_prefix) == STR_OBJ_PREFIX
 
-    @staticmethod
-    def encoded_obj(data):
-        return ''.join([STR_OBJ_PREFIX, ujson.dumps(data)])
+    def encoded_obj(self, data):
+        return ''.join([STR_OBJ_PREFIX, self.member(data)])
 
-    @staticmethod
-    def member(data):
-        return ujson.dumps(data)
+    def zset(self, data):
+        # 'data' should be a list of (item, score) tuples
+        return ((self.member(item), score) for item, score in data)
 
-    @staticmethod
-    def zset(data):
-        member_encode = _RedisJsonEncoder.member
-        return {
-            member_encode(item): score for item, score in data
-        }
+    def list(self, data):
+        return (self.member(item) for item in data)
 
-    @staticmethod
-    def list(data):
-        member_encode = _RedisJsonEncoder.member
-        return [member_encode(item) for item in data]
+    def hash(self, data):
+        # 'data' should be the dict representing the hash
+        return ((k, self.member(v)) for k, v in iteritems(data))
 
-    @staticmethod
-    def hash(data):
-        member_encode = _RedisJsonEncoder.member
-        return {k: member_encode(v) for k, v in iteritems(data)}
-
-    @staticmethod
-    def set(data):
-        member_encode = _RedisJsonEncoder.member
-        return [member_encode(item) for item in data]
+    def set(self, data):
+        return (self.member(item) for item in data)
 
 
 class _RedisJsonDecoder(object):
     """
     Private class with methods for decoding from Redis to Python.
 
-    All methods are static. This is just to provide a convenient
-    grouping and namespace for these functions.
+    Contains methods named with the target Python type, which may or
+    may not be the type returned from redis-py. They return the named
+    type.
+
+    'encoded_obj' is a special type representing a JSON-serializable
+    object of an unknown type.
+
+    The 'member' method/property is used to decode individual list,
+    dict, set, etc. elements.
     """
 
     @staticmethod
-    def encoded_obj(raw):
-        if raw is not None:
-            return ujson.loads(raw.lstrip(STR_OBJ_PREFIX))
-
-    @staticmethod
-    def list(raw):
-        member_decode = _RedisJsonDecoder.member
-        if raw:
-            return [v if v is None else member_decode(v) for v in raw]
-    
-    @staticmethod
-    def dict(raw):
-        member_decode = _RedisJsonDecoder.member
-        if raw:
-            return {k: member_decode(v) for k, v in iteritems(raw)}
-
-    @staticmethod
-    def set(raw):
-        member_decode = _RedisJsonDecoder.member
-        if raw:
-            return set([v if v is None else member_decode(v) for v in raw])
-
-    @staticmethod
     def member(raw):
-        if raw is not None:
-            return ujson.loads(raw)
+        return None if raw is None else ujson.loads(raw)
 
-    @staticmethod
-    def int(raw):
-        member_decode = _RedisJsonDecoder.member
-        if raw is not None:
-            return int(member_decode(raw))
+    def encoded_obj(self, raw):
+        return self.member(raw.lstrip(STR_OBJ_PREFIX))
+
+    def list(self, raw):
+        return [self.member(v) for v in raw] if raw else None
+
+    def dict(self, raw):
+        return {k: self.member(v) for k, v in iteritems(raw)} if raw else None
+
+    def set(self, raw):
+        return set([self.member(v) for v in raw]) if raw else None
 
 
 class _RedisSetter(object):
@@ -348,6 +335,12 @@ class _RedisSetter(object):
         self.key = redis_object.key
         self.pipe = redis_object.pipe
         self.encoder = encoder
+        self.bypass_encoding = False
+
+    def encode(self, method, data):
+        if self.bypass_encoding:
+            return data
+        return getattr(self.encoder, method)(data)
 
     def get_rtype_from_data(self, data, force_unique):
         ptype = type(data)
@@ -389,9 +382,9 @@ class _RedisSetter(object):
             offset = 0 if (index is None or index < 0) else index
             zset_end = offset + len(data) - 1
         self.pipe.add(
-            'zadd', self.key, args=[self.encoder.zset(
-                ((v, offset + i) for i, v in enumerate(data))
-            )], accumulator=acc
+            'zadd', self.key, args=[dict(self.encode(
+                'zset', ((v, offset + i) for i, v in enumerate(data))
+            ))], accumulator=acc
         )
         self.pipe.pending_cache[self.key] = zset_end
         if acc is not None and accumulator is None:
@@ -416,14 +409,21 @@ class _RedisSetter(object):
                     acc = self.obj.make_result_accumulator()
                 end_index = llen - index
                 for i, value in enumerate(data[:end_index]):
-                    args = [i + index, self.encoder.member(value)]
+                    args = [i + index, self.encode('member', value)]
                     self.pipe.add('lset', self.key, args=args, accumulator=acc)
                 data = data[end_index:]
             elif index > llen:
-                data = [None] * (index - llen) + list(data)
+                if self.bypass_encoding:
+                    # 'bypass_encoding' means the user data is already
+                    # encoded, but we still need to encode any values
+                    # we're adding ourselves, like None padding.
+                    none = self.encoder.member(None)
+                else:
+                    none = None
+                data = [none] * (index - llen) + list(data)
         if data:
             self.pipe.add(
-                'rpush', self.key, args=self.encoder.list(data),
+                'rpush', self.key, args=self.encode('list', data),
                 accumulator=acc
             )
             llen += len(data)
@@ -434,13 +434,14 @@ class _RedisSetter(object):
 
     def hash(self, data, accumulator):
         return self.pipe.add(
-            'hset', self.key, kwargs={'mapping': self.encoder.hash(data)},
+            'hset', self.key,
+            kwargs={'mapping': dict(self.encode('hash', data))},
             accumulator=accumulator
         )
 
     def set(self, data, accumulator):
         return self.pipe.add(
-            'sadd', self.key, args=self.encoder.set(data),
+            'sadd', self.key, args=self.encode('set', data),
             accumulator=accumulator
         )
 
@@ -466,7 +467,7 @@ class _RedisSetter(object):
 
     def encoded_obj(self, data, accumulator):
         return self.pipe.add(
-            'set', self.key, args=[self.encoder.encoded_obj(data)],
+            'set', self.key, args=[self.encode('encoded_obj', data)],
             accumulator=accumulator
         )
 
@@ -642,8 +643,8 @@ class RedisObject(object):
         self.pipe = pipe or Pipeline()
         self.defer = defer
         self._rtype = None
-        self.setter = _RedisSetter(self, _RedisJsonEncoder)
-        self.getter = _RedisGetter(self, _RedisJsonDecoder)
+        self.setter = _RedisSetter(self, _RedisJsonEncoder())
+        self.getter = _RedisGetter(self, _RedisJsonDecoder())
 
     @property
     def rtype(self):
