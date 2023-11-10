@@ -170,6 +170,12 @@ class Pipeline(object):
             self.accumulators.append(accumulator)
         return self
 
+    def noop(self):
+        """
+        Queues up a no-op command that adds None to pipeline output.
+        """
+        self.add('get', NONE_KEY)
+
     def mark_accumulator_pop(self):
         """
         Mark a point at which to pop acc contents during execution.
@@ -476,16 +482,86 @@ class _RedisGetter(object):
     """
     Private class that implements 'getting' behaviors for RedisObject.
     """
-    
+    lookup_types = {
+        'hash': {'valid': ('field',), 'default': 'field'},
+        'list': {'valid': ('value', 'values', 'index'), 'default': 'index'},
+        'zset': {'valid': ('value', 'values', 'index'), 'default': 'index'},
+        'string': {'valid': ('index',), 'default': 'index'},
+        'set': {'valid': ('value_exists', 'values_exist'),
+                'default': 'value_exists'},
+        'encoded_obj': {'valid': (), 'default': None},
+        'none': {'valid': (), 'default': None}
+    }
+    multi_types = {
+        'values': 'value',
+        'values_exist': 'value_exists'
+    }
+
     def __init__(self, redis_object, decoder):
         self.obj = redis_object
         self.key = redis_object.key
         self.pipe = redis_object.pipe
         self.decoder = decoder
 
+    def _process_lookup(self, rtype, lookup, lookup_type):
+        if lookup is None and lookup_type is None:
+            return lookup, 'all', True
+        if lookup_type is None:
+            lookup_type = self.lookup_types[rtype]['default']
+        if lookup_type in self.lookup_types[rtype]['valid']:
+            if lookup_type == 'index':
+                if isinstance(lookup, int):
+                    multi = False
+                    lookup = (lookup, lookup)
+                else:
+                    multi = True
+            elif lookup_type == 'field':
+                multi = isinstance(lookup, (list, tuple))
+            elif lookup_type in self.multi_types:
+                multi = True
+                lookup_type = self.multi_types[lookup_type]
+            else:
+                multi = False
+            if lookup or lookup == 0:
+                return lookup, lookup_type, multi
+        return lookup, None, None
+
+    def add_to_pipe(self, rtype, lookup, lookup_type):
+        lookup, lookup_type, multi = self._process_lookup(
+            rtype, lookup, lookup_type
+        )
+        if lookup_type is None:
+            return self.none()
+        if lookup_type == 'all':
+            return getattr(self, rtype)()
+        return getattr(self, f'{rtype}_{lookup_type}')(lookup, multi)
+
     def zset(self):
         return self.pipe.add(
             'zrange', self.key, args=[0, -1], callback=self.decoder.list
+        )
+
+    def zset_index(self, index_range, multi):
+        callback = self.decoder.list
+        if not multi:
+            callback = make_single_or_list_callback(callback)
+        return self.pipe.add(
+            'zrange', self.key, args=index_range, callback=callback
+        )
+
+    def zset_value(self, values, multi):
+        if multi:
+            encoded_vals = list(self.obj.setter.encoder.list(values))
+            return self.pipe.add(
+                'zmscore', self.key, args=[encoded_vals],
+                callback=lambda scores: [
+                    score if score is None else int(score) for score in scores
+                ] if scores else None
+            )
+        return self.pipe.add(
+            'zscore', self.key,
+            args=[self.obj.setter.encoder.member(values)],
+            callback=lambda score: score if score is None else int(score)
         )
 
     def list(self):
@@ -493,14 +569,68 @@ class _RedisGetter(object):
             'lrange', self.key, args=[0, -1], callback=self.decoder.list
         )
 
+    def list_index(self, index_range, multi):
+        callback = self.decoder.list
+        if not multi:
+            callback = make_single_or_list_callback(callback)
+        return self.pipe.add(
+            'lrange', self.key, args=index_range, callback=callback
+        )
+
+    def list_value(self, values, multi):
+        callback = make_single_or_list_callback()
+        kwargs = {'count': 0}
+        if multi:
+            acc = self.obj.make_result_accumulator()
+            for value in self.obj.setter.encoder.list(values):
+                self.pipe.add(
+                    'lpos', self.key, args=[value], kwargs=kwargs,
+                    callback=callback, accumulator=acc
+                )
+            self.pipe.mark_accumulator_pop()
+            return self.pipe
+        return self.pipe.add(
+            'lpos', self.key, args=[self.obj.setter.encoder.member(values)],
+            kwargs=kwargs, callback=callback
+        )
+
     def hash(self):
         return self.pipe.add('hgetall', self.key, callback=self.decoder.dict)
 
+    def hash_field(self, fields, multi):
+        if multi:
+            return self.pipe.add(
+                'hmget', self.key, args=fields, callback=self.decoder.list
+            )
+        return self.pipe.add(
+            'hget', self.key, args=[fields], callback=self.decoder.member
+        )
+
     def set(self):
-        return self.pipe.add('smembers', self.key, callback=self.decoder.set)
+        return self.pipe.add(
+            'smembers', self.key, callback=self.decoder.set
+        )
+
+    def set_value_exists(self, values, multi):
+        if multi:
+            encoded_vals = list(self.obj.setter.encoder.list(values))
+            return self.pipe.add(
+                'smismember', self.key, args=[encoded_vals],
+                callback=lambda raw: [bool(v) for v in raw]
+            )
+        return self.pipe.add(
+            'sismember', self.key,
+            args=[self.obj.setter.encoder.member(values)], callback=bool
+        )
 
     def string(self):
         return self.pipe.add('get', self.key)
+
+    def string_index(self, index_range, multi):
+        return self.pipe.add(
+            'getrange', self.key, args=index_range,
+            callback=lambda raw: raw or None
+        )
 
     def encoded_obj(self):
         return self.pipe.add(
@@ -508,77 +638,7 @@ class _RedisGetter(object):
         )
 
     def none(self):
-        return self.pipe.add('get', NONE_KEY)
-
-    def hash_field(self, field):
-        return self.pipe.add(
-            'hget', self.key, args=[field], callback=self.decoder.member
-        )
-
-    def hash_fields(self, fields):
-        return self.pipe.add(
-            'hmget', self.key, args=[fields], callback=self.decoder.list
-        )
-
-    def zset_index(self, value):
-        encoded_val = self.obj.setter.encoder.member(value)
-        return self.pipe.add(
-            'zscore', self.key, args=[encoded_val],
-            callback=lambda score: score if score is None else int(score)
-        )
-
-    def zset_indexes(self, values):
-        encoded_vals = [self.obj.setter.encoder.member(v) for v in values]
-        return self.pipe.add(
-            'zmscore', self.key, args=[encoded_vals],
-            callback=lambda scores: [
-                score if score is None else int(score) for score in scores
-            ] if scores else None
-        )
-
-    def list_index(self, value):
-        callback = make_single_or_list_callback()
-        encoded_val = self.obj.setter.encoder.member(value)
-        return self.pipe.add(
-            'lpos', self.key, args=[encoded_val], kwargs={'count': 0},
-            callback=callback
-        )
-
-    def list_indexes(self, values):
-        acc = self.obj.make_result_accumulator()
-        callback = make_single_or_list_callback()
-        encoded_vals = (self.obj.setter.encoder.member(v) for v in values)
-        for encoded_val in encoded_vals:
-            self.pipe.add(
-                'lpos', self.key, args=[encoded_val], kwargs={'count': 0},
-                callback=callback, accumulator=acc
-            )
-        self.pipe.mark_accumulator_pop()
-        return self.pipe
-
-    def zset_value(self, index):
-        return self.pipe.add(
-            'zrange', self.key, args=[index, index],
-            callback=lambda v: self.decoder.member(v[0]) if v else None
-        )
-
-    def zset_values(self, start, end):
-        return self.pipe.add(
-            'zrange', self.key, args=[start, end], callback=self.decoder.list
-        )
-
-    def list_value(self, index):
-        return self.pipe.add(
-            'lindex', self.key, args=[index], callback=self.decoder.member
-        )
-
-    def list_values(self, start, end):
-        return self.pipe.add(
-            'lrange', self.key, args=[start, end], callback=self.decoder.list
-        )
-
-    def get_key(self):
-        return getattr(self, self.obj.rtype, self.none)()
+        return self.pipe.noop()
 
 
 class RedisObject(object):
@@ -781,7 +841,7 @@ class RedisObject(object):
                 self.pipe.mark_accumulator_pop()
             self._rtype = drtype
         elif update:
-            self.getter.none()
+            self.pipe.noop()
         else:
             self.pipe.add('delete', self.key)
         if self.defer:
@@ -812,124 +872,85 @@ class RedisObject(object):
             return rval[0]
         return rval
 
-    def get(self):
+    def get(self, lookup=None, lookup_type=None):
         """
         Fetches and returns the data from Redis using the current key.
 
-        It attempts to rebuild your original Python data type as best
-        it can, except tuples get converted to lists. All strings are
-        run through ujson.loads().
+        If no lookup criteria is provided, it fetches the entire data
+        structure and attempts to rebuild your original Python data
+        type as best it can. (But be careful when fetching very large
+        amounts of data!)
 
-        If the object's key does not exist in Redis, it retrieves None.
+        You may provide optional lookup criteria: a 'lookup' value and
+        a 'lookup_type' (a string). Valid lookup types vary by the
+        Redis data type. If a lookup is provided with no lookup_type,
+        then a default lookup type will be assumed, depending on the
+        Redis data type.
+
+          - String. Supports lookup_type 'index': for 'lookup', provide
+            an int value to get a single character, or a (start, end)
+            tuple to get a range (inclusive).
+          - List & zset. Support lookup_type 'index', same as for
+            strings. Also support lookup_types 'value' and 'values'.
+            Type 'value' returns the index position for one lookup
+            value; 'values' returns a list of positions given multiple
+            values. Default lookup type for lists and zsets is 'index.'
+          - Hash. Supports lookup_type 'field', which gets and returns
+            multiple hash values given a lookup field or list of
+            fields.
+          - Set. Supports lookup_types 'value_exists', and
+            'values_exist'. Type 'value_exists' returns True if the
+            lookup value belongs to the set or False if not;
+            'values_exist' checks a list of values. Default is
+            'value_exists'.
+
+        If the object's key does not exist in Redis or if the lookup
+        does not make sense given the type of data in Redis, it returns
+        None. A lookup that fails also returns None. (In context of a
+        lookup type that returns a list of values, one failed lookup
+        returns None in the appropriate list position.)
 
         If self.defer is False, it executes the operation immediately
         and returns the retrieved value(s). If self.defer is True, it
         queues up the operation(s) on self.pipe and returns that.
         """
-        self.getter.get_key()
+        self.getter.add_to_pipe(self.rtype, lookup, lookup_type)
         if self.defer:
             return self.pipe
         return self.pipe.execute()[-1]
 
     def get_field(self, *fields):
         """
-        Fetches and returns value(s) for the given hash field(s).
+        Fetches the value(s) for the given hash field(s).
 
-        If you request a single field, this is the equivalent of
-        mydict.get(field). If you provide multiple fields, it's equal
-        to [mydict.get(f) for f in fields]. It lets you get a subset of
-        a hash without fetching the whole thing from Redis.
-
-        Returns None if the current key does not exist or the Redis
-        data type isn't 'hash' -- i.e., if you didn't set this using a
-        dict. If you request the value from one field, it returns that.
-        Otherwise, it returns a list of values corresponding to the
-        provided fields. (If a field does not exist, None is used.)
-
-        If self.defer is False, it executes the operation immediately
-        and returns the retrieved value(s). If self.defer is True, it
-        queues up the operation(s) on self.pipe and returns that.
+        This is the equivalent of mydict.get(field) for each field you
+        provide. It is a convenience method that just calls 'get' with
+        your field list. For more information, see the 'get' method.
         """
-        multi = len(fields) > 1
-        if self.rtype == 'hash' and fields:
-            if multi:
-                self.getter.hash_fields(fields)
-            else:
-                self.getter.hash_field(fields[0])
-        else:
-            self.getter.none()
-        if self.defer:
-            return self.pipe
-        return self.pipe.execute()[-1]
+        if len(fields) == 1:
+            return self.get(fields[0], 'field')
+        return self.get(fields, 'field')
 
     def get_index(self, *values):
         """
-        Fetches/returns the list/zset ind positions for 1+ values.
+        Fetches the list/zset index positions for 1 or more values.
 
-        If you provide one value, this is the equivalent of
-        my_list.index(v). For multiple values, it's like
-        [my_list.index(v) for v in values]. This way, you can get the
-        index positions for one or more values without having to fetch
-        the entire data structure from Redis.
-
-        The retrieved value is None if the current key does not exist
-        or the Redis data type isn't 'list' or 'zset' -- i.e., if you
-        didn't set this using a list/tuple. If you only have one value,
-        it retrieves that one position. Otherwise, it retrieves a list
-        of positions. None is used for values that don't exist. If your
-        Redis data is a list (non-unique values) and a value occurs
-        more than once, a nested list with all occurrences is returned.
-
-        If self.defer is False, it executes the operation immediately
-        and returns the retrieved value(s). If self.defer is True, it
-        queues up the operation(s) on self.pipe and returns that.
+        This is the equivalent of mylist.index(v) for each value you
+        provide. It is a convenience method that just calls 'get' with
+        your values list. For more information, see the 'get' method.
         """
-        multi = len(values) > 1
-        if self.rtype in ('zset', 'list') and values:
-            if multi:
-                plural = 'es'
-            else:
-                plural = ''
-                values = values[0]
-            getattr(self.getter, f'{self.rtype}_index{plural}')(values)
-        else:
-            self.getter.none()
-        if self.defer:
-            return self.pipe
-        return self.pipe.execute()[-1]
+        if len(values) == 1:
+            return self.get(values[0], 'value')
+        return self.get(values, 'values')
 
     def get_value(self, start, end=None):
         """
-        Fetches/returns vals for a range of list/zset index positions.
+        Fetches the values for a range of list/zset index positions.
 
         This is the equivalent of: my_list[start:end] (except 'end' is
-        inclusive). It lets you get a subset of values without having
-        to fetch the entire data structure from Redis.
-
-        You may provide a negative value for 'start' or 'end', which
-        counts from the end of the list/zset.
-
-        The retrieved value is None if the current key does not exist
-        or the Redis data type isn't 'list' or 'zset' -- i.e., if you
-        didn't set this using a list/tuple. If your range is a range of
-        one item, it retrieves that item. Otherwise, it retrieves a
-        list of values.
-
-        If self.defer is False, it executes the operation immediately
-        and returns the retrieved value(s). If self.defer is True, it
-        queues up the operation(s) on self.pipe and returns that.
+        inclusive). It is a convenience method that just calls 'get',
+        creating an appropriate lookup based on the 'start' and 'end'
+        values you provide. For more information, see the 'get' method.
         """
-        multi = end is not None
-        if self.rtype in ('zset', 'list'):
-            if multi:
-                plural = 's'
-                args = [start, end]
-            else:
-                plural = ''
-                args = [start]
-            getattr(self.getter, f'{self.rtype}_value{plural}')(*args)
-        else:
-            self.getter.none()
-        if self.defer:
-            return self.pipe
-        return self.pipe.execute()[-1]
+        lookup = start if end is None else (start, end)
+        return self.get(lookup, 'index')

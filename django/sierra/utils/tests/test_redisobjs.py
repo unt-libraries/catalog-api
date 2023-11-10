@@ -841,164 +841,228 @@ def test_redisobject_get_nonexistent_key_returns_none():
     assert r.conn.keys() == []
     assert r.get() == None
 
+@pytest.mark.parametrize('init, f_unq, lookup_type, lookup, expected', [
+    # Zset -- get by index
+    (['a', 'b', 'c'], True, 'index', None, None),
+    (['a', 'b', 'c'], True, 'index', 0, 'a'),
+    (['a', 'b', 'c'], True, 'index', 1, 'b'),
+    (['a', 'b', 'c'], True, 'index', 2, 'c'),
+    (['a', 'b', 'c'], True, 'index', 3, None),
+    (['a', 'b', 'c'], True, 'index', (1, 1), ['b']),
+    (['a', 'b', 'c'], True, 'index', (1, 2), ['b', 'c']),
+    (['a', 'b', 'c'], True, 'index', (1, 3), ['b', 'c']),
+    (['a', 'b', 'c'], True, 'index', (3, 4), None),
+    (['a', 'b', 'c'], True, 'index', -1, 'c'),
+    (['a', 'b', 'c'], True, 'index', -2, 'b'),
+    (['a', 'b', 'c'], True, 'index', -3, 'a'),
+    (['a', 'b', 'c'], True, 'index', -4, None),
+    (['a', 'b', 'c'], True, 'index', (-2, -1), ['b', 'c']),
+    (['a', 'b', 'c'], True, 'index', (1, -1), ['b', 'c']),
+    (['a', 'b', 'c'], True, 'index', (-5, -4), None),
+    # Zset -- get by value or values
+    (['a', 'b', 'c'], True, 'value', None, None),
+    (['a', 'b', 'c'], True, 'values', [], None),
+    (['a', 'b', 'c'], True, 'value', 'a', 0),
+    (['a', 'b', 'c'], True, 'value', 'b', 1),
+    (['a', 'b', 'c'], True, 'value', 'c', 2),
+    (['a', 'b', 'c'], True, 'value', 'd', None),
+    (['a', 'b', 'c'], True, 'values', ['c'], [2]),
+    (['a', 'b', 'c'], True, 'values', ('a', 'b'), [0, 1]),
+    (['a', 'b', 'c'], True, 'values', ('d', 'e'), [None, None]),
+    (['a', 'b', 'c'], True, 'values', ('a', 'd'), [0, None]),
+    ([['a', 'b'], ['b', 'c'], ['b', 'a']], True, 'value', ['a', 'b'], 0),
+    ([['a', 'b'], ['b', 'c'], ['b', 'a']], True, 'values', ['a', 'b'],
+     [None, None]),
+    ([['a', 'b'], ['b', 'c'], ['b', 'a']], True, 'values',
+     [('a', 'b'), ('b', 'a')], [0, 2]),
+    # Zset -- default lookup is 'index'
+    (['a', 'b', 'c'], True, None, 2, 'c'),
 
-@pytest.mark.parametrize('init, field, expected', [
-    ({'a': 'z', 'b': 'y', 'c': 'x'}, tuple(), None),
-    ({'a': 'z', 'b': 'y', 'c': 'x'}, 'b', 'y'),
-    ({'a': 'z', 'b': 'y', 'c': 'x'}, ('b', 'a', 'c'), ['y', 'z', 'x']),
-    ({'a': 'z', 'b': 'y', 'c': 'x'}, 'd', None),
-    ({'a': 'z', 'b': 'y', 'c': 'x'}, ('d', 'e'), [None, None]),
-    ({'a': 'z', 'b': 'y', 'c': 'x'}, ('a', 'd', 'c'), ['z', None, 'x']),
-    ({'a': [1, 2, 3], 'b': 'y', 'c': 'x'}, 'a', [1, 2, 3]),
-    ({'a': {'a1': 'z1', 'a2': 'z2'}, 'b': 'y', 'c': 'x'}, 'a',
+    # List -- get by index
+    (['a', 'b', 'c'], False, 'index', None, None),
+    (['a', 'b', 'c'], False, 'index', 0, 'a'),
+    (['a', 'b', 'c'], False, 'index', 1, 'b'),
+    (['a', 'b', 'c'], False, 'index', 2, 'c'),
+    (['a', 'b', 'c'], False, 'index', 3, None),
+    (['a', 'b', 'c'], False, 'index', (1, 1), ['b']),
+    (['a', 'b', 'c'], False, 'index', (1, 2), ['b', 'c']),
+    (['a', 'b', 'c'], False, 'index', (1, 3), ['b', 'c']),
+    (['a', 'b', 'c'], False, 'index', (3, 4), None),
+    (['a', 'b', 'c'], False, 'index', -1, 'c'),
+    (['a', 'b', 'c'], False, 'index', -2, 'b'),
+    (['a', 'b', 'c'], False, 'index', -3, 'a'),
+    (['a', 'b', 'c'], False, 'index', -4, None),
+    (['a', 'b', 'c'], False, 'index', (-2, -1), ['b', 'c']),
+    (['a', 'b', 'c'], False, 'index', (1, -1), ['b', 'c']),
+    (['a', 'b', 'c'], False, 'index', (-5, -4), None),
+    # List -- get by value or values
+    (['a', 'b', 'c'], False, 'value', None, None),
+    (['a', 'b', 'c'], False, 'values', [], None),
+    (['a', 'b', 'c'], False, 'value', 'a', 0),
+    (['a', 'b', 'c'], False, 'value', 'b', 1),
+    (['a', 'b', 'c'], False, 'value', 'c', 2),
+    (['a', 'b', 'c'], False, 'value', 'd', None),
+    (['a', 'b', 'c'], False, 'values', ['c'], [2]),
+    (['a', 'b', 'c'], False, 'values', ('a', 'b'), [0, 1]),
+    (['a', 'b', 'c'], False, 'values', ('d', 'e'), [None, None]),
+    (['a', 'b', 'c'], False, 'values', ('a', 'd'), [0, None]),
+    (['a', 'c', 'b', 'c'], False, 'value', 'c', [1, 3]),
+    (['a', 'c', 'b', 'c'], False, 'values', ('c', 'b'), [[1, 3], 2]),
+    ([['a', 'b'], ['b', 'c'], ['b', 'a']], False, 'value', ('a', 'b'), 0),
+    ([['a', 'b'], ['b', 'c'], ['b', 'a']], False, 'values', ('a', 'b'),
+     [None, None]),
+    ([['a', 'b'], ['b', 'c'], ['b', 'a']], False, 'values',
+     [('a', 'b'), ('b', 'a')], [0, 2]),
+    # List -- default lookup is 'index'
+    (['a', 'b', 'c'], False, None, 2, 'c'),
+
+    # String -- get by index
+    ('abcdefg', None, 'index', None, None),
+    ('abcdefg', None, 'index', 0, 'a'),
+    ('abcdefg', None, 'index', 3, 'd'),
+    ('abcdefg', None, 'index', 7, None),
+    ('abcdefg', None, 'index', (0, 0), 'a'),
+    ('abcdefg', None, 'index', (0, 3), 'abcd'),
+    ('abcdefg', None, 'index', (3, 10), 'defg'),
+    ('abcdefg', None, 'index', -1, 'g'),
+    ('abcdefg', None, 'index', -7, 'a'),
+    ('abcdefg', None, 'index', -10, 'a'),
+    ('abcdefg', None, 'index', (-4, -1), 'defg'),
+    ('abcdefg', None, 'index', (-10, -4), 'abcd'),
+    # String -- default lookup is 'index'
+    ('abcdefg', None, None, 3, 'd'),
+
+    # Hash -- get by field
+    ({'a': 'z', 'b': 'y', 'c': 'x'}, None, 'field', None, None),
+    ({'a': 'z', 'b': 'y', 'c': 'x'}, None, 'field', [], None),
+    ({'a': 'z', 'b': 'y', 'c': 'x'}, None, 'field', 'b', 'y'),
+    ({'a': 'z', 'b': 'y', 'c': 'x'}, None, 'field', ('b',), ['y']),
+    ({'a': 'z', 'b': 'y', 'c': 'x'}, None, 'field', ('b', 'a', 'c'),
+     ['y', 'z', 'x']),
+    ({'a': 'z', 'b': 'y', 'c': 'x'}, None, 'field', 'd', None),
+    ({'a': 'z', 'b': 'y', 'c': 'x'}, None, 'field', ('d', 'e'), [None, None]),
+    ({'a': 'z', 'b': 'y', 'c': 'x'}, None, 'field', ('a', 'd', 'c'),
+     ['z', None, 'x']),
+    ({'a': [1, 2, 3], 'b': 'y', 'c': 'x'}, None, 'field', 'a', [1, 2, 3]),
+    ({'a': {'a1': 'z1', 'a2': 'z2'}, 'b': 'y', 'c': 'x'}, None, 'field', 'a',
      {'a1': 'z1', 'a2': 'z2'}),
-    ('a string', 'a', None),
-    ('a string', ['a', 'b'], None),
-    (['a', 'list'], 'a', None),
-    ({'a', 'set'}, 'a', None)
+    # Hash -- default lookup is 'field'
+    ({'a': 'z', 'b': 'y', 'c': 'x'}, None, None, 'b', 'y'),
+
+    # Set -- check whether values exist in the set
+    ({'a', 'b', 'c'}, None, 'value_exists', None, None),
+    ({'a', 'b', 'c'}, None, 'values_exist', [], None),
+    ({'a', 'b', 'c'}, None, 'value_exists', 'a', True),
+    ({'a', 'b', 'c'}, None, 'value_exists', 'd', False),
+    ({'a', 'b', 'c'}, None, 'values_exist', ['a'], [True]),
+    ({'a', 'b', 'c'}, None, 'values_exist', ['a', 'c'], [True, True]),
+    ({'a', 'b', 'c'}, None, 'values_exist', ['d', 'c'], [False, True]),
+    ({('1', 'a'), ('2', 'b')}, None, 'value_exists', ['1', 'a'], True),
+    ({('1', 'a'), ('2', 'b')}, None, 'values_exist', ['1', 'a'],
+     [False, False]),
+    # Set -- default lookup is 'value_exists'
+    ({'a', 'b', 'c'}, None, None, 'a', True),
+    ({'a', 'b', 'c'}, None, None, ['a'], False),
+
+    # Rtypes with wrong lookup types should return None
+    ({'a': 'hash'}, None, 'index', 0, None),
+    ({'a', 'set'}, None, 'index', 0, None),
+    ({'a': 'hash'}, None, 'value', 'a', None),
+    ({'a', 'set'}, None, 'value', 'a', None),
+    ('a string', None, 'value', 'a', None),
+    ('a string', None, 'field', 'a', None),
+    (['a', 'list'], None, 'field', 'a', None),
+    ({'a', 'set'}, None, 'field', 'a', None)
 ])
-def test_redisobject_getfield(init, field, expected):
+def test_redisobject_get_with_lookups(init, f_unq, lookup_type, lookup,
+                                      expected):
     """
-    For a hash type object, the RedisObject.get_field method returns
-    the value(s) in the requested field(s). If one field arg is
-    provided, it returns the one field; if multiple field args are
-    provided, it returns the values as a list. For everything else, or
-    if a field does not exist, it returns None.
+    The RedisObject.get method should return the expected results when
+    called with the given lookup and lookup_type, assuming 'init' is
+    the existing data in Redis for this object.
     """
-    redisobjs.RedisObject('test', 'hash').set(init)
-    args = field if isinstance(field, tuple) else (field,)
-    assert redisobjs.RedisObject('test', 'hash').get_field(*args) == expected
+    redisobjs.RedisObject('test', 'lookups').set(init, force_unique=f_unq)
+    result = redisobjs.RedisObject('test', 'lookups').get(lookup, lookup_type)
+    assert result == expected
 
 
-def test_redisobject_getfield_with_defer():
+def test_redisobject_get_with_defer():
     """
-    When a RedisObject instance has defer set to True, a 'get_field'
+    When a RedisObject instance has defer set to True, a 'get'
     operation wil queue the operation on the instance's 'pipe' object
     and return the pipe. When executed, the pipe will include the
     expected value(s) from Redis in its list of results.
     """
     redisobjs.RedisObject('test', 'hash').set({'a': 'z', 'b': 'y', 'c': 'x'})
     r = redisobjs.RedisObject('test', 'hash', defer=True)
-    pipe = r.get_field('a', 'b', 'c')
+    pipe = r.get(['a', 'b', 'c'], 'field')
     assert pipe.execute() == [['z', 'y', 'x']]
 
 
-@pytest.mark.parametrize('init, force_unique, value, expected', [
-    (['a', 'b', 'c'], True, tuple(), None),
-    (['a', 'b', 'c'], True, 'a', 0),
-    (['a', 'b', 'c'], True, 'b', 1),
-    (['a', 'b', 'c'], True, 'c', 2),
-    (['a', 'b', 'c'], True, 'd', None),
-    (['a', 'b', 'c'], True, ('a', 'b'), [0, 1]),
-    (['a', 'b', 'c'], True, ('d', 'e'), [None, None]),
-    (['a', 'b', 'c'], True, ('a', 'd'), [0, None]),
-    (['a', 'b', 'c'], False, tuple(), None),
-    (['a', 'b', 'c'], False, 'a', 0),
-    (['a', 'b', 'c'], False, 'b', 1),
-    (['a', 'b', 'c'], False, 'c', 2),
-    (['a', 'b', 'c'], False, 'd', None),
-    (['a', 'b', 'c'], False, ('a', 'b'), [0, 1]),
-    (['a', 'b', 'c'], False, ('d', 'e'), [None, None]),
-    (['a', 'b', 'c'], False, ('a', 'd'), [0, None]),
-    (['a', 'c', 'b', 'c'], False, 'c', [1, 3]),
-    (['a', 'c', 'b', 'c'], False, ('c', 'b'), [[1, 3], 2]),
-    ('a string', None, 'a', None),
-    ('a string', None, ('a', 'b'), None),
-    ({'a': 'hash'}, None, 'a', None),
-    ({'a', 'set'}, None, 'a', None)
-])
-def test_redisobject_getindex(init, force_unique, value, expected):
+def test_redisobject_getfield_single_field(mocker):
     """
-    For a list or zset type object, the RedisObject.get_index method
-    returns the index position of the provided value. If one value arg
-    is provided, it returns the one value; if multiple value args are
-    provided, it returns the index positions as a list. For everything
-    else, or if a value does not exist, it returns None.
+    The RedisObject.get_field method is just a convenience method that
+    calls 'get' with the applicable field lookup.
     """
-    redisobjs.RedisObject('test', 'list').set(init, force_unique=force_unique)
-    args = value if isinstance(value, tuple) else (value,)
-    assert redisobjs.RedisObject('test', 'list').get_index(*args) == expected
+    r = redisobjs.RedisObject('test', 'get_field')
+    r.get = mocker.Mock()
+    r.get_field('myfield')
+    r.get.assert_called_with('myfield', 'field')
 
 
-def test_redisobject_getindex_with_defer():
+def test_redisobject_getfield_multiple_fields(mocker):
     """
-    When a RedisObject instance has defer set to True, a 'get_index'
-    operation wil queue the operation on the instance's 'pipe' object
-    and return the pipe. When executed, the pipe will include the
-    expected value(s) from Redis in its list of results.
+    The RedisObject.get_field method is just a convenience method that
+    calls 'get' with the applicable field lookup.
     """
-    redisobjs.RedisObject('test', 'list').set(
-        ['a', 'c', 'b', 'c'], force_unique=False
-    )
-    r = redisobjs.RedisObject('test', 'list', defer=True)
-    pipe = r.get_index('a', 'b', 'c')
-    assert pipe.execute() == [[0, 2, [1, 3]]]
+    r = redisobjs.RedisObject('test', 'get_field')
+    r.get = mocker.Mock()
+    r.get_field('myfield1', 'myfield2')
+    r.get.assert_called_with(('myfield1', 'myfield2'), 'field')
 
 
-@pytest.mark.parametrize('start, force_unique, index, end, expected', [
-    (['a', 'b', 'c'], True, 0, None, 'a'),
-    (['a', 'b', 'c'], True, 1, None, 'b'),
-    (['a', 'b', 'c'], True, 2, None, 'c'),
-    (['a', 'b', 'c'], True, 3, None, None),
-    (['a', 'b', 'c'], True, 1, 1, ['b']),
-    (['a', 'b', 'c'], True, 1, 2, ['b', 'c']),
-    (['a', 'b', 'c'], True, 1, 3, ['b', 'c']),
-    (['a', 'b', 'c'], True, 3, 4, None),
-    (['a', 'b', 'c'], True, -1, None, 'c'),
-    (['a', 'b', 'c'], True, -2, None, 'b'),
-    (['a', 'b', 'c'], True, -3, None, 'a'),
-    (['a', 'b', 'c'], True, -4, None, None),
-    (['a', 'b', 'c'], True, -2, -1, ['b', 'c']),
-    (['a', 'b', 'c'], True, 1, -1, ['b', 'c']),
-    (['a', 'b', 'c'], True, -5, -4, None),
-    (['a', 'b', 'c'], False, 0, None, 'a'),
-    (['a', 'b', 'c'], False, 1, None, 'b'),
-    (['a', 'b', 'c'], False, 2, None, 'c'),
-    (['a', 'b', 'c'], False, 3, None, None),
-    (['a', 'b', 'c'], False, 1, 1, ['b']),
-    (['a', 'b', 'c'], False, 1, 2, ['b', 'c']),
-    (['a', 'b', 'c'], False, 1, 3, ['b', 'c']),
-    (['a', 'b', 'c'], False, 3, 4, None),
-    (['a', 'b', 'c'], False, -1, None, 'c'),
-    (['a', 'b', 'c'], False, -2, None, 'b'),
-    (['a', 'b', 'c'], False, -3, None, 'a'),
-    (['a', 'b', 'c'], False, -4, None, None),
-    (['a', 'b', 'c'], False, -2, -1, ['b', 'c']),
-    (['a', 'b', 'c'], False, 1, -1, ['b', 'c']),
-    (['a', 'b', 'c'], True, -5, -4, None),
-    ('a string', None, 0, None, None),
-    ('a string', None, 0, 2, None),
-    ({'a': 'hash'}, None, 0, None, None),
-    ({'a', 'set'}, None, 0, None, None)
-])
-def test_redisobject_getvalue(start, force_unique, index, end, expected):
+def test_redisobject_getindex_single_value(mocker):
     """
-    For a list or zset type object, the RedisObject.get_value method
-    returns the value at the provided index. If an 'end' index is
-    supplied, it returns a list of values between 'index' and 'end'. If
-    'end' is out of range, then it returns values up to the end of the
-    data structure. For everything else, or if the starting index is
-    out of range, it returns None. Negative index numbers count from
-    the end of data structure.
+    The RedisObject.get_index method is just a convenience method that
+    calls 'get' with the applicable lookup by value.
     """
-    redisobjs.RedisObject('test', 'list').set(start, force_unique=force_unique)
-    result = redisobjs.RedisObject('test', 'list').get_value(index, end)
-    assert result == expected
+    r = redisobjs.RedisObject('test', 'get_index')
+    r.get = mocker.Mock()
+    r.get_index('myval')
+    r.get.assert_called_with('myval', 'value')
 
 
-def test_redisobject_getvalue_with_defer():
+def test_redisobject_getindex_multiple_values(mocker):
     """
-    When a RedisObject instance has defer set to True, a 'get_value'
-    operation wil queue the operation on the instance's 'pipe' object
-    and return the pipe. When executed, the pipe will include the
-    expected value(s) from Redis in its list of results.
+    The RedisObject.get_index method is just a convenience method that
+    calls 'get' with the applicable lookup by value.
     """
-    redisobjs.RedisObject('test', 'list').set(
-        ['a', 'c', 'b', 'c'], force_unique=False
-    )
-    r = redisobjs.RedisObject('test', 'list', defer=True)
-    pipe = r.get_value(0, 5)
-    assert pipe.execute() == [['a', 'c', 'b', 'c']]
+    r = redisobjs.RedisObject('test', 'get_index')
+    r.get = mocker.Mock()
+    r.get_index('myval1', 'myval2')
+    r.get.assert_called_with(('myval1', 'myval2'), 'values')
+
+
+def test_redisobject_getvalue_single_index(mocker):
+    """
+    The RedisObject.get_value method is just a convenience method that
+    calls 'get' with the applicable lookup by index.
+    """
+    r = redisobjs.RedisObject('test', 'get_value')
+    r.get = mocker.Mock()
+    r.get_value(1)
+    r.get.assert_called_with(1, 'index')
+
+
+def test_redisobject_getvalue_index_range(mocker):
+    """
+    The RedisObject.get_value method is just a convenience method that
+    calls 'get' with the applicable lookup by index.
+    """
+    r = redisobjs.RedisObject('test', 'get_value')
+    r.get = mocker.Mock()
+    r.get_value(1, 5)
+    r.get.assert_called_with((1, 5), 'index')
 
 
 def test_redisobject_one_pipeline_multiple_operations():
