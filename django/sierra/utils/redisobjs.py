@@ -334,6 +334,7 @@ class _RedisSetter(object):
                      'dict, or set'
         }
     }
+    indexed_rtypes = ('list', 'zset', 'string')
     default_rtype = 'encoded_obj'
 
     def __init__(self, redis_object, encoder):
@@ -354,89 +355,148 @@ class _RedisSetter(object):
         type_key = ''.join([ptype.__name__, unstr])
         return self.types_to_rtype.get(type_key) or self.default_rtype
 
-    def get_cmp_ptypes(self, rtype):
-        return self.rtype_compatibility.get(rtype, {}).get('types', str)
+    def _process_rtype(self, old_rtype, data, force_unique, update, index):
+        if force_unique is None and old_rtype in ('zset', 'list'):
+            force_unique = old_rtype == 'zset' if update else True
+        new_rtype = self.get_rtype_from_data(data, force_unique)
+        if update and (old_rtype not in ('none', new_rtype)):
+            rtype_cmp_entry = self.rtype_compatibility.get(old_rtype, {})
+            cmp_ptypes = rtype_cmp_entry.get('label', self.default_rtype)
+            raise TypeError(
+                f'Cannot update existing {old_rtype} data with {new_rtype} '
+                f'data for key {self.key}. You must provide data of a '
+                f'compatible type: {cmp_ptypes}.'
+            )
+        add_args = [update, index] if new_rtype in self.indexed_rtypes else []
+        return new_rtype, add_args
 
-    def get_cmp_ptypes_label(self, rtype):
-        entry = self.rtype_compatibility.get(rtype, {})
-        return entry.get('label', self.default_rtype)
+    def add_to_pipe(self, data, force_unique, update, index):
+        if not data and data != 0:
+            if update:
+                return self.pipe.noop()
+            return self.pipe.add('delete', self.key)
+        old_rtype = self.obj.rtype
+        new_rtype, add_args = self._process_rtype(
+            old_rtype, data, force_unique, update, index
+        )
+        self.obj.rtype = new_rtype
+        if update or old_rtype == 'none':
+            return getattr(self, new_rtype)(data, None, *add_args)
+        acc = self.obj.make_result_accumulator()
+        self.pipe.add('delete', self.key, accumulator=acc)
+        getattr(self, new_rtype)(data, acc, *add_args)
+        self.pipe.mark_accumulator_pop()
+        return self.pipe
 
-    def zset(self, data, accumulator, update=False, index=None):
-        acc = accumulator
-        if update:
-            prev_end = self.pipe.pending_cache.get(self.key)
-            if prev_end is None:
-                prev_max = self.conn.zrange(self.key, -1, -1, withscores=True)
-                prev_end = int(prev_max[0][1]) if prev_max else -1
-            if index is None:
-                offset = prev_end + 1
-            else:
-                if index < 0:
-                    try_convert = prev_end + index + 1
-                    offset = try_convert if try_convert > 0 else 0
-                else:
-                    offset = index
-            end = offset + len(data) - 1
-            if offset <= prev_end:
-                acc = acc or self.obj.make_result_accumulator()
-                self.pipe.add(
-                    'zremrangebyscore', self.key, args=[offset, end],
-                    accumulator=acc
-                )
-            zset_end = end if end > prev_end else prev_end
-        else:
-            offset = 0 if (index is None or index < 0) else index
-            zset_end = offset + len(data) - 1
+    @staticmethod
+    def _check_and_convert_negative_index(current_index, next_available_index):
+        if current_index is None:
+            return next_available_index
+        if current_index < 0:
+            converted = next_available_index + current_index
+            if converted > 0:
+                return converted
+            return 0
+        return current_index
+
+    def _process_zset_update(self, data, accumulator, index):
+        prev_end = self.pipe.pending_cache.get(self.key)
+        if prev_end is None:
+            prev_max = self.conn.zrange(self.key, -1, -1, withscores=True)
+            prev_end = int(prev_max[0][1]) if prev_max else -1
+        offset = self._check_and_convert_negative_index(index, prev_end + 1)
+        end_of_new_data = offset + len(data) - 1
+        if offset <= prev_end:
+            accumulator = accumulator or self.obj.make_result_accumulator()
+            self.pipe.add(
+                'zremrangebyscore', self.key, args=[offset, end_of_new_data],
+                accumulator=accumulator
+            )
+        new_end = end_of_new_data if end_of_new_data > prev_end else prev_end
+        return offset, new_end, accumulator
+
+    def _process_zset_set(self, data, accumulator, index):
+        offset = 0 if (index is None or index < 0) else index
+        return offset, offset + len(data) - 1, accumulator
+
+    def zset(self, data, accumulator, update, index):
+        operation_label = 'update' if update else 'set'
+        process = getattr(self, f"_process_zset_{operation_label}")
+        offset, new_zset_end, acc = process(data, accumulator, index)
         self.pipe.add(
             'zadd', self.key, args=[dict(self.encode(
                 'zset', ((v, offset + i) for i, v in enumerate(data))
             ))], accumulator=acc
         )
-        self.pipe.pending_cache[self.key] = zset_end
-        if acc is not None and accumulator is None:
+        self.pipe.pending_cache[self.key] = new_zset_end
+        if acc != accumulator:
             self.pipe.mark_accumulator_pop()
         return self.pipe
 
-    def list(self, data, accumulator, update=False, index=None):
-        acc = accumulator
-        if update:
-            llen = self.pipe.pending_cache.get(
-                self.key, self.conn.llen(self.key)
-            )
+    def _pad_list_data_with_none(self, data, how_many):
+        none = self.encoder.member(None) if self.bypass_encoding else None
+        return [none] * how_many + list(data)
+
+    def _process_list_update(self, data, accumulator, index):
+        prev_llen = self.pipe.pending_cache.get(
+            self.key, self.conn.llen(self.key)
+        )
+        offset = self._check_and_convert_negative_index(index, prev_llen)
+        if offset < prev_llen:
+            if len(data) > 1 and not accumulator:
+                accumulator = self.obj.make_result_accumulator()
+            for i, value in enumerate(data[:prev_llen - offset]):
+                args = [i + offset, self.encode('member', value)]
+                self.pipe.add(
+                    'lset', self.key, args=args, accumulator=accumulator
+                )
+            data = data[prev_llen - offset:]
+        elif offset > prev_llen:
+            data = self._pad_list_data_with_none(data, offset - prev_llen)
+        return offset, prev_llen + len(data), data, accumulator
+
+    def _process_list_set(self, data, accumulator, index):
+        if index is not None and index > 0:
+            offset = index
+            data = self._pad_list_data_with_none(data, offset)
         else:
-            llen = 0
-        if index is not None:
-            if index < 0:
-                try_convert = index + llen
-                index = try_convert if try_convert > 0 else 0
-            if index < llen:
-                len_data = len(data)
-                if len_data > 1 and not acc:
-                    acc = self.obj.make_result_accumulator()
-                end_index = llen - index
-                for i, value in enumerate(data[:end_index]):
-                    args = [i + index, self.encode('member', value)]
-                    self.pipe.add('lset', self.key, args=args, accumulator=acc)
-                data = data[end_index:]
-            elif index > llen:
-                if self.bypass_encoding:
-                    # 'bypass_encoding' means the user data is already
-                    # encoded, but we still need to encode any values
-                    # we're adding ourselves, like None padding.
-                    none = self.encoder.member(None)
-                else:
-                    none = None
-                data = [none] * (index - llen) + list(data)
+            offset = 0
+        return offset, len(data), data, accumulator
+
+    def list(self, data, accumulator, update, index):
+        operation_label = 'update' if update else 'set'
+        process = getattr(self, f"_process_list_{operation_label}")
+        offset, new_llen, data, acc = process(data, accumulator, index)
         if data:
             self.pipe.add(
                 'rpush', self.key, args=self.encode('list', data),
                 accumulator=acc
             )
-            llen += len(data)
-        self.pipe.pending_cache[self.key] = llen
-        if acc is not None and accumulator is None:
+        self.pipe.pending_cache[self.key] = new_llen
+        if acc != accumulator:
             self.pipe.mark_accumulator_pop()
         return self.pipe
+
+    def _process_string_update(self, data, index):
+        prev_strlen = self.pipe.pending_cache.get(
+            self.key, self.conn.strlen(self.key)
+        )
+        offset = self._check_and_convert_negative_index(index, prev_strlen)
+        new_len = len(data) + offset
+        return offset, new_len if new_len > prev_strlen else prev_strlen
+
+    def _process_string_set(self, data, index):
+        offset = index if index is not None and index > 0 else 0
+        return offset, len(data) + offset
+
+    def string(self, data, accumulator, update, index):
+        operation_label = 'update' if update else 'set'
+        process = getattr(self, f"_process_string_{operation_label}")
+        offset, new_strlen = process(data, index)
+        self.pipe.pending_cache[self.key] = new_strlen
+        return self.pipe.add(
+            'setrange', self.key, args=[offset, data], accumulator=accumulator
+        )
 
     def hash(self, data, accumulator):
         return self.pipe.add(
@@ -448,26 +508,6 @@ class _RedisSetter(object):
     def set(self, data, accumulator):
         return self.pipe.add(
             'sadd', self.key, args=self.encode('set', data),
-            accumulator=accumulator
-        )
-
-    def string(self, data, accumulator, update=False, index=None):
-        if update:
-            strlen = self.pipe.pending_cache.get(
-                self.key, self.conn.strlen(self.key)
-            )
-        else:
-            strlen = 0
-        if index is None:
-            index = strlen
-        elif index < 0:
-            try_convert = index + strlen
-            index = try_convert if try_convert > 0 else 0
-        new_len = len(data) + index
-        strlen = new_len if new_len > strlen else strlen
-        self.pipe.pending_cache[self.key] = strlen
-        return self.pipe.add(
-            'setrange', self.key, args=[index, data],
             accumulator=accumulator
         )
 
@@ -718,6 +758,19 @@ class RedisObject(object):
                     self._rtype = 'encoded_obj'
         return self._rtype
 
+    @rtype.setter
+    def rtype(self, value):
+        """
+        Set the Redis data type used for the current key.
+
+        Having a setter for this property is useful so that you can set
+        the rtype if you already know what it is, without the added
+        call to Redis. But normally you'll just want to let this class
+        and the _RedisSetter class handle that, since you'll break it
+        if you use the wrong rtype string.
+        """
+        self._rtype = value
+
     def make_result_accumulator(self):
         return Accumulator(list, list.append)
 
@@ -818,32 +871,7 @@ class RedisObject(object):
         and returns the original data value. If self.defer is True, it
         queues up the operation(s) on self.pipe and returns that.
         """
-        if data or data == 0:
-            kwargs = {}
-            if force_unique is None and self.rtype in ('zset', 'list'):
-                force_unique = self.rtype == 'zset' if update else True
-            drtype = self.setter.get_rtype_from_data(data, force_unique)
-            if drtype in ('zset', 'list', 'string'):
-                kwargs = {'update': update, 'index': index}
-            if update:
-                if self.rtype not in ('none', drtype):
-                    cmp_ptypes = self.setter.get_cmp_ptypes_label(self.rtype)
-                    raise TypeError(
-                        f'Cannot update existing {self.rtype} data with '
-                        f'{drtype} data for key {self.key}. You must '
-                        f'provide data of a compatible type: {cmp_ptypes}.'
-                    )
-                self.pipe = getattr(self.setter, drtype)(data, None, **kwargs)
-            else:
-                acc = self.make_result_accumulator()
-                self.pipe.add('delete', self.key, accumulator=acc)
-                self.pipe = getattr(self.setter, drtype)(data, acc, **kwargs)
-                self.pipe.mark_accumulator_pop()
-            self._rtype = drtype
-        elif update:
-            self.pipe.noop()
-        else:
-            self.pipe.add('delete', self.key)
+        self.setter.add_to_pipe(data, force_unique, update, index)
         if self.defer:
             return self.pipe
         self.pipe.execute()

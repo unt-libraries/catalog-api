@@ -617,7 +617,7 @@ def test_redisobject_set_and_defer_with_new_pipeline():
     assert redisobjs.RedisObject('test', 'item').get() is None
     pipe = r.set('next_value')
     assert redisobjs.RedisObject('test', 'item').get() is None
-    assert pipe.execute() == [[0, 8], [1, 10]]
+    assert pipe.execute() == [8, [1, 10]]
     assert redisobjs.RedisObject('test', 'item').get() == 'next_value'
 
 
@@ -636,7 +636,7 @@ def test_redisobject_set_and_defer_with_user_pipeline():
     assert r2.set('other_value') == pipe
     assert redisobjs.RedisObject('test', 'item').get() is None
     assert redisobjs.RedisObject('test', 'item2').get() is None
-    assert pipe.execute() == [[0, 8], [0, 11]]
+    assert pipe.execute() == [8, 11]
     assert redisobjs.RedisObject('test', 'item').get() == 'my_value'
     assert redisobjs.RedisObject('test', 'item2').get() == 'other_value' 
 
