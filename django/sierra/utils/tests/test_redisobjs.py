@@ -450,9 +450,13 @@ def test_redisobject_set_and_get_with_force_unique(value, force_unique, exp):
     (['a', 'b', 'c'], True, ('1', '2'), 1, ['a', '1', '2']),
     (['a', 'b', 'c'], True, ('1', '2'), 2, ['a', 'b', '1', '2']),
     (['a', 'b', 'c'], True, ('1', '2'), 3, ['a', 'b', 'c', '1', '2']),
-    # (for a zset, since members have to be unique, you can't skip
-    # index numbers.)
+    # (for a zset, providing an index value that is out of range
+    # creates an invisible gap where the missing index values should
+    # be that isn't apparent from 'get')
     (['a', 'b', 'c'], True, ('1', '2'), 5, ['a', 'b', 'c', '1', '2']),
+    # (duplicate values create a similar gap)
+    (['a', 'b', 'c', 'b', 'e'], True, ['1', '2'], 1,
+     ['a', '1', '2', 'b', 'e']),
     (['a', 'b', 'c'], True, ('1', '2'), -1, ['a', 'b', '1', '2']),
     (['a', 'b', 'c'], True, ('1', '2'), -2, ['a', '1', '2']),
     (['a', 'b', 'c'], True, ('1', '2'), -3, ['1', '2', 'c']),
@@ -467,7 +471,8 @@ def test_redisobject_set_and_get_with_force_unique(value, force_unique, exp):
     (['a', 'b', 'c'], False, ('1', '2'), 1, ['a', '1', '2']),
     (['a', 'b', 'c'], False, ('1', '2'), 2, ['a', 'b', '1', '2']),
     (['a', 'b', 'c'], False, ('1', '2'), 3, ['a', 'b', 'c', '1', '2']),
-    # (a list lets you skip index numbers.)
+    # (a list pads with None when you provide an index value that is
+    # out of range)
     (['a', 'b', 'c'], False, ('1', '2'), 5,
      ['a', 'b', 'c', None, None, '1', '2']),
     (['a', 'b', 'c'], False, ('1', '2'), -1, ['a', 'b', '1', '2']),
@@ -859,6 +864,8 @@ def test_redisobject_get_nonexistent_key_returns_none():
     (['a', 'b', 'c'], True, 'index', (-2, -1), ['b', 'c']),
     (['a', 'b', 'c'], True, 'index', (1, -1), ['b', 'c']),
     (['a', 'b', 'c'], True, 'index', (-5, -4), None),
+    # Duplicates create a gap where the old value was
+    (['a', 'b', 'c', 'b', 'e'], True, 'index', (1, 3), ['c', 'b']),
     # Zset -- get by value or values
     (['a', 'b', 'c'], True, 'value', None, None),
     (['a', 'b', 'c'], True, 'values', [], None),
@@ -869,6 +876,10 @@ def test_redisobject_get_nonexistent_key_returns_none():
     (['a', 'b', 'c'], True, 'values', ['c'], [2]),
     (['a', 'b', 'c'], True, 'values', ('a', 'b'), [0, 1]),
     (['a', 'b', 'c'], True, 'values', ('d', 'e'), [None, None]),
+    (['a', 'b', 'c'], True, 'values', ('a', 'd'), [0, None]),
+    # Duplicates create a gap where the old value was
+    (['a', 'b', 'c', 'b', 'e'], True, 'values', ('a', 'b', 'c', 'e'),
+     [0, 3, 2, 4]),
     (['a', 'b', 'c'], True, 'values', ('a', 'd'), [0, None]),
     ([['a', 'b'], ['b', 'c'], ['b', 'a']], True, 'value', ['a', 'b'], 0),
     ([['a', 'b'], ['b', 'c'], ['b', 'a']], True, 'values', ['a', 'b'],
@@ -926,7 +937,7 @@ def test_redisobject_get_nonexistent_key_returns_none():
     ('abcdefg', None, 'index', (3, 10), 'defg'),
     ('abcdefg', None, 'index', -1, 'g'),
     ('abcdefg', None, 'index', -7, 'a'),
-    ('abcdefg', None, 'index', -10, 'a'),
+    ('abcdefg', None, 'index', -10, None),
     ('abcdefg', None, 'index', (-4, -1), 'defg'),
     ('abcdefg', None, 'index', (-10, -4), 'abcd'),
     # String -- default lookup is 'index'

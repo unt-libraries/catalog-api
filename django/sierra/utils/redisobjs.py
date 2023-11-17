@@ -25,6 +25,21 @@ class Accumulator(object):
     performing a reduction.
     """
 
+    @classmethod
+    def from_ptype(cls, ptype, multi=False):
+        if ptype == dict:
+            return cls(ptype, ptype.update)
+        if ptype == set:
+            if multi:
+                return cls(ptype, ptype.update)
+            return cls(ptype, ptype.add)
+        if ptype == list:
+            if multi:
+                return cls(ptype, ptype.extend)
+            return cls(ptype, ptype.append)
+        if ptype == str:
+            return cls(ptype, lambda coll, new: ''.join([coll, new]))
+
     def __init__(self, acctype, accmethod):
         """
         Inits the accumulator instance with 'acctype' and 'accmethod'.
@@ -234,6 +249,71 @@ def make_single_or_list_callback(decode_list=None):
     return callback
 
 
+def normalize_index_lookup(index, llen, default=0, low_default=None):
+    """
+    Returns a normalized Redis index lookup.
+
+    The 'index' arg is the raw index value to convert. It could be None
+    or it could be negative.
+
+    The 'llen' arg should be the total number of items in the data
+    structure.
+
+    The 'default' kwarg defines what is returned when 'index' is
+    None.
+
+    The 'low_default' kwarg defines what is returned when it tries to
+    convert a negative value to a positive but still gets a negative
+    (i.e., when a negative index is out of range).
+    """
+    if index is None:
+        return default
+    if index < 0 and llen is not None:
+        converted = llen + index
+        return converted if converted >= 0 else low_default
+    return index
+
+
+def normalize_index_range_lookup(lookup, llen):
+    """
+    Returns a normalized Redis index range lookup.
+
+    This is designed to convert a value provided for an index lookup
+    to a concrete (start, end) tuple for a 'range' type lookup. Note
+    that Redis ranges are fully inclusive, unlike Python ranges which
+    exclude the end value.
+
+    The 'lookup' arg is the raw lookup value -- it could be None, or a
+    single integer, or a 2-member list or tuple: (start, end). Index
+    values can be negative, which counts from the end of the list
+    instead of the start.
+
+    The 'llen' arg is the total number of items in the data structure.
+
+    - Returns None if 'lookup' is None.
+    - If the first 'lookup' range value is None, it is converted to 0.
+    - If the second 'lookup' range value is None, it is converted to
+      llen - 1.
+    - A single integer value X is converted to (X, X).
+    - Negative values are converted to positive index values, starting
+      from the end of the list. Returns None if the entire range is out
+      of bounds, otherwise converts the first index to 0 and the second
+      to the corresponding positive index value.
+    """
+    if lookup is None:
+        return None
+    if isinstance(lookup, int):
+        lookup = normalize_index_lookup(lookup, llen)
+        return None if lookup is None else (lookup, lookup)
+    ret_val = tuple([
+        normalize_index_lookup(lookup[0], llen, 0, 0),
+        normalize_index_lookup(lookup[1], llen, llen - 1, None)
+    ])
+    if ret_val[1] is None:
+        return None
+    return ret_val
+
+
 class _RedisJsonEncoder(object):
     """
     Private class with methods for encoding Redis data types.
@@ -382,53 +462,39 @@ class _RedisSetter(object):
         self.obj.rtype = new_rtype
         if update or old_rtype == 'none':
             return getattr(self, new_rtype)(data, None, *add_args)
-        acc = self.obj.make_result_accumulator()
+        acc = Accumulator.from_ptype(list)
         self.pipe.add('delete', self.key, accumulator=acc)
         getattr(self, new_rtype)(data, acc, *add_args)
         self.pipe.mark_accumulator_pop()
         return self.pipe
 
-    @staticmethod
-    def _check_and_convert_negative_index(current_index, next_available_index):
-        if current_index is None:
-            return next_available_index
-        if current_index < 0:
-            converted = next_available_index + current_index
-            if converted > 0:
-                return converted
-            return 0
-        return current_index
-
     def _process_zset_update(self, data, accumulator, index):
-        prev_end = self.pipe.pending_cache.get(self.key)
-        if prev_end is None:
-            prev_max = self.conn.zrange(self.key, -1, -1, withscores=True)
-            prev_end = int(prev_max[0][1]) if prev_max else -1
-        offset = self._check_and_convert_negative_index(index, prev_end + 1)
-        end_of_new_data = offset + len(data) - 1
-        if offset <= prev_end:
-            accumulator = accumulator or self.obj.make_result_accumulator()
+        prev_zlen = self.obj.len
+        offset = normalize_index_lookup(index, prev_zlen, prev_zlen, 0)
+        data_end = offset + len(data) - 1
+        if offset < prev_zlen:
+            accumulator = accumulator or Accumulator.from_ptype(list)
             self.pipe.add(
-                'zremrangebyscore', self.key, args=[offset, end_of_new_data],
+                'zremrangebyscore', self.key, args=[offset, data_end],
                 accumulator=accumulator
             )
-        new_end = end_of_new_data if end_of_new_data > prev_end else prev_end
-        return offset, new_end, accumulator
+        new_zlen = data_end + 1 if data_end >= prev_zlen else prev_zlen
+        return offset, new_zlen, accumulator
 
     def _process_zset_set(self, data, accumulator, index):
         offset = 0 if (index is None or index < 0) else index
-        return offset, offset + len(data) - 1, accumulator
+        return offset, offset + len(data), accumulator
 
     def zset(self, data, accumulator, update, index):
         operation_label = 'update' if update else 'set'
         process = getattr(self, f"_process_zset_{operation_label}")
-        offset, new_zset_end, acc = process(data, accumulator, index)
+        offset, new_zlen, acc = process(data, accumulator, index)
         self.pipe.add(
             'zadd', self.key, args=[dict(self.encode(
                 'zset', ((v, offset + i) for i, v in enumerate(data))
             ))], accumulator=acc
         )
-        self.pipe.pending_cache[self.key] = new_zset_end
+        self.obj.len = new_zlen
         if acc != accumulator:
             self.pipe.mark_accumulator_pop()
         return self.pipe
@@ -438,13 +504,11 @@ class _RedisSetter(object):
         return [none] * how_many + list(data)
 
     def _process_list_update(self, data, accumulator, index):
-        prev_llen = self.pipe.pending_cache.get(
-            self.key, self.conn.llen(self.key)
-        )
-        offset = self._check_and_convert_negative_index(index, prev_llen)
+        prev_llen = self.obj.len
+        offset = normalize_index_lookup(index, prev_llen, prev_llen, 0)
         if offset < prev_llen:
             if len(data) > 1 and not accumulator:
-                accumulator = self.obj.make_result_accumulator()
+                accumulator = Accumulator.from_ptype(list)
             for i, value in enumerate(data[:prev_llen - offset]):
                 args = [i + offset, self.encode('member', value)]
                 self.pipe.add(
@@ -472,16 +536,14 @@ class _RedisSetter(object):
                 'rpush', self.key, args=self.encode('list', data),
                 accumulator=acc
             )
-        self.pipe.pending_cache[self.key] = new_llen
+        self.obj.len = new_llen
         if acc != accumulator:
             self.pipe.mark_accumulator_pop()
         return self.pipe
 
     def _process_string_update(self, data, index):
-        prev_strlen = self.pipe.pending_cache.get(
-            self.key, self.conn.strlen(self.key)
-        )
-        offset = self._check_and_convert_negative_index(index, prev_strlen)
+        prev_strlen = self.obj.len
+        offset = normalize_index_lookup(index, prev_strlen, prev_strlen, 0)
         new_len = len(data) + offset
         return offset, new_len if new_len > prev_strlen else prev_strlen
 
@@ -493,7 +555,7 @@ class _RedisSetter(object):
         operation_label = 'update' if update else 'set'
         process = getattr(self, f"_process_string_{operation_label}")
         offset, new_strlen = process(data, index)
-        self.pipe.pending_cache[self.key] = new_strlen
+        self.obj.len = new_strlen
         return self.pipe.add(
             'setrange', self.key, args=[offset, data], accumulator=accumulator
         )
@@ -522,6 +584,13 @@ class _RedisGetter(object):
     """
     Private class that implements 'getting' behaviors for RedisObject.
     """
+    rtypes_to_ptypes = {
+        'hash': dict,
+        'list': list,
+        'zset': list,
+        'set': set,
+        'string': str
+    }
     lookup_types = {
         'hash': {'valid': ('field',), 'default': 'field'},
         'list': {'valid': ('value', 'values', 'index'), 'default': 'index'},
@@ -543,18 +612,25 @@ class _RedisGetter(object):
         self.pipe = redis_object.pipe
         self.decoder = decoder
 
-    def _process_lookup(self, rtype, lookup, lookup_type):
+    def get_ptype_from_obj_rtype(self):
+        return self.rtypes_to_ptypes.get(self.obj.rtype)
+
+    def configure_lookup(self, lookup, lookup_type):
+        rtype = self.obj.rtype
         if lookup is None and lookup_type is None:
-            return lookup, 'all', True
+            if rtype in ('list', 'zset', 'string'):
+                lookup = (0, -1)
+                lookup_type = 'index'
+            else:
+                return lookup, 'all', True
+
         if lookup_type is None:
             lookup_type = self.lookup_types[rtype]['default']
+
         if lookup_type in self.lookup_types[rtype]['valid']:
             if lookup_type == 'index':
-                if isinstance(lookup, int):
-                    multi = False
-                    lookup = (lookup, lookup)
-                else:
-                    multi = True
+                multi = not isinstance(lookup, int)
+                lookup = normalize_index_range_lookup(lookup, self.obj.len)
             elif lookup_type == 'field':
                 multi = isinstance(lookup, (list, tuple))
             elif lookup_type in self.multi_types:
@@ -562,31 +638,26 @@ class _RedisGetter(object):
                 lookup_type = self.multi_types[lookup_type]
             else:
                 multi = False
+
             if lookup or lookup == 0:
                 return lookup, lookup_type, multi
         return lookup, None, None
 
-    def add_to_pipe(self, rtype, lookup, lookup_type):
-        lookup, lookup_type, multi = self._process_lookup(
-            rtype, lookup, lookup_type
-        )
+    def add_to_pipe(self, lookup, lookup_type, multi):
+        rtype = self.obj.rtype
         if lookup_type is None:
             return self.none()
         if lookup_type == 'all':
             return getattr(self, rtype)()
         return getattr(self, f'{rtype}_{lookup_type}')(lookup, multi)
 
-    def zset(self):
-        return self.pipe.add(
-            'zrange', self.key, args=[0, -1], callback=self.decoder.list
-        )
-
     def zset_index(self, index_range, multi):
         callback = self.decoder.list
         if not multi:
             callback = make_single_or_list_callback(callback)
         return self.pipe.add(
-            'zrange', self.key, args=index_range, callback=callback
+            'zrange', self.key, args=index_range, kwargs={'byscore': True},
+            callback=callback
         )
 
     def zset_value(self, values, multi):
@@ -604,11 +675,6 @@ class _RedisGetter(object):
             callback=lambda score: score if score is None else int(score)
         )
 
-    def list(self):
-        return self.pipe.add(
-            'lrange', self.key, args=[0, -1], callback=self.decoder.list
-        )
-
     def list_index(self, index_range, multi):
         callback = self.decoder.list
         if not multi:
@@ -621,7 +687,7 @@ class _RedisGetter(object):
         callback = make_single_or_list_callback()
         kwargs = {'count': 0}
         if multi:
-            acc = self.obj.make_result_accumulator()
+            acc = Accumulator.from_ptype(list)
             for value in self.obj.setter.encoder.list(values):
                 self.pipe.add(
                     'lpos', self.key, args=[value], kwargs=kwargs,
@@ -746,6 +812,43 @@ class RedisObject(object):
         self.setter = _RedisSetter(self, _RedisJsonEncoder())
         self.getter = _RedisGetter(self, _RedisJsonDecoder())
 
+    def __len__(self):
+        return self.len
+
+    @property
+    def len(self):
+        """
+        The length of the Redis obj, including pending transactions.
+        """
+        pending = self.pipe.pending_cache.get(self.key, {})
+        if 'len' in pending:
+            return pending['len']
+        if self.rtype == 'none':
+            return 0
+        if self.rtype == 'zset':
+            resp = self.conn.zrange(self.key, -1, -1, withscores=True)
+            return int(resp[0][1]) + 1 if resp else 0
+        rtype_cmds = {
+            'list': 'llen',
+            'hash': 'hlen',
+            'set': 'scard',
+            'string': 'strlen',
+            'encoded_obj': 'strlen'
+        }
+        obj_len = getattr(self.conn, rtype_cmds[self.rtype])(self.key)
+        pending['len'] = obj_len
+        self.pipe.pending_cache[self.key] = pending
+        return obj_len
+
+    @len.setter
+    def len(self, value):
+        """
+        Sets the pending length of this Redis obj.
+        """
+        pending = self.pipe.pending_cache.get(self.key, {})
+        pending['len'] = value
+        self.pipe.pending_cache[self.key] = pending
+
     @property
     def rtype(self):
         """
@@ -770,9 +873,6 @@ class RedisObject(object):
         if you use the wrong rtype string.
         """
         self._rtype = value
-
-    def make_result_accumulator(self):
-        return Accumulator(list, list.append)
 
     def set(self, data, force_unique=None, update=False, index=None):
         """
@@ -942,7 +1042,8 @@ class RedisObject(object):
         and returns the retrieved value(s). If self.defer is True, it
         queues up the operation(s) on self.pipe and returns that.
         """
-        self.getter.add_to_pipe(self.rtype, lookup, lookup_type)
+        lookup_args = self.getter.configure_lookup(lookup, lookup_type)
+        self.getter.add_to_pipe(*lookup_args)
         if self.defer:
             return self.pipe
         return self.pipe.execute()[-1]
