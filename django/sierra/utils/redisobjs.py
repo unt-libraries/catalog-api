@@ -38,7 +38,7 @@ class Accumulator(object):
                 return cls(ptype, ptype.extend)
             return cls(ptype, ptype.append)
         if ptype == str:
-            return cls(ptype, lambda coll, new: ''.join([coll, new]))
+            return cls(ptype, lambda coll, new: f"{coll}{new}")
 
     def __init__(self, acctype, accmethod):
         """
@@ -1083,3 +1083,244 @@ class RedisObject(object):
         """
         lookup = start if end is None else (start, end)
         return self.get(lookup, 'index')
+
+
+class _SendBatches(object):
+
+    def __init__(self, obj, data, force_unique, target_batch_size):
+        self.obj = obj
+        self.data = data
+        self.num_items = len(data)
+        nbatches = self.num_items / target_batch_size
+        self.num_batches = int(nbatches) + (0 if nbatches.is_integer() else 1)
+        self.encoder = obj.setter.encoder
+        self.rtype = obj.setter.get_rtype_from_data(data, force_unique)
+        if self.rtype == 'encoded_obj':
+            raise ValueError(
+                "cannot batch update an 'encoded_obj' type object -- please "
+                "convert to a string first if you really need to stream this "
+                "object to Redis"
+            )
+        self.batch_type = obj.getter.rtypes_to_ptypes[self.rtype]
+        self.target_batch_size = target_batch_size
+        self.iterator = getattr(
+            self, f'_{self.rtype}_iterator', self._default_iterator
+        )
+        self.make_batch = getattr(
+            self, f'_make_{self.rtype}_batch', self._default_make_batch
+        )
+
+    def _zset_iterator(self, data):
+        return (self.encoder.member(item) for item in data)
+
+    def _hash_iterator(self, data):
+        return self.encoder.hash(data)
+
+    def _default_iterator(self, data):
+        return self.encoder.list(data)
+
+    def _make_string_batch(self):
+        total_size = len(self.data)
+        index = 0
+        while index < total_size:
+            yield self.data[(index):(index + self.target_batch_size)]
+            index += self.target_batch_size
+
+    def _default_make_batch(self):
+        batch = []
+        for i, item in enumerate(self.iterator(self.data)):
+            batch.append(item)
+            if (i + 1) % self.target_batch_size == 0:
+                yield self.batch_type(batch)
+                batch = []
+        if batch:
+            yield self.batch_type(batch)
+
+    def __call__(self):
+        return self.make_batch()
+
+
+class _AccumulatorFactory(object):
+    accumulated_types = {
+        'dict_all': dict,
+        'str_index': str,
+    }
+
+    @staticmethod
+    def _flatten(accumulated, new_values):
+        accumulated.extend([
+            item for vals in new_values for item in (vals or [])
+        ])
+
+    @staticmethod
+    def dict_all(accumulated, new_values):
+        for keys, vals in zip(*new_values):
+            accumulated.update(dict(zip(keys, vals)))
+
+    @staticmethod
+    def dict_field(accumulated, new_values):
+        accumulated.extend([
+            item for vals in new_values[1] for item in (vals or [])
+        ])
+
+    @staticmethod
+    def str_index(collected, new_vals):
+        return f"{collected}{''.join([str(v) if v else '' for v in new_vals])}"
+
+    def __call__(self, ptype, lookup_type):
+        full_lookup_name = f'{ptype.__name__}_{lookup_type}'
+        acc_type = self.accumulated_types.get(full_lookup_name, list)
+        method = getattr(self, full_lookup_name, self._flatten)
+        return Accumulator(acc_type, method)
+
+
+class RedisObjectStream(object):
+
+    def __init__(self, obj, target_batch_size, execute_every_nth_batch=None):
+        self.obj = obj
+        self.target_batch_size = target_batch_size
+        self.execute_every = execute_every_nth_batch
+        self.pipe = obj.pipe
+        self.key = obj.key
+        self.batches = None
+        self.accumulator_factory = _AccumulatorFactory()
+
+    def set(self, data, force_unique=None, update=False, index=None):
+        prev_defer = self.obj.defer
+        prev_bypass = self.obj.setter.bypass_encoding
+        self.obj.defer = True
+        self.obj.setter.bypass_encoding = True
+        self.batches = _SendBatches(
+            self.obj, data, force_unique, self.target_batch_size
+        )
+        execute_rvals = []
+        try:
+            for i, batch in enumerate(self.batches()):
+                update = update if i == 0 else True
+                if index is None:
+                    offset = index
+                else:
+                    offset = (self.target_batch_size * i) + index
+                self.obj.set(batch, force_unique, update, offset)
+                nbatch = i + 1
+                is_final = nbatch == self.batches.num_batches
+                do_it = self.execute_every and nbatch % self.execute_every == 0
+                if is_final or do_it:
+                    execute_rvals.extend(self.pipe.execute())
+        except Exception:
+            self.pipe.reset()
+            raise
+        self.obj.defer = prev_defer
+        self.obj.setter.bypass_encoding = prev_bypass
+        return execute_rvals
+
+    def _get_str(self, lookup, lookup_type, multi):
+        accumulator = self.accumulator_factory(str, lookup_type)
+        batches = [
+            (num, min(num + self.target_batch_size - 1, lookup[1]))
+            for num in range(
+                lookup[0], lookup[1] + 1, self.target_batch_size
+            )
+        ]
+        lookup_type = 'index'
+        try:
+            for i, batch in enumerate(batches):
+                self.obj.getter.add_to_pipe(batch, lookup_type, multi)
+                nbatch = i + 1
+                is_final = nbatch == len(batches)
+                do_it = self.execute_every and nbatch % self.execute_every == 0
+                if is_final or do_it:
+                    accumulator.push(self.obj.pipe.execute())
+        except Exception:
+            self.pipe.reset()
+            raise
+        return accumulator.pop_all()
+
+    def _get_set(self, lookup, lookup_type, multi):
+        if lookup_type == 'all':
+            raise TypeError(
+                "cannot use 'RedisObjectStream' to get entire Redis 'set' "
+                "objects in batches, as they have no methods for doing this "
+                "-- use 'RedisObject' instead"
+            )
+        accumulator = self.accumulator_factory(set, lookup_type)
+        batches = [
+            lookup[(num):(num + self.target_batch_size)]
+            for num in range(0, len(lookup), self.target_batch_size)
+        ]
+        try:
+            for i, batch in enumerate(batches):
+                self.obj.getter.add_to_pipe(batch, lookup_type, multi)
+                nbatch = i + 1
+                is_final = nbatch == len(batches)
+                do_it = self.execute_every and nbatch % self.execute_every == 0
+                if is_final or do_it:
+                    accumulator.push(self.obj.pipe.execute())
+        except Exception:
+            self.pipe.reset()
+            raise
+        return accumulator.pop_all()
+
+    def _get_list(self, lookup, lookup_type, multi):
+        accumulator = self.accumulator_factory(list, lookup_type)
+        if lookup_type == 'value':
+            batches = [
+                lookup[(num):(num + self.target_batch_size)]
+                for num in range(0, len(lookup), self.target_batch_size)
+            ]
+        else:
+            batches = [
+                (num, min(num + self.target_batch_size - 1, lookup[1]))
+                for num in range(
+                    lookup[0], lookup[1] + 1, self.target_batch_size
+                )
+            ]
+            lookup_type = 'index'
+        try:
+            for i, batch in enumerate(batches):
+                self.obj.getter.add_to_pipe(batch, lookup_type, multi)
+                nbatch = i + 1
+                is_final = nbatch == len(batches)
+                do_it = self.execute_every and nbatch % self.execute_every == 0
+                if is_final or do_it:
+                    accumulator.push(self.obj.pipe.execute())
+        except Exception:
+            self.pipe.reset()
+            raise
+        return accumulator.pop_all()
+
+    def _get_dict(self, lookup, lookup_type, multi):
+        accumulator = self.accumulator_factory(dict, lookup_type)
+        hash_keys = lookup or self.obj.conn.hkeys(self.obj.key)
+        keys_stack = []
+        key_batches = [
+            hash_keys[(num):(num + self.target_batch_size)]
+            for num in range(0, len(hash_keys), self.target_batch_size)
+        ]
+        try:
+            for i, batch_keys in enumerate(key_batches):
+                self.obj.getter.add_to_pipe(batch_keys, 'field', True)
+                keys_stack.append(batch_keys)
+                nbatch = i + 1
+                is_final = nbatch == len(key_batches)
+                do_it = self.execute_every and nbatch % self.execute_every == 0
+                if is_final or do_it:
+                    accumulator.push((keys_stack, self.obj.pipe.execute()))
+                    keys_stack = []
+        except Exception:
+            self.pipe.reset()
+            raise
+        return accumulator.pop_all()
+
+    def get(self, lookup=None, lookup_type=None):
+        lookup_args = self.obj.getter.configure_lookup(lookup, lookup_type)
+        lookup, lookup_type, multi = lookup_args
+        if lookup_type is None:
+            return None
+        if not multi:
+            self.obj.getter.add_to_pipe(lookup, lookup_type, multi)
+            return self.pipe.execute()[-1]
+        ptype = self.obj.getter.get_ptype_from_obj_rtype()
+        # accumulator = Accumulator.from_ptype(ptype, multi=True)
+        data = getattr(self, f'_get_{ptype.__name__}')(*lookup_args)
+        return data
