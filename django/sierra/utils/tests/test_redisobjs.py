@@ -238,7 +238,7 @@ def test_redisobject_rtype_property_none_if_not_set():
     set.
     """
     r = redisobjs.RedisObject('test', 'thing')
-    assert r.rtype == 'none'
+    assert str(r.rtype) == 'none'
 
 
 def test_redisobject_rtype_property_correct_for_existing_key():
@@ -249,7 +249,7 @@ def test_redisobject_rtype_property_correct_for_existing_key():
     conn = redisobjs.REDIS_CONNECTION
     conn.set('test:thing', 'foo')
     r = redisobjs.RedisObject('test', 'thing')
-    assert r.rtype == 'string'
+    assert str(r.rtype) == 'string'
 
 
 def test_redisobject_set_saves_key():
@@ -545,25 +545,23 @@ def test_redisobject_set_without_update_with_index(init, force_unique, newval,
 
 
 @pytest.mark.parametrize(
-    'init, force_unique, newval, old_rtype, new_rtype, cmp_ptype_label',
+    'init, force_unique, newval, old_rtype, cmp_ptype_label',
     [
-        ('ab', False, [1, 2, 3], 'string', 'list', 'string'),
-        ('ab', True, [1, 2, 3], 'string', 'zset', 'string'),
-        ('ab', None, {1, 2, 3}, 'string', 'set', 'string'),
-        ('ab', None, {'a': 'z'}, 'string', 'hash', 'string'),
-        ('ab', None, 0, 'string', 'encoded_obj', 'string'),
-        (0, None, 'ab', 'encoded_obj', 'string',
-         'any JSON-serializable type except list, tuple, string, dict, or '
-         'set'),
-        ([1, 2, 3], False, 'foo', 'list', 'string', 'list or tuple'),
-        ([1, 2, 3], True, 'foo', 'zset', 'string', 'list or tuple'),
-        ({1, 2, 3}, None, 'foo', 'set', 'string', 'set'),
-        ({'a': 'z'}, None, 'foo', 'hash', 'string', 'hash'),
+        ('ab', False, [1, 2, 3], 'string', 'string'),
+        ('ab', True, [1, 2, 3], 'string', 'string'),
+        ('ab', None, {1, 2, 3}, 'string', 'string'),
+        ('ab', None, {'a': 'z'}, 'string', 'string'),
+        ('ab', None, 0, 'string', 'string'),
+        (0, None, 'ab', 'encoded_obj',
+         'any JSON-serializable type except list, tuple, str, dict, or set'),
+        ([1, 2, 3], False, 'foo', 'list', 'list or tuple'),
+        ([1, 2, 3], True, 'foo', 'zset', 'list or tuple'),
+        ({1, 2, 3}, None, 'foo', 'set', 'set'),
+        ({'a': 'z'}, None, 'foo', 'hash', 'hash'),
     ]
 )
 def test_redisobject_set_with_update_wrong_type(init, force_unique, newval,
-                                                old_rtype, new_rtype,
-                                                cmp_ptype_label):
+                                                old_rtype, cmp_ptype_label):
     """
     When RedisObject.set is used and the 'update' kwarg is True but the
     provided data type is not compatible with the data type in Redis,
@@ -576,7 +574,8 @@ def test_redisobject_set_with_update_wrong_type(init, force_unique, newval,
             newval, force_unique=force_unique, update=True
         )
     err_msg = str(excinfo.value)
-    exp_msg = f'Cannot update existing {old_rtype} data with {new_rtype} data'
+    exp_msg = (f"cannot save key 'test:item' as a Redis {old_rtype} using "
+               f"{type(newval).__name__} data")
     assert exp_msg in err_msg
     assert cmp_ptype_label in err_msg
 
@@ -943,22 +942,26 @@ def test_redisobject_get_nonexistent_key_returns_none():
     # String -- default lookup is 'index'
     ('abcdefg', None, None, 3, 'd'),
 
-    # Hash -- get by field
+    # Hash -- get by field or fields
     ({'a': 'z', 'b': 'y', 'c': 'x'}, None, 'field', None, None),
     ({'a': 'z', 'b': 'y', 'c': 'x'}, None, 'field', [], None),
     ({'a': 'z', 'b': 'y', 'c': 'x'}, None, 'field', 'b', 'y'),
-    ({'a': 'z', 'b': 'y', 'c': 'x'}, None, 'field', ('b',), ['y']),
-    ({'a': 'z', 'b': 'y', 'c': 'x'}, None, 'field', ('b', 'a', 'c'),
+    ({'a': 'z', 'b': 'y', 'c': 'x'}, None, 'field', ('b',), 'y'),
+    ({'a': 'z', 'b': 'y', 'c': 'x'}, None, 'field', ('b', 'a', 'c'), 'y'),
+    ({'a': 'z', 'b': 'y', 'c': 'x'}, None, 'fields', 'b', ['y']),
+    ({'a': 'z', 'b': 'y', 'c': 'x'}, None, 'fields', ('b',), ['y']),
+    ({'a': 'z', 'b': 'y', 'c': 'x'}, None, 'fields', ('b', 'a', 'c'),
      ['y', 'z', 'x']),
     ({'a': 'z', 'b': 'y', 'c': 'x'}, None, 'field', 'd', None),
-    ({'a': 'z', 'b': 'y', 'c': 'x'}, None, 'field', ('d', 'e'), [None, None]),
-    ({'a': 'z', 'b': 'y', 'c': 'x'}, None, 'field', ('a', 'd', 'c'),
+    ({'a': 'z', 'b': 'y', 'c': 'x'}, None, 'fields', ('d', 'e'), [None, None]),
+    ({'a': 'z', 'b': 'y', 'c': 'x'}, None, 'fields', ('a', 'd', 'c'),
      ['z', None, 'x']),
     ({'a': [1, 2, 3], 'b': 'y', 'c': 'x'}, None, 'field', 'a', [1, 2, 3]),
     ({'a': {'a1': 'z1', 'a2': 'z2'}, 'b': 'y', 'c': 'x'}, None, 'field', 'a',
      {'a1': 'z1', 'a2': 'z2'}),
     # Hash -- default lookup is 'field'
     ({'a': 'z', 'b': 'y', 'c': 'x'}, None, None, 'b', 'y'),
+    ({'a': 'z', 'b': 'y', 'c': 'x'}, None, None, ('b', 'c'), ['y', 'x']),
 
     # Set -- check whether values exist in the set
     ({'a', 'b', 'c'}, None, 'value_exists', None, None),
@@ -1006,7 +1009,7 @@ def test_redisobject_get_with_defer():
     """
     redisobjs.RedisObject('test', 'hash').set({'a': 'z', 'b': 'y', 'c': 'x'})
     r = redisobjs.RedisObject('test', 'hash', defer=True)
-    pipe = r.get(['a', 'b', 'c'], 'field')
+    pipe = r.get(['a', 'b', 'c'], 'fields')
     assert pipe.execute() == [['z', 'y', 'x']]
 
 
@@ -1029,7 +1032,7 @@ def test_redisobject_getfield_multiple_fields(mocker):
     r = redisobjs.RedisObject('test', 'get_field')
     r.get = mocker.Mock()
     r.get_field('myfield1', 'myfield2')
-    r.get.assert_called_with(('myfield1', 'myfield2'), 'field')
+    r.get.assert_called_with(('myfield1', 'myfield2'), 'fields')
 
 
 def test_redisobject_getindex_single_value(mocker):
@@ -1579,12 +1582,12 @@ def test_redisobjectstream_get_makes_correct_calls(init, force_unique, lookup,
                                                    mocker):
     """
     The RedisObjectStream.get method should result in the expected
-    calls to RedisObject.getter.add_to_pipe and Pipeline.execute.
+    calls to the rtype's 'get' method and Pipeline.execute.
     """
     calls = []
     call_stack = []
-    def mock_atp_behavior(lookup, lookup_type, multi):
-        call_stack.append((lookup, lookup_type, multi))
+    def mock_get_behavior(obj, lookup):
+        call_stack.append((lookup.value, type(lookup).label, lookup.multi))
 
     def mock_execute_behavior():
         calls.extend(call_stack + ['execute'])
@@ -1594,9 +1597,12 @@ def test_redisobjectstream_get_makes_correct_calls(init, force_unique, lookup,
 
     r = redisobjs.RedisObject('test', 'stream_get')
     r.set(init, force_unique)
-    r.getter.add_to_pipe = mocker.Mock(side_effect=mock_atp_behavior)
-    r.pipe.execute = mocker.Mock(side_effect=mock_execute_behavior)
-
+    mocker.patch.object(
+        r.rtype, 'get', mocker.Mock(side_effect=mock_get_behavior)
+    )
+    mocker.patch.object(
+        r.pipe, 'execute', mocker.Mock(side_effect=mock_execute_behavior)
+    )
     rs = redisobjs.RedisObjectStream(r, target_batch_size, execute_every)
     rs.get(lookup, lookup_type)
     assert calls == exp_calls
@@ -1748,9 +1754,6 @@ def test_redisobjectstream_get_gets_correctly(init, force_unique, lookup,
     The RedisObjectStream.get method should return the correct value.
     """
     redisobjs.RedisObject('test', 'stream_get').set(init, force_unique)
-    r = redisobjs.RedisObject('test', 'stream_get')
-    if r.rtype == 'zset':
-        print(r.conn.zrange(r.key, 0, -1, withscores=True))
     rs = redisobjs.RedisObjectStream(
         redisobjs.RedisObject('test', 'stream_get'), target_batch_size,
         execute_every

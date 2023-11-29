@@ -12,6 +12,7 @@ REDIS_CONNECTION = redis.StrictRedis(
 )
 NONE_KEY = '~~~|_DOESNOTEXIST_|~~~'
 STR_OBJ_PREFIX = '~~~|_STR_OBJ_|~~~'
+LISTLIKE_TYPES = [list, tuple]
 
 
 class Accumulator(object):
@@ -249,502 +250,1011 @@ def make_single_or_list_callback(decode_list=None):
     return callback
 
 
-def normalize_index_lookup(index, llen, default=0, low_default=None):
+class _Lookup(object):
     """
-    Returns a normalized Redis index lookup.
+    Internal base class for storing info about Redis object lookups.
 
-    The 'index' arg is the raw index value to convert. It could be None
-    or it could be negative.
+    Each subclass should represent one type of lookup. They may be
+    RedisType dependent, since different rtypes have different ways of
+    being looked up.
 
-    The 'llen' arg should be the total number of items in the data
-    structure.
+    A subclass must at least supply a string 'label' attribute. This is
+    a way to identify and address the lookup easily. Subclasses may
+    optionally supply 'plural_label', which is a valid secondary way to
+    identify and address the lookup. When 'plural_label' is used with
+    lookup instances, it always indicates a lookup requesting multiple
+    values. (Use of 'label' could indicate either.)
 
-    The 'default' kwarg defines what is returned when 'index' is
-    None.
-
-    The 'low_default' kwarg defines what is returned when it tries to
-    convert a negative value to a positive but still gets a negative
-    (i.e., when a negative index is out of range).
+    Instances of a subclass represent a concrete lookup attempt and
+    store the corresponding parameters: the RedisObject, the lookup
+    value, the provided label, whether to force a multi-lookup request,
+    and whether the whole object is being requested.
     """
-    if index is None:
-        return default
-    if index < 0 and llen is not None:
-        converted = llen + index
-        return converted if converted >= 0 else low_default
-    return index
+    label = None
+    plural_label = None
+
+    def __init__(self, obj, value, provided_label=None, multi=None,
+                 whole_obj_requested=False):
+        """
+        Instantiates one concrete lookup request.
+
+        In subclasses, the goal for '__init__' should be to parse the
+        provided information and store it canonically for the given
+        lookup attempt. The lookup 'value' may need to be normalized,
+        for example.
+
+        Use the optional 'provided_label' to track what was originally
+        requested, if your lookup has variations -- such as a singular
+        and plural form.
+
+        Use 'multi' to denote explicitly whether this is a singular or
+        multi lookup: when False, an atomic return value is expected.
+        When True, a list of return values is expected.
+
+        By default, the canonical 'multi' instance attribute is
+        determined as follows: if 'multi' is supplied, that takes
+        precedence; otherwise if a 'plural_label' class attribute
+        exists and 'provided_label' == 'plural_label', then multi is
+        True.
+
+        When the entire content of an object is being requested, set
+        'whole_obj_requested' to True.
+        """
+        self.obj = obj
+        self.value = value
+        self.provided_label = provided_label
+        if multi is None and self.plural_label:
+            self.multi = provided_label == self.plural_label
+        else:
+            self.multi = multi
+        self.whole_obj_requested = whole_obj_requested
+
+    def __str__(self):
+        return self.label
 
 
-def normalize_index_range_lookup(lookup, llen):
+class _GenericAllLookup(_Lookup):
     """
-    Returns a normalized Redis index range lookup.
-
-    This is designed to convert a value provided for an index lookup
-    to a concrete (start, end) tuple for a 'range' type lookup. Note
-    that Redis ranges are fully inclusive, unlike Python ranges which
-    exclude the end value.
-
-    The 'lookup' arg is the raw lookup value -- it could be None, or a
-    single integer, or a 2-member list or tuple: (start, end). Index
-    values can be negative, which counts from the end of the list
-    instead of the start.
-
-    The 'llen' arg is the total number of items in the data structure.
-
-    - Returns None if 'lookup' is None.
-    - If the first 'lookup' range value is None, it is converted to 0.
-    - If the second 'lookup' range value is None, it is converted to
-      llen - 1.
-    - A single integer value X is converted to (X, X).
-    - Negative values are converted to positive index values, starting
-      from the end of the list. Returns None if the entire range is out
-      of bounds, otherwise converts the first index to 0 and the second
-      to the corresponding positive index value.
+    Class representing a generic "get the entire object" lookup.
     """
-    if lookup is None:
-        return None
-    if isinstance(lookup, int):
-        lookup = normalize_index_lookup(lookup, llen)
-        return None if lookup is None else (lookup, lookup)
-    ret_val = tuple([
-        normalize_index_lookup(lookup[0], llen, 0, 0),
-        normalize_index_lookup(lookup[1], llen, llen - 1, None)
-    ])
-    if ret_val[1] is None:
-        return None
-    return ret_val
+    label = 'all'
+
+    def __init__(self, obj, value, provided_label=None, multi=True,
+                 whole_obj_requested=True):
+        super().__init__(obj, None, provided_label, True, True)
 
 
-class _RedisJsonEncoder(object):
+class _FieldLookup(_Lookup):
     """
-    Private class with methods for encoding Redis data types.
+    Class representing a 'field' lookup, for hsets.
 
-    Contains methods named with a Redis type that return a generator
-    for encoding items. Ultimately the caller is responsible for
-    converting the generated items to the needed args for Redis.
+    (For getting the values that correspond to one or many fields.)
+    """
+    label = 'field'
+    plural_label = 'fields'
 
-    'encoded_obj' is a special type representing a JSON-serializable
-    object of an unknown type. This method doesn't return a generator,
-    since it's a one-shot encoding.
+    def __init__(self, obj, value, provided_label=None, multi=None,
+                 whole_obj_requested=False):
+        """
+        Initializes a 'field' lookup instance.
 
-    A 'member' property defines how individual members of zsets, lists,
-    hashes, and sets should be encoded.
+        Note that, currently, field values must be strings; therefore
+        we can assume that a list/tuple denotes a 'multi' lookup
+        request. However, providing 'multi' explicitly OR setting
+        'provided_label="fields"' will override this, and it will
+        wrap/unwrap the value appropriately.
+        """
+        val_is_multi = isinstance(value, (list, tuple))
+        if multi is None:
+            if provided_label:
+                multi = provided_label == self.plural_label
+            else:
+                multi = val_is_multi
+        if value:
+            if multi and not val_is_multi:
+                value = [value]
+            elif val_is_multi and not multi:
+                value = value[0]
+        super().__init__(
+            obj, value, provided_label, multi, whole_obj_requested
+        )
+
+
+class _IndexLookup(_Lookup):
+    """
+    Class representing an 'index' lookup, for lists, zsets, & strings.
+
+    (For getting a value at the given index position, or all values in
+    a given range.)
+
+    No plural form of index is used, so there is no 'plural_label.' But
+    plurality can be inferred from the lookup value (one index versus a
+    range).
+    """
+    label = 'index'
+
+    def __init__(self, obj, value, provided_label=None, multi=None,
+                 whole_obj_requested=False):
+        """
+        Initializes an 'index' lookup instance.
+
+        The supplied 'value' may be a single integer or a two-member
+        list/tuple indicating the start and end values of a range
+        (inclusive). Redis index lookups require both a start and end
+        value, so the provided lookup value is always converted to a
+        range. E.g., 0 becomes (0, 0).
+
+        Each index value is normalized appropriately using the
+        'normalize_index_lookup' method. Negative values get converted
+        to positive values based on the length of the provided
+        RedisObject -- note that this is done because not all Redis
+        index lookup types (particularly for zsets) allow negative
+        values, so converting them manually provides the most
+        consistent behavior. If an invalid / out-of-range negative is
+        used as the end of the range, then the value is converted to
+        None (because it is invalid). An out-of-range negative as the
+        start value is converted to 0.
+
+        The 'multi' kwarg is honored. But, if not supplied, then a
+        single index 'value' is assumed to be 'multi = False' and a
+        range is assumed to be 'multi = True'.
+        """
+        if value is not None:
+            llen = obj.len
+            if isinstance(value, int):
+                multi = multi or False
+                index_val = self.normalize_index_lookup(value, llen)
+                value = (index_val, index_val)
+            else:
+                multi = multi or True
+                value = tuple([
+                    self.normalize_index_lookup(value[0], llen, 0, 0),
+                    self.normalize_index_lookup(value[1], llen, llen - 1, None)
+                ])
+            if value[1] is None:
+                value = None
+        super().__init__(
+            obj, value, provided_label, multi, whole_obj_requested
+        )
+
+    @staticmethod
+    def normalize_index_lookup(index, llen, default=0, low_default=None):
+        """
+        Returns a normalized Redis index lookup.
+
+        The 'index' arg is the raw index value to convert. It could be
+        None or it could be negative.
+
+        The 'llen' arg should be the length of the RedisObject data
+        structure, for converting negative indexes to positive values.
+        Use None if you don't want to convert negative index positions.
+
+        The 'default' kwarg defines what is returned when 'index' is
+        None.
+
+        The 'low_default' kwarg defines what is returned when a
+        negative index is provided and the conversion attempt reveals
+        it to be out of range.
+        """
+        if index is None:
+            return default
+        if index < 0 and llen is not None:
+            converted = llen + index
+            return converted if converted >= 0 else low_default
+        return index
+
+
+class _ValueLookup(_Lookup):
+    """
+    Class representing a 'value' lookup, for lists & zsets.
+
+    (Gets the index position(s) for the given value(s).)
+
+    Supplying "values" as the 'provided_field' indicates a plural
+    lookup.
+    """
+    label = 'value'
+    plural_label = 'values'
+
+
+class _ValueExistsLookup(_Lookup):
+    """
+    Class representing a lookup to find set membership.
+
+    (For one or more values -- returns True for a value if it is in the
+    set, or False if it is not.)
+
+    Supplying "values_exist" as the 'provided_field indicates a plural
+    lookup.
+    """
+    label = 'value_exists'
+    plural_label = 'values_exist'
+
+
+def make_invalid_lookup(err_type, err_msg):
+    """
+    Factory for generating an invalid lookup type.
+
+    Pass the 'err_type' and 'err_msg' you want to raise when the lookup
+    type is used. It returns a class that can act as a lookup type but
+    raises the specified error when instantiated.
+    """
+    class _DynamicInvalidLookup(object):
+        def __init__(self, *args, **kwargs):
+            raise err_type(err_msg)
+    return _DynamicInvalidLookup
+
+
+class _LookupCollection(object):
+    """
+    Internal class representing a full collection of lookups.
+
+    Implements collective lookup behavior, specifically, the ability to
+    get a particular _Lookup class by its canonical 'label' attribute,
+    via the 'get' method.
     """
 
     def __init__(self):
-        self.member = ujson.dumps
+        lookup_types = (
+            _GenericAllLookup, _FieldLookup, _IndexLookup, _ValueLookup,
+            _ValueExistsLookup
+        )
+        self.ltypes = {}
+        self.plural_ltypes = {}
+        for lt in lookup_types:
+            self.ltypes[lt.label] = lt
+            if lt.plural_label:
+                self.ltypes[lt.plural_label] = lt
+                self.plural_ltypes[lt.plural_label] = lt
+
+    def get(self, label, default=None):
+        """
+        Returns a _Lookup type by its 'label' attribute.
+        """
+        return self.ltypes.get(label, default)
+
+
+LOOKUP_TYPES = _LookupCollection()
+
+
+class _RedisTypeMetadata(object):
+    """
+    Internal class for storing info about a Redis Type.
+
+    This class is intended to be instantiated directly in _RedisType
+    subclass definitions, to store canonical information about the
+    rtype.
+
+    'encode_member' and 'decode_member' are for encoding/decoding the
+    individual data members for collective types (list/zset elements,
+    hash elements, set elements) -- here we encode to JSON, but you
+    could subclass this to use something different.
+
+    'label' -- a string for identifying and addressing the rtype
+    easily. Using the type string that Redis returns from a 'TYPE'
+    command is generally expected, assuming there's a one-to-one
+    correlation with an actual Redis type.
+
+    'to_ptype' -- stores the ONE ptype that this rtype should convert
+    to.
+
+    'compatible_ptypes' -- stores a tuple of Python types that are
+    compatible with this rtype. It should include the 'to_ptype'.
+
+    'incompatible_ptypes' -- stores a tuple of Python types that are
+    NOT compatible with this rtype. (It should be assumed that all
+    types that are not incompatible are compatible. You should not have
+    'compatible_ptypes' and 'incompatible_ptypes' on the same object.)
+
+    'compatibility_label' -- see the 'compatiblity_label' property for
+    a description.
+
+    'all_lookup_type' -- the _Lookup class for fetching an entire
+    object of this Redis Type.
+
+    'all_lookup_value' -- optionally, if the 'all_lookup_type' requires
+    a value to get the full object, define that here.
+
+    'default_lookup_type' -- the _Lookup class used by default when the
+    user provides a lookup value but no lookup type.
+
+    'batch_lookup_type' -- optionally, the _Lookup class used to fetch
+    one piece of entire object when a piecemeal (batch) get operation
+    is performed.
+
+    'valid_lookup_types' -- a list of all _Lookup classes that are
+    valied for this rtype. It should include the all, default, and
+    batch lookup types, plus any others.
+
+    'attributes' -- a set of string attributes or tags that apply to
+    this rtype. If a tag is included, it applies; if not, it does not.
+    """
+    encode_member = ujson.dumps
+
+    def __init__(self, label, compatible_ptypes=[], incompatible_ptypes=[],
+                 compatibility_label=None, all_lookup_type=None,
+                 all_lookup_value=None, batch_lookup_type=None,
+                 default_lookup_type=None, other_valid_lookup_types=None,
+                 attributes=None):
+        """
+        Initializes a _RedisTypeMetadata instance.
+
+        See the class description for a description of the instance
+        attributes created from the args and kwargs.
+
+        'label' -- required.
+
+        'compatible_ptypes' -- optional. Default is an empty tuple. If
+        provided, the first Python type is used as the 'to_ptype' type.
+
+        'incompatible_ptypes' -- optional. Default is an empty tuple.
+        
+        'compatibility_label' -- optional. Default is None. If None,
+        the 'compatibility_label' property generates a dynamic value
+        base on the 'compatible_ptypes'. Otherwise, whatever you supply
+        overrides that.
+
+        'all_lookup_type' -- optional. Default is _GenericAllLookup.
+
+        'default_lookup_type' -- optional. Default is 'all_lookup_type'.
+
+        'batch_lookup_type' -- optional. Default is None.
+
+        'other_valid_lookup_types' -- optional. Gets combined with the
+        previous three lookup types to populate 'valid_lookup_types'.
+        """
+        self.label = label
+        self.compatible_ptypes = tuple(compatible_ptypes)
+        self.incompatible_ptypes = tuple(incompatible_ptypes)
+        self.to_ptype = (compatible_ptypes or [None])[0]
+        self.compatibility_label = compatibility_label
+        self.all_lookup_value = all_lookup_value
+        self.all_lookup_type = all_lookup_type or LOOKUP_TYPES.get('all')
+        self.default_lookup_type = default_lookup_type or self.all_lookup_type
+        self.batch_lookup_type = batch_lookup_type
+        self.valid_lookup_types = set(
+            ([self.all_lookup_type] if self.all_lookup_type else []) +
+            ([self.default_lookup_type] if self.default_lookup_type else []) +
+            ([self.batch_lookup_type] if self.batch_lookup_type else []) +
+            (other_valid_lookup_types or [])
+        )
+        self.attributes = set(attributes or [])
+
+    @staticmethod
+    def decode_member(raw):
+        return None if raw is None else ujson.loads(raw)
+
+    @property
+    def compatibility_label(self):
+        """
+        A readable label describing compatible Py types for this rtype.
+
+        A static 'compatibility_label' can be supplied during __init__.
+        If not, then it generates a label from 'compatible_ptypes'.
+        """
+        if self._compatibility_label is None:
+            return ' or '.join([pt.__name__ for pt in self.compatible_ptypes])
+        return self._compatibility_label
+
+    @compatibility_label.setter
+    def compatibility_label(self, label):
+        self._compatibility_label = label
+
+    def data_is_compatible(self, data):
+        """
+        Returns True if 'data' is compatible with this rtype.
+        """
+        if isinstance(data, self.compatible_ptypes):
+            return True
+        if isinstance(data, self.incompatible_ptypes):
+            return False
+        return bool(self.incompatible_ptypes)
+
+    def has(self, attribute):
+        """
+        Returns True if 'attribute' describes this rtype.
+        """
+        return attribute in self.attributes
+
+
+class _RedisType(object):
+    """
+    Internal base class for representing a Redis type (rtype).
+
+    Each subclass represents one rtype. (Note that it doesn't HAVE to
+    correspond with an actual Redis type; it could an internal type
+    that maps to a Redis type.) Subclasses are responsible for
+    implementing methods that interact with Redis to set, update, and
+    get data for a given RedisObject. Exactly what these methods are
+    and what args/kwargs they take depend on the 'lookup' and 'ptype'
+    attributes in the 'info' (_RedisTypeMetadata) object.
+    """
+    info = _RedisTypeMetadata('invalid', [])
+
+    def __str__(self):
+        return self.info.label
+
+    def __init__(self):
+        """
+        Initializes a _RedisType instance.
+        """
+        self.encode_member = self.info.encode_member
+        self.decode_member = self.info.decode_member
+    
+    def configure_lookup(self, obj, lvalue, ltype_label, batch=False):
+        """
+        Converts a user-supplied value/label to a _Lookup.
+
+        None/None => 'all' (get the whole object).
+        value/None => default lookup type for that object.
+
+        Returns None if the requested lookup type is not valid for this
+        RedisType, or if a valid lookup type is specified but the
+        lookup value is None or empty.
+        """
+        if ltype_label is None:
+            if lvalue is None:
+                lvalue = self.get_all_lookup_value(obj, batch)
+                if batch and self.info.batch_lookup_type:
+                    return self.info.batch_lookup_type(
+                        obj, lvalue, None, whole_obj_requested=True
+                    )
+                return self.info.all_lookup_type(
+                    obj, lvalue, None, whole_obj_requested=True
+                )
+            return self.info.default_lookup_type(obj, lvalue, None)
+        ltype = LOOKUP_TYPES.get(ltype_label)
+        if ltype in self.info.valid_lookup_types:
+            lookup = ltype(obj, lvalue, ltype_label)
+            if lookup.value or lookup.value == 0:
+                return lookup
+
+    def get_all_lookup_value(self, obj, for_batch=False):
+        """
+        Returns the 'all' lookup value for the given object.
+        """
+        return self.info.all_lookup_value
+
+    @staticmethod
+    def get_obj_length(obj):
+        """
+        Returns the length of the given object (as an integer).
+
+        Implement this in each subclass.
+        """
+        pass
+
+    def get(self, obj, lookup):
+        """
+        Returns a Pipeline with cmds to get Redis data.
+
+        This defers to the appropriate method on the rtype subclass:
+        - 'get_all' if the lookup is a _GenericAllLookup.
+        - 'get_by_{label}' for all other lookups.
+
+        It's up to each subclass to implement the appropriate methods.
+        """
+        if lookup is None:
+            return obj.pipe.noop()
+        if lookup.label == 'all':
+            return self.get_all(obj)
+        return getattr(self, f'get_by_{lookup}')(
+            obj, lookup.value, lookup.multi
+        )
+
+    def get_all(self, obj):
+        """
+        Returns a Pipeline with cmds to get a whole Redis object.
+
+        Implement this in each subclass.
+        """
+        pass
+    
+    def save(self, obj, data, update, index, was_none=False):
+        """
+        Returns a Pipeline with cmds to save a Redis object.
+
+        This defers to the appropriate method on the rtype subclass:
+        - 'set' if setting data on the object from scratch.
+        - 'update' if updating existing data.
+
+        It's up to each subclass to implement these methods.
+
+        Raises a TypeError if 'data' is not compatible given the
+        compatibility information in self.info.
+        """
+        if not self.info.data_is_compatible(data):
+            raise TypeError(
+                f"cannot save key '{obj.key}' as a Redis {self.info.label} "
+                f"using {type(data).__name__} data; must be a compatible "
+                f"type: {self.info.compatibility_label}"
+            )
+
+        add_args = [index] if self.info.has('indexable') else []
+        if was_none:
+            return self.set(obj, data, None, *add_args)
+        if update:
+            return self.update(obj, data, None, *add_args)
+        acc = Accumulator.from_ptype(list)
+        obj.pipe.add('delete', obj.key, accumulator=acc)
+        self.set(obj, data, acc, *add_args)
+        obj.pipe.mark_accumulator_pop()
+        return obj.pipe
+
+
+class _ZsetRedisType(_RedisType):
+    """
+    Class that implements features for Redis zsets (sorted sets).
+    """
+    info = _RedisTypeMetadata(
+        'zset', LISTLIKE_TYPES, all_lookup_type=LOOKUP_TYPES.get('index'),
+        all_lookup_value=(0, -1), batch_lookup_type=LOOKUP_TYPES.get('index'),
+        default_lookup_type=LOOKUP_TYPES.get('index'),
+        other_valid_lookup_types=[LOOKUP_TYPES.get('value')],
+        attributes=['indexable', 'unique', 'listlike', 'def-listlike']
+    )
+
+    def encode(self, data, bypass_encoding=False):
+        if bypass_encoding:
+            return data
+        # 'data' should be a list of (item, score) tuples
+        return ((self.encode_member(item), score) for item, score in data)
+
+    def decode(self, raw):
+        return [self.decode_member(v) for v in raw] if raw else None
+
+    @staticmethod
+    def get_obj_length(obj):
+        resp = obj.conn.zrange(obj.key, -1, -1, withscores=True)
+        return int(resp[0][1]) + 1 if resp else 0
+
+    def _set_from_offset(self, obj, data, accumulator, offset, new_zlen):
+        obj.pipe.add(
+            'zadd', obj.key, args=[dict(self.encode(
+                ((v, offset + i) for i, v in enumerate(data)),
+                obj.bypass_encoding
+            ))], accumulator=accumulator
+        )
+        obj.len = new_zlen
+        return obj.pipe
+
+    def set(self, obj, data, accumulator, index):
+        offset = 0 if (index is None or index < 0) else index
+        new_zlen = offset + len(data)
+        return self._set_from_offset(obj, data, accumulator, offset, new_zlen)
+
+    def update(self, obj, data, accumulator, index):
+        acc = accumulator
+        prev_zlen = obj.len
+        offset = LOOKUP_TYPES.get('index').normalize_index_lookup(
+            index, prev_zlen, prev_zlen, 0
+        )
+        data_end = offset + len(data) - 1
+        if offset < prev_zlen:
+            acc = acc or Accumulator.from_ptype(list)
+            obj.pipe.add(
+                'zremrangebyscore', obj.key, args=[offset, data_end],
+                accumulator=acc
+            )
+        new_zlen = data_end + 1 if data_end >= prev_zlen else prev_zlen
+        self._set_from_offset(obj, data, acc, offset, new_zlen)
+        if acc != accumulator:
+            obj.pipe.mark_accumulator_pop()
+        return obj.pipe
+
+    def get_by_index(self, obj, lval, multi):
+        callback = self.decode
+        if not multi:
+            callback = make_single_or_list_callback(callback)
+        return obj.pipe.add(
+            'zrange', obj.key, args=lval, kwargs={'byscore': True},
+            callback=callback
+        )
+
+    def get_by_value(self, obj, lval, multi):
+        if multi:
+            encoded_vals = [self.encode_member(v) for v in lval]
+            return obj.pipe.add(
+                'zmscore', obj.key, args=[encoded_vals],
+                callback=lambda scores: [
+                    score if score is None else int(score) for score in scores
+                ] if scores else None
+            )
+        return obj.pipe.add(
+            'zscore', obj.key, args=[self.encode_member(lval)],
+            callback=lambda score: score if score is None else int(score)
+        )
+
+
+class _ListRedisType(_RedisType):
+    """
+    Class that implements features for Redis lists.
+    """
+    info = _RedisTypeMetadata(
+        'list', LISTLIKE_TYPES, all_lookup_type=LOOKUP_TYPES.get('index'),
+        all_lookup_value=(0, -1), batch_lookup_type=LOOKUP_TYPES.get('index'),
+        default_lookup_type=LOOKUP_TYPES.get('index'),
+        other_valid_lookup_types=[LOOKUP_TYPES.get('value')],
+        attributes=['indexable', 'not-unique', 'listlike']
+    )
+
+    def encode(self, data, bypass_encoding=False):
+        if bypass_encoding:
+            return data
+        return (self.encode_member(item) for item in data)
+
+    def decode(self, raw):
+        return [self.decode_member(v) for v in raw] if raw else None
+
+    @staticmethod
+    def get_obj_length(obj):
+        return obj.conn.llen(obj.key)
+
+    def _pad_list_data_with_none(self, obj, data, how_many):
+        none = self.encode_member(None) if obj.bypass_encoding else None
+        return [none] * how_many + list(data)
+
+    def _set_from_offset(self, obj, data, accumulator, offset, new_llen):
+        if data:
+            obj.pipe.add(
+                'rpush', obj.key,
+                args=self.encode(data, obj.bypass_encoding),
+                accumulator=accumulator
+            )
+        obj.len = new_llen
+        return obj.pipe
+
+    def set(self, obj, data, accumulator, index):
+        if index is not None and index > 0:
+            offset = index
+            data = self._pad_list_data_with_none(obj, data, offset)
+        else:
+            offset = 0
+        return self._set_from_offset(obj, data, accumulator, offset, len(data))
+
+    def update(self, obj, data, accumulator, index):
+        acc = accumulator
+        prev_llen = obj.len
+        offset = LOOKUP_TYPES.get('index').normalize_index_lookup(
+            index, prev_llen, prev_llen, 0
+        )
+        if offset < prev_llen:
+            if len(data) > 1 and not accumulator:
+                acc = acc or Accumulator.from_ptype(list)
+            for i, value in enumerate(data[:prev_llen - offset]):
+                args = [
+                    i + offset,
+                    value if obj.bypass_encoding else self.encode_member(value)
+                ]
+                obj.pipe.add(
+                    'lset', obj.key, args=args, accumulator=acc
+                )
+            data = data[prev_llen - offset:]
+        elif offset > prev_llen:
+            data = self._pad_list_data_with_none(obj, data, offset - prev_llen)
+        self._set_from_offset(obj, data, acc, offset, prev_llen + len(data))
+        if acc != accumulator:
+            obj.pipe.mark_accumulator_pop()
+        return obj.pipe
+
+    def get_by_index(self, obj, lval, multi):
+        callback = self.decode
+        if not multi:
+            callback = make_single_or_list_callback(callback)
+        return obj.pipe.add('lrange', obj.key, args=lval, callback=callback)
+
+    def get_by_value(self, obj, lval, multi):
+        callback = make_single_or_list_callback()
+        kwargs = {'count': 0}
+        if multi:
+            acc = Accumulator.from_ptype(list)
+            for value in self.encode(lval):
+                obj.pipe.add(
+                    'lpos', obj.key, args=[value], kwargs=kwargs,
+                    callback=callback, accumulator=acc
+                )
+            obj.pipe.mark_accumulator_pop()
+            return obj.pipe
+        return obj.pipe.add(
+            'lpos', obj.key, args=[self.encode_member(lval)], kwargs=kwargs,
+            callback=callback
+        )
+
+
+class _StringRedisType(_RedisType):
+    """
+    Class that implements features for Redis strings.
+    """
+    info = _RedisTypeMetadata(
+        'string', [str], all_lookup_type=LOOKUP_TYPES.get('all'),
+        default_lookup_type=LOOKUP_TYPES.get('index'),
+        batch_lookup_type=LOOKUP_TYPES.get('index'),
+        attributes=['indexable']
+    )
+
+    def get_all_lookup_value(self, obj, for_batch=False):
+        if for_batch:
+            return (0, -1)
+        return super().get_all_lookup_value(obj, for_batch)
+
+    def set(self, obj, data, accumulator, index):
+        offset = index if index is not None and index > 0 else 0
+        obj.len = len(data) + offset
+        return obj.pipe.add(
+            'setrange', obj.key, args=[offset, data], accumulator=accumulator
+        )
+
+    @staticmethod
+    def get_obj_length(obj):
+        return obj.conn.strlen(obj.key)
+
+    def update(self, obj, data, accumulator, index):
+        prev_strlen = obj.len
+        offset = LOOKUP_TYPES.get('index').normalize_index_lookup(
+            index, prev_strlen, prev_strlen, 0
+        )
+        new_len = len(data) + offset
+        obj.len = new_len if new_len > prev_strlen else prev_strlen
+        return obj.pipe.add(
+            'setrange', obj.key, args=[offset, data], accumulator=accumulator
+        )
+
+    def get_all(self, obj):
+        return obj.pipe.add('get', obj.key)
+
+    def get_by_index(self, obj, lval, multi):
+        return obj.pipe.add(
+            'getrange', obj.key, args=lval, callback=lambda raw: raw or None
+        )
+
+
+class _HashRedisType(_RedisType):
+    """
+    Class that implements features for Redis hashes.
+    """
+    info = _RedisTypeMetadata(
+        'hash', [dict], all_lookup_type=LOOKUP_TYPES.get('all'),
+        default_lookup_type=LOOKUP_TYPES.get('field'),
+        batch_lookup_type=LOOKUP_TYPES.get('field')
+    )
+
+    def get_all_lookup_value(self, obj, for_batch=False):
+        if for_batch:
+            return obj.conn.hkeys(obj.key)
+        return super().get_all_lookup_value(obj, for_batch)
+
+    def encode(self, data, bypass_encoding=False):
+        if bypass_encoding:
+            return data
+        return ((k, self.encode_member(v)) for k, v in iteritems(data))
+
+    def decode(self, raw):
+        return {
+            k: self.decode_member(v) for k, v in iteritems(raw)
+        } if raw else None
+
+    @staticmethod
+    def get_obj_length(obj):
+        return obj.conn.hlen(obj.key)
+
+    def set(self, obj, data, accumulator):
+        return obj.pipe.add(
+            'hset', obj.key,
+            kwargs={'mapping': dict(self.encode(data, obj.bypass_encoding))},
+            accumulator=accumulator
+        )
+
+    def update(self, obj, data, accumulator):
+        return self.set(obj, data, accumulator)
+
+    def get_all(self, obj):
+        return obj.pipe.add('hgetall', obj.key, callback=self.decode)
+
+    def get_by_field(self, obj, lval, multi):
+        if multi:
+            return obj.pipe.add(
+                'hmget', obj.key, args=lval,
+                callback=_ListRedisType().decode
+            )
+        return obj.pipe.add(
+            'hget', obj.key, args=[lval], callback=self.decode_member
+        )
+
+
+class _SetRedisType(_RedisType):
+    """
+    Class that implements features for Redis sets.
+    """
+    info = _RedisTypeMetadata(
+        'set', [set], batch_lookup_type=make_invalid_lookup(
+            TypeError,
+            "cannot get an entire Redis 'set' object in batches, as they have "
+            "no methods for this -- use a non-batch type instead, such as "
+            "RedisObject"
+        ),
+        default_lookup_type=LOOKUP_TYPES.get('value_exists')
+    )
+
+    def encode(self, data, bypass_encoding=False):
+        if bypass_encoding:
+            return data
+        return (self.encode_member(item) for item in data)
+
+    def decode(self, raw):
+        return set([self.decode_member(v) for v in raw]) if raw else None
+
+    @staticmethod
+    def get_obj_length(obj):
+        return obj.conn.scard(obj.key)
+
+    def set(self, obj, data, accumulator):
+        return obj.pipe.add(
+            'sadd', obj.key, args=self.encode(data, obj.bypass_encoding),
+            accumulator=accumulator
+        )
+
+    def update(self, obj, data, accumulator):
+        return self.set(obj, data, accumulator)
+
+    def get_all(self, obj):
+        return obj.pipe.add('smembers', obj.key, callback=self.decode)
+
+    def get_by_value_exists(self, obj, lval, multi):
+        if multi:
+            encoded_vals = list(self.encode(lval))
+            return obj.pipe.add(
+                'smismember', obj.key, args=[encoded_vals],
+                callback=lambda raw: [bool(v) for v in raw]
+            )
+        return obj.pipe.add(
+            'sismember', obj.key, args=[self.encode_member(lval)],
+            callback=bool
+        )
+
+
+class _EncodedObjRedisType(_RedisType):
+    """
+    Class that implements features for encoded objects.
+
+    "Encoded object" is not a Redis type -- it is a catchall for
+    anything NOT covered by the other types. If it can be converted to
+    JSON, then it is stored as a JSON string in Redis, with a prefix
+    that denotes it is JSON and not just a string.
+    """
+    info = _RedisTypeMetadata(
+        'encoded_obj', compatible_ptypes=[],
+        incompatible_ptypes=[list, tuple, str, dict, set],
+        attributes=['default'],
+        compatibility_label=(
+            'any JSON-serializable type except list, tuple, str, dict, or set'
+        )
+    )
 
     @staticmethod
     def is_encoded_obj(obj):
         end_of_prefix = len(STR_OBJ_PREFIX) - 1
         return obj.conn.getrange(obj.key, 0, end_of_prefix) == STR_OBJ_PREFIX
 
-    def encoded_obj(self, data):
-        return ''.join([STR_OBJ_PREFIX, self.member(data)])
+    def encode(self, data, bypass_encoding=False):
+        if bypass_encoding:
+            return data
+        return ''.join([STR_OBJ_PREFIX, self.encode_member(data)])
 
-    def zset(self, data):
-        # 'data' should be a list of (item, score) tuples
-        return ((self.member(item), score) for item, score in data)
-
-    def list(self, data):
-        return (self.member(item) for item in data)
-
-    def hash(self, data):
-        # 'data' should be the dict representing the hash
-        return ((k, self.member(v)) for k, v in iteritems(data))
-
-    def set(self, data):
-        return (self.member(item) for item in data)
-
-
-class _RedisJsonDecoder(object):
-    """
-    Private class with methods for decoding from Redis to Python.
-
-    Contains methods named with the target Python type, which may or
-    may not be the type returned from redis-py. They return the named
-    type.
-
-    'encoded_obj' is a special type representing a JSON-serializable
-    object of an unknown type.
-
-    The 'member' method/property is used to decode individual list,
-    dict, set, etc. elements.
-    """
+    def decode(self, raw):
+        return self.decode_member(raw.lstrip(STR_OBJ_PREFIX))
 
     @staticmethod
-    def member(raw):
-        return None if raw is None else ujson.loads(raw)
+    def get_obj_length(obj):
+        return obj.conn.strlen(obj.key)
 
-    def encoded_obj(self, raw):
-        return self.member(raw.lstrip(STR_OBJ_PREFIX))
-
-    def list(self, raw):
-        return [self.member(v) for v in raw] if raw else None
-
-    def dict(self, raw):
-        return {k: self.member(v) for k, v in iteritems(raw)} if raw else None
-
-    def set(self, raw):
-        return set([self.member(v) for v in raw]) if raw else None
-
-
-class _RedisSetter(object):
-    """
-    Private class that implements 'setting' behaviors for RedisObject.
-    """
-    conn = REDIS_CONNECTION
-    types_to_rtype = {
-        'list_unique': 'zset',
-        'tuple_unique': 'zset',
-        'list': 'list',
-        'tuple': 'list',
-        'dict': 'hash',
-        'str': 'string',
-        'set': 'set'
-    }
-    rtype_compatibility = {
-        'zset': {'types': (list, tuple), 'label': 'list or tuple'},
-        'list': {'types': (list, tuple), 'label': 'list or tuple'},
-        'string': {'types': (str,), 'label': 'string'},
-        'hash': {'types': (dict,), 'label': 'dict'},
-        'set': {'types': (set,), 'label': 'set'},
-        'encoded_obj': {
-            'types': tuple(),
-            'label': 'any JSON-serializable type except list, tuple, string, '
-                     'dict, or set'
-        }
-    }
-    indexed_rtypes = ('list', 'zset', 'string')
-    default_rtype = 'encoded_obj'
-
-    def __init__(self, redis_object, encoder):
-        self.obj = redis_object
-        self.key = redis_object.key
-        self.pipe = redis_object.pipe
-        self.encoder = encoder
-        self.bypass_encoding = False
-
-    def encode(self, method, data):
-        if self.bypass_encoding:
-            return data
-        return getattr(self.encoder, method)(data)
-
-    def get_rtype_from_data(self, data, force_unique):
-        ptype = type(data)
-        unstr = '_unique' if ptype in (list, tuple) and force_unique else ''
-        type_key = ''.join([ptype.__name__, unstr])
-        return self.types_to_rtype.get(type_key) or self.default_rtype
-
-    def _process_rtype(self, old_rtype, data, force_unique, update, index):
-        if force_unique is None and old_rtype in ('zset', 'list'):
-            force_unique = old_rtype == 'zset' if update else True
-        new_rtype = self.get_rtype_from_data(data, force_unique)
-        if update and (old_rtype not in ('none', new_rtype)):
-            rtype_cmp_entry = self.rtype_compatibility.get(old_rtype, {})
-            cmp_ptypes = rtype_cmp_entry.get('label', self.default_rtype)
-            raise TypeError(
-                f'Cannot update existing {old_rtype} data with {new_rtype} '
-                f'data for key {self.key}. You must provide data of a '
-                f'compatible type: {cmp_ptypes}.'
-            )
-        add_args = [update, index] if new_rtype in self.indexed_rtypes else []
-        return new_rtype, add_args
-
-    def add_to_pipe(self, data, force_unique, update, index):
-        if not data and data != 0:
-            if update:
-                return self.pipe.noop()
-            return self.pipe.add('delete', self.key)
-        old_rtype = self.obj.rtype
-        new_rtype, add_args = self._process_rtype(
-            old_rtype, data, force_unique, update, index
-        )
-        self.obj.rtype = new_rtype
-        if update or old_rtype == 'none':
-            return getattr(self, new_rtype)(data, None, *add_args)
-        acc = Accumulator.from_ptype(list)
-        self.pipe.add('delete', self.key, accumulator=acc)
-        getattr(self, new_rtype)(data, acc, *add_args)
-        self.pipe.mark_accumulator_pop()
-        return self.pipe
-
-    def _process_zset_update(self, data, accumulator, index):
-        prev_zlen = self.obj.len
-        offset = normalize_index_lookup(index, prev_zlen, prev_zlen, 0)
-        data_end = offset + len(data) - 1
-        if offset < prev_zlen:
-            accumulator = accumulator or Accumulator.from_ptype(list)
-            self.pipe.add(
-                'zremrangebyscore', self.key, args=[offset, data_end],
-                accumulator=accumulator
-            )
-        new_zlen = data_end + 1 if data_end >= prev_zlen else prev_zlen
-        return offset, new_zlen, accumulator
-
-    def _process_zset_set(self, data, accumulator, index):
-        offset = 0 if (index is None or index < 0) else index
-        return offset, offset + len(data), accumulator
-
-    def zset(self, data, accumulator, update, index):
-        operation_label = 'update' if update else 'set'
-        process = getattr(self, f"_process_zset_{operation_label}")
-        offset, new_zlen, acc = process(data, accumulator, index)
-        self.pipe.add(
-            'zadd', self.key, args=[dict(self.encode(
-                'zset', ((v, offset + i) for i, v in enumerate(data))
-            ))], accumulator=acc
-        )
-        self.obj.len = new_zlen
-        if acc != accumulator:
-            self.pipe.mark_accumulator_pop()
-        return self.pipe
-
-    def _pad_list_data_with_none(self, data, how_many):
-        none = self.encoder.member(None) if self.bypass_encoding else None
-        return [none] * how_many + list(data)
-
-    def _process_list_update(self, data, accumulator, index):
-        prev_llen = self.obj.len
-        offset = normalize_index_lookup(index, prev_llen, prev_llen, 0)
-        if offset < prev_llen:
-            if len(data) > 1 and not accumulator:
-                accumulator = Accumulator.from_ptype(list)
-            for i, value in enumerate(data[:prev_llen - offset]):
-                args = [i + offset, self.encode('member', value)]
-                self.pipe.add(
-                    'lset', self.key, args=args, accumulator=accumulator
-                )
-            data = data[prev_llen - offset:]
-        elif offset > prev_llen:
-            data = self._pad_list_data_with_none(data, offset - prev_llen)
-        return offset, prev_llen + len(data), data, accumulator
-
-    def _process_list_set(self, data, accumulator, index):
-        if index is not None and index > 0:
-            offset = index
-            data = self._pad_list_data_with_none(data, offset)
-        else:
-            offset = 0
-        return offset, len(data), data, accumulator
-
-    def list(self, data, accumulator, update, index):
-        operation_label = 'update' if update else 'set'
-        process = getattr(self, f"_process_list_{operation_label}")
-        offset, new_llen, data, acc = process(data, accumulator, index)
-        if data:
-            self.pipe.add(
-                'rpush', self.key, args=self.encode('list', data),
-                accumulator=acc
-            )
-        self.obj.len = new_llen
-        if acc != accumulator:
-            self.pipe.mark_accumulator_pop()
-        return self.pipe
-
-    def _process_string_update(self, data, index):
-        prev_strlen = self.obj.len
-        offset = normalize_index_lookup(index, prev_strlen, prev_strlen, 0)
-        new_len = len(data) + offset
-        return offset, new_len if new_len > prev_strlen else prev_strlen
-
-    def _process_string_set(self, data, index):
-        offset = index if index is not None and index > 0 else 0
-        return offset, len(data) + offset
-
-    def string(self, data, accumulator, update, index):
-        operation_label = 'update' if update else 'set'
-        process = getattr(self, f"_process_string_{operation_label}")
-        offset, new_strlen = process(data, index)
-        self.obj.len = new_strlen
-        return self.pipe.add(
-            'setrange', self.key, args=[offset, data], accumulator=accumulator
-        )
-
-    def hash(self, data, accumulator):
-        return self.pipe.add(
-            'hset', self.key,
-            kwargs={'mapping': dict(self.encode('hash', data))},
+    def set(self, obj, data, accumulator):
+        return obj.pipe.add(
+            'set', obj.key, args=[self.encode(data, obj.bypass_encoding)],
             accumulator=accumulator
         )
 
-    def set(self, data, accumulator):
-        return self.pipe.add(
-            'sadd', self.key, args=self.encode('set', data),
-            accumulator=accumulator
-        )
+    def update(self, obj, data, accumulator):
+        return self.set(obj, data, accumulator)
 
-    def encoded_obj(self, data, accumulator):
-        return self.pipe.add(
-            'set', self.key, args=[self.encode('encoded_obj', data)],
-            accumulator=accumulator
-        )
+    def get_all(self, obj):
+        return obj.pipe.add('get', obj.key, callback=self.decode)
 
 
-class _RedisGetter(object):
+class _NoneRedisType(_RedisType):
     """
-    Private class that implements 'getting' behaviors for RedisObject.
+    Class representing a null object.
     """
-    rtypes_to_ptypes = {
-        'hash': dict,
-        'list': list,
-        'zset': list,
-        'set': set,
-        'string': str
-    }
-    lookup_types = {
-        'hash': {'valid': ('field',), 'default': 'field'},
-        'list': {'valid': ('value', 'values', 'index'), 'default': 'index'},
-        'zset': {'valid': ('value', 'values', 'index'), 'default': 'index'},
-        'string': {'valid': ('index',), 'default': 'index'},
-        'set': {'valid': ('value_exists', 'values_exist'),
-                'default': 'value_exists'},
-        'encoded_obj': {'valid': (), 'default': None},
-        'none': {'valid': (), 'default': None}
-    }
-    multi_types = {
-        'values': 'value',
-        'values_exist': 'value_exists'
-    }
+    info = _RedisTypeMetadata('none', [type(None)])
 
-    def __init__(self, redis_object, decoder):
-        self.obj = redis_object
-        self.key = redis_object.key
-        self.pipe = redis_object.pipe
-        self.decoder = decoder
+    @staticmethod
+    def get_obj_length(obj):
+        return 0
 
-    def get_ptype_from_obj_rtype(self):
-        return self.rtypes_to_ptypes.get(self.obj.rtype)
+    def get_all(self, obj):
+        return obj.pipe.noop()
 
-    def configure_lookup(self, lookup, lookup_type):
-        rtype = self.obj.rtype
-        if lookup is None and lookup_type is None:
-            if rtype in ('list', 'zset', 'string'):
-                lookup = (0, -1)
-                lookup_type = 'index'
-            else:
-                return lookup, 'all', True
 
-        if lookup_type is None:
-            lookup_type = self.lookup_types[rtype]['default']
+class _RedisTypeCollection(object):
+    """
+    Internal class for the full collection of Redis Types.
 
-        if lookup_type in self.lookup_types[rtype]['valid']:
-            if lookup_type == 'index':
-                multi = not isinstance(lookup, int)
-                lookup = normalize_index_range_lookup(lookup, self.obj.len)
-            elif lookup_type == 'field':
-                multi = isinstance(lookup, (list, tuple))
-            elif lookup_type in self.multi_types:
-                multi = True
-                lookup_type = self.multi_types[lookup_type]
-            else:
-                multi = False
+    Implements collective behavior for choosing the appropriate rtype
+    in various circumstances (depending on known information).
+    """
 
-            if lookup or lookup == 0:
-                return lookup, lookup_type, multi
-        return lookup, None, None
-
-    def add_to_pipe(self, lookup, lookup_type, multi):
-        rtype = self.obj.rtype
-        if lookup_type is None:
-            return self.none()
-        if lookup_type == 'all':
-            return getattr(self, rtype)()
-        return getattr(self, f'{rtype}_{lookup_type}')(lookup, multi)
-
-    def zset_index(self, index_range, multi):
-        callback = self.decoder.list
-        if not multi:
-            callback = make_single_or_list_callback(callback)
-        return self.pipe.add(
-            'zrange', self.key, args=index_range, kwargs={'byscore': True},
-            callback=callback
+    def __init__(self):
+        """
+        Initializes a _RedisTypeCollection instance.
+        """
+        redis_types = (
+            _ZsetRedisType(), _ListRedisType(), _StringRedisType(),
+            _HashRedisType(), _SetRedisType(), _EncodedObjRedisType(),
+            _NoneRedisType()
         )
+        self.rtypes = {}
+        self.by_ptype_id = {}
+        self.by_attribute = {}
+        for rt in redis_types:
+            self.rtypes[rt.info.label] = rt
+            for pt in rt.info.compatible_ptypes:
+                key = (pt, True) if rt.info.has('unique') else pt
+                self.by_ptype_id[key] = rt
+            for attr in rt.info.attributes:
+                self.by_attribute[attr] = self.by_attribute.get(attr, set())
+                self.by_attribute[attr].add(rt)
+        self.default_rtype = self.get_one_by_attributes(['default'])
+        self.default_listlike = self.get_one_by_attributes(['def-listlike'])
 
-    def zset_value(self, values, multi):
-        if multi:
-            encoded_vals = list(self.obj.setter.encoder.list(values))
-            return self.pipe.add(
-                'zmscore', self.key, args=[encoded_vals],
-                callback=lambda scores: [
-                    score if score is None else int(score) for score in scores
-                ] if scores else None
-            )
-        return self.pipe.add(
-            'zscore', self.key,
-            args=[self.obj.setter.encoder.member(values)],
-            callback=lambda score: score if score is None else int(score)
-        )
+    def get(self, label, default=None):
+        """
+        Returns the rtype corresponding with the given label.
+        """
+        return self.rtypes.get(label, default)
 
-    def list_index(self, index_range, multi):
-        callback = self.decoder.list
-        if not multi:
-            callback = make_single_or_list_callback(callback)
-        return self.pipe.add(
-            'lrange', self.key, args=index_range, callback=callback
-        )
+    def get_from_obj(self, obj):
+        """
+        Returns the rtype for the given RedisObject.
 
-    def list_value(self, values, multi):
-        callback = make_single_or_list_callback()
-        kwargs = {'count': 0}
-        if multi:
-            acc = Accumulator.from_ptype(list)
-            for value in self.obj.setter.encoder.list(values):
-                self.pipe.add(
-                    'lpos', self.key, args=[value], kwargs=kwargs,
-                    callback=callback, accumulator=acc
-                )
-            self.pipe.mark_accumulator_pop()
-            return self.pipe
-        return self.pipe.add(
-            'lpos', self.key, args=[self.obj.setter.encoder.member(values)],
-            kwargs=kwargs, callback=callback
-        )
+        Note that this is needed to convert a 'string' to an
+        'encoded_obj', since both are stored in Redis as string data.
+        """
+        rt_label = obj.conn.type(obj.key)
+        if rt_label == 'string':
+            if self.get('encoded_obj').is_encoded_obj(obj):
+                rt_label = 'encoded_obj'
+        return self.get(rt_label)
 
-    def hash(self):
-        return self.pipe.add('hgetall', self.key, callback=self.decoder.dict)
+    def get_by_attributes(self, attrs):
+        """
+        Returns the rtypes with all the given attributes (as a set).
+        """
+        return set.intersection(*[self.by_attribute[attr] for attr in attrs])
 
-    def hash_field(self, fields, multi):
-        if multi:
-            return self.pipe.add(
-                'hmget', self.key, args=fields, callback=self.decoder.list
-            )
-        return self.pipe.add(
-            'hget', self.key, args=[fields], callback=self.decoder.member
-        )
+    def get_one_by_attributes(self, attrs):
+        """
+        Returns one rtype with all the given attributes.
 
-    def set(self):
-        return self.pipe.add(
-            'smembers', self.key, callback=self.decoder.set
-        )
+        Use this if you're targeting ONE and only one rtype.
+        """
+        return (list(self.get_by_attributes(attrs)) or None)[0]
 
-    def set_value_exists(self, values, multi):
-        if multi:
-            encoded_vals = list(self.obj.setter.encoder.list(values))
-            return self.pipe.add(
-                'smismember', self.key, args=[encoded_vals],
-                callback=lambda raw: [bool(v) for v in raw]
-            )
-        return self.pipe.add(
-            'sismember', self.key,
-            args=[self.obj.setter.encoder.member(values)], callback=bool
-        )
+    def get_by_ptype(self, ptype, unique=False):
+        """
+        Returns the rtype corresponding with the given Py type.
 
-    def string(self):
-        return self.pipe.add('get', self.key)
+        If 'ptype' is a listlike, then it uses desired 'unique'ness
+        to narrow -- zset if 'unique' is True, otherwise list. Returns
+        self.default_rtype if a valid rtype isn't found.
+        """
+        if ptype in LISTLIKE_TYPES:
+            if unique:
+                return self.by_ptype_id[(ptype, True)]
+            elif unique is None:
+                return self.default_listlike
+        return self.by_ptype_id.get(ptype) or self.default_rtype
 
-    def string_index(self, index_range, multi):
-        return self.pipe.add(
-            'getrange', self.key, args=index_range,
-            callback=lambda raw: raw or None
-        )
 
-    def encoded_obj(self):
-        return self.pipe.add(
-            'get', self.key, callback=self.decoder.encoded_obj
-        )
-
-    def none(self):
-        return self.pipe.noop()
+REDIS_TYPES = _RedisTypeCollection()
 
 
 class RedisObject(object):
@@ -809,8 +1319,7 @@ class RedisObject(object):
         self.pipe = pipe or Pipeline()
         self.defer = defer
         self._rtype = None
-        self.setter = _RedisSetter(self, _RedisJsonEncoder())
-        self.getter = _RedisGetter(self, _RedisJsonDecoder())
+        self.bypass_encoding = False
 
     def __len__(self):
         return self.len
@@ -823,19 +1332,7 @@ class RedisObject(object):
         pending = self.pipe.pending_cache.get(self.key, {})
         if 'len' in pending:
             return pending['len']
-        if self.rtype == 'none':
-            return 0
-        if self.rtype == 'zset':
-            resp = self.conn.zrange(self.key, -1, -1, withscores=True)
-            return int(resp[0][1]) + 1 if resp else 0
-        rtype_cmds = {
-            'list': 'llen',
-            'hash': 'hlen',
-            'set': 'scard',
-            'string': 'strlen',
-            'encoded_obj': 'strlen'
-        }
-        obj_len = getattr(self.conn, rtype_cmds[self.rtype])(self.key)
+        obj_len = self.rtype.get_obj_length(self)
         pending['len'] = obj_len
         self.pipe.pending_cache[self.key] = pending
         return obj_len
@@ -855,10 +1352,7 @@ class RedisObject(object):
         The Redis data type used for the object with the current key.
         """
         if self._rtype is None:
-            self._rtype = self.conn.type(self.key)
-            if self._rtype == 'string':
-                if self.setter.encoder.is_encoded_obj(self):
-                    self._rtype = 'encoded_obj'
+            self._rtype = REDIS_TYPES.get_from_obj(self)
         return self._rtype
 
     @rtype.setter
@@ -971,7 +1465,19 @@ class RedisObject(object):
         and returns the original data value. If self.defer is True, it
         queues up the operation(s) on self.pipe and returns that.
         """
-        self.setter.add_to_pipe(data, force_unique, update, index)
+        if data or data == 0:
+            was_none = self.rtype.info.label == 'none'
+            if update and not was_none:
+                force_unique = self.rtype.info.has('unique')
+            if not update or was_none:
+                self.rtype = REDIS_TYPES.get_by_ptype(type(data), force_unique)
+            self.rtype.save(self, data, update, index, was_none)
+        else:
+            if update:
+                self.pipe.noop()
+            else:
+                self.pipe.add('delete', self.key)
+
         if self.defer:
             return self.pipe
         self.pipe.execute()
@@ -1023,9 +1529,9 @@ class RedisObject(object):
             Type 'value' returns the index position for one lookup
             value; 'values' returns a list of positions given multiple
             values. Default lookup type for lists and zsets is 'index.'
-          - Hash. Supports lookup_type 'field', which gets and returns
-            multiple hash values given a lookup field or list of
-            fields.
+          - Hash. Supports lookup_types 'field' and 'fields', which get
+            and return multiple hash values given a lookup field or
+            list of fields.
           - Set. Supports lookup_types 'value_exists', and
             'values_exist'. Type 'value_exists' returns True if the
             lookup value belongs to the set or False if not;
@@ -1042,8 +1548,9 @@ class RedisObject(object):
         and returns the retrieved value(s). If self.defer is True, it
         queues up the operation(s) on self.pipe and returns that.
         """
-        lookup_args = self.getter.configure_lookup(lookup, lookup_type)
-        self.getter.add_to_pipe(*lookup_args)
+        self.rtype.get(
+            self, self.rtype.configure_lookup(self, lookup, lookup_type)
+        )
         if self.defer:
             return self.pipe
         return self.pipe.execute()[-1]
@@ -1058,7 +1565,7 @@ class RedisObject(object):
         """
         if len(fields) == 1:
             return self.get(fields[0], 'field')
-        return self.get(fields, 'field')
+        return self.get(fields, 'fields')
 
     def get_index(self, *values):
         """
@@ -1092,41 +1599,43 @@ class _SendBatches(object):
         self.data = data
         self.num_items = len(data)
         nbatches = self.num_items / target_batch_size
+        self.encode_member = _RedisTypeMetadata.encode_member
+        self.encode_hash = REDIS_TYPES.get('hash').encode
+        self.encode_list = REDIS_TYPES.get('list').encode
         self.num_batches = int(nbatches) + (0 if nbatches.is_integer() else 1)
-        self.encoder = obj.setter.encoder
-        self.rtype = obj.setter.get_rtype_from_data(data, force_unique)
-        if self.rtype == 'encoded_obj':
+        self.rtype = REDIS_TYPES.get_by_ptype(type(data), force_unique)
+        if self.rtype.info.label == 'encoded_obj':
             raise ValueError(
                 "cannot batch update an 'encoded_obj' type object -- please "
                 "convert to a string first if you really need to stream this "
                 "object to Redis"
             )
-        self.batch_type = obj.getter.rtypes_to_ptypes[self.rtype]
+        self.batch_type = self.rtype.info.to_ptype
         self.target_batch_size = target_batch_size
         self.iterator = getattr(
             self, f'_{self.rtype}_iterator', self._default_iterator
         )
-        self.make_batch = getattr(
-            self, f'_make_{self.rtype}_batch', self._default_make_batch
+        self._make = getattr(
+            self, f'_make_{self.rtype}', self._default_make
         )
 
     def _zset_iterator(self, data):
-        return (self.encoder.member(item) for item in data)
+        return (self.encode_member(item) for item in data)
 
     def _hash_iterator(self, data):
-        return self.encoder.hash(data)
+        return self.encode_hash(data)
 
     def _default_iterator(self, data):
-        return self.encoder.list(data)
+        return self.encode_list(data)
 
-    def _make_string_batch(self):
+    def _make_string(self):
         total_size = len(self.data)
         index = 0
         while index < total_size:
             yield self.data[(index):(index + self.target_batch_size)]
             index += self.target_batch_size
 
-    def _default_make_batch(self):
+    def _default_make(self):
         batch = []
         for i, item in enumerate(self.iterator(self.data)):
             batch.append(item)
@@ -1137,41 +1646,34 @@ class _SendBatches(object):
             yield self.batch_type(batch)
 
     def __call__(self):
-        return self.make_batch()
+        return self._make()
 
 
 class _AccumulatorFactory(object):
-    accumulated_types = {
-        'dict_all': dict,
-        'str_index': str,
-    }
 
     @staticmethod
-    def _flatten(accumulated, new_values):
+    def flatten(accumulated, new_values):
         accumulated.extend([
             item for vals in new_values for item in (vals or [])
         ])
 
     @staticmethod
-    def dict_all(accumulated, new_values):
+    def dict(accumulated, new_values):
         for keys, vals in zip(*new_values):
             accumulated.update(dict(zip(keys, vals)))
 
     @staticmethod
-    def dict_field(accumulated, new_values):
+    def hash_fields(accumulated, new_values):
         accumulated.extend([
             item for vals in new_values[1] for item in (vals or [])
         ])
 
     @staticmethod
-    def str_index(collected, new_vals):
+    def str(collected, new_vals):
         return f"{collected}{''.join([str(v) if v else '' for v in new_vals])}"
 
-    def __call__(self, ptype, lookup_type):
-        full_lookup_name = f'{ptype.__name__}_{lookup_type}'
-        acc_type = self.accumulated_types.get(full_lookup_name, list)
-        method = getattr(self, full_lookup_name, self._flatten)
-        return Accumulator(acc_type, method)
+    def __call__(self, ptype, method_name):
+        return Accumulator(ptype, getattr(self, method_name))
 
 
 class RedisObjectStream(object):
@@ -1187,9 +1689,9 @@ class RedisObjectStream(object):
 
     def set(self, data, force_unique=None, update=False, index=None):
         prev_defer = self.obj.defer
-        prev_bypass = self.obj.setter.bypass_encoding
+        prev_bypass = self.obj.bypass_encoding
         self.obj.defer = True
-        self.obj.setter.bypass_encoding = True
+        self.obj.bypass_encoding = True
         self.batches = _SendBatches(
             self.obj, data, force_unique, self.target_batch_size
         )
@@ -1211,21 +1713,22 @@ class RedisObjectStream(object):
             self.pipe.reset()
             raise
         self.obj.defer = prev_defer
-        self.obj.setter.bypass_encoding = prev_bypass
+        self.obj.bypass_encoding = prev_bypass
         return execute_rvals
 
-    def _get_str(self, lookup, lookup_type, multi):
-        accumulator = self.accumulator_factory(str, lookup_type)
+    def _get_str(self, lookup):
+        accumulator = self.accumulator_factory(str, 'str')
+        ltype_label = type(lookup).label
+        lval = lookup.value
         batches = [
-            (num, min(num + self.target_batch_size - 1, lookup[1]))
-            for num in range(
-                lookup[0], lookup[1] + 1, self.target_batch_size
-            )
+            (num, min(num + self.target_batch_size - 1, lval[1]))
+            for num in range(lval[0], lval[1] + 1, self.target_batch_size)
         ]
-        lookup_type = 'index'
         try:
             for i, batch in enumerate(batches):
-                self.obj.getter.add_to_pipe(batch, lookup_type, multi)
+                self.obj.rtype.get(self.obj, LOOKUP_TYPES.get(ltype_label)(
+                    self.obj, batch, ltype_label
+                ))
                 nbatch = i + 1
                 is_final = nbatch == len(batches)
                 do_it = self.execute_every and nbatch % self.execute_every == 0
@@ -1236,21 +1739,19 @@ class RedisObjectStream(object):
             raise
         return accumulator.pop_all()
 
-    def _get_set(self, lookup, lookup_type, multi):
-        if lookup_type == 'all':
-            raise TypeError(
-                "cannot use 'RedisObjectStream' to get entire Redis 'set' "
-                "objects in batches, as they have no methods for doing this "
-                "-- use 'RedisObject' instead"
-            )
-        accumulator = self.accumulator_factory(set, lookup_type)
+    def _get_set(self, lookup):
+        accumulator = self.accumulator_factory(list, 'flatten')
+        ltype_label = type(lookup).label
+        lval = lookup.value
         batches = [
-            lookup[(num):(num + self.target_batch_size)]
-            for num in range(0, len(lookup), self.target_batch_size)
+            lval[(num):(num + self.target_batch_size)]
+            for num in range(0, len(lval), self.target_batch_size)
         ]
         try:
             for i, batch in enumerate(batches):
-                self.obj.getter.add_to_pipe(batch, lookup_type, multi)
+                self.obj.rtype.get(self.obj, LOOKUP_TYPES.get(ltype_label)(
+                    self.obj, batch, multi=True
+                ))
                 nbatch = i + 1
                 is_final = nbatch == len(batches)
                 do_it = self.execute_every and nbatch % self.execute_every == 0
@@ -1261,24 +1762,25 @@ class RedisObjectStream(object):
             raise
         return accumulator.pop_all()
 
-    def _get_list(self, lookup, lookup_type, multi):
-        accumulator = self.accumulator_factory(list, lookup_type)
-        if lookup_type == 'value':
+    def _get_list(self, lookup):
+        accumulator = self.accumulator_factory(list, 'flatten')
+        ltype_label = type(lookup).label
+        lval = lookup.value
+        if ltype_label == 'value':
             batches = [
-                lookup[(num):(num + self.target_batch_size)]
-                for num in range(0, len(lookup), self.target_batch_size)
+                lval[(num):(num + self.target_batch_size)]
+                for num in range(0, len(lval), self.target_batch_size)
             ]
         else:
             batches = [
-                (num, min(num + self.target_batch_size - 1, lookup[1]))
-                for num in range(
-                    lookup[0], lookup[1] + 1, self.target_batch_size
-                )
+                (num, min(num + self.target_batch_size - 1, lval[1]))
+                for num in range(lval[0], lval[1] + 1, self.target_batch_size)
             ]
-            lookup_type = 'index'
         try:
             for i, batch in enumerate(batches):
-                self.obj.getter.add_to_pipe(batch, lookup_type, multi)
+                self.obj.rtype.get(self.obj, LOOKUP_TYPES.get(ltype_label)(
+                    self.obj, batch, multi=True
+                ))
                 nbatch = i + 1
                 is_final = nbatch == len(batches)
                 do_it = self.execute_every and nbatch % self.execute_every == 0
@@ -1289,9 +1791,12 @@ class RedisObjectStream(object):
             raise
         return accumulator.pop_all()
 
-    def _get_dict(self, lookup, lookup_type, multi):
-        accumulator = self.accumulator_factory(dict, lookup_type)
-        hash_keys = lookup or self.obj.conn.hkeys(self.obj.key)
+    def _get_dict(self, lookup):
+        if lookup.whole_obj_requested:
+            accumulator = self.accumulator_factory(dict, 'dict')
+        else:
+            accumulator = self.accumulator_factory(list, 'hash_fields')
+        hash_keys = lookup.value 
         keys_stack = []
         key_batches = [
             hash_keys[(num):(num + self.target_batch_size)]
@@ -1299,7 +1804,9 @@ class RedisObjectStream(object):
         ]
         try:
             for i, batch_keys in enumerate(key_batches):
-                self.obj.getter.add_to_pipe(batch_keys, 'field', True)
+                self.obj.rtype.get(self.obj, LOOKUP_TYPES.get('field')(
+                    self.obj, batch_keys, multi=True
+                ))
                 keys_stack.append(batch_keys)
                 nbatch = i + 1
                 is_final = nbatch == len(key_batches)
@@ -1313,14 +1820,15 @@ class RedisObjectStream(object):
         return accumulator.pop_all()
 
     def get(self, lookup=None, lookup_type=None):
-        lookup_args = self.obj.getter.configure_lookup(lookup, lookup_type)
-        lookup, lookup_type, multi = lookup_args
-        if lookup_type is None:
+        lookup = self.obj.rtype.configure_lookup(
+            self.obj, lookup, lookup_type, batch=True
+        )
+        if lookup is None:
             return None
-        if not multi:
-            self.obj.getter.add_to_pipe(lookup, lookup_type, multi)
+        if not lookup.multi:
+            self.obj.rtype.get(self.obj, lookup)
             return self.pipe.execute()[-1]
-        ptype = self.obj.getter.get_ptype_from_obj_rtype()
-        # accumulator = Accumulator.from_ptype(ptype, multi=True)
-        data = getattr(self, f'_get_{ptype.__name__}')(*lookup_args)
+        ptype = self.obj.rtype.info.to_ptype
+        # accumulator = self.accumulator_factory(ptype, type(lookup).label)
+        data = getattr(self, f'_get_{ptype.__name__}')(lookup)
         return data
