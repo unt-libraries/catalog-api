@@ -805,7 +805,7 @@ def test_redisobject_setfield_calls_set(mocker):
     calls 'set' with 'update=True' to set fields on an existing hash.
     """
     r = redisobjs.RedisObject('test', 'item')
-    r.set = mocker.Mock()
+    mocker.patch.object(r, 'set')
     r.set_field({'a': 'z'})
     r.set.assert_called_with({'a': 'z'}, update=True)
 
@@ -818,7 +818,7 @@ def test_redisobject_setvalue_single_value(mocker):
     value (not in a list).
     """
     r = redisobjs.RedisObject('test', 'item')
-    r.set = mocker.Mock(return_value=['a'])
+    mocker.patch.object(r, 'set', mocker.Mock(return_value=['a']))
     assert r.set_value(1, 'a') == 'a'
     r.set.assert_called_with(('a',), update=True, index=1)
 
@@ -831,7 +831,7 @@ def test_redisobject_setvalue_multiple_values(mocker):
     a list.
     """
     r = redisobjs.RedisObject('test', 'item')
-    r.set = mocker.Mock(return_value=['a', 'b'])
+    mocker.patch.object(r, 'set', mocker.Mock(return_value=['a', 'b']))
     assert r.set_value(1, 'a', 'b') == ['a', 'b']
     r.set.assert_called_with(('a', 'b'), update=True, index=1)
 
@@ -1019,7 +1019,7 @@ def test_redisobject_getfield_single_field(mocker):
     calls 'get' with the applicable field lookup.
     """
     r = redisobjs.RedisObject('test', 'get_field')
-    r.get = mocker.Mock()
+    mocker.patch.object(r, 'get')
     r.get_field('myfield')
     r.get.assert_called_with('myfield', 'field')
 
@@ -1030,7 +1030,7 @@ def test_redisobject_getfield_multiple_fields(mocker):
     calls 'get' with the applicable field lookup.
     """
     r = redisobjs.RedisObject('test', 'get_field')
-    r.get = mocker.Mock()
+    mocker.patch.object(r, 'get')
     r.get_field('myfield1', 'myfield2')
     r.get.assert_called_with(('myfield1', 'myfield2'), 'fields')
 
@@ -1041,7 +1041,7 @@ def test_redisobject_getindex_single_value(mocker):
     calls 'get' with the applicable lookup by value.
     """
     r = redisobjs.RedisObject('test', 'get_index')
-    r.get = mocker.Mock()
+    mocker.patch.object(r, 'get')
     r.get_index('myval')
     r.get.assert_called_with('myval', 'value')
 
@@ -1052,7 +1052,7 @@ def test_redisobject_getindex_multiple_values(mocker):
     calls 'get' with the applicable lookup by value.
     """
     r = redisobjs.RedisObject('test', 'get_index')
-    r.get = mocker.Mock()
+    mocker.patch.object(r, 'get')
     r.get_index('myval1', 'myval2')
     r.get.assert_called_with(('myval1', 'myval2'), 'values')
 
@@ -1063,7 +1063,7 @@ def test_redisobject_getvalue_single_index(mocker):
     calls 'get' with the applicable lookup by index.
     """
     r = redisobjs.RedisObject('test', 'get_value')
-    r.get = mocker.Mock()
+    mocker.patch.object(r, 'get')
     r.get_value(1)
     r.get.assert_called_with(1, 'index')
 
@@ -1074,7 +1074,7 @@ def test_redisobject_getvalue_index_range(mocker):
     calls 'get' with the applicable lookup by index.
     """
     r = redisobjs.RedisObject('test', 'get_value')
-    r.get = mocker.Mock()
+    mocker.patch.object(r, 'get')
     r.get_value(1, 5)
     r.get.assert_called_with((1, 5), 'index')
 
@@ -1212,8 +1212,8 @@ def test_redisobjectstream_set_has_correct_calls(data, force_unique, update,
         return rval
 
     r = redisobjs.RedisObject('test', 'stream_set')
-    r.set = mocker.Mock(side_effect=mock_set_behavior)
-    r.pipe = mocker.Mock()
+    mocker.patch.object(r, 'set', mocker.Mock(side_effect=mock_set_behavior))
+    mocker.patch.object(r, 'pipe')
     r.pipe.execute.side_effect = mock_execute_behavior
 
     rs = redisobjs.RedisObjectStream(r, target_batch_size, commit_every)
