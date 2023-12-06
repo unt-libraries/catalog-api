@@ -148,6 +148,18 @@ class Pipeline(object):
         self.pipe = conn.pipeline()
         self.reset(False)
 
+    def __len__(self):
+        """
+        Returns the number of currently pending cmds on the pipeline.
+        """
+        return self.pipe.__len__()
+
+    def __bool__(self):
+        # Since we have __len__ defined we need __bool__ too to
+        # override cases where __len__ is 0 causing an instance to
+        # evaluate as False.
+        return True
+
     def reset(self, reset_pipe=True):
         """
         Resets this Pipeline object's state.
@@ -749,7 +761,7 @@ class _RedisType(object):
         Implement this in each subclass.
         """
         pass
-    
+
     def save(self, obj, data, update, index, was_none=False):
         """
         Returns a Pipeline with cmds to save a Redis object.
@@ -1323,6 +1335,12 @@ class RedisObject(object):
 
     def __len__(self):
         return self.len
+
+    def __bool__(self):
+        # Since we have __len__ defined we need __bool__ too to
+        # override cases where __len__ is 0 causing an instance to
+        # evaluate as False.
+        return True
 
     @property
     def len(self):
