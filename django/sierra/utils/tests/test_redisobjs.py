@@ -148,7 +148,7 @@ def test_pipeline_execute_with_accums_uses_accums(list_accumulator,
     conn = redisobjs.REDIS_CONNECTION
     pl = redisobjs.Pipeline()
     groups = [
-        { 
+        {
             'items': ['1', '2', '3'],
             'accumulator': list_accumulator,
             'expected': ['1', '2', '3']
@@ -158,7 +158,7 @@ def test_pipeline_execute_with_accums_uses_accums(list_accumulator,
             'expected': {'a', 'b', 'c'},
         }, {
             'items': ['x', 'y', 'z'],
-            'accumulator': str_accumulator, 
+            'accumulator': str_accumulator,
             'expected': 'x|y|z'
         }
     ]
@@ -205,7 +205,7 @@ def test_pipeline_execute_w_callbacks_and_accums_uses_both(list_accumulator):
     for i in range(5):
         pl.add(
             'lindex', 'test:list', args=[i], callback=lambda r: f'_{r}_',
-           accumulator=list_accumulator 
+           accumulator=list_accumulator
         )
     results = pl.execute()
     assert results == [['_a_', '_b_', '_c_', '_d_', '_e_']]
@@ -296,14 +296,17 @@ def test_redisobject_set_and_get_work_correctly(value):
     that uses that same key and calling the `get` method should return
     the same value. (Tuples are returned as lists.)
     """
-    assert redisobjs.RedisObject('test_table', 'test_item').set(value) == value
+    set_ret = redisobjs.RedisObject('test_table', 'test_item').set(value)
     r = redisobjs.RedisObject('test_table', 'test_item')
     if not value and value != 0:
         assert r.get() is None
+        assert set_ret is None
     elif isinstance(value, tuple):
         assert r.get() == list(value)
+        assert set_ret == list(value)
     else:
         assert r.get() == value
+        assert set_ret == value
 
 
 @pytest.mark.parametrize('old_val, old_funq, new_val, new_funq', [
@@ -357,7 +360,7 @@ def test_redisobject_set_empty_deletes_existing_key(old_val, new_val):
     redisobjs.RedisObject('test', 'item').set(new_val)
     assert 'test:item' not in conn.keys()
     assert redisobjs.RedisObject('test', 'item').get() is None
-    
+
 
 @pytest.mark.parametrize('value, force_unique, exp', [
     ([1, 2, 2, 3], True, [1, 2, 3]),
@@ -484,7 +487,7 @@ def test_redisobject_set_and_get_with_force_unique(value, force_unique, exp):
     ({'a': 'z'}, None, None, None, {'a': 'z'}),
     ({'a': 'z'}, None, {}, None, {'a': 'z'}),
     ({'a': 'z'}, None, {'b': 'y'}, None, {'a': 'z', 'b': 'y'}),
-    ({'a': 'z'}, None, {'b': 'y', 'c': 'x'}, None, 
+    ({'a': 'z'}, None, {'b': 'y', 'c': 'x'}, None,
      {'a': 'z', 'b': 'y', 'c': 'x'}),
     ({'a': 'z', 'b': 'y'}, None, {'a': 1, 'b': 2}, None, {'a': 1, 'b': 2}),
     ({'a': 'z'}, None, {'a': 1, 'b': 2}, None, {'a': 1, 'b': 2}),
@@ -513,9 +516,9 @@ def test_redisobject_set_with_update(init, force_unique, newval, index,
     key = ('test', 'item')
     if init is not None:
         redisobjs.RedisObject(*key).set(init, force_unique=force_unique)
-    assert redisobjs.RedisObject(*key).set(
+    redisobjs.RedisObject(*key).set(
         newval, force_unique=force_unique, update=True, index=index
-    ) == newval
+    )
     assert redisobjs.RedisObject(*key).get() == expected
 
 
@@ -642,7 +645,7 @@ def test_redisobject_set_and_defer_with_user_pipeline():
     assert redisobjs.RedisObject('test', 'item2').get() is None
     assert pipe.execute() == [8, 11]
     assert redisobjs.RedisObject('test', 'item').get() == 'my_value'
-    assert redisobjs.RedisObject('test', 'item2').get() == 'other_value' 
+    assert redisobjs.RedisObject('test', 'item2').get() == 'other_value'
 
 
 @pytest.mark.parametrize('init, f_unq, i, vals, exp_return, exp_list', [
@@ -855,6 +858,7 @@ def test_redisobject_get_nonexistent_key_returns_none():
     (['a', 'b', 'c'], True, 'index', (1, 1), ['b']),
     (['a', 'b', 'c'], True, 'index', (1, 2), ['b', 'c']),
     (['a', 'b', 'c'], True, 'index', (1, 3), ['b', 'c']),
+    (['a', 'b', 'c'], True, 'index', (1, 10), ['b', 'c']),
     (['a', 'b', 'c'], True, 'index', (3, 4), None),
     (['a', 'b', 'c'], True, 'index', -1, 'c'),
     (['a', 'b', 'c'], True, 'index', -2, 'b'),
@@ -897,6 +901,7 @@ def test_redisobject_get_nonexistent_key_returns_none():
     (['a', 'b', 'c'], False, 'index', (1, 1), ['b']),
     (['a', 'b', 'c'], False, 'index', (1, 2), ['b', 'c']),
     (['a', 'b', 'c'], False, 'index', (1, 3), ['b', 'c']),
+    (['a', 'b', 'c'], False, 'index', (1, 10), ['b', 'c']),
     (['a', 'b', 'c'], False, 'index', (3, 4), None),
     (['a', 'b', 'c'], False, 'index', -1, 'c'),
     (['a', 'b', 'c'], False, 'index', -2, 'b'),
@@ -1128,321 +1133,449 @@ def test_redisobject_one_pipeline_multiple_operations():
 
 
 @pytest.mark.parametrize(
-    'data, force_unique, update, index, target_batch_size, commit_every,'
-    'exp_calls', [
-        (['ab', 'cd', 'ef'], False, False, None, 1, 1, [
-            (['"ab"'], False, False, None),
+    'data, force_unique, update, index, bsize, tsize, defer, exp_calls',
+    [
+        (None, None, False, None, 1, 1, False, [
+            (None, 'none', False, None),
+            'execute'
+        ]),
+        (None, None, True, None, 1, 1, False, [
+            (None, 'none', True, None),
+            'execute'
+        ]),
+        (['ab', 'cd', 'ef'], False, False, None, 1, 1, False, [
+            (['"ab"'], 'list', False, None),
             'execute',
-            (['"cd"'], False, True, None),
+            (['"cd"'], 'list', True, None),
             'execute',
-            (['"ef"'], False, True, None),
+            (['"ef"'], 'list', True, None),
             'execute',
         ]),
-        (['ab', 'cd', 'ef'], True, True, 1, 1, 1, [
-            (['"ab"'], True, True, 1),
+        (['ab', 'cd', 'ef'], True, True, 1, 1, 1, False, [
+            (['"ab"'], 'zset', True, 1),
             'execute',
-            (['"cd"'], True, True, 2),
+            (['"cd"'], 'zset', True, 2),
             'execute',
-            (['"ef"'], True, True, 3),
-            'execute',
-        ]),
-        (['ab', 'cd', 'ef'], False, False, None, 2, 1, [
-            (['"ab"', '"cd"'], False, False, None),
-            'execute',
-            (['"ef"'], False, True, None),
+            (['"ef"'], 'zset', True, 3),
             'execute',
         ]),
-        (['ab', 'cd', 'ef'], False, False, None, 1, 2, [
-            (['"ab"'], False, False, None),
-            (['"cd"'], False, True, None),
+        (['ab', 'cd', 'ef'], False, False, None, 2, 1, False, [
+            (['"ab"', '"cd"'], 'list', False, None),
             'execute',
-            (['"ef"'], False, True, None),
-            'execute',
-        ]),
-        (['ab', 'cd', 'ef'], False, False, None, 1, 10, [
-            (['"ab"'], False, False, None),
-            (['"cd"'], False, True, None),
-            (['"ef"'], False, True, None),
+            (['"ef"'], 'list', True, None),
             'execute',
         ]),
-        (['ab', 'cd', 'ef'], False, False, None, 1, None, [
-            (['"ab"'], False, False, None),
-            (['"cd"'], False, True, None),
-            (['"ef"'], False, True, None),
+        (['ab', 'cd', 'ef'], False, False, None, 1, 2, False, [
+            (['"ab"'], 'list', False, None),
+            (['"cd"'], 'list', True, None),
+            'execute',
+            (['"ef"'], 'list', True, None),
             'execute',
         ]),
-        (['ab', 'cd', 'ef'], False, False, 1, 2, None, [
-            (['"ab"', '"cd"'], False, False, 1),
-            (['"ef"'], False, True, 3),
+        (['ab', 'cd', 'ef'], False, False, None, 1, 10, False, [
+            (['"ab"'], 'list', False, None),
+            (['"cd"'], 'list', True, None),
+            (['"ef"'], 'list', True, None),
             'execute',
+        ]),
+        (['ab', 'cd', 'ef'], False, False, None, 1, None, False, [
+            (['"ab"'], 'list', False, None),
+            (['"cd"'], 'list', True, None),
+            (['"ef"'], 'list', True, None),
+            'execute',
+        ]),
+        (['ab', 'cd', 'ef'], False, False, 1, 2, None, False, [
+            (['"ab"', '"cd"'], 'list', False, 1),
+            (['"ef"'], 'list', True, 3),
+            'execute',
+        ]),
+        # When obj.defer is True, it shouldn't execute, even when
+        # transaction_size is supplied.
+        (['ab', 'cd', 'ef'], False, False, None, 1, 1, True, [
+            (['"ab"'], 'list', False, None),
+            (['"cd"'], 'list', True, None),
+            (['"ef"'], 'list', True, None),
+        ]),
+        (['ab', 'cd', 'ef'], False, False, None, 2, None, True, [
+            (['"ab"', '"cd"'], 'list', False, None),
+            (['"ef"'], 'list', True, None),
         ]),
         # Raw strings don't get JSON encoded.
-        ('abcdefgh', None, False, None, 3, 2, [
-            ('abc', None, False, None),
-            ('def', None, True, None),
+        ('abcdefgh', None, False, None, 3, 2, False, [
+            ('abc', 'string', False, None),
+            ('def', 'string', True, None),
             'execute',
-            ('gh', None, True, None),
+            ('gh', 'string', True, None),
             'execute',
         ]),
         ({'ab': 10, 'cd': 'zy', 'ef': 20, 'gh': 'xw'}, None, False, None, 2,
-         1, [
-            ({'ab': '10', 'cd': '"zy"'}, None, False, None),
+         1, False, [
+            ({'ab': '10', 'cd': '"zy"'}, 'hash', False, None),
             'execute',
-            ({'ef': '20', 'gh': '"xw"'}, None, True, None),
+            ({'ef': '20', 'gh': '"xw"'}, 'hash', True, None),
             'execute',
         ]),
     ]
 )
-def test_redisobjectstream_set_has_correct_calls(data, force_unique, update,
-                                                 index, target_batch_size,
-                                                 commit_every, exp_calls,
-                                                 mocker):
+def test_redisobject_batch_set_has_correct_calls(data, force_unique, update,
+                                                 index, bsize, tsize, defer,
+                                                 exp_calls, mocker):
     """
-    The RedisObjectStream.set method should result in the expected
-    calls to RedisObject.set and Pipeline.execute.
+    The RedisObject.set method, when batch mode is used, should result
+    in the expected calls to _RedisType.save and Pipeline.execute.
     """
+    calls = []
     call_stack = []
-    def mock_set_behavior(batch, funq, update, index):
-        call_stack.append((batch, funq, update, index))
+    def mock_save_behavior(obj, batch_data, update, index, old_rtype,
+                           execute=False):
+        call_stack.append((batch_data, str(obj.rtype), update, index))
+        if execute:
+            obj.pipe.execute()
 
     def mock_execute_behavior():
         call_stack.append('execute')
-        rval = list(call_stack)
+        calls.extend(call_stack)
         call_stack.clear()
-        return rval
+        return call_stack
 
-    r = redisobjs.RedisObject('test', 'stream_set')
-    mocker.patch.object(r, 'set', mocker.Mock(side_effect=mock_set_behavior))
-    mocker.patch.object(r, 'pipe')
-    r.pipe.execute.side_effect = mock_execute_behavior
+    rbatch = redisobjs.RedisObject(
+        'test', 'stream_set', defer=defer, batch_size=bsize,
+        transaction_size=tsize,
+    )
+    mocker.patch.object(
+        redisobjs._RedisType, 'save', mocker.Mock(
+            side_effect=mock_save_behavior
+        )
+    )
+    mocker.patch.object(
+        rbatch.pipe, 'execute', mocker.Mock(side_effect=mock_execute_behavior)
+    )
+    mocker.patch.object(
+        rbatch.pipe.pipe, 'command_stack', call_stack
+    )
 
-    rs = redisobjs.RedisObjectStream(r, target_batch_size, commit_every)
-    assert rs.set(data, force_unique, update, index) == exp_calls
+    rbatch.set(data, force_unique, update, index)
+    if defer:
+        assert call_stack == exp_calls
+    else:
+        assert calls == exp_calls
 
 
 @pytest.mark.parametrize(
-    'init, data, force_unique, index, target_batch_size, commit_every, '
-    'expected', [
-        # different batch / commit sizes
-        (None, [10, 20, 30, 40, 50], False, None, 1, 1, [10, 20, 30, 40, 50]),
-        (None, [10, 20, 30, 40, 50], False, None, 1, 3, [10, 20, 30, 40, 50]),
-        (None, [10, 20, 30, 40, 50], False, None, 1, 5, [10, 20, 30, 40, 50]),
-        (None, [10, 20, 30, 40, 50], False, None, 1, None,
+    'init, data, force_unique, update, index, bsize, tsize, expected', [
+        # when data is None or empty
+        (None, None, None, False, None, 1, 1, None),
+        (None, None, None, True, None, 1, 1, None),
+        ('abcde', None, None, False, None, 1, 1, None),
+        ('abcde', None, None, True, None, 1, 1, 'abcde'),
+        ('abcde', '', None, False, None, 1, 1, None),
+        ('abcde', '', None, True, None, 1, 1, 'abcde'),
+
+        # setting data using different batch / commit sizes
+        (None, [10, 20, 30, 40, 50], False, False, None, 1, 1,
          [10, 20, 30, 40, 50]),
-        (None, [10, 20, 30, 40, 50], False, None, 2, 20, [10, 20, 30, 40, 50]),
-        (None, [10, 20, 30, 40, 50], False, None, 20, 20,
+        (None, [10, 20, 30, 40, 50], False, False, None, 1, 3,
          [10, 20, 30, 40, 50]),
-        (None, [10, 20, 30, 40, 50], True, None, 1, 1, [10, 20, 30, 40, 50]),
-        (None, [10, 20, 30, 40, 50], True, None, 1, 3, [10, 20, 30, 40, 50]),
-        (None, [10, 20, 30, 40, 50], True, None, 1, 5, [10, 20, 30, 40, 50]),
-        (None, [10, 20, 30, 40, 50], True, None, 1, None,
+        (None, [10, 20, 30, 40, 50], False, False, None, 1, 5,
          [10, 20, 30, 40, 50]),
-        (None, [10, 20, 30, 40, 50], True, None, 2, 2, [10, 20, 30, 40, 50]),
-        (None, [10, 20, 30, 40, 50], True, None, 2, 20, [10, 20, 30, 40, 50]),
-        (None, [10, 20, 30, 40, 50], True, None, 3, 20, [10, 20, 30, 40, 50]),
-        (None, [10, 20, 30, 40, 50], True, None, 20, 20, [10, 20, 30, 40, 50]),
+        (None, [10, 20, 30, 40, 50], False, False, None, 1, None,
+         [10, 20, 30, 40, 50]),
+        (None, [10, 20, 30, 40, 50], False, False, None, 2, 20,
+         [10, 20, 30, 40, 50]),
+        (None, [10, 20, 30, 40, 50], False, False, None, 20, 20,
+         [10, 20, 30, 40, 50]),
+        (None, [10, 20, 30, 40, 50], True, False, None, 1, 1,
+         [10, 20, 30, 40, 50]),
+        (None, [10, 20, 30, 40, 50], True, False, None, 1, 3,
+         [10, 20, 30, 40, 50]),
+        (None, [10, 20, 30, 40, 50], True, False, None, 1, 5,
+         [10, 20, 30, 40, 50]),
+        (None, [10, 20, 30, 40, 50], True, False, None, 1, None,
+         [10, 20, 30, 40, 50]),
+        (None, [10, 20, 30, 40, 50], True, False, None, 2, 2,
+         [10, 20, 30, 40, 50]),
+        (None, [10, 20, 30, 40, 50], True, False, None, 2, 20,
+         [10, 20, 30, 40, 50]),
+        (None, [10, 20, 30, 40, 50], True, False, None, 3, 20,
+         [10, 20, 30, 40, 50]),
+        (None, [10, 20, 30, 40, 50], True, False, None, 20, 20,
+         [10, 20, 30, 40, 50]),
+
+        # setting and overwriting an existing key
+        ('abc', [1, 2, 3, 4, 5], False, False, None, 2, 2, [1, 2, 3, 4, 5]),
+        ([1, 2, 3], [2, 2, 3], True, False, None, 2, 2, [2, 3]),
+        (10, 'abc', False, False, None, 2, 2, 'abc'),
 
         # updating existing data
-        ([1, 2, 3], [7, 8, 10, 20, 30], False, None, 2, 2,
+        ([1, 2, 3], [7, 8, 10, 20, 30], False, True, None, 2, 2,
          [1, 2, 3, 7, 8, 10, 20, 30]),
-        ([1, 2, 3], [7, 8, 10, 20, 30], False, 1, 2, 2, [1, 7, 8, 10, 20, 30]),
-        (['a', 'b', 'c'], ['aa', 'bb', 'cc', 'dd', 'ee'], False, 5, 3, 10,
-         ['a', 'b', 'c', None, None, 'aa', 'bb', 'cc', 'dd', 'ee']),
-        ('abc|', 'defg|01234|xyz|cba|', None, None, 3, 2,
+        ([1, 2, 3], [7, 8, 10, 20, 30], False, True, 1, 2, 2,
+         [1, 7, 8, 10, 20, 30]),
+        (['a', 'b', 'c'], ['aa', 'bb', 'cc', 'dd', 'ee'], False, True, 5, 3,
+         10, ['a', 'b', 'c', None, None, 'aa', 'bb', 'cc', 'dd', 'ee']),
+        ('abc|', 'defg|01234|xyz|cba|', None, True, None, 3, 2,
          'abc|defg|01234|xyz|cba|'),
-        ([1, 2, 3], [7, 8, 10, 20, 30], True, None, 2, 2,
+        ([1, 2, 3], [7, 8, 10, 20, 30], True, True, None, 2, 2,
          [1, 2, 3, 7, 8, 10, 20, 30]),
-        ([1, 2, 3], [7, 8, 10, 20, 30], True, 1, 2, 2, [1, 7, 8, 10, 20, 30]),
-        (['a', 'b', 'c'], ['aa', 'bb', 'cc', 'dd', 'ee',], True, 5, 1, 10,
-         ['a', 'b', 'c', 'aa', 'bb', 'cc', 'dd', 'ee']),
-        ({'a', 'b', 'c'}, {'a', 'aa', 'bb', 'b', 'cc'}, None, None, 2, 2,
+        ([1, 2, 3], [7, 8, 10, 20, 30], True, True, 1, 2, 2,
+         [1, 7, 8, 10, 20, 30]),
+        (['a', 'b', 'c'], ['aa', 'bb', 'cc', 'dd', 'ee',], True, True, 5, 1,
+         10, ['a', 'b', 'c', 'aa', 'bb', 'cc', 'dd', 'ee']),
+        ({'a', 'b', 'c'}, {'a', 'aa', 'bb', 'b', 'cc'}, None, True, None, 2, 2,
          {'a', 'b', 'c', 'aa', 'bb', 'cc'}),
-        ({'a': 'z', 'b': 'y'}, {'b': 'aa', 'aa': 'zz', 'bb': 'yy'}, None, None,
-         1, 2, {'a': 'z', 'b': 'aa', 'aa': 'zz', 'bb': 'yy'}),
+        ({'a': 'z', 'b': 'y'}, {'b': 'aa', 'aa': 'zz', 'bb': 'yy'}, None, True,
+         None, 1, 2, {'a': 'z', 'b': 'aa', 'aa': 'zz', 'bb': 'yy'}),
     ]
 )
-def test_redisobjectstream_set_sets_correctly(init, data, force_unique,
-                                              index, target_batch_size,
-                                              commit_every, expected):
+def test_redisobject_batch_set_sets_correctly(init, data, force_unique, update,
+                                              index, bsize, tsize, expected):
     """
-    The RedisObjectStream.set method should set Redis values such that
-    a RedisObject gets and returns the correct value.
+    The RedisObject.set method, when batch mode is used, should set
+    Redis values such that a RedisObject gets and returns the correct
+    value.
     """
     r = redisobjs.RedisObject('test', 'stream_set')
     if init is not None:
         r.set(init, force_unique)
-    rs = redisobjs.RedisObjectStream(r, target_batch_size, commit_every)
-    rs.set(data, force_unique, update=True, index=index)
+    rbatch = redisobjs.RedisObject(
+        'test', 'stream_set', batch_size=bsize, transaction_size=tsize
+    )
+    rbatch.set(data, force_unique, update=update, index=index)
     assert redisobjs.RedisObject('test', 'stream_set').get() == expected
 
 
+def test_redisobject_batch_set_encodedobj_error():
+    """
+    Attempting to set or update an encoded_obj using RedisObject.set in
+    batch mode should raise a TypeError.
+    """
+    rbatch = redisobjs.RedisObject('test', 'stream_set', batch_size=1)
+    with pytest.raises(TypeError) as excinfo:
+        rbatch.set(10)
+    assert "cannot batch update an 'encoded_obj'" in str(excinfo.value)
+
+
 @pytest.mark.parametrize(
-    'init, force_unique, lookup, lookup_type, target_batch_size, '
-    'execute_every, exp_calls', [
+    'init, force_unique, lookup, lookup_type, bsize, tsize, defer, exp_calls',
+    [
+        (None, None, None, None, 1, 1, False, [
+            (None, None, None), 'execute'
+        ]),
         # Lists
-        (['a', 'b', 'c', 'd', 'e'], False, None, None, 1, 1, [
+        (['a', 'b', 'c', 'd', 'e'], False, None, None, 1, 1, False, [
             ((0, 0), 'index', True), 'execute',
             ((1, 1), 'index', True), 'execute',
             ((2, 2), 'index', True), 'execute',
             ((3, 3), 'index', True), 'execute',
             ((4, 4), 'index', True), 'execute'
         ]),
-        (['a', 'b', 'c', 'd', 'e', 'f', 'g'], False, None, None, 3, 1, [
+        (['a', 'b', 'c', 'd', 'e', 'f', 'g'], False, None, None, 3, 1, False, [
             ((0, 2), 'index', True), 'execute',
             ((3, 5), 'index', True), 'execute',
             ((6, 6), 'index', True), 'execute'
         ]),
-        (['a', 'b', 'c', 'd', 'e', 'f', 'g'], False, None, None, 1, 3, [
+        (['a', 'b', 'c', 'd', 'e', 'f', 'g'], False, None, None, 1, 3, False, [
             ((0, 0), 'index', True), ((1, 1), 'index', True),
             ((2, 2), 'index', True), 'execute',
             ((3, 3), 'index', True), ((4, 4), 'index', True),
             ((5, 5), 'index', True), 'execute',
             ((6, 6), 'index', True), 'execute'
         ]),
-        (['a', 'b', 'c', 'd', 'e', 'f', 'g'], False, None, None, 3, 2, [
+        (['a', 'b', 'c', 'd', 'e', 'f', 'g'], False, None, None, 3, 2, False, [
             ((0, 2), 'index', True), ((3, 5), 'index', True), 'execute',
             ((6, 6), 'index', True), 'execute'
         ]),
-        (['a', 'b', 'c', 'd', 'e', 'f', 'g'], False, None, None, 4, None, [
+        (['a', 'b', 'c', 'd', 'e', 'f', 'g'], False, None, None, 4, None,
+         False, [
             ((0, 3), 'index', True), ((4, 6), 'index', True), 'execute'
         ]),
-        (['a', 'b', 'c', 'd', 'e', 'f', 'g'], False, None, None, 10, None, [
+        (['a', 'b', 'c', 'd', 'e', 'f', 'g'], False, None, None, 10, None,
+         False, [
             ((0, 6), 'index', True), 'execute'
+        ]),
+        # If obj.defer is True, then 'execute' never happens.
+        (['a', 'b', 'c', 'd', 'e'], False, None, None, 1, 1, True, [
+            ((0, 0), 'index', True),
+            ((1, 1), 'index', True),
+            ((2, 2), 'index', True),
+            ((3, 3), 'index', True),
+            ((4, 4), 'index', True),
+        ]),
+        (['a', 'b', 'c', 'd', 'e'], False, None, None, 1, None, True, [
+            ((0, 0), 'index', True),
+            ((1, 1), 'index', True),
+            ((2, 2), 'index', True),
+            ((3, 3), 'index', True),
+            ((4, 4), 'index', True),
         ]),
 
         # Lists -- look up by index
-        (['a', 'b', 'c', 'd', 'e', 'f', 'g'], False, (1, 1), 'index', 2, 2, [
+        (['a', 'b', 'c', 'd', 'e', 'f', 'g'], False, (1, 1), 'index', 2, 2,
+         False, [
             ((1, 1), 'index', True), 'execute'
         ]),
-        (['a', 'b', 'c', 'd', 'e', 'f', 'g'], False, (1, 5), 'index', 2, 2, [
+        (['a', 'b', 'c', 'd', 'e', 'f', 'g'], False, (1, 5), 'index', 2, 2,
+         False, [
             ((1, 2), 'index', True), ((3, 4), 'index', True), 'execute',
             ((5, 5), 'index', True), 'execute'
         ]),
-        (['a', 'b', 'c', 'd', 'e', 'f', 'g'], False, (1, 10), 'index', 2, 2, [
-            ((1, 2), 'index', True), ((3, 4), 'index', True), 'execute',
-            ((5, 6), 'index', True), ((7, 8), 'index', True), 'execute',
-            ((9, 10), 'index', True), 'execute'
-        ]),
-        (['a', 'b', 'c', 'd', 'e', 'f', 'g'], False, (1, -1), 'index', 2, 2, [
+        (['a', 'b', 'c', 'd', 'e', 'f', 'g'], False, (1, 10), 'index', 2, 2,
+         False, [
             ((1, 2), 'index', True), ((3, 4), 'index', True), 'execute',
             ((5, 6), 'index', True), 'execute'
         ]),
-        (['a', 'b', 'c', 'd', 'e', 'f', 'g'], False, (-2, -1), 'index', 2, 2, [
+        (['a', 'b', 'c', 'd', 'e', 'f', 'g'], False, (1, -1), 'index', 2, 2,
+         False, [
+            ((1, 2), 'index', True), ((3, 4), 'index', True), 'execute',
             ((5, 6), 'index', True), 'execute'
+        ]),
+        (['a', 'b', 'c', 'd', 'e', 'f', 'g'], False, (-2, -1), 'index', 2, 2,
+         False, [
+            ((5, 6), 'index', True), 'execute'
+        ]),
+        # Positive out of range index values are invalid.
+        (['a', 'b', 'c', 'd', 'e', 'f', 'g'], False, (10, 20), 'index', 2, 2,
+         False, [
+            (None, None, None), 'execute'
+        ]),
+        # Negative out of range index values are invalid.
+        (['a', 'b', 'c', 'd', 'e', 'f', 'g'], False, (-20, -10), 'index', 2, 2,
+         False, [
+            (None, None, None), 'execute'
         ]),
 
         # Lists -- look up by value(s)
-        (['a', 'b', 'c', 'd', 'e', 'f', 'g'], False, 'd', 'value', 2, 2, [
+        (['a', 'b', 'c', 'd', 'e', 'f', 'g'], False, None, 'value', 2, 2,
+         False, [
+            (None, None, None), 'execute'
+        ]),
+        (['a', 'b', 'c', 'd', 'e', 'f', 'g'], False, 'd', 'value', 2, 2, False,
+         [
             ('d', 'value', False), 'execute'
         ]),
-        ([['a', 'b'], ['b', 'c']], False, ['b', 'c'], 'value', 2, 2, [
+        ([['a', 'b'], ['b', 'c']], False, ['b', 'c'], 'value', 2, 2, False, [
             (['b', 'c'], 'value', False), 'execute'
         ]),
-        (['a', 'b', 'c', 'd', 'e', 'f', 'g'], False, ['d'], 'values', 2, 2, [
+        (['a', 'b', 'c', 'd', 'e', 'f', 'g'], False, ['d'], 'values', 2, 2,
+         False, [
             (['d'], 'value', True), 'execute'
         ]),
         (['a', 'b', 'c', 'd', 'e', 'f', 'g'], False, ['g', 'f', 'c'], 'values',
-         2, 2, [
+         2, 2, False, [
              (['g', 'f'], 'value', True), (['c'], 'value', True), 'execute'
          ]),
         (['a', 'b', 'c', 'd', 'e', 'f', 'g'], False, ['g', 'f', 'c', 'z', 'd'],
-         'values', 2, 2, [
+         'values', 2, 2, False, [
              (['g', 'f'], 'value', True),
              (['c', 'z'], 'value', True), 'execute',
              (['d'], 'value', True), 'execute'
          ]),
 
         # Zsets
-        (['a', 'b', 'c', 'd', 'e'], True, None, None, 1, 1, [
+        (['a', 'b', 'c', 'd', 'e'], True, None, None, 1, 1, False, [
             ((0, 0), 'index', True), 'execute',
             ((1, 1), 'index', True), 'execute',
             ((2, 2), 'index', True), 'execute',
             ((3, 3), 'index', True), 'execute',
             ((4, 4), 'index', True), 'execute'
         ]),
-        (['a', 'b', 'c', 'd', 'e', 'f', 'g'], True, None, None, 3, 1, [
+        (['a', 'b', 'c', 'd', 'e', 'f', 'g'], True, None, None, 3, 1, False, [
             ((0, 2), 'index', True), 'execute',
             ((3, 5), 'index', True), 'execute',
             ((6, 6), 'index', True), 'execute'
         ]),
-        (['a', 'b', 'c', 'd', 'e', 'f', 'g'], True, None, None, 1, 3, [
-            ((0, 0), 'index', True), ((1, 1), 'index', True), 
+        (['a', 'b', 'c', 'd', 'e', 'f', 'g'], True, None, None, 1, 3, False, [
+            ((0, 0), 'index', True), ((1, 1), 'index', True),
             ((2, 2), 'index', True), 'execute',
             ((3, 3), 'index', True), ((4, 4), 'index', True),
             ((5, 5), 'index', True), 'execute',
             ((6, 6), 'index', True), 'execute'
         ]),
-        (['a', 'b', 'c', 'd', 'e', 'f', 'g'], True, None, None, 3, 2, [
+        (['a', 'b', 'c', 'd', 'e', 'f', 'g'], True, None, None, 3, 2, False, [
             ((0, 2), 'index', True), ((3, 5), 'index', True), 'execute',
             ((6, 6), 'index', True), 'execute'
         ]),
-        (['a', 'b', 'c', 'd', 'e', 'f', 'g'], True, None, None, 4, None, [
+        (['a', 'b', 'c', 'd', 'e', 'f', 'g'], True, None, None, 4, None, False,
+         [
             ((0, 3), 'index', True), ((4, 6), 'index', True), 'execute'
         ]),
-        (['a', 'b', 'c', 'd', 'e', 'f', 'g'], True, None, None, 10, None, [
+        (['a', 'b', 'c', 'd', 'e', 'f', 'g'], True, None, None, 10, None,
+         False, [
             ((0, 6), 'index', True), 'execute'
         ]),
         # Duplicate values -- leaves gaps where the old values were
-        (['a', 'b', 'c', 'b', 'e', 'b', 'g'], True, None, None, 10, None, [
+        (['a', 'b', 'c', 'b', 'e', 'b', 'g'], True, None, None, 10, None,
+         False, [
             ((0, 6), 'index', True), 'execute'
         ]),
 
         # Zsets -- look up by index
-        (['a', 'b', 'c', 'd', 'e', 'f', 'g'], True, (1, 1), 'index', 2, 2, [
+        (['a', 'b', 'c', 'd', 'e', 'f', 'g'], True, (1, 1), 'index', 2, 2,
+         False, [
             ((1, 1), 'index', True), 'execute'
         ]),
-        (['a', 'b', 'c', 'd', 'e', 'f', 'g'], True, (1, 5), 'index', 2, 2, [
+        (['a', 'b', 'c', 'd', 'e', 'f', 'g'], True, (1, 5), 'index', 2, 2,
+         False, [
             ((1, 2), 'index', True), ((3, 4), 'index', True), 'execute',
             ((5, 5), 'index', True), 'execute'
         ]),
-        (['a', 'b', 'c', 'd', 'e', 'f', 'g'], True, (1, 10), 'index', 2, 2, [
-            ((1, 2), 'index', True), ((3, 4), 'index', True), 'execute',
-            ((5, 6), 'index', True), ((7, 8), 'index', True), 'execute',
-            ((9, 10), 'index', True), 'execute'
-        ]),
-        (['a', 'b', 'c', 'd', 'e', 'f', 'g'], True, (1, -1), 'index', 2, 2, [
+        (['a', 'b', 'c', 'd', 'e', 'f', 'g'], True, (1, 10), 'index', 2, 2,
+         False, [
             ((1, 2), 'index', True), ((3, 4), 'index', True), 'execute',
             ((5, 6), 'index', True), 'execute'
         ]),
-        (['a', 'b', 'c', 'd', 'e', 'f', 'g'], True, (-2, -1), 'index', 2, 2, [
+        (['a', 'b', 'c', 'd', 'e', 'f', 'g'], True, (1, -1), 'index', 2, 2,
+         False, [
+            ((1, 2), 'index', True), ((3, 4), 'index', True), 'execute',
+            ((5, 6), 'index', True), 'execute'
+        ]),
+        (['a', 'b', 'c', 'd', 'e', 'f', 'g'], True, (-2, -1), 'index', 2, 2,
+         False, [
             ((5, 6), 'index', True), 'execute'
         ]),
         # Duplicate values -- leaves gaps where the old values were
-        (['a', 'b', 'c', 'b', 'e', 'b', 'g'], True, (1, -1), 'index', 2, 2, [
+        (['a', 'b', 'c', 'b', 'e', 'b', 'g'], True, (1, -1), 'index', 2, 2,
+         False, [
             ((1, 2), 'index', True), ((3, 4), 'index', True), 'execute',
             ((5, 6), 'index', True), 'execute'
         ]),
 
         # Zsets -- look up by value(s)
-        (['a', 'b', 'c', 'd', 'e', 'f', 'g'], True, 'd', 'value', 2, 2, [
+        (['a', 'b', 'c', 'd', 'e', 'f', 'g'], True, None, 'value', 2, 2, False,
+         [
+            (None, None, None), 'execute'
+        ]),
+        (['a', 'b', 'c', 'd', 'e', 'f', 'g'], True, 'd', 'value', 2, 2, False,
+         [
             ('d', 'value', False), 'execute'
         ]),
-        ([['a', 'b'], ['b', 'c']], True, ['b', 'c'], 'value', 2, 2, [
+        ([['a', 'b'], ['b', 'c']], True, ['b', 'c'], 'value', 2, 2, False, [
             (['b', 'c'], 'value', False), 'execute'
         ]),
-        (['a', 'b', 'c', 'd', 'e', 'f', 'g'], True, ['d'], 'values', 2, 2, [
+        (['a', 'b', 'c', 'd', 'e', 'f', 'g'], True, ['d'], 'values', 2, 2,
+         False, [
             (['d'], 'value', True), 'execute'
         ]),
         (['a', 'b', 'c', 'd', 'e', 'f', 'g'], True, ['g', 'f', 'c'], 'values',
-         2, 2, [
+         2, 2, False, [
             (['g', 'f'], 'value', True), (['c'], 'value', True), 'execute'
          ]),
         (['a', 'b', 'c', 'd', 'e', 'f', 'g'], True, ['g', 'f', 'c', 'z', 'd'],
-         'values', 2, 2, [
+         'values', 2, 2, False, [
             (['g', 'f'], 'value', True),
             (['c', 'z'], 'value', True), 'execute',
             (['d'], 'value', True), 'execute'
          ]),
         # Duplicate values
         (['a', 'b', 'c', 'b', 'e', 'b', 'g'], True, ['b', 'c', 'g', 'b'],
-         'values', 2, 2, [
+         'values', 2, 2, False, [
             (['b', 'c'], 'value', True), (['g', 'b'], 'value', True),
             'execute'
          ]),
 
         # Hashes
         ({'a': 'z', 'b': 'y', 'c': 'x', 'd': 'w', 'e': 'v'},
-         None, None, None, 1, 1, [
+         None, None, None, 1, 1, False, [
             (['a'], 'field', True), 'execute',
             (['b'], 'field', True), 'execute',
             (['c'], 'field', True), 'execute',
@@ -1450,13 +1583,13 @@ def test_redisobjectstream_set_sets_correctly(init, data, force_unique,
             (['e'], 'field', True), 'execute'
          ]),
         ({'a': 'z', 'b': 'y', 'c': 'x', 'd': 'w', 'e': 'v', 'f': 'u',
-          'g': 't'}, None, None, None, 3, 1, [
+          'g': 't'}, None, None, None, 3, 1, False, [
             (['a', 'b', 'c'], 'field', True), 'execute',
             (['d', 'e', 'f'], 'field', True), 'execute',
             (['g'], 'field', True), 'execute'
         ]),
         ({'a': 'z', 'b': 'y', 'c': 'x', 'd': 'w', 'e': 'v', 'f': 'u',
-          'g': 't'}, None, None, None, 1, 3, [
+          'g': 't'}, None, None, None, 1, 3, False, [
             (['a'], 'field', True), (['b'], 'field', True),
             (['c'], 'field', True), 'execute',
             (['d'], 'field', True), (['e'], 'field', True),
@@ -1464,18 +1597,18 @@ def test_redisobjectstream_set_sets_correctly(init, data, force_unique,
             (['g'], 'field', True), 'execute'
         ]),
         ({'a': 'z', 'b': 'y', 'c': 'x', 'd': 'w', 'e': 'v', 'f': 'u',
-          'g': 't'}, None, None, None, 3, 2, [
+          'g': 't'}, None, None, None, 3, 2, False, [
             (['a', 'b', 'c'], 'field', True),
             (['d', 'e', 'f'], 'field', True), 'execute',
             (['g'], 'field', True), 'execute'
         ]),
         ({'a': 'z', 'b': 'y', 'c': 'x', 'd': 'w', 'e': 'v', 'f': 'u',
-          'g': 't'}, None, None, None, 4, None, [
+          'g': 't'}, None, None, None, 4, None, False, [
             (['a', 'b', 'c', 'd'], 'field', True),
             (['e', 'f', 'g'], 'field', True), 'execute'
         ]),
         ({'a': 'z', 'b': 'y', 'c': 'x', 'd': 'w', 'e': 'v', 'f': 'u',
-          'g': 't'}, None, ['a', 'd', 'f', 'z'], None, 10, None, [
+          'g': 't'}, None, ['a', 'd', 'f', 'z'], None, 10, None, False, [
             (['a', 'd', 'f', 'z'], 'field', True), 'execute'
         ]),
 
@@ -1483,14 +1616,14 @@ def test_redisobjectstream_set_sets_correctly(init, data, force_unique,
         # Note that whole sets (without lookups) cannot be retrieved in
         # batch because Redis has no methods to get part of a set when
         # membership is not known ahead of time.
-        ({'a', 'b', 'c', 'd'}, None, 'a', None, 1, 1, [
+        ({'a', 'b', 'c', 'd'}, None, 'a', None, 1, 1, False, [
             ('a', 'value_exists', False), 'execute',
         ]),
-        ({('a', 'b'), ('b', 'a')}, None, ['a', 'b'], None, 1, 1, [
+        ({('a', 'b'), ('b', 'a')}, None, ['a', 'b'], None, 1, 1, False, [
             (['a', 'b'], 'value_exists', False), 'execute',
         ]),
         ({'a', 'b', 'c', 'd'}, None, ['z', 'y', 'a', 'd', 'w'], 'values_exist',
-         1, 1, [
+         1, 1, False, [
             (['z'], 'value_exists', True), 'execute',
             (['y'], 'value_exists', True), 'execute',
             (['a'], 'value_exists', True), 'execute',
@@ -1498,13 +1631,13 @@ def test_redisobjectstream_set_sets_correctly(init, data, force_unique,
             (['w'], 'value_exists', True), 'execute',
         ]),
         ({'a', 'b', 'c', 'd'}, None, ['z', 'y', 'a', 'd', 'w'], 'values_exist',
-         2, 1, [
+         2, 1, False, [
             (['z', 'y'], 'value_exists', True), 'execute',
             (['a', 'd'], 'value_exists', True), 'execute',
             (['w'], 'value_exists', True), 'execute',
         ]),
         ({'a', 'b', 'c', 'd'}, None, ['z', 'y', 'a', 'd', 'w'], 'values_exist',
-         1, 2, [
+         1, 2, False, [
             (['z'], 'value_exists', True),
             (['y'], 'value_exists', True), 'execute',
             (['a'], 'value_exists', True),
@@ -1512,105 +1645,113 @@ def test_redisobjectstream_set_sets_correctly(init, data, force_unique,
             (['w'], 'value_exists', True), 'execute',
         ]),
         ({'a', 'b', 'c', 'd'}, None, ['z', 'y', 'a', 'd', 'w'], 'values_exist',
-         3, 2, [
+         3, 2, False, [
             (['z', 'y', 'a'], 'value_exists', True),
             (['d', 'w'], 'value_exists', True), 'execute',
         ]),
         ({'a', 'b', 'c', 'd'}, None, ['z', 'y', 'a', 'd', 'w'], 'values_exist',
-         3, None,
-         [
+         3, None, False, [
             (['z', 'y', 'a'], 'value_exists', True),
             (['d', 'w'], 'value_exists', True), 'execute',
         ]),
 
         # Strings
-        ('abcd', None, None, None, 1, 1, [
+        ('abcd', None, None, None, 1, 1, False, [
             ((0, 0), 'index', True), 'execute',
             ((1, 1), 'index', True), 'execute',
             ((2, 2), 'index', True), 'execute',
             ((3, 3), 'index', True), 'execute',
         ]),
-        ('abcdefg', None, None, None, 3, 1, [
+        ('abcdefg', None, None, None, 3, 1, False, [
             ((0, 2), 'index', True), 'execute',
             ((3, 5), 'index', True), 'execute',
             ((6, 6), 'index', True), 'execute'
         ]),
-        ('abcdefg', None, None, None, 1, 3, [
+        ('abcdefg', None, None, None, 1, 3, False, [
             ((0, 0), 'index', True), ((1, 1), 'index', True),
             ((2, 2), 'index', True), 'execute',
             ((3, 3), 'index', True), ((4, 4), 'index', True),
             ((5, 5), 'index', True), 'execute',
             ((6, 6), 'index', True), 'execute'
         ]),
-        ('abcdefg', None, None, None, 3, 2, [
+        ('abcdefg', None, None, None, 3, 2, False, [
             ((0, 2), 'index', True), ((3, 5), 'index', True), 'execute',
             ((6, 6), 'index', True), 'execute'
         ]),
-        ('abcdefg', None, None, None, 4, None, [
+        ('abcdefg', None, None, None, 4, None, False, [
             ((0, 3), 'index', True), ((4, 6), 'index', True), 'execute'
         ]),
-        ('abcdefg', None, None, None, 10, None, [
+        ('abcdefg', None, None, None, 10, None, False, [
             ((0, 6), 'index', True), 'execute'
         ]),
 
         # Strings -- look up by index
-        ('abcdefg', None, (1, 1), 'index', 2, 2, [
+        ('abcdefg', None, (1, 1), 'index', 2, 2, False, [
             ((1, 1), 'index', True), 'execute'
         ]),
-        ('abcdefg', None, (1, 5), 'index', 2, 2, [
+        ('abcdefg', None, (1, 5), 'index', 2, 2, False, [
             ((1, 2), 'index', True), ((3, 4), 'index', True), 'execute',
             ((5, 5), 'index', True), 'execute'
         ]),
-        ('abcdefg', None, (1, 10), 'index', 2, 2, [
-            ((1, 2), 'index', True), ((3, 4), 'index', True), 'execute',
-            ((5, 6), 'index', True), ((7, 8), 'index', True), 'execute',
-            ((9, 10), 'index', True), 'execute'
-        ]),
-        ('abcdefg', None, (1, -1), 'index', 2, 2, [
+        ('abcdefg', None, (1, 10), 'index', 2, 2, False, [
             ((1, 2), 'index', True), ((3, 4), 'index', True), 'execute',
             ((5, 6), 'index', True), 'execute'
         ]),
-        ('abcdefg', None, (-2, -1), 'index', 2, 2, [
+        ('abcdefg', None, (1, -1), 'index', 2, 2, False, [
+            ((1, 2), 'index', True), ((3, 4), 'index', True), 'execute',
+            ((5, 6), 'index', True), 'execute'
+        ]),
+        ('abcdefg', None, (-2, -1), 'index', 2, 2, False, [
             ((5, 6), 'index', True), 'execute'
         ]),
     ]
 )
-def test_redisobjectstream_get_makes_correct_calls(init, force_unique, lookup,
-                                                   lookup_type,
-                                                   target_batch_size,
-                                                   execute_every, exp_calls,
-                                                   mocker):
+def test_redisobject_batch_get_makes_correct_calls(init, force_unique, lookup,
+                                                   lookup_type, bsize, tsize,
+                                                   defer, exp_calls, mocker):
     """
-    The RedisObjectStream.get method should result in the expected
-    calls to the rtype's 'get' method and Pipeline.execute.
+    The RedisObject.get method, when used in batch mode, should result
+    in the expected calls to the rtype's 'get' method and
+    Pipeline.execute.
     """
     calls = []
     call_stack = []
-    def mock_get_behavior(obj, lookup):
-        call_stack.append((lookup.value, type(lookup).label, lookup.multi))
+    def mock_get_behavior(obj, lookup, execute=False):
+        if lookup:
+            call_stack.append((lookup.value, type(lookup).label, lookup.multi))
+        else:
+            call_stack.append((None, None, None))
+        if execute:
+            obj.pipe.execute()
 
     def mock_execute_behavior():
-        calls.extend(call_stack + ['execute'])
+        call_stack.append('execute')
+        calls.extend(call_stack)
         rval = [c[0] for c in call_stack]
         call_stack.clear()
         return rval
 
     r = redisobjs.RedisObject('test', 'stream_get')
     r.set(init, force_unique)
-    mocker.patch.object(
-        r.rtype, 'get', mocker.Mock(side_effect=mock_get_behavior)
+    rbatch = redisobjs.RedisObject(
+        'test', 'stream_get', defer=defer, batch_size=bsize,
+        transaction_size=tsize
     )
     mocker.patch.object(
-        r.pipe, 'execute', mocker.Mock(side_effect=mock_execute_behavior)
+        rbatch.rtype, 'get', mocker.Mock(side_effect=mock_get_behavior)
     )
-    rs = redisobjs.RedisObjectStream(r, target_batch_size, execute_every)
-    rs.get(lookup, lookup_type)
-    assert calls == exp_calls
+    mocker.patch.object(
+        rbatch.pipe, 'execute', mocker.Mock(side_effect=mock_execute_behavior)
+    )
+    rbatch.get(lookup, lookup_type)
+    if defer:
+        assert call_stack == exp_calls
+    else:
+        assert calls == exp_calls
 
 
 @pytest.mark.parametrize(
-    'init, force_unique, lookup, lookup_type, target_batch_size, '
-    'execute_every, expected', [
+    'init, force_unique, lookup, lookup_type, bsize, tsize, exp', [
         # Lists
         (['a', 'b', 'c', 'd', 'e'], False, None, None, 3, 1,
          ['a', 'b', 'c', 'd', 'e']),
@@ -1626,6 +1767,8 @@ def test_redisobjectstream_get_makes_correct_calls(init, force_unique, lookup,
          ['a', 'b', 'c', 'd', 'e', 'f', 'g']),
 
         # Lists -- look up by index
+        (['a', 'b', 'c', 'd', 'e', 'f', 'g'], False, None, 'index', 2, 2,
+         None),
         (['a', 'b', 'c', 'd', 'e', 'f', 'g'], False, (1, 1), 'index', 2, 2,
          ['b']),
         (['a', 'b', 'c', 'd', 'e', 'f', 'g'], False, (1, 5), 'index', 2, 2,
@@ -1636,7 +1779,7 @@ def test_redisobjectstream_get_makes_correct_calls(init, force_unique, lookup,
          ['b', 'c', 'd', 'e', 'f', 'g']),
         (['a', 'b', 'c', 'd', 'e', 'f', 'g'], False, (-2, -1), 'index', 2, 2,
          ['f', 'g']),
- 
+
         # Lists -- look up by value(s)
         (['a', 'b', 'c', 'd', 'e', 'f', 'g'], False, 'd', 'value', 2, 2, 3),
         ([['a', 'b'], ['b', 'c']], False, ['b', 'c'], 'value', 2, 2, 1),
@@ -1665,6 +1808,7 @@ def test_redisobjectstream_get_makes_correct_calls(init, force_unique, lookup,
          ['a', 'c', 'e', 'b', 'g']),
 
         # Zsets -- look up by index
+        (['a', 'b', 'c', 'd', 'e', 'f', 'g'], True, None, 'index', 2, 2, None),
         (['a', 'b', 'c', 'd', 'e', 'f', 'g'], True, (1, 1), 'index', 2, 2,
          ['b']),
         (['a', 'b', 'c', 'd', 'e', 'f', 'g'], True, (1, 5), 'index', 2, 2,
@@ -1747,27 +1891,32 @@ def test_redisobjectstream_get_makes_correct_calls(init, force_unique, lookup,
         ('abcdefg', None, (-2, -1), 'index', 2, 2, 'fg'),
     ]
 )
-def test_redisobjectstream_get_gets_correctly(init, force_unique, lookup,
-                                              lookup_type, target_batch_size,
-                                              execute_every, expected):
+def test_redisobject_batch_get_gets_correctly(init, force_unique, lookup,
+                                              lookup_type, bsize, tsize, exp):
     """
-    The RedisObjectStream.get method should return the correct value.
+    The RedisObject.get method should return the correct value when
+    used in batch mode.
     """
     redisobjs.RedisObject('test', 'stream_get').set(init, force_unique)
-    rs = redisobjs.RedisObjectStream(
-        redisobjs.RedisObject('test', 'stream_get'), target_batch_size,
-        execute_every
+    rbatch = redisobjs.RedisObject(
+        'test', 'stream_get', batch_size=bsize, transaction_size=tsize
     )
-    assert rs.get(lookup, lookup_type) == expected
+    assert rbatch.get(lookup, lookup_type) == exp
 
 
-def test_redisobjectstream_get_a_whole_set_raises_error():
+@pytest.mark.parametrize('data, rtype_label', [
+    ({'a', 'b', 'c', 'd'}, "set"),
+    (1234567890, "encoded_obj"),
+])
+def test_redisobject_batch_get_rtype_errors(data, rtype_label):
     """
-    Attempting to get a whole set using RedisObjectStream.get should
-    raise a TypeError.
+    Certain Redis types cannot be retrieved in batch: sets and encoded
+    objs. Attempting to get these should raise a TypeError.
     """
-    r = redisobjs.RedisObject('test', 'stream_get')
-    r.set({'a', 'b', 'c', 'd'})
-    rstream = redisobjs.RedisObjectStream(r, 10)
-    with pytest.raises(TypeError):
-        rstream.get()
+    r = redisobjs.RedisObject('test', 'stream_get_errors')
+    r.set(data)
+    rbatch = redisobjs.RedisObject('test', 'stream_get_errors', batch_size=10)
+    with pytest.raises(TypeError) as excinfo:
+        rbatch.get()
+    exp_msg = f"cannot batch retrieve '{rtype_label}' type objects from Redis"
+    assert exp_msg in str(excinfo.value)

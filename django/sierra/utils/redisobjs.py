@@ -257,7 +257,7 @@ def make_single_or_list_callback(decode_list=None):
     def callback(raw):
         if raw:
             vals = decode_list(raw) if decode_list else raw
-            nvals = len(vals) 
+            nvals = len(vals)
             return vals[0] if nvals == 1 else vals
     return callback
 
@@ -323,6 +323,23 @@ class _Lookup(object):
 
     def __str__(self):
         return self.label
+
+    def make_lookup_value_batches(self, batch_size):
+        """
+        Returns an iterator that iterates over batches of lookup vals.
+
+        This should define how to divide any particular value for this
+        lookup type into batches of the given 'batch_size', for
+        requesting data from Redis in batch. Note that this is for
+        breaking one Redis key into batches (like a big zset, list,
+        hash, etc.) -- not for batch retrieving multiple keys.
+
+        The default implementation assumes your lookup value can be
+        cast to a list. Subclasses can reimplement this as needed.
+        """
+        lval = list(self.value)
+        for num in range(0, len(lval), batch_size):
+            yield lval[(num):(num + batch_size)]
 
 
 class _GenericAllLookup(_Lookup):
@@ -394,22 +411,29 @@ class _IndexLookup(_Lookup):
         list/tuple indicating the start and end values of a range
         (inclusive). Redis index lookups require both a start and end
         value, so the provided lookup value is always converted to a
-        range. E.g., 0 becomes (0, 0).
+        range. E.g., 0 becomes (0, 0). Additionally:
 
-        Each index value is normalized appropriately using the
-        'normalize_index_lookup' method. Negative values get converted
-        to positive values based on the length of the provided
-        RedisObject -- note that this is done because not all Redis
-        index lookup types (particularly for zsets) allow negative
-        values, so converting them manually provides the most
-        consistent behavior. If an invalid / out-of-range negative is
-        used as the end of the range, then the value is converted to
-        None (because it is invalid). An out-of-range negative as the
-        start value is converted to 0.
+        - Each index value is normalized appropriately using the
+          'normalize_index_lookup' method.
+        - Negative values get converted to positive values based on the
+          length of the provided RedisObject -- note that this is done
+          because not all Redis index lookup types (particularly for
+          zsets) allow negative values, so converting them manually
+          provides the most consistent behavior.
+        - If an invalid / out-of-range negative is used as the end of
+          the range, then the value is converted to None (because it is
+          invalid). An out-of-range negative as the start value is
+          converted to 0.
+        - If a positive out-of-range value is provided as the end of
+          the range, it defaults to the last actual available index
+          position. (Requesting (0, 10) from a 5-element list
+          normalizes to (0, 4).)
+        - If the end value is larger than the start value, then the
+          range is invalid and the lookup value is None.
 
-        The 'multi' kwarg is honored. But, if not supplied, then a
-        single index 'value' is assumed to be 'multi = False' and a
-        range is assumed to be 'multi = True'.
+        The 'multi' kwarg, if provided, is honored. If not supplied,
+        then a single index 'value' is assumed to be 'multi = False'
+        and a range is assumed to be 'multi = True'.
         """
         if value is not None:
             llen = obj.len
@@ -420,17 +444,20 @@ class _IndexLookup(_Lookup):
             else:
                 multi = multi or True
                 value = tuple([
-                    self.normalize_index_lookup(value[0], llen, 0, 0),
-                    self.normalize_index_lookup(value[1], llen, llen - 1, None)
+                    self.normalize_index_lookup(value[0], llen, 0, 0, llen),
+                    self.normalize_index_lookup(
+                        value[1], llen, llen - 1, None, llen - 1
+                    )
                 ])
-            if value[1] is None:
+            if value[1] is None or value[0] > value[1]:
                 value = None
         super().__init__(
             obj, value, provided_label, multi, whole_obj_requested
         )
 
     @staticmethod
-    def normalize_index_lookup(index, llen, default=0, low_default=None):
+    def normalize_index_lookup(index, llen, default=0, low_default=None,
+                               high_default=None):
         """
         Returns a normalized Redis index lookup.
 
@@ -446,14 +473,31 @@ class _IndexLookup(_Lookup):
 
         The 'low_default' kwarg defines what is returned when a
         negative index is provided and the conversion attempt reveals
-        it to be out of range.
+        it to be out of range (too low).
+
+        The 'high_default' kwargs defines what is returned when a
+        positive index is out of range (too high).
         """
         if index is None:
             return default
-        if index < 0 and llen is not None:
-            converted = llen + index
-            return converted if converted >= 0 else low_default
+        if llen is not None:
+            if index < 0:
+                converted = llen + index
+                return converted if converted >= 0 else low_default
+            if index >= llen:
+                return high_default
         return index
+
+    def make_lookup_value_batches(self, batch_size):
+        """
+        Returns an iterator that iterates over batches of lookup vals.
+
+        This divides one index range into multiple (start, end) batches
+        based on 'batch_size'.
+        """
+        lval = self.value
+        for num in range(lval[0], lval[1] + 1, batch_size):
+            yield (num, min(num + batch_size - 1, lval[1]))
 
 
 class _ValueLookup(_Lookup):
@@ -483,27 +527,13 @@ class _ValueExistsLookup(_Lookup):
     plural_label = 'values_exist'
 
 
-def make_invalid_lookup(err_type, err_msg):
-    """
-    Factory for generating an invalid lookup type.
-
-    Pass the 'err_type' and 'err_msg' you want to raise when the lookup
-    type is used. It returns a class that can act as a lookup type but
-    raises the specified error when instantiated.
-    """
-    class _DynamicInvalidLookup(object):
-        def __init__(self, *args, **kwargs):
-            raise err_type(err_msg)
-    return _DynamicInvalidLookup
-
-
 class _LookupCollection(object):
     """
     Internal class representing a full collection of lookups.
 
-    Implements collective lookup behavior, specifically, the ability to
-    get a particular _Lookup class by its canonical 'label' attribute,
-    via the 'get' method.
+    Implements collective lookup behavior -- specifically, the ability
+    to get a particular _Lookup class by its canonical 'label'
+    attribute via a 'get' method.
     """
 
     def __init__(self):
@@ -600,7 +630,7 @@ class _RedisTypeMetadata(object):
         provided, the first Python type is used as the 'to_ptype' type.
 
         'incompatible_ptypes' -- optional. Default is an empty tuple.
-        
+
         'compatibility_label' -- optional. Default is None. If None,
         the 'compatibility_label' property generates a dynamic value
         base on the 'compatible_ptypes'. Otherwise, whatever you supply
@@ -671,7 +701,7 @@ class _RedisTypeMetadata(object):
 
 class _RedisType(object):
     """
-    Internal base class for representing a Redis type (rtype).
+    Internal abstract base class for representing a Redis type (rtype).
 
     Each subclass represents one rtype. (Note that it doesn't HAVE to
     correspond with an actual Redis type; it could an internal type
@@ -692,7 +722,7 @@ class _RedisType(object):
         """
         self.encode_member = self.info.encode_member
         self.decode_member = self.info.decode_member
-    
+
     def configure_lookup(self, obj, lvalue, ltype_label, batch=False):
         """
         Converts a user-supplied value/label to a _Lookup.
@@ -736,35 +766,45 @@ class _RedisType(object):
         """
         pass
 
-    def get(self, obj, lookup):
+    def get(self, obj, lookup, execute=False):
         """
-        Returns a Pipeline with cmds to get Redis data.
+        Returns Redis data, or a Pipeline with commands to get it.
+
+        If 'execute' is False, then it queues up the appropriate
+        commands on the Pipeline and returns the Pipeline. If True, it
+        executes the commands and returns the data.
 
         This defers to the appropriate method on the rtype subclass:
         - 'get_all' if the lookup is a _GenericAllLookup.
-        - 'get_by_{label}' for all other lookups.
+        - 'get_by_{label}' for each additional lookup.
 
         It's up to each subclass to implement the appropriate methods.
         """
         if lookup is None:
-            return obj.pipe.noop()
-        if lookup.label == 'all':
-            return self.get_all(obj)
-        return getattr(self, f'get_by_{lookup}')(
-            obj, lookup.value, lookup.multi
-        )
+            obj.pipe.noop()
+        elif lookup.label == 'all':
+            self.get_all(obj)
+        else:
+            getattr(self, f'get_by_{lookup}')(obj, lookup.value, lookup.multi)
+        if execute:
+            return obj.pipe.execute()[-1]
+        return obj.pipe
 
     def get_all(self, obj):
         """
-        Returns a Pipeline with cmds to get a whole Redis object.
+        Returns a Pipeline with commands to get a whole Redis object.
 
         Implement this in each subclass.
         """
         pass
 
-    def save(self, obj, data, update, index, was_none=False):
+    def save(self, obj, data, update, index, prev_rtype=None, execute=False):
         """
-        Returns a Pipeline with cmds to save a Redis object.
+        Saves data to a Redis object, or queues up the needed commands.
+
+        If 'execute' is False, then it queues up the appropriate
+        commands on the Pipeline and returns the Pipeline. If True, it
+        executes the commands and returns the data.
 
         This defers to the appropriate method on the rtype subclass:
         - 'set' if setting data on the object from scratch.
@@ -772,29 +812,159 @@ class _RedisType(object):
 
         It's up to each subclass to implement these methods.
 
-        Raises a TypeError if 'data' is not compatible given the
+        Raises a TypeError if 'data' is not compatible, given the
         compatibility information in self.info.
         """
-        if not self.info.data_is_compatible(data):
-            raise TypeError(
-                f"cannot save key '{obj.key}' as a Redis {self.info.label} "
-                f"using {type(data).__name__} data; must be a compatible "
-                f"type: {self.info.compatibility_label}"
-            )
-
-        add_args = [index] if self.info.has('indexable') else []
-        if was_none:
-            return self.set(obj, data, None, *add_args)
-        if update:
-            return self.update(obj, data, None, *add_args)
-        acc = Accumulator.from_ptype(list)
-        obj.pipe.add('delete', obj.key, accumulator=acc)
-        self.set(obj, data, acc, *add_args)
-        obj.pipe.mark_accumulator_pop()
+        if data is None:
+            if update:
+                obj.pipe.noop()
+            else:
+                obj.pipe.add('delete', obj.key)
+        else:
+            if not self.info.data_is_compatible(data):
+                raise TypeError(
+                    f"cannot save key '{obj.key}' as a Redis "
+                    f"{self.info.label} using {type(data).__name__} data; "
+                    f"must be a compatible type: "
+                    f"{self.info.compatibility_label}"
+                )
+            add_args = [index] if self.info.has('indexable') else []
+            if prev_rtype and prev_rtype.info.label == 'none':
+                self.set(obj, data, None, *add_args)
+            elif update:
+                self.update(obj, data, None, *add_args)
+            else:
+                acc = Accumulator.from_ptype(list)
+                obj.pipe.add('delete', obj.key, accumulator=acc)
+                self.set(obj, data, acc, *add_args)
+                obj.pipe.mark_accumulator_pop()
+        if execute:
+            obj.pipe.execute()
+            return data
         return obj.pipe
 
 
-class _ZsetRedisType(_RedisType):
+class _BatchMixin(object):
+    """
+    Abstract base "mixin" class for _RedisType that adds batch methods.
+    """
+
+    def make_batches_to_send(self, data, batch_size):
+        """
+        Returns an iterator that iterates over batches of 'data'.
+
+        Use this for dividing user-provided data into batches of the
+        given size ('batch_size'), for sending data to Redis in batch.
+        Subclasses must implement this.
+        """
+        pass
+
+    def batch_save(self, obj, data, update, index, prev_rtype, bsize, tsize):
+        """
+        Saves the given 'data' for the given 'obj' to Redis in batches.
+
+        Use 'bsize' to define the size of each batch and 'tsize' to
+        define the transaction size -- that is, how many batches to
+        queue up before executing the commands to send them to Redis.
+        If 'tsize' is None, then it will execute once at the very end
+        of the process.
+        """
+        cached_bypass = obj.bypass_encoding
+        obj.bypass_encoding = True
+        try:
+            batches = self.make_batches_to_send(data, bsize)
+            batch = next(batches)
+            self.save(obj, batch, update, index, prev_rtype, tsize == 1)
+            for i, batch in enumerate(batches):
+                offset = index if index is None else (bsize * (i + 1)) + index
+                self.save(
+                    obj, batch, True, offset, None,
+                    tsize and (i + 2) % tsize == 0
+                )
+            if len(obj.pipe) and tsize != 0:
+                obj.pipe.execute()
+        except Exception:
+            obj.pipe.reset()
+            raise
+        obj.bypass_encoding = cached_bypass
+        return obj.pipe if tsize == 0 else data
+
+    def make_batch_result_accumulator(self, lookup):
+        """
+        Returns an accumulator for compiling results from Redis (gets).
+
+        Use this for compiling batches of results when doing batch get
+        operations, given the supplied 'lookup' parameters.
+
+        Subclasses must implement this. Implementations should assume
+        that the second arg provided to the accumulator's 'accmethod'
+        is a two-member tuple: (original_lookup_values, results).
+        Zipping the two together gives you a list of tuples containing
+        each lookup and its corresponding result. See the 'batch_get'
+        method for exactly how the accumulator is used.
+        """
+        pass
+
+    def batch_get(self, obj, lookup, bsize, tsize):
+        """
+        Gets data from Redis for the given 'obj' in batches.
+
+        Use 'bsize' to define the size of each batch and 'tsize' to
+        define the transaction size -- that is, how many batches to
+        queue up before executing the commands to send them to Redis.
+        If 'tsize' is None, then it will execute once at the very end
+        of the process.
+        """
+        accumulator = self.make_batch_result_accumulator(lookup)
+        batch_stack = []
+        batches = lookup.make_lookup_value_batches(bsize)
+        for i, batch in enumerate(batches):
+            self.get(obj, type(lookup)(obj, batch, multi=True))
+            if tsize != 0:
+                batch_stack.append(batch)
+                if tsize and (i + 1) % tsize == 0:
+                    accumulator.push((batch_stack, obj.pipe.execute()))
+                    batch_stack = []
+        if batch_stack:
+            accumulator.push((batch_stack, obj.pipe.execute()))
+        return obj.pipe if tsize == 0 else accumulator.pop_all()
+
+
+class _SequenceBatchMixin(_BatchMixin):
+    """
+    Implements batch methods for sequences (lists, sets, etc.).
+    """
+
+    def _make_batch_data_iterator(self, data):
+        return (self.encode_member(item) for item in data)
+
+    def make_batches_to_send(self, data, batch_size):
+        batch = []
+        for i, item in enumerate(self._make_batch_data_iterator(data)):
+            batch.append(item)
+            if (i + 1) % batch_size == 0:
+                yield self.info.to_ptype(batch)
+                batch = []
+        if batch:
+            yield self.info.to_ptype(batch)
+
+    @staticmethod
+    def accumulate_flattened_results(collected, new_vals):
+        """
+        Accumulator 'accmethod' that flattens a list of results.
+
+        This is meant to be used in the 'make_result_accumulator'
+        method, as the second argument to Accumulator.__init__, when
+        the first argument is the Python list type.
+        """
+        results = new_vals[1]
+        collected.extend([item for vals in results for item in (vals or [])])
+
+    def make_batch_result_accumulator(self, lookup):
+        return Accumulator(list, self.accumulate_flattened_results)
+
+
+class _RedisZset(_SequenceBatchMixin, _RedisType):
     """
     Class that implements features for Redis zsets (sorted sets).
     """
@@ -839,7 +1009,7 @@ class _ZsetRedisType(_RedisType):
         acc = accumulator
         prev_zlen = obj.len
         offset = LOOKUP_TYPES.get('index').normalize_index_lookup(
-            index, prev_zlen, prev_zlen, 0
+            index, prev_zlen, prev_zlen, 0, index
         )
         data_end = offset + len(data) - 1
         if offset < prev_zlen:
@@ -878,7 +1048,7 @@ class _ZsetRedisType(_RedisType):
         )
 
 
-class _ListRedisType(_RedisType):
+class _RedisList(_SequenceBatchMixin, _RedisType):
     """
     Class that implements features for Redis lists.
     """
@@ -928,7 +1098,7 @@ class _ListRedisType(_RedisType):
         acc = accumulator
         prev_llen = obj.len
         offset = LOOKUP_TYPES.get('index').normalize_index_lookup(
-            index, prev_llen, prev_llen, 0
+            index, prev_llen, prev_llen, 0, index
         )
         if offset < prev_llen:
             if len(data) > 1 and not accumulator:
@@ -973,7 +1143,7 @@ class _ListRedisType(_RedisType):
         )
 
 
-class _StringRedisType(_RedisType):
+class _RedisString(_BatchMixin, _RedisType):
     """
     Class that implements features for Redis strings.
     """
@@ -1003,7 +1173,7 @@ class _StringRedisType(_RedisType):
     def update(self, obj, data, accumulator, index):
         prev_strlen = obj.len
         offset = LOOKUP_TYPES.get('index').normalize_index_lookup(
-            index, prev_strlen, prev_strlen, 0
+            index, prev_strlen, prev_strlen, 0, index
         )
         new_len = len(data) + offset
         obj.len = new_len if new_len > prev_strlen else prev_strlen
@@ -1019,8 +1189,30 @@ class _StringRedisType(_RedisType):
             'getrange', obj.key, args=lval, callback=lambda raw: raw or None
         )
 
+    def make_batches_to_send(self, data, batch_size):
+        total_size = len(data)
+        index = 0
+        while index < total_size:
+            yield data[(index):(index + batch_size)]
+            index += batch_size
 
-class _HashRedisType(_RedisType):
+    @staticmethod
+    def accumulate_str_results(collected, new_vals):
+        """
+        Accumulator 'accmethod' that collects str results.
+
+        This is meant to be used in the 'make_result_accumulator'
+        method, as the second argument to Accumulator.__init__, when
+        the first argument is the Python type 'str'.
+        """
+        results = new_vals[1]
+        return f"{collected}{''.join([str(v) if v else '' for v in results])}"
+
+    def make_batch_result_accumulator(self, lookup):
+        return Accumulator(str, self.accumulate_str_results)
+
+
+class _RedisHash(_SequenceBatchMixin, _RedisType):
     """
     Class that implements features for Redis hashes.
     """
@@ -1065,26 +1257,43 @@ class _HashRedisType(_RedisType):
     def get_by_field(self, obj, lval, multi):
         if multi:
             return obj.pipe.add(
-                'hmget', obj.key, args=lval,
-                callback=_ListRedisType().decode
+                'hmget', obj.key, args=lval, callback=_RedisList().decode
             )
         return obj.pipe.add(
             'hget', obj.key, args=[lval], callback=self.decode_member
         )
 
+    def _make_batch_data_iterator(self, data):
+        return self.encode(data)
 
-class _SetRedisType(_RedisType):
+    @staticmethod
+    def accumulate_dict_results(collected, new_vals):
+        """
+        Accumulator 'accmethod' that collects results into a dict.
+
+        This is meant to be used in the 'make_result_accumulator'
+        method, as the second argument to Accumulator.__init__, when
+        the first argument is the Python dict type.
+        """
+        for keys, vals in zip(*new_vals):
+            collected.update(dict(zip(keys, vals)))
+
+    def make_batch_result_accumulator(self, lookup):
+        if lookup.whole_obj_requested:
+            # If a whole hash object was requested, then we're working
+            # with a full dict ...
+            return Accumulator(dict, self.accumulate_dict_results)
+        # ... otherwise, we assume it's a field lookup and we've got a
+        # list of field values.
+        return Accumulator(list, self.accumulate_flattened_results)
+
+
+class _RedisSet(_SequenceBatchMixin, _RedisType):
     """
     Class that implements features for Redis sets.
     """
     info = _RedisTypeMetadata(
-        'set', [set], batch_lookup_type=make_invalid_lookup(
-            TypeError,
-            "cannot get an entire Redis 'set' object in batches, as they have "
-            "no methods for this -- use a non-batch type instead, such as "
-            "RedisObject"
-        ),
-        default_lookup_type=LOOKUP_TYPES.get('value_exists')
+        'set', [set], default_lookup_type=LOOKUP_TYPES.get('value_exists')
     )
 
     def encode(self, data, bypass_encoding=False):
@@ -1123,12 +1332,20 @@ class _SetRedisType(_RedisType):
             callback=bool
         )
 
+    def batch_get(self, obj, lookup, bsize, tsize):
+        if type(lookup).label == 'all':
+            raise TypeError(
+                "cannot batch retrieve 'set' type objects from Redis -- use a "
+                "non-batch operation instead"
+            )
+        return super().batch_get(obj, lookup, bsize, tsize)
 
-class _EncodedObjRedisType(_RedisType):
+
+class _EncodedObj(_RedisType):
     """
     Class that implements features for encoded objects.
 
-    "Encoded object" is not a Redis type -- it is a catchall for
+    "Encoded object" is not an actual Redis type. It is a catchall for
     anything NOT covered by the other types. If it can be converted to
     JSON, then it is stored as a JSON string in Redis, with a prefix
     that denotes it is JSON and not just a string.
@@ -1171,8 +1388,21 @@ class _EncodedObjRedisType(_RedisType):
     def get_all(self, obj):
         return obj.pipe.add('get', obj.key, callback=self.decode)
 
+    def batch_save(self, obj, data, update, index, prev_rtype, bsize, tsize):
+        raise TypeError(
+            "cannot batch update an 'encoded_obj' type object -- please "
+            "convert it to a string first if you really need to stream it to "
+            "Redis"
+        )
 
-class _NoneRedisType(_RedisType):
+    def batch_get(self, obj, lookup, bsize, tsize):
+        raise TypeError(
+            "cannot batch retrieve 'encoded_obj' type objects from Redis -- "
+            "use a non-batch operation instead"
+        )
+
+
+class _RedisNone(_RedisType):
     """
     Class representing a null object.
     """
@@ -1183,6 +1413,15 @@ class _NoneRedisType(_RedisType):
         return 0
 
     def get_all(self, obj):
+        return obj.pipe.noop()
+
+    def configure_lookup(self, obj, lvalue, ltype_label, batch=False):
+        return None
+
+    def set(self, obj, data, accumulator):
+        return obj.pipe.add('delete', obj.key)
+
+    def update(self, obj, data, accumulator):
         return obj.pipe.noop()
 
 
@@ -1199,9 +1438,8 @@ class _RedisTypeCollection(object):
         Initializes a _RedisTypeCollection instance.
         """
         redis_types = (
-            _ZsetRedisType(), _ListRedisType(), _StringRedisType(),
-            _HashRedisType(), _SetRedisType(), _EncodedObjRedisType(),
-            _NoneRedisType()
+            _RedisZset(), _RedisList(), _RedisString(), _RedisHash(),
+            _RedisSet(), _EncodedObj(), _RedisNone()
         )
         self.rtypes = {}
         self.by_ptype_id = {}
@@ -1250,14 +1488,15 @@ class _RedisTypeCollection(object):
         """
         return (list(self.get_by_attributes(attrs)) or None)[0]
 
-    def get_by_ptype(self, ptype, unique=False):
+    def get_from_data(self, data, unique=False):
         """
-        Returns the rtype corresponding with the given Py type.
+        Returns the rtype corresponding with the given Python 'data'.
 
-        If 'ptype' is a listlike, then it uses desired 'unique'ness
-        to narrow -- zset if 'unique' is True, otherwise list. Returns
-        self.default_rtype if a valid rtype isn't found.
+        If the type of 'data' is listlike, then it uses desired
+        'unique'ness to narrow -- zset if 'unique' is True, otherwise
+        list. Returns self.default_rtype if a valid rtype isn't found.
         """
+        ptype = type(data)
         if ptype in LISTLIKE_TYPES:
             if unique:
                 return self.by_ptype_id[(ptype, True)]
@@ -1300,36 +1539,90 @@ class RedisObject(object):
     which_colors = my_rad_obj.get_value(1)['colors']
     assert which_colors == ['purple', 'green']
 
-    You can also use this with Pipeline objects for deferred execution,
-    if you want to send multiple commands at once to Redis, instead of
-    performing each operation and returning results immediately. See
-    method docstrings for more information.
+    If desired, you can use this with Pipeline objects for deferred
+    execution, if you need to queue up multiple commands, instead of
+    performing each operation and returning results immediately.
+
+    You can also employ "batch mode" for setting or getting very large
+    amounts of Redis data for a single key. When set, it will divide
+    requests into batches automatically based on provided parameters.
+
+    See method docstrings for more information about pipelines and
+    batch mode.
     """
     conn = REDIS_CONNECTION
 
-    def __init__(self, entity, id_, pipe=None, defer=False):
+    def __init__(self, entity, id_, pipe=None, defer=False, batch_size=None,
+                 transaction_size=None):
         """
-        Initializes a new RedisObject.
+        Initializes a RedisObject instance.
 
-        Provide two arguments, an 'entity' string and an 'id' string.
-        These are combined to create the full Redis key -- e.g.,
-        entity:id. You can access the combined key via the 'key'
-        instance attribute.
+        There are two required arguments, an 'entity' string and an
+        'id' string. These are combined to create the full Redis key
+        -- e.g., entity:id. You can access the combined key via the
+        'key' instance attribute.
 
         Optionally, if you want to use a pipeline to delay execution so
-        you can send commands to Redis in batches, use 'defer=True'. If
-        you have a pipeline of your own you want to use for that,
-        provide that via the 'pipe' arg.
+        you can send multiple commands to Redis before executing them,
+        use 'defer=True'. If you have a pipeline of your own you want
+        to use for that, provide that via the 'pipe' arg.
 
         When 'defer' is True, commands are queued on the pipe but not
         executed. You have to call 'execute' on self.pipe to execute
         them. Default for 'defer' is False.
+
+        Optionally, if you are sending very large amounts of data to
+        Redis for one key and automatically want to break it into
+        batches, you can supply 'batch_size' and 'transaction_size'
+        parameters. This puts the RedisObject instance into "batch
+        mode."
+
+        'batch_size' should be an integer representing how many
+        elements to include in each batch. (What exactly an "element"
+        is depends on the Redis type -- one list/zset/set member, one
+        hash field, or one string character.) None deactivates batch
+        mode. Default is None.
+
+        'transaction_size' should be an integer representing how many
+        batches to queue up before a pipeline.execute command is sent.
+        Use None to issue only one final execute command. Use 0 if you
+        do not want to execute, same as setting 'defer' to True. (Note
+        that, if you set 'defer' to True and pass a non-zero value for
+        this, the 'defer=True' overrides this.) Default is None.
+
+        Be aware that batch mode relies on being able to predictably
+        deconstruct and reconstruct objects as well as having Redis
+        commands that will fetch/save parts of objects. There are two
+        rtypes where one or both of these prevent batch mode from
+        working in some circumstances.
+        - 'set' -- Cannot be retrieved using batch mode because there
+          are no methods for getting parts of a set. It can be saved
+          using batch mode, and the 'value_exists' lookup type can be
+          used in batch mode.
+        - 'encoded_obj' -- Cannot be used in batch mode at all. Since
+          these objects can decode into any type, it's impossible to
+          know how to deconstruct or reconstruct them.
+
+        Other batch mode considerations:
+        - 'batch_size' determines how much data you transfer to/from
+          Redis with each request. For things like lists, zsets, and
+          hashes, the exact amount of data transferred in each batch
+          depends on the size of your data elements.
+        - Pipeline objects keep a command stack that includes command
+          parameters, so presumably batches are kept in Python memory
+          until executed.
+        - When executing, Redis executes queued commands in one
+          transaction, each of which blocks further Redis execution
+          until it completes. Having more transactions is perhaps safer
+          (and clears memory more frequently) but is also slower.
         """
         self.entity = entity
         self.id = id_
         self.key = f'{entity}:{id_}'
         self.pipe = pipe or Pipeline()
         self.defer = defer
+        self.batch_size = batch_size
+        self.transaction_size = transaction_size
         self._rtype = None
         self.bypass_encoding = False
 
@@ -1381,8 +1674,8 @@ class RedisObject(object):
         Having a setter for this property is useful so that you can set
         the rtype if you already know what it is, without the added
         call to Redis. But normally you'll just want to let this class
-        and the _RedisSetter class handle that, since you'll break it
-        if you use the wrong rtype string.
+        handle that, since it will break specatularly if you use the
+        wrong rtype.
         """
         self._rtype = value
 
@@ -1482,24 +1775,31 @@ class RedisObject(object):
         If self.defer is False, it executes the operation immediately
         and returns the original data value. If self.defer is True, it
         queues up the operation(s) on self.pipe and returns that.
-        """
-        if data or data == 0:
-            was_none = self.rtype.info.label == 'none'
-            if update and not was_none:
-                force_unique = self.rtype.info.has('unique')
-            if not update or was_none:
-                self.rtype = REDIS_TYPES.get_by_ptype(type(data), force_unique)
-            self.rtype.save(self, data, update, index, was_none)
-        else:
-            if update:
-                self.pipe.noop()
-            else:
-                self.pipe.add('delete', self.key)
 
-        if self.defer:
-            return self.pipe
-        self.pipe.execute()
-        return data
+        When batch mode is active (when self.batch_size is a non-zero
+        integer), your data is broken into batches and commands are
+        queued up on the pipeline to set the value accordingly. The
+        self.defer setting is honored: if True, commands are not
+        executed; if False, commands are executed every nth batch based
+        on self.transaction_size.
+        """
+        if not data and data != 0:
+            data = None
+        elif isinstance(data, tuple):
+            data = list(data)
+
+        old_rtype = self.rtype
+        if old_rtype.info.label == 'none' or not update:
+            self.rtype = REDIS_TYPES.get_from_data(data, force_unique)
+
+        # Use "batch mode" if 'batch_size' is set.
+        if self.batch_size and data is not None:
+            tsize = 0 if self.defer else self.transaction_size
+            return self.rtype.batch_save(
+                self, data, update, index, old_rtype, self.batch_size, tsize
+            )
+        execute = not self.defer
+        return self.rtype.save(self, data, update, index, old_rtype, execute)
 
     def set_field(self, mapping):
         """
@@ -1565,13 +1865,22 @@ class RedisObject(object):
         If self.defer is False, it executes the operation immediately
         and returns the retrieved value(s). If self.defer is True, it
         queues up the operation(s) on self.pipe and returns that.
+
+        When batch mode is active (when self.batch_size is a non-zero
+        integer), commands are queued up on the pipeline to retrieve
+        the data from Redis in batches. The self.defer setting is
+        honored: if True, commands are not executed; if False, commands
+        are executed every nth batch based on self.transaction_size.
         """
-        self.rtype.get(
-            self, self.rtype.configure_lookup(self, lookup, lookup_type)
+        lookup_inst = self.rtype.configure_lookup(
+            self, lookup, lookup_type, bool(self.batch_size)
         )
-        if self.defer:
-            return self.pipe
-        return self.pipe.execute()[-1]
+        if self.batch_size and lookup_inst is not None and lookup_inst.multi:
+            tsize = 0 if self.defer else self.transaction_size
+            return self.rtype.batch_get(
+                self, lookup_inst, self.batch_size, tsize
+            )
+        return self.rtype.get(self, lookup_inst, not self.defer)
 
     def get_field(self, *fields):
         """
@@ -1608,245 +1917,3 @@ class RedisObject(object):
         """
         lookup = start if end is None else (start, end)
         return self.get(lookup, 'index')
-
-
-class _SendBatches(object):
-
-    def __init__(self, obj, data, force_unique, target_batch_size):
-        self.obj = obj
-        self.data = data
-        self.num_items = len(data)
-        nbatches = self.num_items / target_batch_size
-        self.encode_member = _RedisTypeMetadata.encode_member
-        self.encode_hash = REDIS_TYPES.get('hash').encode
-        self.encode_list = REDIS_TYPES.get('list').encode
-        self.num_batches = int(nbatches) + (0 if nbatches.is_integer() else 1)
-        self.rtype = REDIS_TYPES.get_by_ptype(type(data), force_unique)
-        if self.rtype.info.label == 'encoded_obj':
-            raise ValueError(
-                "cannot batch update an 'encoded_obj' type object -- please "
-                "convert to a string first if you really need to stream this "
-                "object to Redis"
-            )
-        self.batch_type = self.rtype.info.to_ptype
-        self.target_batch_size = target_batch_size
-        self.iterator = getattr(
-            self, f'_{self.rtype}_iterator', self._default_iterator
-        )
-        self._make = getattr(
-            self, f'_make_{self.rtype}', self._default_make
-        )
-
-    def _zset_iterator(self, data):
-        return (self.encode_member(item) for item in data)
-
-    def _hash_iterator(self, data):
-        return self.encode_hash(data)
-
-    def _default_iterator(self, data):
-        return self.encode_list(data)
-
-    def _make_string(self):
-        total_size = len(self.data)
-        index = 0
-        while index < total_size:
-            yield self.data[(index):(index + self.target_batch_size)]
-            index += self.target_batch_size
-
-    def _default_make(self):
-        batch = []
-        for i, item in enumerate(self.iterator(self.data)):
-            batch.append(item)
-            if (i + 1) % self.target_batch_size == 0:
-                yield self.batch_type(batch)
-                batch = []
-        if batch:
-            yield self.batch_type(batch)
-
-    def __call__(self):
-        return self._make()
-
-
-class _AccumulatorFactory(object):
-
-    @staticmethod
-    def flatten(accumulated, new_values):
-        accumulated.extend([
-            item for vals in new_values for item in (vals or [])
-        ])
-
-    @staticmethod
-    def dict(accumulated, new_values):
-        for keys, vals in zip(*new_values):
-            accumulated.update(dict(zip(keys, vals)))
-
-    @staticmethod
-    def hash_fields(accumulated, new_values):
-        accumulated.extend([
-            item for vals in new_values[1] for item in (vals or [])
-        ])
-
-    @staticmethod
-    def str(collected, new_vals):
-        return f"{collected}{''.join([str(v) if v else '' for v in new_vals])}"
-
-    def __call__(self, ptype, method_name):
-        return Accumulator(ptype, getattr(self, method_name))
-
-
-class RedisObjectStream(object):
-
-    def __init__(self, obj, target_batch_size, execute_every_nth_batch=None):
-        self.obj = obj
-        self.target_batch_size = target_batch_size
-        self.execute_every = execute_every_nth_batch
-        self.pipe = obj.pipe
-        self.key = obj.key
-        self.batches = None
-        self.accumulator_factory = _AccumulatorFactory()
-
-    def set(self, data, force_unique=None, update=False, index=None):
-        prev_defer = self.obj.defer
-        prev_bypass = self.obj.bypass_encoding
-        self.obj.defer = True
-        self.obj.bypass_encoding = True
-        self.batches = _SendBatches(
-            self.obj, data, force_unique, self.target_batch_size
-        )
-        execute_rvals = []
-        try:
-            for i, batch in enumerate(self.batches()):
-                update = update if i == 0 else True
-                if index is None:
-                    offset = index
-                else:
-                    offset = (self.target_batch_size * i) + index
-                self.obj.set(batch, force_unique, update, offset)
-                nbatch = i + 1
-                is_final = nbatch == self.batches.num_batches
-                do_it = self.execute_every and nbatch % self.execute_every == 0
-                if is_final or do_it:
-                    execute_rvals.extend(self.pipe.execute())
-        except Exception:
-            self.pipe.reset()
-            raise
-        self.obj.defer = prev_defer
-        self.obj.bypass_encoding = prev_bypass
-        return execute_rvals
-
-    def _get_str(self, lookup):
-        accumulator = self.accumulator_factory(str, 'str')
-        ltype_label = type(lookup).label
-        lval = lookup.value
-        batches = [
-            (num, min(num + self.target_batch_size - 1, lval[1]))
-            for num in range(lval[0], lval[1] + 1, self.target_batch_size)
-        ]
-        try:
-            for i, batch in enumerate(batches):
-                self.obj.rtype.get(self.obj, LOOKUP_TYPES.get(ltype_label)(
-                    self.obj, batch, ltype_label
-                ))
-                nbatch = i + 1
-                is_final = nbatch == len(batches)
-                do_it = self.execute_every and nbatch % self.execute_every == 0
-                if is_final or do_it:
-                    accumulator.push(self.obj.pipe.execute())
-        except Exception:
-            self.pipe.reset()
-            raise
-        return accumulator.pop_all()
-
-    def _get_set(self, lookup):
-        accumulator = self.accumulator_factory(list, 'flatten')
-        ltype_label = type(lookup).label
-        lval = lookup.value
-        batches = [
-            lval[(num):(num + self.target_batch_size)]
-            for num in range(0, len(lval), self.target_batch_size)
-        ]
-        try:
-            for i, batch in enumerate(batches):
-                self.obj.rtype.get(self.obj, LOOKUP_TYPES.get(ltype_label)(
-                    self.obj, batch, multi=True
-                ))
-                nbatch = i + 1
-                is_final = nbatch == len(batches)
-                do_it = self.execute_every and nbatch % self.execute_every == 0
-                if is_final or do_it:
-                    accumulator.push(self.obj.pipe.execute())
-        except Exception:
-            self.pipe.reset()
-            raise
-        return accumulator.pop_all()
-
-    def _get_list(self, lookup):
-        accumulator = self.accumulator_factory(list, 'flatten')
-        ltype_label = type(lookup).label
-        lval = lookup.value
-        if ltype_label == 'value':
-            batches = [
-                lval[(num):(num + self.target_batch_size)]
-                for num in range(0, len(lval), self.target_batch_size)
-            ]
-        else:
-            batches = [
-                (num, min(num + self.target_batch_size - 1, lval[1]))
-                for num in range(lval[0], lval[1] + 1, self.target_batch_size)
-            ]
-        try:
-            for i, batch in enumerate(batches):
-                self.obj.rtype.get(self.obj, LOOKUP_TYPES.get(ltype_label)(
-                    self.obj, batch, multi=True
-                ))
-                nbatch = i + 1
-                is_final = nbatch == len(batches)
-                do_it = self.execute_every and nbatch % self.execute_every == 0
-                if is_final or do_it:
-                    accumulator.push(self.obj.pipe.execute())
-        except Exception:
-            self.pipe.reset()
-            raise
-        return accumulator.pop_all()
-
-    def _get_dict(self, lookup):
-        if lookup.whole_obj_requested:
-            accumulator = self.accumulator_factory(dict, 'dict')
-        else:
-            accumulator = self.accumulator_factory(list, 'hash_fields')
-        hash_keys = lookup.value 
-        keys_stack = []
-        key_batches = [
-            hash_keys[(num):(num + self.target_batch_size)]
-            for num in range(0, len(hash_keys), self.target_batch_size)
-        ]
-        try:
-            for i, batch_keys in enumerate(key_batches):
-                self.obj.rtype.get(self.obj, LOOKUP_TYPES.get('field')(
-                    self.obj, batch_keys, multi=True
-                ))
-                keys_stack.append(batch_keys)
-                nbatch = i + 1
-                is_final = nbatch == len(key_batches)
-                do_it = self.execute_every and nbatch % self.execute_every == 0
-                if is_final or do_it:
-                    accumulator.push((keys_stack, self.obj.pipe.execute()))
-                    keys_stack = []
-        except Exception:
-            self.pipe.reset()
-            raise
-        return accumulator.pop_all()
-
-    def get(self, lookup=None, lookup_type=None):
-        lookup = self.obj.rtype.configure_lookup(
-            self.obj, lookup, lookup_type, batch=True
-        )
-        if lookup is None:
-            return None
-        if not lookup.multi:
-            self.obj.rtype.get(self.obj, lookup)
-            return self.pipe.execute()[-1]
-        ptype = self.obj.rtype.info.to_ptype
-        # accumulator = self.accumulator_factory(ptype, type(lookup).label)
-        data = getattr(self, f'_get_{ptype.__name__}')(lookup)
-        return data
