@@ -58,5 +58,8 @@ class ItemsToSolr(exporters.ItemsToSolr):
         self.log('Info', msg)
         for i, lcode in enumerate(lcodes):
             manifest = self.indexes['Items'].get_location_manifest(lcode)
-            r = redisobjs.RedisObject(self.redis_shelflist_prefix, lcode)
+            r = redisobjs.RedisObject(
+                self.redis_shelflist_prefix, lcode, batch_size=50000,
+                transaction_size=5
+            )
             r.set(manifest)
