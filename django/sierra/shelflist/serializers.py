@@ -55,9 +55,15 @@ class ShelflistItemSerializer(SimpleSerializerWithLookups):
 
     class RowNumberField(api_serializers.SimpleIntField):
         def present(self, obj_data):
-            r = RedisObject('shelflistitem_manifest',
-                            obj_data.get('location_code'))
-            return r.get_index(obj_data.get('id'))
+            # Note: We don't have to cast the result to int because
+            # it's coming from the index position in a Redis zset which
+            # already gets returned as an int.
+            row_num = obj_data['row_number']
+            if row_num is None:
+                location_code = obj_data.get('location_code')
+                r = RedisObject('shelflistitem_manifest', location_code)
+                return r.get_index(obj_data['id'])
+            return row_num
 
     obj_interface = SimpleObjectInterface(solr.Result)
     fields = [
@@ -65,7 +71,7 @@ class ShelflistItemSerializer(SimpleSerializerWithLookups):
         api_serializers.SimpleStrField('id', filterable=True),
         api_serializers.SimpleStrField('record_number', source='id',
                                        filterable=True),
-        RowNumberField('row_number', derived=True), 
+        RowNumberField('row_number', derived=True),
         api_serializers.CallNumberField('call_number', filterable=True,
                                         filter_source='call_number_search'),
         api_serializers.SimpleStrField('call_number_type', filterable=True),
@@ -90,8 +96,20 @@ class ShelflistItemSerializer(SimpleSerializerWithLookups):
                                        filterable=True),
     ]
 
+    def __init__(self, *args, **kwargs):
+        self.item_ids = []
+        super().__init__(*args, **kwargs)
+
     def cache_all_lookups(self):
         self.refresh_status()
+        self.refresh_row_numbers()
+
+    def to_representation(self, obj):
+        if self.obj_interface.obj_is_many(obj):
+            self.item_ids = [item['id'] for item in obj]
+        # The superclass ends up running self.cache_all if this is a
+        # page view (self.obj_interface.obj_is_many(obj) == True)
+        return super().to_representation(obj)
 
     def refresh_status(self):
         qs = solr.Queryset(
@@ -109,6 +127,16 @@ class ShelflistItemSerializer(SimpleSerializerWithLookups):
                     pass
         self.cache_lookup('status', lookup)
 
+    def refresh_row_numbers(self):
+        if self.item_ids:
+            row_numbers = self._lookup_cache.get('row_numbers', {})
+            location_code = self.context['view'].kwargs['code']
+            r = RedisObject('shelflistitem_manifest', location_code)
+            fetched = r.get_index(*self.item_ids)
+            if fetched is not None:
+                row_numbers.update(dict(zip(self.item_ids, fetched)))
+                self.cache_lookup('row_numbers', row_numbers)
+
     def prepare_for_serialization(self, obj_data):
         obj_data['__context'] = self.context
         st_code = obj_data.get('status_code')
@@ -116,6 +144,9 @@ class ShelflistItemSerializer(SimpleSerializerWithLookups):
             obj_data['status'] = 'CHECKED OUT'
         else:
             obj_data['status'] = self.get_lookup_value('status', st_code)
+        obj_data['row_number'] = self.get_lookup_value(
+            'row_numbers', obj_data['id'], refresh=False
+        )
         return obj_data
 
     def save(self, *args, **kwargs):

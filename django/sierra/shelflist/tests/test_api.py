@@ -12,8 +12,10 @@ import pytest
 import ujson
 from shelflist.exporters import ItemsToSolr
 from shelflist.search_indexes import ShelflistItemIndex
+from shelflist.serializers import ShelflistItemSerializer
 from six import text_type
 from six.moves import range
+from utils.redisobjs import RedisObject
 
 
 # FIXTURES AND TEST DATA
@@ -643,7 +645,7 @@ def test_shelflistitem_view_orderby(order_by, api_settings, shelflist_solr_env,
 
 def test_shelflistitem_row_order(api_settings, shelflist_solr_env,
                                  get_shelflist_urls, api_client, redis_obj,
-                                 get_found_ids, settings):
+                                 get_found_ids):
     """
     The `shelflistitems` list view should list items in the same order
     that the shelflist manifest for that location lists them. The
@@ -652,12 +654,11 @@ def test_shelflistitem_row_order(api_settings, shelflist_solr_env,
     recs = shelflist_solr_env.records['shelflistitem']
     loc = recs[0]['location_code']
     loc_recs = [r for r in recs if r['location_code'] == loc]
-    using = settings.REST_VIEWS_HAYSTACK_CONNECTIONS['ShelflistItems']
+    using = api_settings.REST_VIEWS_HAYSTACK_CONNECTIONS['ShelflistItems']
     index = ShelflistItemIndex(using=using)
     manifest = index.get_location_manifest(loc)
     redis_key = '{}:{}'.format(REDIS_SHELFLIST_PREFIX, loc)
     redis_obj(redis_key).set(manifest)
-
     url = get_shelflist_urls(shelflist_solr_env.records['shelflistitem'])[loc]
     response = api_client.get(url)
     total = response.data['totalCount']
@@ -665,6 +666,169 @@ def test_shelflistitem_row_order(api_settings, shelflist_solr_env,
     row_numbers = get_found_ids('rowNumber', response)
     assert found_ids == manifest
     assert row_numbers == [num for num in range(0, total)]
+
+
+def test_shelflistitem_row_pagination(api_settings, shelflist_solr_env,
+                                      get_shelflist_urls, api_client,
+                                      redis_obj, get_found_ids):
+    """
+    When paginating a `shelflistitems` list view, the `rowNumber`
+    values should accurately reflect the requested pagination
+    parameters.
+    """
+    recs = shelflist_solr_env.records['shelflistitem']
+    loc = recs[0]['location_code']
+    loc_recs = [r for r in recs if r['location_code'] == loc]
+    using = api_settings.REST_VIEWS_HAYSTACK_CONNECTIONS['ShelflistItems']
+    index = ShelflistItemIndex(using=using)
+    manifest = index.get_location_manifest(loc)
+    redis_key = '{}:{}'.format(REDIS_SHELFLIST_PREFIX, loc)
+    redis_obj(redis_key).set(manifest)
+    total = len(loc_recs)
+    offset = int(total / 2)
+    limit = int(total / 4)
+    limit_p = api_settings.REST_FRAMEWORK['PAGINATE_BY_PARAM']
+    offset_p = api_settings.REST_FRAMEWORK['PAGINATE_PARAM']
+    url = get_shelflist_urls(shelflist_solr_env.records['shelflistitem'])[loc]
+    paginated_url = f"{url}?{limit_p}={limit}&{offset_p}={offset}"
+    response = api_client.get(paginated_url)
+    found_ids = get_found_ids('id', response)
+    row_numbers = get_found_ids('rowNumber', response)
+    assert found_ids[0] == manifest[offset]
+    assert row_numbers[0] == offset
+    assert found_ids[-1] == manifest[offset + limit - 1]
+    assert row_numbers[-1] == offset + limit - 1
+
+
+def test_shelflistitem_row_filtering(api_settings, shelflist_solr_env,
+                                     get_shelflist_urls, api_client,
+                                     assemble_shelflist_test_records,
+                                     redis_obj, get_found_ids):
+    """
+    When filtering a `shelflistitems` list view, the `rowNumber`
+    values should accurately reflect the items included in the filter.
+    """
+    recs = shelflist_solr_env.records['shelflistitem']
+    loc = recs[0]['location_code']
+    loc_recs = [r for r in recs if r['location_code'] == loc]
+    using = api_settings.REST_VIEWS_HAYSTACK_CONNECTIONS['ShelflistItems']
+
+    exp_rows = [2, 4, 10, 13, 14, 17]
+    test_data = [
+        {
+            'id': f"TEST{i}",
+            'call_number_type': '__A',
+            'call_number': f"___A{i}",
+            'call_number_sort': f"___A{i:04}",
+            'call_number_search': f"___A{i}",
+            'shelf_status': 'SELECT_ME' if i in exp_rows else 'SKIP',
+            'location_code': loc
+        } for i in range(20)
+    ]
+    exp_ids = [f"TEST{i}" for i in exp_rows]
+    _, trecs = assemble_shelflist_test_records(
+        [(item['id'], item) for item in test_data]
+    )
+
+    index = ShelflistItemIndex(using=using)
+    manifest = index.get_location_manifest(loc)
+    redis_key = '{}:{}'.format(REDIS_SHELFLIST_PREFIX, loc)
+    redis_obj(redis_key).set(manifest)
+
+    url = get_shelflist_urls(shelflist_solr_env.records['shelflistitem'])[loc]
+    filtered_url = f"{url}?shelfStatus=SELECT_ME"
+    response = api_client.get(filtered_url)
+    found_ids = get_found_ids('id', response)
+    row_numbers = get_found_ids('rowNumber', response)
+    assert found_ids == exp_ids
+    assert row_numbers == exp_rows
+
+
+def test_shelflistitem_detail_view_rows(api_settings, shelflist_solr_env,
+                                        get_shelflist_urls, api_client,
+                                        redis_obj):
+    """
+    The `shelflistitems` detail view for individual items should
+    reflect the correct `rowNumber` values.
+    """
+    recs = shelflist_solr_env.records['shelflistitem']
+    loc = recs[0]['location_code']
+    loc_recs = [r for r in recs if r['location_code'] == loc]
+    using = api_settings.REST_VIEWS_HAYSTACK_CONNECTIONS['ShelflistItems']
+    index = ShelflistItemIndex(using=using)
+    manifest = index.get_location_manifest(loc)
+    redis_key = '{}:{}'.format(REDIS_SHELFLIST_PREFIX, loc)
+    redis_obj(redis_key).set(manifest)
+    total = len(loc_recs)
+    url = get_shelflist_urls(shelflist_solr_env.records['shelflistitem'])[loc]
+    rows_to_check = (0, 2, len(manifest) - 1)
+    for exp_row in rows_to_check:
+        item_id = manifest[exp_row]
+        response = api_client.get(f"{url}{item_id}")
+        assert response.data['rowNumber'] == exp_row
+
+
+def test_shelflistitem_list_row_caching(api_settings, shelflist_solr_env,
+                                        get_shelflist_urls, api_client,
+                                        mocker):
+    """
+    For `shelflistitem` views, the `rowNumber` value comes from Redis.
+    The serializer is configured to minimize Redis lookups (to speed up
+    requests). On a list view, it gets the first item from Redis but
+    calculates the rest of the values, and it caches them. The cache is
+    refreshed on every list view request. Detail view requests try to
+    use the cache -- but they look the value up in Redis if there's a
+    cache miss.
+    """
+    mocker.patch.object(
+        RedisObject, 'get_index', mocker.Mock(
+            side_effect=lambda *args: list(range(1000, 1000 + len(args)))
+        )
+    )
+    ShelflistItemSerializer._lookup_cache['row_numbers'] = {}
+    recs = shelflist_solr_env.records['shelflistitem']
+    loc = recs[0]['location_code']
+    loc_recs = [r for r in recs if r['location_code'] == loc]
+    using = api_settings.REST_VIEWS_HAYSTACK_CONNECTIONS['ShelflistItems']
+    index = ShelflistItemIndex(using=using)
+    manifest = index.get_location_manifest(loc)
+    url = get_shelflist_urls(shelflist_solr_env.records['shelflistitem'])[loc]
+    response = api_client.get(url)
+    call_stack = []
+
+    # The serializer lookup_cache should contain row numbers for all
+    # items we've requested. Note it starts at 1000 because this is
+    # what the mock we created above returns.
+    assert ShelflistItemSerializer._lookup_cache['row_numbers'] == {
+        item_id: 1000 + i for i, item_id in enumerate(manifest)
+    }
+
+    # Assuming we have multiple items in our list view, we only query
+    # Redis to get the first item, and we extrapolate to get the rest
+    # of the items in the list.
+    assert len(manifest) > 1
+    call_stack.append(mocker.call(*manifest))
+    assert RedisObject.get_index.mock_calls == call_stack
+
+    # Now when we request detail views for individual rows in the list,
+    # it should still use the cached row number, if it finds it,
+    # instead of querying Redis.
+    for ping_row in (0, 2, len(manifest) - 1):
+        api_client.get(f"{url}{manifest[ping_row]}")
+    assert RedisObject.get_index.mock_calls == call_stack
+
+    # When we hit the list view again it should refresh the cache,
+    # resulting in an additional call to Redis.
+    api_client.get(url)
+    call_stack.append(mocker.call(*manifest))
+    assert RedisObject.get_index.mock_calls == call_stack
+
+    # If we clear the serializer lookup_cache, then hitting the detail
+    # view for an individual row requests the rowNumber from Redis.
+    ShelflistItemSerializer._lookup_cache['row_numbers'] = {}
+    api_client.get(f"{url}{manifest[-1]}")
+    call_stack.append(mocker.call(manifest[-1]))
+    assert RedisObject.get_index.mock_calls == call_stack
 
 
 def test_shelflistitem_putpatch_requires_auth(api_settings,
@@ -731,7 +895,7 @@ def test_shelflistitem_update_items(method, api_settings,
                                     shelflist_solr_env,
                                     filter_serializer_fields_by_opt,
                                     derive_updated_resource, send_api_data,
-                                    get_shelflist_urls, api_client, settings):
+                                    get_shelflist_urls, api_client):
     """
     Updating writeable fields on shelflistitems should update/save the
     resource: it should update the writeable fields that were changed
@@ -739,7 +903,7 @@ def test_shelflistitem_update_items(method, api_settings,
     """
     test_lcode, test_id = '1test', 'i99999999'
     _, _, trecs = assemble_custom_shelflist(test_lcode, [(test_id, {})])
-    using = settings.REST_VIEWS_HAYSTACK_CONNECTIONS['ShelflistItems']
+    using = api_settings.REST_VIEWS_HAYSTACK_CONNECTIONS['ShelflistItems']
     index = ShelflistItemIndex(using=using)
     manifest = index.get_location_manifest(test_lcode)
     redis_key = '{}:{}'.format(REDIS_SHELFLIST_PREFIX, test_lcode)
@@ -785,14 +949,14 @@ def test_shelflistitem_delete_data(method, api_settings,
                                    shelflist_solr_env,
                                    filter_serializer_fields_by_opt,
                                    derive_updated_resource, send_api_data,
-                                   get_shelflist_urls, api_client, settings):
+                                   get_shelflist_urls, api_client):
     """
     Updating a writeable field and providing a null value (None) should
     delete the stored value.
     """
     test_lcode, test_id = '1test', 'i99999999'
     _, _, trecs = assemble_custom_shelflist(test_lcode, [(test_id, {})])
-    using = settings.REST_VIEWS_HAYSTACK_CONNECTIONS['ShelflistItems']
+    using = api_settings.REST_VIEWS_HAYSTACK_CONNECTIONS['ShelflistItems']
     index = ShelflistItemIndex(using=using)
     manifest = index.get_location_manifest(test_lcode)
     redis_key = '{}:{}'.format(REDIS_SHELFLIST_PREFIX, test_lcode)
@@ -888,7 +1052,7 @@ def test_shelflist_firstitemperlocation_list(test_data, search, expected,
                                              api_settings, redis_obj,
                                              assemble_custom_shelflist,
                                              api_client, get_found_ids,
-                                             do_filter_search, settings):
+                                             do_filter_search):
     """
     The `firstitemperlocation` resource is basically a custom filter
     for `items` that submits a facet-query to Solr asking for the first
@@ -907,7 +1071,7 @@ def test_shelflist_firstitemperlocation_list(test_data, search, expected,
         recs = test_data_by_location.get(lcode, []) + [(test_id, rec)]
         test_data_by_location[lcode] = recs
 
-    using = settings.REST_VIEWS_HAYSTACK_CONNECTIONS['ShelflistItems']
+    using = api_settings.REST_VIEWS_HAYSTACK_CONNECTIONS['ShelflistItems']
     index = ShelflistItemIndex(using=using)
     for test_lcode, data in test_data_by_location.items():
         assemble_custom_shelflist(test_lcode, data)
