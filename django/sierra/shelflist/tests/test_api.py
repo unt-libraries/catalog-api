@@ -700,6 +700,31 @@ def test_shelflistitem_row_pagination(api_settings, shelflist_solr_env,
     assert row_numbers[-1] == offset + limit - 1
 
 
+def test_shelflistitem_row_limit_one(api_settings, shelflist_solr_env,
+                                     get_shelflist_urls, api_client,
+                                     redis_obj, get_found_ids):
+    """
+    When paginating a `shelflistitems` list view, requesting a limit of
+    one item should work as expected.
+    """
+    recs = shelflist_solr_env.records['shelflistitem']
+    loc = recs[0]['location_code']
+    loc_recs = [r for r in recs if r['location_code'] == loc]
+    using = api_settings.REST_VIEWS_HAYSTACK_CONNECTIONS['ShelflistItems']
+    index = ShelflistItemIndex(using=using)
+    manifest = index.get_location_manifest(loc)
+    redis_key = '{}:{}'.format(REDIS_SHELFLIST_PREFIX, loc)
+    redis_obj(redis_key).set(manifest)
+    limit_p = api_settings.REST_FRAMEWORK['PAGINATE_BY_PARAM']
+    url = get_shelflist_urls(shelflist_solr_env.records['shelflistitem'])[loc]
+    paginated_url = f"{url}?{limit_p}=1"
+    response = api_client.get(paginated_url)
+    found_ids = get_found_ids('id', response)
+    row_numbers = get_found_ids('rowNumber', response)
+    assert found_ids == [manifest[0]]
+    assert row_numbers == [0]
+
+
 def test_shelflistitem_row_filtering(api_settings, shelflist_solr_env,
                                      get_shelflist_urls, api_client,
                                      assemble_shelflist_test_records,
@@ -781,8 +806,8 @@ def test_shelflistitem_list_row_caching(api_settings, shelflist_solr_env,
     cache miss.
     """
     mocker.patch.object(
-        RedisObject, 'get_index', mocker.Mock(
-            side_effect=lambda *args: list(range(1000, 1000 + len(args)))
+        RedisObject, 'get', mocker.Mock(
+            side_effect=lambda l, lt: list(range(1000, 1000 + len(l)))
         )
     )
     ShelflistItemSerializer._lookup_cache['row_numbers'] = {}
@@ -807,28 +832,28 @@ def test_shelflistitem_list_row_caching(api_settings, shelflist_solr_env,
     # Redis to get the first item, and we extrapolate to get the rest
     # of the items in the list.
     assert len(manifest) > 1
-    call_stack.append(mocker.call(*manifest))
-    assert RedisObject.get_index.mock_calls == call_stack
+    call_stack.append(mocker.call(manifest, 'values'))
+    assert RedisObject.get.mock_calls == call_stack
 
     # Now when we request detail views for individual rows in the list,
     # it should still use the cached row number, if it finds it,
     # instead of querying Redis.
     for ping_row in (0, 2, len(manifest) - 1):
         api_client.get(f"{url}{manifest[ping_row]}")
-    assert RedisObject.get_index.mock_calls == call_stack
+    assert RedisObject.get.mock_calls == call_stack
 
     # When we hit the list view again it should refresh the cache,
     # resulting in an additional call to Redis.
     api_client.get(url)
-    call_stack.append(mocker.call(*manifest))
-    assert RedisObject.get_index.mock_calls == call_stack
+    call_stack.append(mocker.call(manifest, 'values'))
+    assert RedisObject.get.mock_calls == call_stack
 
     # If we clear the serializer lookup_cache, then hitting the detail
     # view for an individual row requests the rowNumber from Redis.
     ShelflistItemSerializer._lookup_cache['row_numbers'] = {}
     api_client.get(f"{url}{manifest[-1]}")
-    call_stack.append(mocker.call(manifest[-1]))
-    assert RedisObject.get_index.mock_calls == call_stack
+    call_stack.append(mocker.call(manifest[-1], 'value'))
+    assert RedisObject.get.mock_calls == call_stack
 
 
 def test_shelflistitem_putpatch_requires_auth(api_settings,

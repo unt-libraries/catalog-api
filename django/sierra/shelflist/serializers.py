@@ -132,7 +132,7 @@ class ShelflistItemSerializer(SimpleSerializerWithLookups):
             row_numbers = self._lookup_cache.get('row_numbers', {})
             location_code = self.context['view'].kwargs['code']
             r = RedisObject('shelflistitem_manifest', location_code)
-            fetched = r.get_index(*self.item_ids)
+            fetched = r.get(self.item_ids, 'values')
             if fetched is not None:
                 row_numbers.update(dict(zip(self.item_ids, fetched)))
                 self.cache_lookup('row_numbers', row_numbers)
