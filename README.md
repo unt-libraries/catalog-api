@@ -163,8 +163,12 @@ Compose separately, you can
 
 #### Clone the repository to your local machine.
 
+Use the `git clone` command plus the appropriate URL to create a local copy of
+the repository. For instance, to clone from GitHub, using SSH, into a local
+`catalog-api` directory:
+
 ```bash
-git clone git@content.library.unt.edu:catalog/catalog-api.git catalog-api
+git clone git@github.com:unt-libraries/catalog-api.git catalog-api
 ```
 
 #### Configure local settings.
