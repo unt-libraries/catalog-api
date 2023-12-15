@@ -6,8 +6,8 @@ jobs:
     steps:
       - name: check out repository
         uses: actions/checkout@v4
-      - name: build CI settings .env
-        run: ./build_ci_settings.sh
+      - name: set CI environment variables
+        run: mv django/sierra/sierra/settings/docker-ci.env django/sierra/sierra/settings/.env
       - name: pull external service images via docker-compose
         run: |
           ./docker-compose.sh pull default-db-test sierra-db-test \
