@@ -122,7 +122,7 @@ function show_summary {
 # even though it still doesn't exist in /etc/passwd.
 function warm_up_sierra_db_test {
   echo "Initializing PostgreSQL database for \`sierra-db-test\` service"
-  local container=$(docker-compose run -u root -d sierra-db-test)
+  local container=$(docker compose run -u root -d sierra-db-test)
   #container="${container##*$'\n'}"
   container=$(echo "$container" | tail -1)
   printf "(waiting for database) ..."
@@ -140,7 +140,7 @@ function warm_up_sierra_db_test {
   echo "Stopping intermediate container."
   sleep 2; docker stop $container && docker rm $container &> /dev/null; sleep 2;
   echo "Changing ownership of pgdata directory to current user."
-  docker-compose run --rm -u root --entrypoint="sh -c \"chown -R $USERID:$GROUPID /var/lib/postgresql/data\"" sierra-db-test
+  docker compose run --rm -u root --entrypoint="sh -c \"chown -R $USERID:$GROUPID /var/lib/postgresql/data\"" sierra-db-test
   echo "Done. Database initialized."
   return 0
 }
@@ -257,19 +257,19 @@ function prepvolume_solr_dev {
 # whether the volume is ready for migrations or not.
 
 function migrate_default_db_dev {
-  docker-compose run --rm manage-dev migrate --database=default
+  docker compose run --rm manage-dev migrate --database=default
 }
 
 function migrate_default_db_test {
-  docker-compose run --rm manage-test migrate --run-syncdb --database=default
+  docker compose run --rm manage-test migrate --run-syncdb --database=default
 }
 
 function migrate_sierra_db_test {
   local volume_is_ready=$1
   if [[ $volume_is_ready ]]; then
-    docker-compose run --rm manage-test migrate --run-syncdb --database=sierra
+    docker compose run --rm manage-test migrate --run-syncdb --database=sierra
     echo "Installing sierra-db-test fixtures..."
-    docker-compose run --rm manage-test loaddata --app=base --database=sierra $(find $SIERRA_FIXTURE_PATH/*.json -exec basename {} .json \; | tr '\n' ' ')
+    docker compose run --rm manage-test loaddata --app=base --database=sierra $(find $SIERRA_FIXTURE_PATH/*.json -exec basename {} .json \; | tr '\n' ' ')
   else
     echo "Warning: Database could not be initialized; skipping migrations for \`sierra-db-test\`"
   fi
@@ -343,7 +343,7 @@ actions=$([[ $want_make_volumes ]] && echo "v")$([[ $want_do_migrations ]] && ec
 show_summary $actions "${user_services[*]}" $force
 
 echo "Stopping any running catalog-api Docker services ..."
-docker-compose down &> /dev/null
+docker compose down &> /dev/null
 
 # First, loop over user-provided $user_services. Validate each service and set
 # volumes up as appropriate
@@ -415,7 +415,7 @@ fi
 
 echo ""
 echo "Done. Stopping all running services."
-docker-compose down &> /dev/null
+docker compose down &> /dev/null
 echo ""
 echo "$SCRIPTNAME finished."
 echo ""
