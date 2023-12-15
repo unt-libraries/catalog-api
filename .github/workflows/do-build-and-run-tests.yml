@@ -14,8 +14,8 @@ jobs:
             solr-test-for-update solr-test-for-search \
             redis-celery-test redis-appdata-test
       - name: build our docker image and services
-        run: ./docker-compose.sh build celery-worker-test manage-test test
-      - name: build databases
+        run: ./docker-compose.sh build manage-test celery-worker-test test
+      - name: configure data volumes and build databases
         run: ./init-dockerdata.sh tests
       - name: run all tests
         run: ./docker-compose.sh run --rm test
