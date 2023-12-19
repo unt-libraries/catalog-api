@@ -1,7 +1,7 @@
 version: '3'
 services:
   default-db-dev:
-    image: mariadb:10.6
+    image: ${DOCKER_MYSQL_IMAGE}
     environment:
       - MYSQL_USER=${DEFAULT_DB_USER}
       - MYSQL_PASSWORD=${DEFAULT_DB_PASSWORD}
@@ -17,7 +17,7 @@ services:
     command: mysqld --wait_timeout=7200
 
   default-db-test:
-    image: mariadb:10.6
+    image: ${DOCKER_MYSQL_IMAGE}
     environment:
       - MYSQL_USER=${TEST_DEFAULT_DB_USER}
       - MYSQL_PASSWORD=${TEST_DEFAULT_DB_PASSWORD}
@@ -33,7 +33,7 @@ services:
     command: mysqld --wait_timeout=7200
 
   sierra-db-test:
-    image: postgres:14
+    image: ${DOCKER_POSTGRES_IMAGE}
     environment:
       - POSTGRES_USER=${TEST_SIERRA_DB_USER}
       - POSTGRES_PASSWORD=${TEST_SIERRA_DB_PASSWORD}
@@ -48,7 +48,9 @@ services:
     user: ${USERID}:${GROUPID}
 
   solr-dev:
-    image: solr:9.2.1
+    image: ${DOCKER_SOLR_IMAGE}
+    environment:
+      - SOLR_OPTS=${SOLR_LUCENE_VERSION_OPTS}
     volumes:
       - ${SOLR_DEV_DDPATH}:/var/solr
       - ${SOLRCONF_PATH}:${SOLRCONF_DOCKER_MOUNT_PATH}
@@ -60,7 +62,9 @@ services:
     command: solr-fg
 
   solr-test-for-update:
-    image: solr:9.2.1
+    image: ${DOCKER_SOLR_IMAGE}
+    environment:
+      - SOLR_OPTS=${SOLR_LUCENE_VERSION_OPTS}
     volumes:
       - ${SOLR_TEST_FOR_UPDATE_DDPATH}:/var/solr
       - ${SOLRCONF_PATH}:${SOLRCONF_DOCKER_MOUNT_PATH}
@@ -72,7 +76,9 @@ services:
     command: solr-fg -Dsolr.disable.allowUrls=true
 
   solr-test-for-search:
-    image: solr:9.2.1
+    image: ${DOCKER_SOLR_IMAGE}
+    environment:
+      - SOLR_OPTS=${SOLR_LUCENE_VERSION_OPTS}
     volumes:
       - ${SOLR_TEST_FOR_SEARCH_DDPATH}:/var/solr
       - ${SOLRCONF_PATH}:${SOLRCONF_DOCKER_MOUNT_PATH}
@@ -84,7 +90,7 @@ services:
     command: solr-fg -Dsolr.disable.allowUrls=true
 
   redis-celery-dev:
-    image: redis:7.0.10
+    image: ${DOCKER_REDIS_IMAGE}
     volumes:
       - ${REDIS_CELERY_DEV_DATA_DDPATH}:/project/data
       - ${REDIS_CELERY_DEV_LOGS_DDPATH}:/project/logs
@@ -96,7 +102,7 @@ services:
     command: redis-server ${REDIS_CELERY_CONF_FILE:---dir /project/data --logfile /project/logs/log.txt --appendonly yes ${REDIS_CELERY_DEV_PW_ARG:-}}
 
   redis-celery-test:
-    image: redis:7.0.10
+    image: ${DOCKER_REDIS_IMAGE}
     volumes:
       - ${REDIS_CELERY_TEST_DATA_DDPATH}:/project/data
       - ${REDIS_CELERY_TEST_LOGS_DDPATH}:/project/logs
@@ -109,7 +115,7 @@ services:
     command: redis-server ${REDIS_CELERY_CONF_FILE:---dir /project/data --logfile /project/logs/log.txt --appendonly no ${REDIS_CELERY_TEST_PW_ARG:-}}
 
   redis-appdata-dev:
-    image: redis:7.0.10
+    image: ${DOCKER_REDIS_IMAGE}
     volumes:
       - ${REDIS_APPDATA_DEV_DATA_DDPATH}:/project/data
       - ${REDIS_APPDATA_DEV_LOGS_DDPATH}:/project/logs
@@ -121,7 +127,7 @@ services:
     command: redis-server ${REDIS_APPDATA_CONF_FILE:---dir /project/data --logfile /project/logs/log.txt --appendonly yes ${REDIS_APPDATA_DEV_PW_ARG:-}}
 
   redis-appdata-test:
-    image: redis:7.0.10
+    image: ${DOCKER_REDIS_IMAGE}
     volumes:
       - ${REDIS_APPDATA_TEST_DATA_DDPATH}:/project/data
       - ${REDIS_APPDATA_TEST_LOGS_DDPATH}:/project/logs
@@ -138,6 +144,7 @@ services:
       args:
         userid: ${USERID}
         groupid: ${GROUPID}
+        python_image: ${DOCKER_PYTHON_IMAGE}
         project_root: ${PROJECT_DOCKER_MOUNT_PATH}
         log_path: ${PROJECT_LOGS_DOCKER_MOUNT_PATH}
         media_path: ${PROJECT_MEDIA_DOCKER_MOUNT_PATH}
@@ -163,6 +170,7 @@ services:
       args:
         userid: ${USERID}
         groupid: ${GROUPID}
+        python_image: ${DOCKER_PYTHON_IMAGE}
         project_root: ${PROJECT_DOCKER_MOUNT_PATH}
         log_path: ${PROJECT_LOGS_DOCKER_MOUNT_PATH}
         media_path: ${PROJECT_MEDIA_DOCKER_MOUNT_PATH}
@@ -184,6 +192,7 @@ services:
       args:
         userid: ${USERID}
         groupid: ${GROUPID}
+        python_image: ${DOCKER_PYTHON_IMAGE}
         project_root: ${PROJECT_DOCKER_MOUNT_PATH}
         log_path: ${PROJECT_LOGS_DOCKER_MOUNT_PATH}
         media_path: ${PROJECT_MEDIA_DOCKER_MOUNT_PATH}
@@ -207,6 +216,7 @@ services:
       args:
         userid: ${USERID}
         groupid: ${GROUPID}
+        python_image: ${DOCKER_PYTHON_IMAGE}
         project_root: ${PROJECT_DOCKER_MOUNT_PATH}
         log_path: ${PROJECT_LOGS_DOCKER_MOUNT_PATH}
         media_path: ${PROJECT_MEDIA_DOCKER_MOUNT_PATH}
@@ -233,6 +243,7 @@ services:
       args:
         userid: ${USERID}
         groupid: ${GROUPID}
+        python_image: ${DOCKER_PYTHON_IMAGE}
         project_root: ${PROJECT_DOCKER_MOUNT_PATH}
         log_path: ${PROJECT_LOGS_DOCKER_MOUNT_PATH}
         media_path: ${PROJECT_MEDIA_DOCKER_MOUNT_PATH}
@@ -255,6 +266,7 @@ services:
       args:
         userid: ${USERID}
         groupid: ${GROUPID}
+        python_image: ${DOCKER_PYTHON_IMAGE}
         project_root: ${PROJECT_DOCKER_MOUNT_PATH}
         log_path: ${PROJECT_LOGS_DOCKER_MOUNT_PATH}
         media_path: ${PROJECT_MEDIA_DOCKER_MOUNT_PATH}
@@ -276,6 +288,7 @@ services:
       args:
         userid: ${USERID}
         groupid: ${GROUPID}
+        python_image: ${DOCKER_PYTHON_IMAGE}
         project_root: ${PROJECT_DOCKER_MOUNT_PATH}
         log_path: ${PROJECT_LOGS_DOCKER_MOUNT_PATH}
         media_path: ${PROJECT_MEDIA_DOCKER_MOUNT_PATH}

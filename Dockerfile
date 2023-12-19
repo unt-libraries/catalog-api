@@ -1,7 +1,8 @@
-FROM python:3.10.12-buster
+ARG python_image=python:3.10
+FROM ${python_image}
 
 RUN apt-get update -qq && \
-    apt-get install -y libpq-dev python-dev mariadb-client netcat
+    apt-get install -y libpq-dev mariadb-client
 
 ARG userid=999
 ARG groupid=999

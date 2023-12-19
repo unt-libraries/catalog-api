@@ -170,6 +170,7 @@ function init_solr_volume {
       local corepath="$path/data/$corename"
       mkdir "$corepath"
       mkdir "$corepath/data"
+      rm -f "$corepath/core.properties"
       touch "$corepath/core.properties"
       ln -s "$SOLRCONF_DOCKER_MOUNT_PATH/$corename/conf" "$corepath/conf"
     fi

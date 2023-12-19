@@ -988,10 +988,10 @@ setup, this defaults to using MySQL or MariaDB, running on 127.0.0.1:3306.
 
 ##### Test Settings
 
-The `.env.template` file includes a section at the end for test settings. These
-define configuration for test copies of the default database, the Sierra
-database, Solr, and Redis. The variables prefixed with TEST correspond directly
-with non-test settings (ones not prefixed with TEST).
+The `.env.template` file includes a section for test settings. These define
+configuration for test copies of the default database, the Sierra database,
+Solr, and Redis. The variables prefixed with TEST correspond directly with
+non-test settings (ones not prefixed with TEST).
 
 If you will be running tests through Docker, then the only required
 settings are `TEST_SIERRA_DB_USER`, `TEST_SIERRA_DB_PASSWORD`,
@@ -1010,6 +1010,46 @@ you're running the `solr-dev` service via Docker Compose, you can access the
 Solr admin screen from your host machine on http://localhost:8983/solr/. The
 default settings are designed to expose all services locally on the host
 machine, including test services, without raising port conflicts.
+
+##### Docker-Compose-Only Settings
+
+The very last section of the `.env.template` file contains settings that are
+only used by the Docker setup, for testing and/or development.
+
+Here you can (optionally) define version information for external components.
+Define what images Docker uses for Python (`DOCKER_PYTHON_IMAGE`), MySQL or
+MariaDB (`DOCKER_MYSQL_IMAGE`), Postgres (`DOCKER_POSTGRES_IMAGE`), Solr
+(`DOCKER_SOLR_IMAGE`), and Redis (`DOCKER_REDIS_IMAGE`). Also define the
+`luceneMatchVersion` for each of your indexes on each core
+(`DOCKER_SOLR_HAYSTACK_LUCENE_VERSION`,
+`DOCKER_SOLR_DISCOVER01_LUCENE_VERSION`,
+and `DOCKER_SOLR_DISCOVER02_LUCENE_VERSION`). Note that each new major or
+minor Solr version implements a new Lucene version, but versions starting
+with the previous major version of Solr will work. So, Lucene version 8.0
+and above should work with Solr 9.X. Updating the Lucene version requires
+reindexing.
+
+Defaults for all of these settings *are* defined in `/docker-compose.env`.
+Defaults represent the minimum tested versions. The reason these can be set
+locally is so that you can more easily test or develop against whatever
+versions you're using.
+
+***Important:*** Many of these settings affect your built Docker environment,
+and many affect your Docker data. When you change them, prepare to get rid of
+any dev data that you may have. A good rule-of-thumb is to rebuild your
+Docker environment *and* reinitialize Docker data when you change any of these.
+
+```bash
+./docker-compose.sh build
+./init-dockerdata.sh -f all
+```
+
+You can of course hold off on reinitializing data if (for example) you're
+testing an upgrade and want to see what happens to existing data. This is
+especially useful for Solr. E.g., index some data using your current production
+version, then leave the LUCENE_VERSION alone but bump the DOCKER_SOLR_IMAGE
+version. Rebuild without reinitializing the data, spin up a new dev instance,
+and try it out.
 
 <a name="testing"></a>Testing
 -----------------------------
